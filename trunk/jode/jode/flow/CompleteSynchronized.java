@@ -34,21 +34,24 @@ public class CompleteSynchronized {
             return false;
         
         /* If the program is well formed, the following succeed */
-        try {
-            SequentialBlock sequBlock = (SequentialBlock) synBlock.outer;
-            
-            ComplexExpression monenter = (ComplexExpression)
-                ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
-            
-            if (!(monenter.getOperator() instanceof MonitorEnterOperator)
-                || ((LocalLoadOperator) monenter.getSubExpressions()[0]).
-                getLocalInfo() != synBlock.local.getLocalInfo())
+	SequentialBlock sequBlock = (SequentialBlock) synBlock.outer;
+	if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
+	    return false;
+	
+	Expression monenter = 
+	    ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
+	
+	if (!(monenter instanceof MonitorEnterOperator))
+	    return false;
+
+	Expression loadOp = 
+	    ((MonitorEnterOperator)monenter).getSubExpressions()[0];
+	
+	if (!(loadOp instanceof LocalLoadOperator)
+	    || (((LocalLoadOperator) loadOp).getLocalInfo() 
+		!= synBlock.local.getLocalInfo()))
                 return false;
             
-        } catch (ClassCastException ex) {
-            return false;
-        }
-        
         if (GlobalOptions.verboseLevel > 0)
             GlobalOptions.err.print('s');
         
@@ -74,11 +77,10 @@ public class CompleteSynchronized {
         try {
             SequentialBlock sequBlock = (SequentialBlock) last.outer;
 
-            ComplexExpression assign = (ComplexExpression)
+            LocalStoreOperator assign = (LocalStoreOperator)
                 ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
 
-            if (((LocalStoreOperator) assign.getOperator()).
-                getLocalInfo() != synBlock.local.getLocalInfo())
+            if (assign.getLocalInfo() != synBlock.local.getLocalInfo())
                 return false;
         
             object = assign.getSubExpressions()[0];
