@@ -78,7 +78,7 @@ public class TransformConstructors {
                 if (sb[i] instanceof SequentialBlock)
                     sb[i] = sb[i].getSubBlocks()[1];
                 else
-                    sb[i] = new EmptyBlock();
+                    sb[i] = null;
             }
             i++;
         }
@@ -151,6 +151,8 @@ public class TransformConstructors {
                 }
         }
         for (int i=0; i< constrCount; i++) {
+            if (start[i] == null)
+                continue;
             if (sb[i] == null)
                 start[i].removeBlock();
             else

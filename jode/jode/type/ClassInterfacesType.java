@@ -427,6 +427,24 @@ public class ClassInterfacesType extends Type {
         return true;
     }
 
+    public String getDefaultName() {
+        Class type;
+        if (clazz != null)
+            type = clazz;
+        else if (ifaces.length > 0)
+            type = ifaces[0];
+        else
+            type = cObject;
+        String name = type.getName();
+        int dot = name.lastIndexOf('.');
+        if (dot >= 0)
+            name = name.substring(dot+1);
+        if (Character.isUpperCase(name.charAt(0)))
+            return name.toLowerCase();
+        else
+            return name+"_var";
+    }
+
     public boolean equals(Object o) {
         if (o == this) 
             return true;

@@ -463,6 +463,31 @@ public class Type {
         /* No action needed for simple types */
     }
 
+    public String getDefaultName() {
+        switch (typecode) {
+        case TC_BOOLINT:
+        case TC_BOOLBYTE:
+        case TC_BOOLEAN:
+            return "bool";
+        case TC_BYTE:
+            return "i";
+        case TC_CHAR:
+            return "c";
+        case TC_SHORT:
+            return "i";
+        case TC_INT:
+            return "i";
+        case TC_LONG:
+            return "l";
+        case TC_FLOAT:
+            return "f";
+        case TC_DOUBLE:
+            return "d";
+        default:
+            return "local";
+        }
+    }
+
     public String toString() {
         switch (typecode) {
         case TC_BOOLINT:

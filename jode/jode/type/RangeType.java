@@ -98,6 +98,13 @@ public class RangeType extends Type {
             return bottomType.toString();
     }
 
+    public String getDefaultName() {
+        if (topType.isClassType() || bottomType == tUnknown)
+            return topType.getDefaultName();
+        else
+            return bottomType.getDefaultName();
+    }
+
     public boolean equals(Object o) {
         if (o instanceof RangeType) {
             RangeType type = (RangeType) o;
