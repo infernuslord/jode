@@ -162,7 +162,7 @@ public class JodeAppletOneZero extends Applet implements Runnable {
 	JodeEnvironment env = new JodeEnvironment(cp);
 	ByteArrayOutputStream out = new ByteArrayOutputStream();
 	try {
-	    TabbedPrintWriter writer = new TabbedPrintWriter(out, "    ");
+	    TabbedPrintWriter writer = new TabbedPrintWriter(out);
 	    env.doClass(classField.getText(), writer);
 	    sourcecodeArea.setText(out.toString());
 	    saveButton.enable();
