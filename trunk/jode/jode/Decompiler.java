@@ -217,7 +217,8 @@ public class Decompiler {
 		ex.printStackTrace(GlobalOptions.err);
 		return;
 	    }
-	    writer = new TabbedPrintWriter(destZip, imports);
+	    writer = new TabbedPrintWriter(new BufferedOutputStream(destZip), 
+					   imports, false);
 	}
         for (; i< params.length; i++) {
 	    try {
@@ -245,8 +246,9 @@ public class Decompiler {
 			    ("Could not create directory " 
 			     + directory.getPath() + ", check permissions.");
 		    }
-		    writer = new TabbedPrintWriter(new FileOutputStream(file),
-						   imports);
+		    writer = new TabbedPrintWriter
+			(new BufferedOutputStream(new FileOutputStream(file)),
+			 imports, false);
 		}
 
 		GlobalOptions.err.println(params[i]);
