@@ -306,28 +306,19 @@ public class TransformExceptionHandlers {
 		     * directly to a correct jsr instruction, which
 		     * lies outside the try/catch block.  
 		     */
-		    System.err.println("tick0"
-				       +exitBlock
-				       +" ["+startOutExit+","+endOutExit
-				       +"]->"+subRoutine.getAddr()
-				       +" dest "+jumps.destination
-				       +" dest preds "+jumps.destination.predecessors);
 		    if (exitBlock == null
 			&& jumps.destination.predecessors.size() == 1
 			&& jumps.destination.getAddr() >= startOutExit
 			&& jumps.destination.getNextAddr() <= endOutExit) {
-			System.err.println("tick1");
 			jumps.destination.analyze(startOutExit, endOutExit);
 		    
 			StructuredBlock sb = jumps.destination.block;
 			if (sb instanceof SequentialBlock)
 			    sb = sb.getSubBlocks()[0];
-			System.err.println("tick2");
 			if (sb instanceof JsrBlock
 			    && sb.getSubBlocks()[0] instanceof EmptyBlock
 			    && (sb.getSubBlocks()[0].jump.destination
 				== subRoutine)) {
-			    System.err.println("tick3");
 			    StructuredBlock jsrInner = sb.getSubBlocks()[0];
 			    exitBlock = jumps.destination;
 			    jumps.destination.removeSuccessor(jsrInner.jump);
