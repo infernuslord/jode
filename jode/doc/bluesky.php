@@ -29,7 +29,7 @@ method containing very much objects of the same type looks very
 ugly. </p>
 
 <p>My plan is looking at the assignments.  If we have locals in
-assignments
+assignments</p>
 <pre>
 int l_1 = array.length
 String l_2 = object.getName()
@@ -40,7 +40,7 @@ have assignments:
 MenuItem local_1 = new MenuItem("Open");
 MenuItem local_2 = new MenuItem("Save");
 </pre>
-good names would be <code>miOpen</code> and <code>miSave</code>.  </p>
+<p>good names would be <code>miOpen</code> and <code>miSave</code>.  </p>
 
 <p>It is currently possible to assign a <i>(hint name,type)</i> pair
 to a local.  If the type matches, the local will be named after

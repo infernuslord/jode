@@ -13,7 +13,7 @@ $menu =
            "Blue Sky"     , "selflink", "bluesky");
 ?>
 
-<table cellspacing=0 cellpadding=3 border=0 bgcolor=#EEEEF8 class="nav">
+<table cellspacing=0 cellpadding=3 border=0 bgcolor="#EEEEF8" class="nav">
 <tr><td class="nav">
 <?php
 reset($menu);

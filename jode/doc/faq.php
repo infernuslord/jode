@@ -50,7 +50,7 @@ library even when you don't want to obfuscate it.</p>
 is not what you want.  This only makes sure the class won't be
 renamed, it doesn't prevent it from being stripped.  Instead you
 should preserve methods and constructors.  The constructor is just a
-method with the special name <tt>&lt;init&rt;</tt>. </p>
+method with the special name <tt>&lt;init&gt;</tt>. </p>
 
 <p> Another common mistake is to omit the type
 signature, e.g. to preserve <tt>Class.main</tt> instead of

@@ -2,7 +2,10 @@
 
 <P><i>JODE</i> is a java package containing a decompiler and an
 optimizer for java.  This package is <?php selflink("license")
-?>freely available</a> under the GNU GPL.<p>
+?>freely available</a> under the GNU GPL.
+<b>New:</b> The bytecode package and the core decompiler is now under
+GNU Lesser General Public License, so you can integrate it in your 
+project.</p>
 
 <P>The decompiler reads in <tt>class</tt> files and produces something
 similar to the original <tt>java</tt> file.  Of course this can't be
@@ -10,7 +13,8 @@ perfect: There is no way to produce the comments or the names of local
 variables (except when compiled with debuging) and there are often
 more ways to write the same thing.  However, <i>JODE</i> does its job quite
 well, so you should give it a try and <? selflink("applet") ?>start the
-applet</a>.</P>
+applet</a>.  Jode has support for all constructs of JDK-1.3 including
+inner and anonymous classes.</P>
 
 <P>The optimizer transforms <tt>class</tt> files in various ways with
 can be controlled by a script file. It supports the following
@@ -28,12 +32,8 @@ fields</li>
 <h2>News</h2>
 
 <ul>
-<li><i>JODE</i> 1.1 is out. With support for javac v8 (jdk 1.3). </li>
-<li><i>JODE</i> is now hosted by <a href="http://sourceforge.net/">SourceForge</a>.</li>
-<li>Now long lines are automatically broken.</li>
-<li><b>Inner and anonymous</b> classes are automatically decompiled.</li>
-<li>The optimizer (aka obfuscator) can be customized via a small
-config file</li>
+<li><i>JODE</i> 1.1.1 is out. With support for javac v8 (jdk 1.3). </li>
+<li>The license changed to LGPL for the bytecode interface and decompiler.</li>
 </ul>
 
 <h2>Known bugs of the decompiler</h2>
