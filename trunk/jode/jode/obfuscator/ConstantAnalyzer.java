@@ -926,7 +926,10 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    if (ci != null) {
 		FieldIdentifier fi = (FieldIdentifier) 
 		    ci.getIdentifier(ref.getName(), ref.getType());
-		fi.setNotConstant();
+		if (!fi.isNotConstant()) {
+		    fi.setNotConstant();
+		    fieldNotConstant(fi);
+		}
 	    }
 	    Type type = Type.tType(ref.getType());
 	    mergeInfo(instr.nextByAddr, info.pop(size + type.stackSize()));
@@ -1068,12 +1071,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 //  	System.gc();
     }
 
-    public void fieldNotConstant(IdentifierEvent ev) {
-	if (!working) {
-	    m.clazz.bundle.analyzeIdentifier(m);
-	    return;
-	}
-	FieldIdentifier fi = (FieldIdentifier) ev.getSource();
+    public void fieldNotConstant(FieldIdentifier fi) {
 	for (Instruction instr = bytecode.getFirstInstr();
 	     instr != null; instr = instr.nextByAddr) {
 	    if (instr.opcode == opc_getfield
