@@ -17,6 +17,7 @@
  * $Id$
  */
 package jode.obfuscator;
+import java.lang.reflect.Modifier;
 import jode.Obfuscator;
 import jode.bytecode.*;
 import java.io.*;
@@ -52,6 +53,13 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		readExceptions(exceptionsattr);
 	} catch (IOException ex) {
 	    ex.printStackTrace();
+	}
+    }
+
+    public void applyPreserveRule(int preserveRule) {
+	if ((preserveRule & (info.getModifiers() ^ Modifier.PRIVATE)) != 0) {
+	    setReachable();
+	    setPreserved();
 	}
     }
 

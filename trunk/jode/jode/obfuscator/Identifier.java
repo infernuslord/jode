@@ -218,6 +218,7 @@ public abstract class Identifier {
 	    setAlias((String) table.get(getFullName()));
     }
 
+    public abstract void applyPreserveRule(int preserveRule);
     public abstract Identifier getParent();
     public abstract String getName();
     public abstract String getType();
