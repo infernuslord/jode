@@ -33,8 +33,9 @@ public class RemoveEmpty implements Transformation {
         Instruction instr;
         try {
             block = flow.lastModified;
-            if (!(((InstructionContainer)block).getInstruction() 
-                  instanceof NopOperator))
+            Instruction prevInstr = 
+                ((InstructionContainer)block).getInstruction();
+            if (!(prevInstr instanceof NopOperator))
                 return false;
             
             sequBlock = (SequentialBlock)block.outer;
@@ -46,6 +47,8 @@ public class RemoveEmpty implements Transformation {
             if (prev.jump != null)
                 return false;
             instr = (Instruction) prev.getInstruction();
+            instr.setType(jode.MyType.intersection
+                          (instr.getType(), prevInstr.getType()));
         } catch (NullPointerException ex) {
             return false;
         } catch (ClassCastException ex) {
@@ -66,7 +69,8 @@ public class RemoveEmpty implements Transformation {
             StructuredBlock block = lastBlock.outer.getSubBlocks()[0];
             block.replace(block.outer, block);
             if (block.jump == null)
-                block.moveJump(lastBlock);
+		/*XXX can this happen */
+                block.moveJump(lastBlock.jump);
             else
                 lastBlock.removeJump();
             flow.lastModified = block;

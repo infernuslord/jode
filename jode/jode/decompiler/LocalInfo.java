@@ -37,7 +37,6 @@ public class LocalInfo {
     private Identifier name;
     private Type type;
     private LocalInfo shadow;
-    private jode.flow.StructuredBlock defining;
 
     /* The current implementation may use very much stack.  This
      * should be changed someday.
@@ -154,14 +153,6 @@ public class LocalInfo {
         if (this.type == MyType.tError)
             System.err.println("Type error in "+getName());
         return this.type;
-    }
-
-    public jode.flow.StructuredBlock getDefining() {
-        return getLocalInfo().defining;
-    }
-
-    public void setDefining(jode.flow.StructuredBlock structuredBlock) {
-        getLocalInfo().defining = structuredBlock;
     }
 
     public boolean isShadow() {

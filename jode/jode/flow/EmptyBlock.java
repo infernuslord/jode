@@ -31,6 +31,23 @@ public class EmptyBlock extends StructuredBlock {
         setJump(jump);
     }
 
+    /**
+     * Appends a block to this block.
+     * @return the new combined block.
+     */
+    public StructuredBlock appendBlock(StructuredBlock block) {
+	if (outer instanceof ConditionalBlock) {
+	    IfThenElseBlock ifBlock = 
+		new IfThenElseBlock(((ConditionalBlock)outer).
+				    getInstruction());
+	    ifBlock.replace(outer, this);
+	    ifBlock.moveJump(outer.jump);
+	    ifBlock.setThenBlock(this);
+	}
+	block.replace(this, null);
+	return block;
+    }
+
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {

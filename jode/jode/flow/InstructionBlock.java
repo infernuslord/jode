@@ -32,6 +32,14 @@ public class InstructionBlock extends InstructionContainer {
     }
 
     /**
+     * Tells if this block needs braces when used in a if or while block.
+     * @return true if this block should be sorrounded by braces.
+     */
+    public boolean needsBraces() {
+        return declare != null && !declare.isEmpty();
+    }
+
+    /**
      * True if this is a declaration.
      */
     private boolean isDeclaration = false;
@@ -42,7 +50,7 @@ public class InstructionBlock extends InstructionContainer {
         if (instr instanceof Expression
             && ((Expression)instr).getOperator() instanceof LocalStoreOperator
             && ((LocalStoreOperator) ((Expression)instr).getOperator())
-            .getLocalInfo() == local) {
+            .getLocalInfo() == local.getLocalInfo()) {
             isDeclaration = true;
         } else
             super.dumpDeclaration(writer, local);

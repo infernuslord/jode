@@ -21,10 +21,20 @@ package jode.flow;
 
 public class SimplifyExpression implements Transformation {
     public boolean transform(FlowBlock flow) {
+//         try {
+//             jode.TabbedPrintWriter writer = 
+//                 new jode.TabbedPrintWriter(System.err, "    ");
+//             System.out.println("Transforming: ");
+//             flow.lastModified.dumpSource(writer);
         if (flow.lastModified instanceof InstructionContainer) {
             InstructionContainer ic = (InstructionContainer) flow.lastModified;
             ic.setInstruction(ic.getInstruction().simplify());
         }
+//             System.out.println("Result: ");
+//             flow.lastModified.dumpSource(writer);
+//         } catch (java.io.IOException ex) {
+//         }
+
         return false;
     }
 }

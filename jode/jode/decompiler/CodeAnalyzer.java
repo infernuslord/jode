@@ -154,62 +154,99 @@ public class CodeAnalyzer implements Analyzer, Constants {
         /* XXX optimize */
         Stack todo = new Stack();
         FlowBlock flow = methodHeader;
-    analyzation:
-        while (true) {
-
-            /* First do some non flow transformations. */
-            int i=0;
-            while (i < exprTrafos.length) {
-                if (exprTrafos[i].transform(flow))
-                    i = 0;
-                else
-                    i++;
+        try {
+            jode.TabbedPrintWriter writer = null;
+            if (Decompiler.isFlowDebugging) {
+                writer = new jode.TabbedPrintWriter(System.err, "    ");
             }
+        analyzation:
+            while (true) {
+
+                if (Decompiler.isFlowDebugging) {
+                    writer.println("before Transformation: ");
+                    writer.tab();
+                    flow.dumpSource(writer);
+                    writer.untab();
+                }
+
+                /* First do some non flow transformations. */
+                int i=0;
+                while (i < exprTrafos.length) {
+                    if (exprTrafos[i].transform(flow))
+                        i = 0;
+                    else
+                        i++;
+                }
             
-            if (flow.doT2(todo)) {
-                /* T2 transformation succeeded.  This may
-                 * make another T1 analysis in the previous
-                 * block possible.  
-                 */
-                if (!todo.isEmpty())
-                    flow = (FlowBlock) todo.pop();
-            }
+                if (Decompiler.isFlowDebugging) {
+                    writer.println("after Transformation: ");
+                    writer.tab();
+                    flow.dumpSource(writer);
+                    writer.untab();
+                }
 
-            FlowBlock succ = flow.getSuccessor();
-            while (succ != null && !flow.doT1(succ)) {
+                if (flow.doT2(todo)) {
 
-                /* T1 transformation failed. */
-                if (!todo.contains(succ) && succ != flow) {
-                    /* succ wasn't tried before, succeed with
-                     * successor and put flow on the stack.  
+                    if (Decompiler.isFlowDebugging) {
+                        writer.println("after T2: ");
+                        writer.tab();
+                        flow.dumpSource(writer);
+                        writer.untab();
+                    }
+
+                    /* T2 transformation succeeded.  This may
+                     * make another T1 analysis in the previous
+                     * block possible.  
                      */
-                    todo.push(flow);
-                    flow = succ;
-                    continue analyzation;
+                    if (!todo.isEmpty())
+                        flow = (FlowBlock) todo.pop();
                 }
+
+                FlowBlock succ = flow.getSuccessor();
+                while (true) {
+                    if (succ == null) {
+                        /* the Block has no successor where t1 is applicable.
+                         *
+                         * If everything is okay the stack should be empty now,
+                         * and the program is transformed correctly.
+                         */
+                        if (todo.isEmpty())
+                            break analyzation;
+                            
+                        /* Otherwise pop the last flow block from stack and
+                         * try another successor.
+                         */
+                        succ = flow;
+                        flow = (FlowBlock) todo.pop();
+                    } else if (flow.doT1(succ)) {
+                        /* T1 transformation succeeded. */
+
+                        if (Decompiler.isFlowDebugging) {
+                            writer.println("after T1: ");
+                            writer.tab();
+                            flow.dumpSource(writer);
+                            writer.untab();
+                        }
+
+                        if (Decompiler.isVerbose)
+                            System.err.print(".");
+
+                        continue analyzation;
+                    } else if (!todo.contains(succ) && succ != flow) {
+                        /* succ wasn't tried before, succeed with
+                         * successor and put flow on the stack.  
+                         */
+                        todo.push(flow);
+                        flow = succ;
+                        continue analyzation;
+                    }
                 
-                /* Try the next successor.
-                 */
-                succ = flow.getSuccessor(succ);
-            }
-            if (succ == null) {
-                /* the Block has no successor where t1 is applicable.
-                 *
-                 * If everything is okay the stack should be empty now,
-                 * and the program is transformed correctly.
-                 *
-                 * Otherwise flow transformation didn't succeeded.
-                 */
-//                 System.err.println("breaking analyzation; flow: "
-//                                    + flow.getLabel());
-                while (!todo.isEmpty()) {
-                    System.err.println("on Stack: "
-                                       + ((FlowBlock)todo.pop()).getLabel());
+                    /* Try the next successor.
+                     */
+                    succ = flow.getSuccessor(succ);
                 }
-                break analyzation;
             }
-	    if (Decompiler.isVerbose)
-		System.err.print(".");
+        } catch (java.io.IOException ioex) {
         }
     }
 

@@ -40,15 +40,12 @@ public class ArrayLoadOperator extends SimpleOperator {
 
     /**
      * Sets the return type of this operator.
-     * @return true if the operand types changed
      */
-    public boolean setType(Type type) {
+    public void setType(Type type) {
         if (type != this.type) {
             super.setType(type);
             operandTypes[0] = Type.tArray(type);
-            return true;
         }
-        return false;
     }
 
     public void setOperandType(Type[] t) {

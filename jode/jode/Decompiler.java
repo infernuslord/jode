@@ -25,7 +25,9 @@ public class Decompiler {
     public static boolean isVerbose = false;
     public static boolean isDebugging = false;
     public static boolean isTypeDebugging = false;
+    public static boolean isFlowDebugging = false;
     public static boolean showLVT = false;
+    public static boolean doChecks = false;
 
     public static void main(String[] params) {
         JodeEnvironment env = new JodeEnvironment();
@@ -36,8 +38,12 @@ public class Decompiler {
                 isDebugging = true;
             else if (params[i].equals("-type"))
                 isTypeDebugging = true;
+            else if (params[i].equals("-flow"))
+                isFlowDebugging = true;
             else if (params[i].equals("-lvt"))
                 showLVT = true;
+            else if (params[i].equals("-check"))
+                doChecks = true;
             else
                 env.doClass(params[i]);
         }

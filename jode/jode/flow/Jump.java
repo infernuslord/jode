@@ -36,12 +36,21 @@ public class Jump {
     int destAddr;
 
     /**
-     * The out locals.  This are the locals, which must be overwritten
+     * The kill locals.  This are the slots, which must be overwritten
      * in this block on every path to this jump.  That means, that all
      * paths form the start of the current flow block to this jump
-     * contain (unconditional) assignments to this local.
+     * contain (unconditional) assignments to this slot.
      */
-    VariableSet out = new VariableSet();
+    VariableSet kill = new VariableSet();
+
+    /**
+     * The gen locals.  This are the locals, which can be overwritten
+     * in this block on a path to this jump.  That means, that there
+     * exists a path form the start of the current flow block to this
+     * jump that contains an (unconditional) assignments to this
+     * local, and that is not overwritten afterwards.  
+     */
+    VariableSet gen = new VariableSet();
 
     public Jump (int destAddr) {
         this.destAddr = destAddr;
@@ -75,7 +84,8 @@ public class Jump {
         throws java.io.IOException
     {
         if (jode.Decompiler.isDebugging) {
-            writer.println("out: "+ out.toString());
+            writer.println("gen : "+ gen.toString());
+            writer.println("kill: "+ kill.toString());
         }
         writer.println("Attachments: "+describeAttachments());
         if (destination == null)

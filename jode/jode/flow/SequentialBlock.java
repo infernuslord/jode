@@ -62,6 +62,16 @@ public class SequentialBlock extends StructuredBlock {
             return null;
         return getNextFlowBlock();
     }
+
+    /**
+     * Tells if the sub block is the single exit point of the current block.
+     * @param subBlock the sub block.
+     * @return true, if the sub block is the single exit point of the
+     * current block.  
+     */
+    public boolean isSingleExit(StructuredBlock subBlock) {
+	return (subBlock == subBlocks[1]);
+    }
     
     /**
      * Make the declarations, i.e. initialize the declare variable
@@ -74,6 +84,7 @@ public class SequentialBlock extends StructuredBlock {
 	 * any local Variable, but let the first sub block do this.
 	 */
 	declare = new VariableSet();
+        subBlocks[0].used.addExact(used);
 	subBlocks[0].makeDeclaration(done);
 	done.addExact(used);
 	subBlocks[1].makeDeclaration(done);

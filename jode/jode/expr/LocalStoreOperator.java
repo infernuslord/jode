@@ -37,13 +37,8 @@ implements LocalVarOperator {
         return true;
     }
 
-//     public void setLocalInfo(LocalInfo local) {
-//         local.setType(lvalueType);
-// 	this.local = local;
-//     }
-
     public LocalInfo getLocalInfo() {
-	return local;
+	return local.getLocalInfo();
     }
 
     public Type getLValueType() {

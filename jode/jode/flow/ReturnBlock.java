@@ -35,6 +35,14 @@ public class ReturnBlock extends InstructionContainer {
     }
 
     /**
+     * Tells if this block needs braces when used in a if or while block.
+     * @return true if this block should be sorrounded by braces.
+     */
+    public boolean needsBraces() {
+        return false;
+    }
+
+    /**
      * Get the underlying instruction.
      * @return the underlying instruction.
      */

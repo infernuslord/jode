@@ -58,14 +58,12 @@ public class IfThenElseOperator extends SimpleOperator {
      * Sets the return type of this operator.
      * @return true if the operand types changed
      */
-    public boolean setType(Type newType) {
+    public void setType(Type newType) {
         Type operandType = 
             MyType.intersection(operandTypes[1], newType);
         if (type != operandType) {
             type = operandTypes[1] = operandTypes[2] = operandType;
-            return true;
         }
-        return false;
     }
 
     public boolean equals(Object o) {

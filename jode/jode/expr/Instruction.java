@@ -31,6 +31,10 @@ public abstract class Instruction {
         return type;
     }
 
+    public void setType(Type newType) {
+        this.type = newType;
+    }
+
     public Instruction simplify() {
         return this;
     }

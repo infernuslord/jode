@@ -85,8 +85,7 @@ public class CatchBlock extends StructuredBlock {
                      ? new EmptyBlock()
                      : catchBlock.getSubBlocks()[1]);
 
-                if (catchBlock.jump != null)
-                    newCatchBlock.moveJump(catchBlock);
+		newCatchBlock.moveJump(catchBlock.jump);
                 catchBlock = newCatchBlock;
             }
         }

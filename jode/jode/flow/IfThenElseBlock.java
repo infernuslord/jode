@@ -96,7 +96,7 @@ public class IfThenElseBlock extends StructuredBlock {
     public void dumpInstruction(TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        boolean needBrace = ! (thenBlock instanceof InstructionBlock);
+        boolean needBrace = thenBlock.needsBraces();
         writer.println("if ("+cond.toString()+")"+(needBrace?" {":""));
         writer.tab();
         thenBlock.dumpSource(writer);
@@ -109,7 +109,7 @@ public class IfThenElseBlock extends StructuredBlock {
                 writer.print("else ");
                 elseBlock.dumpSource(writer);
             } else {
-                needBrace = ! (elseBlock instanceof InstructionBlock);
+                needBrace = elseBlock.needsBraces();
                 writer.println("else" + (needBrace ? " {" : ""));
                 writer.tab();
                 elseBlock.dumpSource(writer);
@@ -139,12 +139,8 @@ public class IfThenElseBlock extends StructuredBlock {
      * @return true, if the jump may be safely changed.
      */
     public boolean jumpMayBeChanged() {
-        if (thenBlock.jump == null && !thenBlock.jumpMayBeChanged())
-            return false;
-
-        if (elseBlock != null && elseBlock.jump == null &&
-            !elseBlock.jumpMayBeChanged())
-            return false;
-        return true;
+        return (thenBlock.jump != null || thenBlock.jumpMayBeChanged())
+            && elseBlock != null
+            && (elseBlock.jump != null || elseBlock.jumpMayBeChanged());
     }
 }

@@ -116,7 +116,7 @@ public class VariableSet extends java.util.Vector {
     /**
      * Union the other variable set to the current.
      */
-    public void union(VariableSet vs) {
+    public void unionExact(VariableSet vs) {
         int oldSize = elementCount;
     iloop:
         for (int i=0; i< vs.elementCount; i++) {
@@ -165,6 +165,27 @@ public class VariableSet extends java.util.Vector {
             for (int j=0; j< oldSize; j++) {
                 LocalInfo li1 = (LocalInfo) elementData[j];
                 if (li1.getLocalInfo() == li2)
+                    /* Yes it was, take next variable */
+                    continue iloop;
+            }
+            addElement(li2);
+        }
+    }
+
+    /**
+     * Add the variables in gen to the current set, unless there are
+     * variables in kill using the same slot.
+     * @param gen The gen set.
+     * @param kill The kill set.
+     */
+    public void mergeGenKill(VariableSet gen, VariableSet kill) {
+    iloop:
+        for (int i=0; i< gen.elementCount; i++) {
+            LocalInfo li2 = ((LocalInfo) gen.elementData[i]).getLocalInfo();
+            /* check if this slot was already overwritten (kill set) */
+            for (int j=0; j< kill.elementCount; j++) {
+                LocalInfo li1 = (LocalInfo) kill.elementData[j];
+                if (li2.getSlot() == li1.getSlot())
                     /* Yes it was, take next variable */
                     continue iloop;
             }

@@ -134,7 +134,9 @@ public class Expression extends Instruction {
         if (operator.getPriority() < minPriority) {
             result = "("+result+")";
         }
-        if (operator.getType() == MyType.tError)
+        if (Decompiler.isTypeDebugging) 
+            result = "(("+operator.getType()+")"+result+")";
+        else if (operator.getType() == MyType.tError)
             result = "(/*type error */" + result+")";
         return result;
     }
