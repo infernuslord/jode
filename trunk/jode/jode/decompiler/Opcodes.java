@@ -145,16 +145,16 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_istore: case opc_lstore: 
         case opc_fstore: case opc_dstore: case opc_astore:
             return createNormal
-                (ca, instr, new LocalStoreOperator
-                 (types[0][opcode-opc_istore], 
-                  ca.getLocalInfo(instr.addr+instr.length, instr.localSlot),
-                  Operator.ASSIGN_OP));
+                (ca, instr, new StoreInstruction
+		 (new LocalStoreOperator
+		  (types[0][opcode-opc_istore], 
+		   ca.getLocalInfo(instr.addr+instr.length,instr.localSlot))));
         case opc_iastore: case opc_lastore:
         case opc_fastore: case opc_dastore: case opc_aastore:
         case opc_bastore: case opc_castore: case opc_sastore:
             return createNormal
-                (ca, instr, new ArrayStoreOperator
-                 (types[1][opcode - opc_iastore]));
+                (ca, instr, new StoreInstruction
+		 (new ArrayStoreOperator(types[1][opcode - opc_iastore])));
         case opc_pop: case opc_pop2:
             return createSpecial
                 (ca, instr, SpecialBlock.POP, opcode - opc_pop + 1, 0);
@@ -200,11 +200,10 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 operation = Operator.SUB_OP;
             }
             LocalInfo li = ca.getLocalInfo(instr.addr, instr.localSlot);
-            li.setType(Type.tUInt);
             return createNormal
                 (ca, instr, new IIncOperator
-                 (li, Integer.toString(value), 
-		  operation + Operator.OPASSIGN_OP));
+                 (new LocalStoreOperator(Type.tUInt, li), 
+		  value, operation + Operator.OPASSIGN_OP));
         }
         case opc_i2l: case opc_i2f: case opc_i2d:
         case opc_l2i: case opc_l2f: case opc_l2d:
@@ -304,8 +303,8 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_putfield: {
             Reference ref = (Reference) instr.objData;
             return createNormal
-                (ca, instr, new PutFieldOperator
-                 (ca, opcode == opc_putstatic, ref));
+                (ca, instr, new StoreInstruction
+		 (new PutFieldOperator(ca, opcode == opc_putstatic, ref)));
         }
         case opc_invokevirtual:
         case opc_invokespecial:
