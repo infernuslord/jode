@@ -19,8 +19,8 @@
 
 package jode.swingui;
 import jode.Decompiler;
-import jode.JodeEnvironment;
-import jode.decompiler.TabbedPrintWriter;
+import jode.decompiler.*;
+import jode.bytecode.ClassInfo;
 ///#ifdef JDK12
 ///import javax.swing.*;
 ///import javax.swing.event.*;
@@ -39,12 +39,26 @@ public class MainWindow
     JTree classTree;
     PackagesTreeModel classModel;
     JTextArea  sourcecodeArea, errorArea;
-    String classpath, lastClassName;
     Thread decompileThread;
+    String currentClassPath, lastClassName;
 
-    public MainWindow(Container contentPane) {
+    public MainWindow() {
+	setClasspath(System.getProperty("java.class.path"));
+	JFrame frame = new JFrame(Decompiler.copyright);
+	fillContentPane(frame.getContentPane());
+	addMenu(frame);
+	frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+	frame.addWindowListener(new WindowAdapter() {
+	    public void windowClosing(WindowEvent e) {
+		System.exit(0);
+	    }
+	});
+	frame.pack();
+	frame.show();
+    }
+
+    public void fillContentPane(Container contentPane) {
 	Font monospaced = new Font("monospaced", Font.PLAIN, 12);
-
 	classModel = new PackagesTreeModel();
 	classTree = new JTree(classModel);
 	classTree.setRootVisible(false);
@@ -70,10 +84,6 @@ public class MainWindow
 	allPane.setDividerLocation(200);
 	allPane.setDividerSize(4);
 	Decompiler.err = new PrintStream(new AreaOutputStream(errorArea));
-    }
-
-    public void setClasspath(String classpath) {
-	this.classpath = classpath;
     }
 
     public synchronized void valueChanged(TreeSelectionEvent e) {
@@ -146,15 +156,22 @@ public class MainWindow
 	errorArea.setText("");
 //  	saveButton.setEnabled(false);
 
-	String cp = classpath;
-	cp = cp.replace(':', jode.bytecode.SearchPath.protocolSeparator);
-	cp = cp.replace(',', File.pathSeparatorChar);
-	JodeEnvironment env = new JodeEnvironment(cp);
-	ByteArrayOutputStream out = new ByteArrayOutputStream();
+	ImportHandler imports = new ImportHandler();
 	try {
-	    TabbedPrintWriter writer = new TabbedPrintWriter(out);
-	    env.doClass(lastClassName, writer);
-	    sourcecodeArea.setText(out.toString());
+	    ClassInfo clazz = ClassInfo.forName(lastClassName);
+
+	    imports.init(lastClassName);
+	    ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
+	    clazzAna.analyze();
+	    
+	    sourcecodeArea.setText("");
+	    TabbedPrintWriter writer = 
+		new TabbedPrintWriter(new AreaOutputStream(sourcecodeArea)
+				      , imports);
+
+	    imports.dumpHeader(writer);
+	    clazzAna.dumpSource(writer);
+
 //  	    saveButton.setEnabled(true);
 	} catch (Throwable t) {
 	    sourcecodeArea.setText("Didn't succeed.\n"
@@ -168,23 +185,59 @@ public class MainWindow
 	}
     }
 
-    public static void main(String[] params) {
-	JFrame frame = new JFrame(Decompiler.copyright);
-	String cp = System.getProperty("java.class.path");
-	if (cp != null)
-	    jode.bytecode.ClassInfo.setClassPath(cp);
-
-	MainWindow win = new MainWindow(frame.getContentPane());
-	if (cp != null)
-	    win.setClasspath(cp.replace(File.pathSeparatorChar, ','));
-
-	frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-	frame.addWindowListener(new WindowAdapter() {
-	    public void windowClosing(WindowEvent e) {
+    public void addMenu(JFrame frame) {
+	JMenuBar bar = new JMenuBar();
+	JMenu menu;
+	JMenuItem item;
+	menu = new JMenu("File");
+	item = new JMenuItem("Garbage collect");
+	item.addActionListener(new ActionListener() {
+	    public void actionPerformed(ActionEvent ev) {
+		System.gc();
+		System.runFinalization();
+	    }
+	});
+	menu.add(item);
+	item = new JMenuItem("Exit");
+	item.addActionListener(new ActionListener() {
+	    public void actionPerformed(ActionEvent ev) {
 		System.exit(0);
 	    }
 	});
-	frame.pack();
-	frame.show();
+	menu.add(item);
+	bar.add(menu);
+	menu = new JMenu("Options");
+	item = new JMenuItem("Set classpath...");
+	item.addActionListener(new ActionListener() {
+	    public void actionPerformed(ActionEvent ev) {
+		
+		String newClassPath = (String) JOptionPane.showInputDialog
+		    (null, "New classpath:", null, 
+		     JOptionPane.QUESTION_MESSAGE, null,
+		     null, currentClassPath);
+		if (newClassPath != null
+		    && !newClassPath.equals(currentClassPath))
+		    setClasspath(newClassPath);
+	    }
+	});
+	menu.add(item);
+	bar.add(menu);
+	frame.setJMenuBar(bar);
+    }
+
+    public void setClasspath(String classpath) {
+	if (classpath == null || classpath.length() == 0)
+	    classpath = ".";
+	currentClassPath = classpath;
+	ClassInfo.setClassPath(classpath);
+	if (classModel != null) {
+	    classTree.clearSelection();
+	    classModel.rebuild();
+	}
+    }
+
+    public static void main(String[] params) {
+	MainWindow win = new MainWindow();
     }
 }
+
