@@ -58,6 +58,11 @@ public class LocalVariableTable {
                                           env.getConstantPool().
                                           getValue(name_i)),
                         env.getConstantPool().getType(desc_i));
+	    if (Decompiler.showLVT)
+		System.err.println(""+env.getConstantPool().getValue(name_i)
+				   +": "+env.getConstantPool().getType(desc_i)
+				   +" range "+start+" - "+(start+length)
+				   +" slot "+slot);
         }
         readfromclass = true;
     }

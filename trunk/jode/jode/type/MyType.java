@@ -63,7 +63,7 @@ public class MyType extends Type {
 	    return new ClassRangeType(tObject, type);
         else if (typeCode == 103)
             return (((ClassRangeType)type).topType == null 
-                    ? tUnknown : new ClassRangeType(tObject, null));
+                    ? tUnknown : new ClassRangeType(tObject, type));
 	else
 	    return type;
     }

@@ -21,54 +21,16 @@ import jode.TabbedPrintWriter;
 /**
  * This is a structured block, that supports break.  
  */
-public abstract class BreakableBlock extends StructuredBlock {
-
-    boolean mayChangeJump = true;
-
-    /**
-     * Print the source code for this structured block.  This handles
-     * everything that is unique for all structured blocks and calls
-     * dumpInstruction afterwards.
-     * @param writer The tabbed print writer, where we print to.
-     */
-    public void dumpSource(TabbedPrintWriter writer)
-        throws java.io.IOException
-    {
-        if (label != null) {
-            writer.untab();
-            writer.println(label+":");
-            writer.tab();
-        }
-        super.dumpSource(writer);
-    }
-
-    /**
-     * The serial number for labels.
-     */
-    static int serialno = 0;
-
-    /**
-     * The label of this instruction, or null if it needs no label.
-     */
-    String label = null;
+public interface BreakableBlock {
 
     /**
      * Returns the label of this block and creates a new label, if
      * there wasn't a label previously.
      */
-    public String getLabel() {
-        if (label == null)
-            label = "label_"+(serialno++)+"_";
-        return label;
-    }
+    public String getLabel();
 
     /**
-     * Determines if there is a sub block, that flows through to the end
-     * of this block.  If this returns true, you know that jump is null.
-     * @return true, if the jump may be safely changed.
+     * Is called by BreakBlock, to tell us that this block is breaked.
      */
-    public boolean jumpMayBeChanged() {
-        return mayChangeJump;
-    }
-
+    public void setBreaked();
 }
