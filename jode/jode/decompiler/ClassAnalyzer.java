@@ -97,7 +97,7 @@ public class ClassAnalyzer implements Analyzer {
         }
         Class[] interfaces = clazz.getInterfaces();
 	if (interfaces.length > 0) {
-	    writer.print("implements ");
+	    writer.print(clazz.isInterface() ? "extends " : "implements ");
 	    for (int i=0; i < interfaces.length; i++) {
 		if (i > 0)
 		    writer.print(", ");

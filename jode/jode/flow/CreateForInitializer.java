@@ -38,19 +38,16 @@ public class CreateForInitializer {
         if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
             return false;
 
-        Expression initializer = 
-            ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
+        InstructionBlock init = (InstructionBlock) sequBlock.subBlocks[0];
             
-        if (!initializer.getOperator().isVoid()
-            || (forBlock.cond != forBlock.TRUE
-                && !forBlock.cond.containsMatchingLoad(initializer)))
+        if (!init.getInstruction().isVoid()
+            || !forBlock.conditionMatches(init))
             return false;
 
         if (jode.Decompiler.isVerbose)
             System.err.print('f');
 
-        forBlock.init = (InstructionBlock) sequBlock.subBlocks[0];
-        last.replace(sequBlock);
+        forBlock.setInit((InstructionBlock) sequBlock.subBlocks[0]);
         return true;
     }
 }

@@ -799,7 +799,6 @@ public class FlowBlock {
                 forBlock.replace(bodyBlock);
                 forBlock.setBody(bodyBlock);
                 forBlock.incr = (InstructionBlock) lastModified;
-                lastModified.removeBlock();
                 
                 createdForBlock = true;
             }

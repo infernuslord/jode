@@ -209,23 +209,28 @@ public class TransformExceptionHandlers {
      * This transforms a sub routine, that is checks if the beginning
      * local assignment matches the final ret and then returns.
      */
-    boolean transformSubRoutine(FlowBlock subRoutine) {
-        try {
-            SequentialBlock sequBlock = (SequentialBlock) subRoutine.block;
-            LocalStoreOperator store = (LocalStoreOperator)
-                ((InstructionBlock)sequBlock.subBlocks[0]).instr.getOperator();
-            while (sequBlock.subBlocks[1] instanceof SequentialBlock)
-                sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
-            RetBlock retBlock = (RetBlock)sequBlock.subBlocks[1];
-            if (! retBlock.local.equals(store.getLocalInfo()))
-                /* Ret doesn't match */
-                return false;
-            subRoutine.block.getSubBlocks()[0].removeBlock();
-            retBlock.removeBlock();
-            return true;
-        } catch (ClassCastException ex) {
+    boolean transformSubRoutine(StructuredBlock subRoutine) {
+        if (!(subRoutine instanceof SequentialBlock)
+            || !(subRoutine.getSubBlocks()[0] instanceof InstructionBlock))
             return false;
-        }
+        SequentialBlock sequBlock = (SequentialBlock) subRoutine;
+        InstructionBlock instr = (InstructionBlock)sequBlock.subBlocks[0];
+        
+        if (! (instr.getInstruction() instanceof LocalStoreOperator))
+            return false;
+        LocalStoreOperator store = (LocalStoreOperator) instr.getInstruction();
+        
+        while (sequBlock.subBlocks[1] instanceof SequentialBlock)
+            sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
+        
+        if (! (sequBlock.subBlocks[1] instanceof RetBlock)
+            || !(((RetBlock)sequBlock.subBlocks[1])
+                 .local.equals(store.getLocalInfo())))
+                return false;
+        
+        instr.removeBlock();
+        sequBlock.subBlocks[1].removeBlock();
+        return true;
     }
 
     /**
@@ -351,7 +356,10 @@ public class TransformExceptionHandlers {
                 /* Now we have a jump with a wrong destination.
                  * Complain!
                  */
-                System.err.println("non well formed try-finally block");
+                DescriptionBlock msg 
+                    = new DescriptionBlock("ERROR: NO JSR TO FINALLY");
+                prev.appendBlock(msg);
+                msg.moveJump(jumps);
             }
         }
         removeJSR(tryFlow, subRoutine);
@@ -386,7 +394,7 @@ public class TransformExceptionHandlers {
                     
                     subRoutine = jumps.destination;
                     subRoutine.analyze(startMonExit, endMonExit);
-                    transformSubRoutine(subRoutine);
+                    transformSubRoutine(subRoutine.block);
                 
                     if (subRoutine.block instanceof InstructionBlock) {
                         Expression instr = 
@@ -466,7 +474,10 @@ public class TransformExceptionHandlers {
                 /* Now we have a jump that is not preceded by a monitorexit.
                  * Complain!
                  */
-                System.err.println("non well formed synchronized block");
+                DescriptionBlock msg 
+                    = new DescriptionBlock("ERROR: NO MONITOREXIT");
+                prev.appendBlock(msg);
+                msg.moveJump(jumps);
             }  
         }
 
@@ -548,72 +559,144 @@ public class TransformExceptionHandlers {
 
     private boolean analyzeFinally(FlowBlock tryFlow, FlowBlock catchFlow,
                                    int end) {
-        if (!(catchFlow.block instanceof SequentialBlock
-              && catchFlow.block.getSubBlocks()[0] 
-              instanceof InstructionBlock))
+
+        /* Layout of a try-finally block:  
+         *     
+         *   tryFlow:
+         *    |- first instruction
+         *    |  ...
+         *    |  every jump to outside is preceded by jsr finally
+         *    |  ...
+         *    |  jsr finally -----------------,
+         *    `- jump after finally           |
+         *                                    |
+         *   catchFlow: (already checked)     |
+         *       local_n = stack              v
+         *       jsr finally ---------------->|
+         *       throw local_n;               |
+         *   finally: <-----------------------'
+         *      astore_n
+         *      ...
+         *      return_n
+         */
+        
+        if (!(catchFlow.block instanceof SequentialBlock)
+            || !(catchFlow.block.getSubBlocks()[0] 
+                 instanceof InstructionBlock)
+            || !(catchFlow.block.getSubBlocks()[1]
+                 instanceof SequentialBlock))
             return false;
         
+        StructuredBlock finallyBlock = null;
         SequentialBlock catchBlock = (SequentialBlock) catchFlow.block;
         Expression instr = 
             ((InstructionBlock)catchBlock.subBlocks[0]).getInstruction();
-        
-        if (catchBlock.subBlocks[1] instanceof SequentialBlock
-            && catchBlock.subBlocks[1].getSubBlocks()[0] 
-            instanceof JsrBlock
+        catchBlock = (SequentialBlock)catchBlock.subBlocks[1];
+
+        if (catchBlock.subBlocks[0] instanceof LoopBlock) {
+            /* In case the try block has no exit (that means, it throws
+             * an exception), the finallyBlock was already merged with
+             * the catchBlock.  We have to check for this case separately:
+             *
+             * do {
+             *    JSR
+             *       break;
+             *    throw local_x
+             * } while(false);
+             * finallyBlock;
+             */
+            LoopBlock doWhileFalse = (LoopBlock)catchBlock.subBlocks[0];
+            if (doWhileFalse.type == LoopBlock.DOWHILE
+                && doWhileFalse.cond == LoopBlock.FALSE
+                && doWhileFalse.bodyBlock instanceof SequentialBlock) {
+                finallyBlock = catchBlock.subBlocks[1];
+                catchBlock = (SequentialBlock) doWhileFalse.bodyBlock;
+            }
+        }
+                
+        if (catchBlock instanceof SequentialBlock
+            && catchBlock.getSubBlocks()[0] instanceof JsrBlock
             && instr instanceof LocalStoreOperator
-            && catchBlock.subBlocks[1].getSubBlocks()[1]
-            instanceof ThrowBlock
-            && ((ThrowBlock)catchBlock.subBlocks[1]
-                .getSubBlocks()[1]).instr
-            instanceof LocalLoadOperator
-            && ((LocalStoreOperator) instr)
-            .matches((LocalLoadOperator) 
-                     ((ThrowBlock)catchBlock.subBlocks[1]
-                      .getSubBlocks()[1]).instr)) {
+            && catchBlock.getSubBlocks()[1] instanceof ThrowBlock
+            && (((ThrowBlock)catchBlock.getSubBlocks()[1]).instr
+                instanceof LocalLoadOperator)
+            && (((LocalStoreOperator) instr).matches
+                ((LocalLoadOperator)
+                 ((ThrowBlock)catchBlock.getSubBlocks()[1]).instr))) {
 
             /* Wow that was complicated :-)
              * But now we know that the catch block looks
-             * exactly like an try finally block:
+             * exactly like it should:
              *
-             *   tryFlow:
-             *    |- first instruction
-             *    |  ...
-             *    |  every jump to outside is preceded by jsr finally
-             *    |  ...
-             *    |  jsr finally -----------------,
-             *    `- jump after finally           |
-             *                                    |
-             *   catchFlow: (already checked)     |
-             *       local_n = stack              v
-             *       jsr finally ---------------->|
-             *       throw local_n;               |
-             *   finally: <-----------------------'
-             *      astore_n
-             *      ...
-             *      return_n
+             * catchBlock:
+             *   JSR 
+             *       finally
+             *   throw local_n  <- matches the local in instr.
              */
 
-            FlowBlock subRoutine = 
-                ((JsrBlock)catchBlock.subBlocks[1].getSubBlocks()[0])
-                .innerBlock.jump.destination;
+            if (finallyBlock != null) {
+                /* Check if the jsr breaks (see two comments above). We don't 
+                 * need to check if it breaks to the right block, because
+                 * we know that there is only one Block around the jsr.
+                 */
+                if (!(((JsrBlock)catchBlock.getSubBlocks()[0]).innerBlock
+                      instanceof BreakBlock))
+                    return false;
 
-            /* Now remove the two jumps of the catch block
-             * so that we can forget about them.
-             * This are the jsr and the throw.
-             */
-            catchBlock.subBlocks[1].getSubBlocks()[0].getSubBlocks()[0]
-                .jump.destination.predecessors.removeElement(catchFlow);
-            catchBlock.subBlocks[1].getSubBlocks()[1]
-                .jump.destination.predecessors.removeElement(catchFlow);
+                /* Check if the try block has no exit (except throws)
+                 */
+                Jump throwJumps = (Jump) 
+                    tryFlow.successors.get(FlowBlock.END_OF_METHOD);
+                if (tryFlow.successors.size() > 1
+                    || (tryFlow.successors.size() > 0 && throwJumps == null))
+                    return false;
+
+                for (/**/; throwJumps != null; throwJumps = throwJumps.next) {
+                    if (!(throwJumps.prev instanceof ThrowBlock)) 
+                        /* There is a return exit in the try block */
+                        return false;
+                }
+                /* Remove the jump of the throw instruction.
+                 */
+                catchBlock.getSubBlocks()[1]
+                    .jump.destination.predecessors.removeElement(catchFlow);
+
+                /* Replace the catchBlock with the finallyBlock.
+                 */
+                finallyBlock.replace(catchFlow.block);
+                transformSubRoutine(finallyBlock);
+
+                updateInOutCatch(tryFlow, catchFlow);
+                tryFlow.length += catchFlow.length;
+                finallyBlock = catchFlow.block;
+                tryFlow.mergeSuccessors(catchFlow);
+
+            } else {
+                FlowBlock subRoutine = 
+                    ((JsrBlock)catchBlock.getSubBlocks()[0])
+                    .innerBlock.jump.destination;
+
+                subRoutine.analyze(catchFlow.addr+catchFlow.length, end);
+                if (!transformSubRoutine(subRoutine.block))
+                    return false;
                 
-            subRoutine.analyze(catchFlow.addr+catchFlow.length, end);
-            if (!transformSubRoutine(subRoutine))
-                return false;
+                tryFlow.length += catchFlow.length;
 
-            updateInOutCatch(tryFlow, subRoutine);
+                checkAndRemoveJSR(tryFlow, subRoutine);
 
-            tryFlow.length += catchFlow.length;
-            checkAndRemoveJSR(tryFlow, subRoutine);
+                updateInOutCatch(tryFlow, subRoutine);                
+                tryFlow.length += subRoutine.length;
+                tryFlow.mergeSuccessors(subRoutine);
+                finallyBlock = subRoutine.block;
+
+                /* Now remove the jump to the JSR from the catch block
+                 * and the jump of the throw instruction.
+                 */
+                catchBlock.getSubBlocks()[0].getSubBlocks()[0]
+                    .jump.destination.predecessors.removeElement(catchFlow);
+                catchBlock.getSubBlocks()[1]
+                    .jump.destination.predecessors.removeElement(catchFlow);
+            }
                 
             TryBlock tryBlock = (TryBlock)tryFlow.block;
             if (tryBlock.getSubBlocks()[0] instanceof TryBlock) {
@@ -625,10 +708,8 @@ public class TransformExceptionHandlers {
                 tryFlow.lastModified = innerTry;
             }
             FinallyBlock newBlock = new FinallyBlock();
-            newBlock.setCatchBlock(subRoutine.block);
+            newBlock.setCatchBlock(finallyBlock);
             tryBlock.addCatchBlock(newBlock);
-            tryFlow.mergeSuccessors(subRoutine);
-            tryFlow.length += subRoutine.length;
             return true;
         }
         return false;
@@ -660,7 +741,7 @@ public class TransformExceptionHandlers {
                 Object key = keys.nextElement();
                 if (key == succ)
                     continue;
-                if (key != tryFlow.END_OF_METHOD) {
+                if (key != FlowBlock.END_OF_METHOD) {
                     /* There is another exit in the try block, bad */
                     return false;
                 }

@@ -47,6 +47,16 @@ public class CaseBlock extends StructuredBlock {
      */
     boolean isLastBlock;
 
+    /**
+     * All variables used somewhere inside this block.
+     */
+    VariableSet allUsed;
+    /**
+     * Do we want braces around the case block (if a sub block
+     * declares a variable).  
+     */
+    boolean wantBraces;
+
     public CaseBlock(int value) {
 	this.value = value;
 	subBlock = null;
@@ -79,6 +89,31 @@ public class CaseBlock extends StructuredBlock {
         return true;
     }
 
+    public VariableSet propagateUsage() {
+        /* We remember if this sub block uses some variables, to introduce
+         * braces around this block in that case.
+         */
+        return (allUsed = super.propagateUsage());
+    }
+
+    /**
+     * Make the declarations, i.e. initialize the declare variable
+     * to correct values.  This will declare every variable that
+     * is marked as used, but not done.
+     * @param done The set of the already declare variables.
+     */
+    public void makeDeclaration(VariableSet done) {
+        java.util.Enumeration enum = allUsed.elements();
+        while (enum.hasMoreElements()) {
+            jode.LocalInfo li = (jode.LocalInfo) enum.nextElement();
+            if (!done.contains(li)) {
+                wantBraces = true;
+                break;
+            }
+        }
+        super.makeDeclaration(done);
+    }
+
     /**
      * Returns all sub block of this structured block.
      */
@@ -96,18 +131,21 @@ public class CaseBlock extends StructuredBlock {
 		&& subBlock instanceof EmptyBlock
 		&& subBlock.jump == null)
 		return;
-	    writer.println("default:");
+	    writer.println("default:" + (wantBraces ? " {" : ""));
 	} else {
             ConstOperator constOp = new ConstOperator
                 (((SwitchBlock)outer).getInstruction().getType(), 
                  Integer.toString(value));
-	    writer.println("case " + constOp.toString()+":");
+	    writer.println("case " + constOp.toString() + ":"
+                           + (wantBraces ? " {" : ""));
         }
 	if (subBlock != null) {
 	    writer.tab();
 	    subBlock.dumpSource(writer);
 	    writer.untab();
 	}
+        if (wantBraces)
+            writer.println("}");
     }
 
     /**
