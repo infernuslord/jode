@@ -31,12 +31,31 @@ import javax.swing.event.TreeModelEvent;
 ///import com.sun.java.swing.event.TreeModelListener;
 ///import com.sun.java.swing.event.TreeModelEvent;
 ///#endif
-import java.util.*;
+
+///#ifdef JDK12
+///import java.util.Arrays;
+///import java.util.TreeSet;
+///import java.util.HashSet;
+///import java.util.Set;
+///import java.util.HashMap;
+///import java.util.Map;
+///#else
+import jode.util.Comparable;
+import jode.util.Arrays;
+import jode.util.TreeSet;
+import jode.util.HashSet;
+import jode.util.Set;
+import jode.util.HashMap;
+import jode.util.Map;
+///#endif
+
+import java.util.Enumeration;
+import java.util.NoSuchElementException;
 
 public class PackagesTreeModel implements TreeModel {
-    Hashtable cachedChildrens = new Hashtable();
+    Map cachedChildrens = new HashMap();
 
-    class TreeElement {
+    class TreeElement implements Comparable {
 	String fullName;
 	String name;
 	boolean leaf;
@@ -73,7 +92,7 @@ public class PackagesTreeModel implements TreeModel {
 
 	public boolean equals(Object o) {
 	    return (o instanceof TreeElement)
-		&& fullName == ((TreeElement)o).fullName;
+		&& fullName.equals(((TreeElement)o).fullName);
 	}
 
 	public int hashCode() {
@@ -82,14 +101,14 @@ public class PackagesTreeModel implements TreeModel {
     }
 
     TreeElement root = new TreeElement("", "", false);
-    Vector listeners = new Vector();
+    Set listeners = new HashSet();
 
     public void rebuild() {
 	cachedChildrens.clear();
 	TreeModelListener[] ls;
 	synchronized (listeners) {
-	    ls = new TreeModelListener[listeners.size()];
-	    listeners.copyInto(ls);
+	    ls = (TreeModelListener[]) 
+		listeners.toArray(new TreeModelListener[listeners.size()]);
 	}
 	TreeModelEvent ev = new TreeModelEvent(this, new Object[] { root });
 	for (int i=0; i< ls.length; i++)
@@ -100,45 +119,32 @@ public class PackagesTreeModel implements TreeModel {
 	TreeElement[] result = 
 	    (TreeElement[]) cachedChildrens.get(parent);
 	if (result == null) {
-	    Vector v = new Vector();
+	    TreeSet v = new TreeSet();
 	    String prefix = parent == root ? "" : parent.getFullName() + ".";
 	    Enumeration enum = 
 		ClassInfo.getClassesAndPackages(parent.getFullName());
 	    while (enum.hasMoreElements()) {
 		//insert sorted and remove double elements;
 		String name = (String)enum.nextElement();
-		String fqn = prefix+name;
+		String fqn = prefix + name;
 		boolean isClass = !ClassInfo.isPackage(fqn);
 
 		if (isClass && Decompiler.skipClass(ClassInfo.forName(fqn)))
 		    continue;
-
 		TreeElement newElem = new TreeElement(prefix, name, isClass);
-		for (int i=0; ; i++) {
-		    if (i == v.size()) {
-			v.addElement(newElem);
-			break;
-		    }
-		    int compare = newElem.compareTo(v.elementAt(i));
-		    if (compare < 0) {
-			v.insertElementAt(newElem, i);
-			break;
-		    } else if (compare == 0)
-			break;
-		}
+		v.add(newElem);
 	    }
-	    result = new TreeElement[v.size()];
-	    v.copyInto(result);
+	    result = (TreeElement[]) v.toArray(new TreeElement[v.size()]);
 	    cachedChildrens.put(parent, result);
 	}
 	return result;
     }
 
     public void addTreeModelListener(TreeModelListener l) {
-	listeners.addElement(l);
+	listeners.add(l);
     }
     public void removeTreeModelListener(TreeModelListener l) {
-	listeners.removeElement(l);
+	listeners.remove(l);
     }
     public void valueForPathChanged(TreePath path, Object newValue) {
 	// we don't allow values
@@ -154,10 +160,9 @@ public class PackagesTreeModel implements TreeModel {
 
     public int getIndexOfChild(Object parent, Object child) {
 	TreeElement[] childrens = getChildrens((TreeElement) parent);
-	for (int i=0; i< childrens.length; i++) {
-	    if (childrens[i] == child)
-		return i;
-	}
+	int i = Arrays.binarySearch(childrens, child);
+	if (i >= 0)
+	    return i;
 	throw new NoSuchElementException
 	    (((TreeElement)parent).getFullName() + "." + child);
     }
