@@ -65,6 +65,10 @@ public class FieldAnalyzer implements Analyzer {
 	return type;
     }
 
+    public ClassAnalyzer getClassAnalyzer() {
+	return clazz;
+    }
+
     public Expression getConstant() {
 	return constant;
     }
@@ -85,7 +89,11 @@ public class FieldAnalyzer implements Analyzer {
 	if (constant != null)
 	    return constant.equals(expr);
 
-	if (isSynthetic && isFinal()
+	/* This should check for isFinal(), but sadly, sometimes jikes
+	 * doesn't make a val$ field final.  I don't know when, or why,
+	 * so I currently ignore isFinal.
+	 */
+	if (isSynthetic
 	    && (fieldName.startsWith("this$")
 		|| fieldName.startsWith("val$"))) {
 	    if (fieldName.startsWith("val$") && fieldName.length() > 4
@@ -143,11 +151,15 @@ public class FieldAnalyzer implements Analyzer {
 	 * implicitly public, static, and final. It is permitted, but
 	 * strongly discouraged as a matter of style, to redundantly
 	 * specify any or all of these modifiers for such fields.
+	 *
+	 * But I personally don't like this style..., move the
+	 * comment mark if you think different.  
+
+ 	if (clazz.getClazz().isInterface())
+ 	    modifiedModifiers &= ~(Modifier.PUBLIC
+ 				   | Modifier.STATIC
+ 				   | Modifier.FINAL);
 	 */
-	if (clazz.getClazz().isInterface())
-	    modifiedModifiers &= ~(Modifier.PUBLIC
-				   | Modifier.STATIC
-				   | Modifier.FINAL);
 	String modif = Modifier.toString(modifiedModifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
@@ -159,6 +171,10 @@ public class FieldAnalyzer implements Analyzer {
 	    constant.dumpExpression(writer);
         }
         writer.println(";");
+    }
+
+    public String toString() {
+	return getClass().getName()+"["+clazz.getClazz()+"."+getName()+"]";
     }
 }
 
