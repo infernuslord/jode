@@ -18,11 +18,12 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public abstract class Operator extends Expression {
     public final static int ADD_OP     =  1;
-    public final static int NEG_OP     =  2;
+    public final static int SUB_OP     =  2;
     public final static int SHIFT_OP   =  6;
     public final static int AND_OP     =  9;
     public final static int ASSIGN_OP  = 12;
@@ -35,6 +36,7 @@ public abstract class Operator extends Expression {
     public final static int LOG_AND_OP = 32; /* must be even! */
     public final static int LOG_OR_OP  = 33;
     public final static int LOG_NOT_OP = 34;
+    public final static int NEG_OP     = 36;
     static String opString[] = {
         "", " + ", " - ", " * ", " / ", " % ", 
 	" << ", " >> ", " >>> ", " & ", " | ", " ^ ",
@@ -42,7 +44,7 @@ public abstract class Operator extends Expression {
 	" <<= ", " >>= ", " >>>= ", " &= ", " |= ", " ^= ",
         "++", "--",
         " == "," != "," < "," >= "," > ", " <= ", " && ", " || ",
-        "!", "~"
+        "!", "~", "-"
     };
 
     protected int operator;
@@ -98,23 +100,20 @@ public abstract class Operator extends Expression {
      */
     public abstract int getPriority();
 
-    /**
-     * Get minimum priority of the nth operand.
-     * @see getPriority
-     */
-    public abstract int getOperandPriority(int i);
     public abstract Type getOperandType(int i);
     public abstract int getOperandCount();
     public abstract void setOperandType(Type[] inputTypes);
-    public abstract String toString(String[] operands);
 
-    public String toString()
-    {
-        String[] operands = new String[getOperandCount()];
-        for (int i=0; i< operands.length; i++) {
-            operands[i] = "stack_"+(operands.length-i-1);
-        }
-        return toString(operands);
+    public abstract void dumpExpression
+	(TabbedPrintWriter writer, Expression[] operands) 
+	throws java.io.IOException;
+
+    public void dumpExpression(TabbedPrintWriter writer)
+	throws java.io.IOException {
+	Expression[] operands = new Expression[getOperandCount()];
+        for (int i=0; i< operands.length; i++)
+	    operands[i] = new NopOperator(getOperandType(i));
+        dumpExpression(writer, operands);
     }
 }
 

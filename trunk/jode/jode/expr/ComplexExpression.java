@@ -19,7 +19,8 @@
 
 package jode.expr;
 import jode.Decompiler;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class ComplexExpression extends Expression {
     Operator     operator;
@@ -317,28 +318,9 @@ public class ComplexExpression extends Expression {
         return operator.getType() == Type.tVoid;
     }
 
-    public String toString() {
-        String[] expr = new String[subExpressions.length];
-        for (int i=0; i<subExpressions.length; i++) {
-	    expr[i] = subExpressions[i].
-		toString(Decompiler.isTypeDebugging 
-			 ? 700 /* type cast priority */
-			 : operator.getOperandPriority(i));
-	    if (Decompiler.isTypeDebugging) {
-		expr[i] = "("+
-		    (operator.getOperandType(i)
-		     .equals(subExpressions[i].getType())
-		     ? "" : ""+subExpressions[i].getType()+"->")
-		    + operator.getOperandType(i)+") "+expr[i];
-		if (700 < operator.getOperandPriority(i))
-		    expr[i] = "(" + expr[i] + ")";
-	    }
-	    else if (subExpressions[i].getType() == Type.tError)
-		expr[i] = "(/*type error */" + expr[i]+")";
-	}
-	if (Decompiler.isTypeDebugging && parent != null)
-	    return "[("+type+") "+ operator.toString(expr)+"]";
-        return operator.toString(expr);
+    public void dumpExpression(TabbedPrintWriter writer)
+	throws java.io.IOException {
+	operator.dumpExpression(writer, subExpressions);
     }
 
     public boolean equals(Object o) {
@@ -498,7 +480,7 @@ public class ComplexExpression extends Expression {
             if ((operator.getOperatorIndex() == 
                  operator.OPASSIGN_OP+operator.ADD_OP ||
                  operator.getOperatorIndex() == 
-                 operator.OPASSIGN_OP+operator.NEG_OP) &&
+                 operator.OPASSIGN_OP+operator.SUB_OP) &&
                 (one.getValue().equals("1")
 		 || one.getValue().equals("1.0"))) {
 
