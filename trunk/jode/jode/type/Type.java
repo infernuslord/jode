@@ -1,24 +1,32 @@
-/* 
- * Type (c) 1998 Jochen Hoenicke
+/* Type Copyright (C) 1998-1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
 
 package jode;
+import jode.bytecode.ClassInfo;
+///#ifdef JDK12
+///import java.lang.ref.WeakReference;
+///import java.lang.ref.ReferenceQueue;
+///import java.util.Map;
+///import java.util.HashMap;
+///#else
 import java.util.Hashtable;
+///#endif
 
 /**
  * This is my type class.  It differs from java.lang.class, in
@@ -90,8 +98,15 @@ public class Type {
 
     protected static JodeEnvironment env;
 
-    public static final Hashtable classHash = new Hashtable();
-    public static final Hashtable arrayHash = new Hashtable();    
+///#ifdef JDK12
+///    private static final Map classHash = new HashMap();
+///    private static final ReferenceQueue classQueue = new ReferenceQueue();
+///    private static final Map arrayHash = new HashMap();    
+///    private static final ReferenceQueue arrayQueue = new ReferenceQueue();
+///#else
+    private static final Hashtable classHash = new Hashtable();
+    private static final Hashtable arrayHash = new Hashtable();    
+///#endif
 
     public static final Type tBoolean = new IntegerType(IntegerType.IT_Z);
     public static final Type tByte    = new IntegerType(IntegerType.IT_B);
@@ -154,17 +169,33 @@ public class Type {
             if (index != type.length()-1)
                 return tError;
             return tClass(type.substring(1, index));
+	case '(':
+	    return new MethodType(type);
         }
         throw new AssertError("Unknown type signature: "+type);
-
     }
 
     public static final ClassInterfacesType tClass(String clazzname) {
-        clazzname = clazzname.replace('/', '.');
-        Object result = classHash.get(clazzname);
+	return tClass(ClassInfo.forName(clazzname.replace('/','.')));
+    }
+
+    public static final ClassInterfacesType tClass(ClassInfo clazzinfo) {
+///#ifdef JDK12
+///	java.lang.ref.Reference died;
+///	while ((died = classQueue.poll()) != null)
+///	    classHash.values().remove(died);
+///	WeakReference ref = (WeakReference) classHash.get(clazzinfo);
+///        Object result = (ref == null) ? null : ref.get();
+///#else
+        Object result = classHash.get(clazzinfo);
+///#endif
         if (result == null) {
-            result = new ClassInterfacesType(clazzname);
-            classHash.put(clazzname, result);
+            result = new ClassInterfacesType(clazzinfo);
+///#ifdef JDK12
+///            classHash.put(clazzinfo, new WeakReference(result, classQueue));
+///#else
+            classHash.put(clazzinfo, result);
+///#endif
         }
         return (ClassInterfacesType) result;
     }
@@ -172,10 +203,22 @@ public class Type {
     public static final Type tArray(Type type) {
         if (type == tError) 
             return type;
+///#ifdef JDK12
+///	java.lang.ref.Reference died;
+///	while ((died = arrayQueue.poll()) != null)
+///	    arrayHash.values().remove(died);
+///	WeakReference ref = (WeakReference) arrayHash.get(type);
+///        Type result = (ref == null) ? null : (Type) ref.get();
+///#else
         Type result = (Type) arrayHash.get(type);
+///#endif
         if (result == null) {
             result = new ArrayType(type);
+///#ifdef JDK12
+///            arrayHash.put(type, new WeakReference(result, arrayQueue));
+///#else
             arrayHash.put(type, result);
+///#endif
         }
         return result;
     }
@@ -322,6 +365,19 @@ public class Type {
             return "d";
         default:
             return "local";
+        }
+    }
+
+    public Object getDefaultValue() {
+        switch (typecode) {
+        case TC_LONG:
+            return new Long(0);
+        case TC_FLOAT:
+            return new Float(0);
+        case TC_DOUBLE:
+            return new Double(0);
+        default:
+            return null;
         }
     }
 
