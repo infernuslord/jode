@@ -174,36 +174,8 @@ public class TransformExceptionHandlers {
                                   FlowBlock tryFlow, FlowBlock catchFlow) {
 
         StructuredBlock catchBlock = catchFlow.block;
-        LocalInfo local = null;
-        StructuredBlock firstInstr = (catchBlock instanceof SequentialBlock)
-            ? catchBlock.getSubBlocks()[0] : catchBlock;
 
-	if (firstInstr instanceof SpecialBlock
-	    && ((SpecialBlock) firstInstr).type == SpecialBlock.POP
-	    && ((SpecialBlock) firstInstr).count == 1) {
-	    /* The exception is ignored.  Create a dummy local for it */
-	    local = new LocalInfo();
-	    local.setName("exception");
-	    firstInstr.removeBlock();
-
-	} else if (firstInstr instanceof InstructionBlock) {
-            Expression instr = 
-                ((InstructionBlock) firstInstr).getInstruction();
-            if (instr instanceof StoreInstruction
-		&& (((StoreInstruction)instr).getLValue()
-		    instanceof LocalStoreOperator)) {
-                /* The exception is stored in a local variable */
-                local = ((LocalStoreOperator) 
-			 ((StoreInstruction)instr).getLValue()).getLocalInfo();
-                firstInstr.removeBlock();
-            }
-        }
-
-        if (local != null) {
-	    local.setType(type);
-	}
-
-        CatchBlock newBlock = new CatchBlock(type, local);
+        CatchBlock newBlock = new CatchBlock(type);
         ((TryBlock)tryFlow.block).addCatchBlock(newBlock);
         newBlock.setCatchBlock(catchFlow.block);
         tryFlow.mergeSuccessors(catchFlow);
