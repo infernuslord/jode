@@ -118,9 +118,9 @@ AC_MSG_CHECKING(for collection classes)
 JODE_CHECK_CLASS(java.util.Set, $CLASSPATH:$CLASSLIB,
  [ COLLECTIONS="java.util"
    COLLECTIONEXTRA="java.lang" ],
- [ JODE_CHECK_CLASS(org.gnu.java.util.collections.Set, $CLASSPATH:$CLASSLIB,
-    [ COLLECTIONS="org.gnu.java.util.collections"
-      COLLECTIONEXTRA="org.gnu.java.util.collections" ], 
+ [ JODE_CHECK_CLASS(gnu.java.util.collections.Set, $CLASSPATH:$CLASSLIB,
+    [ COLLECTIONS="gnu.java.util.collections"
+      COLLECTIONEXTRA="gnu.java.util.collections" ], 
     [ JODE_CHECK_CLASS(com.sun.java.util.collections.Set, $CLASSPATH:$CLASSLIB,
        [ COLLECTIONS="com.sun.java.util.collections"
          COLLECTIONEXTRA="com.sun.java.util.collections" ], 
