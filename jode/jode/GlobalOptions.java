@@ -54,34 +54,40 @@ public class GlobalOptions {
     public static void usageDebugging() {
 	err.println("Debugging option: --debug=flag1,flag2,...");
 	err.println("possible flags:");
-	err.println("\tbytecode     " +
+	err.println("  bytecode     " +
 		    "show bytecode, as it is read from class file.");
-	err.println("\tverifier     " +
+	err.println("  verifier     " +
 		    "show result of bytecode verification.");
-	err.println("\ttypes        " +
+	err.println("  types        " +
 		    "show type intersections");
-	err.println("\tflow         " +
+	err.println("  flow         " +
 		    "show flow block merging.");
-	err.println("\tanalyze      " +
-		    "show analyzation order of flow blocks.");
-	err.println("\tinout        " +
-		    "show T1/T2 in/out set analysis.");
-	err.println("\tlvt          " +
+	err.println("  analyze      " +
+		    "show T1/T2 analyzation of flow blocks.");
+	err.println("  inout        " +
+		    "show in/out set analysis.");
+	err.println("  lvt          " +
 		    "dump LocalVariableTable.");
-	err.println("\tcheck        " +
+	err.println("  check        " +
 		    "do time consuming sanity checks.");
-	err.println("\tlocals       " +
+	err.println("  locals       " +
 		    "dump local merging information.");
-	err.println("\tconstructors " +
+	err.println("  constructors " +
 		    "dump constructor simplification.");
-	err.println("\tinterpreter  " +
+	err.println("  interpreter  " +
 		    "debug execution of interpreter.");
 	System.exit(0);
     }
-
-    public static void setDebugging(String debuggingString) {
-	if (debuggingString.length() == 0 || debuggingString.equals("help"))
+    
+    /**
+     * Parse the argument given to the debugging flag.
+     * @return true, if the argument parsed without problems.
+     */
+    public static boolean setDebugging(String debuggingString) {
+	if (debuggingString.length() == 0 || debuggingString.equals("help")) {
 	    usageDebugging();
+	    return false;
+	}
 
 	StringTokenizer st = new StringTokenizer(debuggingString, ",");
     next_token:
@@ -94,7 +100,8 @@ public class GlobalOptions {
 		}
 	    }
 	    err.println("Illegal debugging flag: "+token);
-	    usageDebugging();
+	    return false;
 	}
+	return true;
     }
 }
