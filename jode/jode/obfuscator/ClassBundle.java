@@ -19,82 +19,78 @@
 package jode.obfuscator;
 import jode.Obfuscator;
 import jode.bytecode.ClassInfo;
+import java.io.*;
 import java.util.*;
 
 public class ClassBundle {
 
-    Hashtable loadedClasses = new Hashtable();
+    int preserveRule;
+    PackageIdentifier basePackage;
 
-    public ClassReachability getLoadedClass(String name) {
-	return (ClassReachability) loadedClasses.get(name);
+    public ClassBundle() {
+	basePackage = new PackageIdentifier(this, null, "", false);
+	basePackage.setReachable();
+	basePackage.setPreserved();
     }
 
-    public void loadClass(ClassInfo clazz) {
-	if (loadedClasses.get(clazz.getName()) != null) {
-	    Decompiler.err.println("warning: ignoring double class: "
-			       + clazz.getName());
-	    return;
+    public String getTypeAlias(String typeSig) {
+	StringBuffer newSig = new StringBuffer();
+	int index = 0, nextindex;
+	while ((nextindex = typeSig.indexOf('L', index)) != -1) {
+	    newSig.append(typeSig.substring(index, nextindex+1));
+	    index = typeSig.indexOf(';', nextindex);
+	    String alias = basePackage.findAlias
+		(typeSig.substring(nextindex+1, index).replace('/','.'));
+	    newSig.append(alias.replace('.', '/'));
 	}
-	loadedClasses.put(clazz.getName(), 
-			  new ClassReachability(this, clazz));
+	return newSig.append(typeSig.substring(index)).toString();
+    }
+
+    public Identifier getIdentifier(String name) {
+	return basePackage.getIdentifier(name);
     }
 
     public void loadClasses(String packageOrClass) {
-	if (ClassInfo.isPackage(packageOrClass)) {
-	    Enumeration enum = ClassInfo.getClasses(packageOrClass);
-	    while (enum.hasMoreElements())
-		loadClass((ClassInfo)enum.nextElement());
-	} else
-	    loadClass(ClassInfo.forName(packageOrClass));
+	basePackage.loadClasses(packageOrClass);
     }
 
-    public void markReachableField(String className, Type type, String name) {
-	ClassReachability cr = getLoadedClass(className);
-	if (cr != null)
-	    cr.markReachableField(type, name);
+    public void reachableIdentifier(String fqn, boolean isVirtual) {
+	basePackage.reachableIdentifier(fqn, isVirtual);
     }
 
-    public void markReachable(String className) {
-	ClassReachability cr = getLoadedClass(className);
-	if (cr != null)
-	    cr.markReachableField(type, name);
-    }
-
-    public void markPreservedField(String className, Type type, String name) {
-	ClassReachability cr = getLoadedClass(className);
-	if (cr != null)
-	    cr.markPreservedField(type, name);
-    }
-
-    public void markPreserved(int preserveRule,
-			      Vector classnames, Vector methodnames) {
-	Enumeration enum = loadedClasses.elements();
+    public void setPreserved(int preserveRule, Vector fullqualifiednames) {
+	this.preserveRule = preserveRule;
+	
+	Enumeration enum = fullqualifiednames.elements();
 	while (enum.hasMoreElements()) {
-	    ((ClassReachability) enum.nextElement())
-		.postInitialize();
+	    basePackage.preserveIdentifier((String) enum.nextElement());
 	}
-	if (preserveRule != Obfuscator.PRESERVE_NONE) {
-	    enum = loadedClasses.elements();
-	    while (enum.hasMoreElements()) {
-		((ClassReachability) enum.nextElement())
-		    .doPreserveRule(preserveRule);
-	    }
-	}
-	/*XXX*/
     }
 
     public void strip() {
+	basePackage.strip();
     }
 
     public void buildTable(int renameRule) {
+	basePackage.buildTable(renameRule);
     }
 
     public void readTable(String filename) {
     }
 
     public void writeTable(String filename) {
+	try {
+	    PrintWriter out = new PrintWriter(new FileOutputStream(filename));
+	    basePackage.writeTable(out);
+	    out.close();
+	} catch (java.io.IOException ex) {
+	    Obfuscator.err.println("Can't write rename table "+filename);
+	    ex.printStackTrace();
+	}
     }
 
     public void storeClasses(String destination) {
+	basePackage.storeClasses(new File(destination));
     }
 }
+
