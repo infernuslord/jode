@@ -27,11 +27,11 @@ import jode.decompiler.Expression;
 public class ReturnBlock extends InstructionContainer {
 
     public ReturnBlock() {
-        super(null);
+	super(null);
     }
 
-    public ReturnBlock(Expression instr, Jump jump) {
-        super(instr, jump);
+    public ReturnBlock(Expression instr) {
+        super(instr, new Jump(-1));
     }
 
     /**
