@@ -29,11 +29,6 @@ public class Jump {
      * The destination block of this jump, null if not known, or illegal.
      */
     FlowBlock destination;
-    /**
-     * The destination address, in case the destination block is not yet
-     * known.  
-     */
-    int destAddr;
 
     /**
      * The jumps in a flow block, that have the same destination, are
@@ -65,12 +60,6 @@ public class Jump {
      */
     VariableStack stackMap;
 
-    public Jump (int destAddr) {
-        this.destAddr = destAddr;
-	kill = new VariableSet();
-	gen = new VariableSet();
-    }
-
     public Jump (FlowBlock dest) {
         this.destination = dest;
 	kill = new VariableSet();
@@ -78,7 +67,6 @@ public class Jump {
     }
 
     public Jump (Jump jump) {
-	destAddr = jump.destAddr;
 	destination = jump.destination;
 	next = jump.next;
 	jump.next = this;
