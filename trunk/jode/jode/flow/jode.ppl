@@ -37,3 +37,100 @@
 1998-09-17 17:49:35 ecd
 1998-09-19 10:46:01 bcd
 1998-09-19 11:00:08 ecd
+1998-09-20 11:43:46 bcd
+1998-09-20 12:17:43 ecd
+1998-09-20 12:17:47 bcp
+1998-09-20 12:58:12 bi
+   auf Klo
+1998-09-20 12:59:31 ei
+1998-09-20 13:52:18 ecp
+   Mittagessen
+1998-09-20 14:32:06 bcd
+   Anpassung der alten Klassen
+1998-09-20 14:48:29 ecd
+   much more thinking....
+1998-09-22 15:48:29 bcp
+1998-09-22 16:05:14 ecp
+1998-09-22 16:05:15 bcd
+   LocalInfo ist alles.
+1998-09-22 16:19:06 ecd
+1998-09-22 16:19:10 bcp
+1998-09-22 16:19:42 ecp
+1998-09-22 16:19:45 bte
+1998-09-22 16:21:59 be
+1998-09-22 16:22:04 ee dr dummy ommission FlowBlock.java
+1998-09-22 16:24:25 ete
+   Juchu!!
+   
+   Es funktioniert natuerlich noch nicht richtig, da Transformationen
+   noch nicht aufgerufen werden, aber die erste Anweisung wird bereits
+   gedruckt.
+   
+   Nun geht es daran T1/T2-Analyse aufzurufen, und auch die alten einfachen
+   Transformationen irgendwo unterzubringen.
+1998-09-22 16:27:20 bds
+   (Auf Zettel)
+1998-09-22 17:12:12 eds
+1998-09-22 17:12:15 bcd
+1998-09-22 17:45:23 ecd
+1998-09-22 17:45:27 bcp
+1998-09-22 18:12:21 bi
+   auf Klo
+1998-09-22 18:14:36 ei
+1998-09-22 18:27:14 ecp
+1998-09-22 18:27:18 be
+1998-09-22 18:36:23 ee cd data omission FlowBlock.java
+1998-09-22 18:37:34 be
+1998-09-22 18:38:42 ee cd data omission FlowBlock.java
+1998-09-22 18:48:16 bcd
+   More diagnostics
+1998-09-22 18:56:59 ecd
+1998-09-22 18:57:03 bte
+1998-09-22 18:57:42 ete
+1998-09-22 18:57:49 bcd
+   even more diagnostics
+1998-09-22 19:33:01 ecd
+1998-09-22 19:33:07 bte
+1998-09-22 20:44:33 bi
+   essen
+1998-09-22 21:37:22 ei
+1998-09-22 21:35:26 be
+1998-09-22 21:39:59 ee cd data wrongorder FlowBlock.java
+1998-09-22 21:40:17 be
+1998-09-22 21:42:46 ee cd null omission FlowBlock.java
+1998-09-22 21:43:32 be
+1998-09-22 21:48:19 ee cd data omission FlowBlock.java
+1998-09-22 21:49:03 be
+1998-09-22 21:55:03 ee cd method omission LoopBlock.java
+1998-09-22 22:00:03 ete
+   The program is running and producing /*very ugly*/ but correct code
+1998-09-22 22:36:12 bcp
+1998-09-22 22:39:24 ecp
+1998-09-22 22:39:24 bcd
+   	...
+1998-09-22 22:47:16 ecd
+1998-09-22 23:24:51 bdr
+   ConditionalBlocks ueberarbeiten.
+1998-09-23 00:31:53 edr
+1998-09-23 00:31:56 bte
+   some minor bug fixes...
+1998-09-23 01:22:58 ete
+1998-09-23 10:02:45 bte
+   fixed all remaining bugs... :-)
+1998-09-23 11:02:45 ete
+1998-09-23 11:04:31 bcd
+1998-09-23 11:18:34 ecd CreateNewExpression
+1998-09-23 11:18:44 bcd
+1998-09-23 11:35:03 ecd
+1998-09-23 11:35:06 bi
+1998-09-23 11:39:15 ei
+1998-09-23 11:39:18 be
+   Flow analysis doesn't succeed on a huge methods.
+1998-09-23 11:48:34 ee ds loop notsimple FlowBlock.java
+1998-09-23 11:49:29 bdr
+1998-09-23 12:35:53 edr
+1998-09-23 12:36:07 bte
+   Analyzing a huge method
+   some heavy errors still...
+   ... fixing
+1998-09-23 13:27:22 ete
