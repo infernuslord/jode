@@ -94,7 +94,7 @@ public class CaseBlock extends StructuredBlock {
 	if (block == null)
 	    return false;
 	for (;;) {
-	    if (!block.declare.isEmpty()) {
+	    if (block.declare != null && !block.declare.isEmpty()) {
 		/* A declaration; we need braces. */
 		return true;
 	    }
@@ -108,6 +108,7 @@ public class CaseBlock extends StructuredBlock {
 
 	    StructuredBlock[] subBlocks = block.getSubBlocks();
 	    if (subBlocks[0] instanceof InstructionBlock
+		&& subBlocks[0].declare != null
 		&& !subBlocks[0].declare.isEmpty()) {
 		/* An instruction block declares on the same level as
 		 * the surrounding SequentialBlock.
