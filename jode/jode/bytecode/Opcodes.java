@@ -517,36 +517,37 @@ public abstract class Opcodes {
             case opc_dcmpl: case opc_dcmpg:
                 return createNormal
 		    (ca, addr, 1, new CompareToIntOperator
-		     (types[3][(opcode-opc_lcmp+3)/2], (opcode-opc_lcmp+3)%2));
+		     (types[3][(opcode-(opc_lcmp-3))/2], 
+                      (opcode-(opc_lcmp-3))%2));
             case opc_ifeq: case opc_ifne: 
                 return createIfGoto
 		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareUnaryOperator
-		     (BOOL_INT_TYPE, opcode - opc_ifeq+Operator.COMPARE_OP));
+		     (BOOL_INT_TYPE, opcode - (opc_ifeq-Operator.COMPARE_OP)));
             case opc_iflt: case opc_ifge: case opc_ifgt: case opc_ifle:
                 return createIfGoto
 		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareUnaryOperator
-		     (ALL_INT_TYPE, opcode - opc_ifeq+Operator.COMPARE_OP));
+		     (ALL_INT_TYPE, opcode - (opc_ifeq-Operator.COMPARE_OP)));
             case opc_if_icmpeq: case opc_if_icmpne:
                 return createIfGoto
 		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareBinaryOperator
 		     (Type.tBoolInt, 
-                      opcode - opc_if_icmpeq+Operator.COMPARE_OP));
+                      opcode - (opc_if_icmpeq-Operator.COMPARE_OP)));
             case opc_if_icmplt: case opc_if_icmpge: 
             case opc_if_icmpgt: case opc_if_icmple:
                 return createIfGoto
 		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareBinaryOperator
 		     (ALL_INT_TYPE, 
-                      opcode - opc_if_icmpeq+Operator.COMPARE_OP));
+                      opcode - (opc_if_icmpeq-Operator.COMPARE_OP)));
             case opc_if_acmpeq: case opc_if_acmpne:
                 return createIfGoto
 		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareBinaryOperator
 		     (OBJECT_TYPE, 
-                      opcode - opc_if_acmpeq+Operator.COMPARE_OP));
+                      opcode - (opc_if_acmpeq-Operator.COMPARE_OP)));
             case opc_goto:
                 return createGoto
 		    (ca, addr, 3, addr+stream.readShort());
@@ -602,34 +603,54 @@ public abstract class Opcodes {
 		return createBlock
 		    (ca, addr, 1, new EmptyBlock(new Jump(-1)));
             case opc_getstatic:
-            case opc_getfield:
+            case opc_getfield: {
+                CpoolRef field = (CpoolRef)ca.method.classAnalyzer
+                    .getConstant(stream.readUnsignedShort());
                 return createNormal
 		    (ca, addr, 3, new GetFieldOperator
 		     (ca, opcode == opc_getstatic,
-		      (CpoolRef)ca.method.classAnalyzer.getConstant
-		      (stream.readUnsignedShort())));
+                      Type.tClass(field.getCpoolClass().getName().getString()),
+                      Type.tType(field.getNameAndType().getType().getString()),
+                      field.getNameAndType().getName().getString()));
+            }
             case opc_putstatic:
-            case opc_putfield:
+            case opc_putfield: {
+                CpoolRef field = (CpoolRef)ca.method.classAnalyzer
+                    .getConstant(stream.readUnsignedShort());
 		return createNormal
                     (ca, addr, 3, new PutFieldOperator
 		     (ca, opcode == opc_putstatic,
-		      (CpoolRef)ca.method.classAnalyzer.getConstant
-		      (stream.readUnsignedShort())));
+                      Type.tClass(field.getCpoolClass().getName().getString()),
+                      Type.tType(field.getNameAndType().getType().getString()),
+                      field.getNameAndType().getName().getString()));
+            }
             case opc_invokevirtual:
             case opc_invokespecial:
-            case opc_invokestatic :
+            case opc_invokestatic : {
+                CpoolRef field = (CpoolRef)ca.method.classAnalyzer
+                    .getConstant(stream.readUnsignedShort());
                 return createNormal
 		    (ca, addr, 3, new InvokeOperator
-		     (ca, 
-                      opcode == opc_invokestatic, opcode == opc_invokespecial, 
-		      (CpoolRef)ca.method.classAnalyzer.getConstant
-		      (stream.readUnsignedShort())));
+		     (ca, opcode == opc_invokespecial, 
+                      Type.tClass(field.getCpoolClass()
+                                  .getName().getString()),
+                      new MethodType(opcode == opc_invokestatic, 
+                                     field.getNameAndType()
+                                     .getType().getString()),
+                      field.getNameAndType().getName().getString()));
+            }
             case opc_invokeinterface: {
+                CpoolRef field = (CpoolRef)ca.method.classAnalyzer.getConstant
+                    (stream.readUnsignedShort());
+
                 FlowBlock fb = createNormal
 		    (ca, addr, 5, new InvokeOperator
-		     (ca, false, false,
-		      (CpoolRef)ca.method.classAnalyzer.getConstant
-		      (stream.readUnsignedShort())));
+		     (ca, false,
+                      Type.tClass(field.getCpoolClass()
+                                  .getName().getString()),
+                      new MethodType(false, field.getNameAndType()
+                                     .getType().getString()),
+                      field.getNameAndType().getName().getString()));
                 int reserved = stream.readUnsignedShort();
 		return fb;
             }
@@ -754,7 +775,7 @@ public abstract class Opcodes {
                 return createIfGoto
 		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareUnaryOperator
-		     (OBJECT_TYPE, opcode - opc_ifnull+Operator.COMPARE_OP));
+		     (OBJECT_TYPE, opcode - (opc_ifnull-Operator.COMPARE_OP)));
             case opc_goto_w:
                 return createGoto
 		    (ca, addr, 5, addr + stream.readInt());
