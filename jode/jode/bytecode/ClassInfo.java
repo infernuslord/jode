@@ -52,6 +52,8 @@ public class ClassInfo extends BinaryInfo {
 
     private int status = 0;
 
+    private boolean modified = false;
+
     private int modifiers = -1;
     private String name;
     private ClassInfo    superclass;
@@ -89,7 +91,7 @@ public class ClassInfo extends BinaryInfo {
 	    ci.fields = null;
 	    ci.interfaces = null;
 	    ci.methods = null;
-	    ci.unknownAttributes = null;
+	    ci.removeAllAttributes();
 	}
     }
 
@@ -125,6 +127,7 @@ public class ClassInfo extends BinaryInfo {
 	    || name.indexOf('[') != -1
 	    || name.indexOf('/') != -1)
 	    throw new IllegalArgumentException("Illegal class name: "+name);
+
 ///#ifdef JDK12
 ///	java.lang.ref.Reference died;
 ///	while ((died = queue.poll()) != null) {
@@ -528,6 +531,16 @@ public class ClassInfo extends BinaryInfo {
     }
     
     public void loadInfo(int howMuch) {
+	if ((status & howMuch) == howMuch)
+	    return;
+	if (modified) {
+	    System.err.println("Allocating info 0x"
+			       + Integer.toHexString(howMuch)
+			       + " (status 0x" + Integer.toHexString(status)
+			       + ") in class " + this);
+	    Thread.dumpStack();
+	    return;
+	}
         try {
             DataInputStream input = 
                 new DataInputStream(classpath.getFile(name.replace('.', '/')
@@ -679,40 +692,58 @@ public class ClassInfo extends BinaryInfo {
         return extraClasses;
     }
 
+    public String getSourceFile() {
+	return sourceFile;
+    }
+
     public void setName(String newName) {
 	name = newName;
+	modified = true;
     }
 
     public void setSuperclass(ClassInfo newSuper) {
 	superclass = newSuper;
+	modified = true;
     }
     
     public void setInterfaces(ClassInfo[] newIfaces) {
         interfaces = newIfaces;
+	modified = true;
     }
 
     public void setModifiers(int newModifiers) {
         modifiers = newModifiers;
+	modified = true;
     }
 
     public void setMethods(MethodInfo[] mi) {
         methods = mi;
+	modified = true;
     }
 
     public void setFields(FieldInfo[] fi) {
         fields = fi;
+	modified = true;
     }
 
     public void setOuterClasses(InnerClassInfo[] oc) {
         outerClasses = oc;
+	modified = true;
     }
 
     public void setInnerClasses(InnerClassInfo[] ic) {
         innerClasses = ic;
+	modified = true;
     }
 
     public void setExtraClasses(InnerClassInfo[] ec) {
         extraClasses = ec;
+	modified = true;
+    }
+
+    public void setSourceFile(String newSource) {
+	sourceFile = newSource;
+	modified = true;
     }
 
     public boolean superClassOf(ClassInfo son) {
