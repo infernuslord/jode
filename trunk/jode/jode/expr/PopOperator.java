@@ -4,9 +4,9 @@ import sun.tools.java.Type;
 public class PopOperator extends SimpleOperator {
     int count;
 
-    public PopOperator(int a, int l, int count) {
-        super(a,l, Type.tVoid, 0, 1);
-        operandTypes[0] = UnknownType.tUnknown;
+    public PopOperator(int count) {
+        super(Type.tVoid, 0, 1);
+        operandTypes[0] = MyType.tUnknown;
         this.count = count;
     }
 
@@ -18,7 +18,7 @@ public class PopOperator extends SimpleOperator {
         return 0;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public String toString(String[] operands) {
         return operands[0];
     }
 }

@@ -3,14 +3,12 @@ package jode;
 public class JsrOperator extends Instruction {
     int destination;
 
-    public JsrOperator(int addr, int length, int dest) {
-        super(addr,length);
-        this.destination = dest;
+    public JsrOperator() {
+        super(MyType.tVoid);
     }
 
-    public void dumpSource(TabbedPrintWriter writer, CodeAnalyzer ca) 
-         throws java.io.IOException
+    public String toString() 
     {
-        writer.println("jsr addr_"+destination+";");
+        return "JSR";
     }
 }

@@ -3,8 +3,12 @@ import sun.tools.java.Type;
 
 public abstract class NoArgOperator extends Operator {
 
-    public NoArgOperator(int addr, int length, Type type) {
-        super(addr, length, type, 0);
+    public NoArgOperator(Type type, int operator) {
+        super(type, operator);
+    }
+
+    public NoArgOperator(Type type) {
+        this(type, 0);
     }
 
     public int getOperandCount() {

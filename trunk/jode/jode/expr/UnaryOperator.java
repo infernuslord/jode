@@ -2,8 +2,8 @@ package jode;
 import sun.tools.java.Type;
 
 public class UnaryOperator extends SimpleOperator {
-    public UnaryOperator(int addr, int length, Type type, int op) {
-        super(addr,length, type, op, 1);
+    public UnaryOperator(Type type, int op) {
+        super(type, op, 1);
     }
     
     public int getPriority() {
@@ -20,7 +20,7 @@ public class UnaryOperator extends SimpleOperator {
      */
     public boolean setType(Type type) {
         super.setType(type);
-        Type newOpType = UnknownType.commonType(type, operandTypes[0]);
+        Type newOpType = MyType.intersection(type, operandTypes[0]);
         if (newOpType != operandTypes[0]) {
             operandTypes[0] = newOpType;
             return true;
@@ -28,7 +28,12 @@ public class UnaryOperator extends SimpleOperator {
         return false;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public boolean equals(Object o) {
+	return (o instanceof UnaryOperator) &&
+	    ((UnaryOperator)o).operator == operator;
+    }
+
+    public String toString(String[] operands) {
         return getOperatorString() + operands[0];
     }
 }

@@ -2,8 +2,8 @@ package jode;
 import sun.tools.java.Type;
 
 public class MonitorExitOperator extends SimpleOperator {
-    public MonitorExitOperator(int a, int l) {
-        super(a,l,Type.tVoid, 0, 1);
+    public MonitorExitOperator() {
+        super(Type.tVoid, 0, 1);
         operandTypes[0] = Type.tObject;
     }
 
@@ -16,10 +16,10 @@ public class MonitorExitOperator extends SimpleOperator {
     }
 
     public Type getOperandType(int i) {
-        return UnknownType.tObject;
+        return MyType.tObject;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public String toString(String[] operands) {
         return "monitorexit "+operands[0];
     }
 }

@@ -4,9 +4,8 @@ import sun.tools.java.*;
 public class ConstructorOperator extends Operator {
     FieldDefinition field;
 
-    public ConstructorOperator(int addr, int length, Type type,
-                               FieldDefinition field) {
-        super(addr,length, type, 0);
+    public ConstructorOperator(Type type, FieldDefinition field) {
+        super(type, 0);
         this.field = field;
     }
 
@@ -33,7 +32,7 @@ public class ConstructorOperator extends Operator {
     public void setOperandType(Type types[]) {
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public String toString(String[] operands) {
         StringBuffer result = new StringBuffer(operands[0]).append("(");
         for (int i=0; i < field.getType().getArgumentTypes().length; i++) {
             if (i>0)

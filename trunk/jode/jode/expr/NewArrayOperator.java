@@ -2,20 +2,15 @@ package jode;
 import sun.tools.java.Type;
 
 public class NewArrayOperator extends SimpleOperator {
-    Type baseType;
+    String baseTypeString;
 
-    public NewArrayOperator(int addr, int length, 
-                          Type baseType, int dimensions) {
-        super(addr, length, baseType, 0, dimensions);
-        this.baseType = baseType;
+    public NewArrayOperator(Type arrayType, String baseTypeString, 
+                            int dimensions) {
+        super(arrayType, 0, dimensions);
         for (int i=0; i< dimensions; i++) {
-            this.type = Type.tArray(this.type);
-            operandTypes[i] = UnknownType.tUIndex;
+            operandTypes[i] = MyType.tUIndex;
         }
-    }
-
-    public NewArrayOperator(int addr, int length, Type baseType) {
-        this(addr, length, baseType, 1);
+        this.baseTypeString = baseTypeString;
     }
 
     public int getPriority() {
@@ -26,9 +21,9 @@ public class NewArrayOperator extends SimpleOperator {
         return 0;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public String toString(String[] operands) {
         StringBuffer result 
-            = new StringBuffer("new ").append(ca.getTypeString(baseType));
+            = new StringBuffer("new ").append(baseTypeString);
         for (int i=0; i< getOperandCount(); i++) {
             result.append("[").append(operands[i]).append("]");
         }

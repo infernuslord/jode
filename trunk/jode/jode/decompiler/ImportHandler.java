@@ -8,10 +8,12 @@ public class JodeEnvironment extends LoadEnvironment {
     BinaryClass main;
     Identifier pkg;
 
-    boolean isVerbose = true;
+    public boolean isVerbose = false;
+    public boolean isDebugging = false;
 
     JodeEnvironment() {
         super(null);
+	MyType.setEnvironment(this);
         path = new ClassPath(System.getProperty("java.class.path"));
     }
 
@@ -38,8 +40,16 @@ public class JodeEnvironment extends LoadEnvironment {
         }
     }
 
-    public String getNickName(String string) {
-        return string;
+    public String getTypeString(Type type) {
+        return type.toString();
+    }
+
+    public String getTypeString(Identifier clazz) {
+        return clazz.toString();
+    }
+
+    public String getTypeString(Type type, Identifier name) {
+        return type.typeString(name.toString(), false, false);
     }
 
     public ClassDefinition getClassDefinition() {
@@ -81,6 +91,7 @@ public class JodeEnvironment extends LoadEnvironment {
             a.analyze();
             TabbedPrintWriter writer = 
                 new TabbedPrintWriter(System.out, "    ");
+            writer.verbosity = isDebugging?10:0;
             a.dumpSource(writer);
         } catch (ClassNotFound e) {
             error(e.toString());

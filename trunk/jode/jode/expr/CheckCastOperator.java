@@ -2,9 +2,12 @@ package jode;
 import sun.tools.java.Type;
 
 public class CheckCastOperator extends SimpleOperator {
-    public CheckCastOperator(int addr, int length, Type type) {
-        super(addr,length, type, 0, 1);
-        operandTypes[0] = UnknownType.tSubClass(type);
+    String typeString;
+
+    public CheckCastOperator(Type type, String typeString) {
+        super(type, 0, 1);
+        this.typeString = typeString;
+        operandTypes[0] = MyType.tSuperType(type);
     }
 
     public int getPriority() {
@@ -15,7 +18,7 @@ public class CheckCastOperator extends SimpleOperator {
         return getPriority();
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
-        return "("+ca.getTypeString(type) + ")" + operands[0];
+    public String toString(String[] operands) {
+        return "(" + typeString + ")" + operands[0];
     }
 }

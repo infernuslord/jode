@@ -1,13 +1,12 @@
 package jode;
 
 public class SwapOperator extends Instruction {
-    public SwapOperator(int a, int l) {
-        super(a,l);
+    public SwapOperator() {
+        super(MyType.tError);
     }
 
-    public void dumpSource(TabbedPrintWriter writer, CodeAnalyzer ca) 
-         throws java.io.IOException
+    public String toString() 
     {
-        writer.println("swap;");
+        return "swap";
     }
 }

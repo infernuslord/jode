@@ -2,14 +2,16 @@ package jode;
 import sun.tools.java.*;
 
 public class InvokeOperator extends Operator {
+    CodeAnalyzer codeAnalyzer;
     boolean staticFlag;
     boolean specialFlag;
     FieldDefinition field;
 
-    public InvokeOperator(int addr, int length, 
+    public InvokeOperator(CodeAnalyzer codeAnalyzer,
                           boolean staticFlag, boolean specialFlag, 
                           FieldDefinition field) {
-        super(addr,length, field.getType().getReturnType(), 0);
+        super(field.getType().getReturnType(), 0);
+        this.codeAnalyzer  = codeAnalyzer;
         this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
         this.field = field;
@@ -40,10 +42,10 @@ public class InvokeOperator extends Operator {
     public Type getOperandType(int i) {
         if (!staticFlag) {
             if (i == 0)
-                return field.getClassDeclaration().getType();
+                return MyType.tSubType(field.getClassDeclaration().getType());
             i--;
         }
-        return field.getType().getArgumentTypes()[i];
+        return MyType.tSubType(field.getType().getArgumentTypes()[i]);
     }
 
     public void setOperandType(Type types[]) {
@@ -53,33 +55,33 @@ public class InvokeOperator extends Operator {
         return field.isConstructor();
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public String toString(String[] operands) {
         String object;
         int arg = 0;
         if (staticFlag) {
-            if (field.getClassDefinition() == ca.getClassDefinition())
+            if (field.getClassDefinition() == codeAnalyzer.getClassDefinition())
                 object = "";
             else
-                object = ca.
+                object = codeAnalyzer.
                     getTypeString(field.getClassDeclaration().getType());
         } else {
             if (operands[arg].equals("this")) {
                 if (specialFlag && 
                     (field.getClassDeclaration() == 
-                     ca.getClassDefinition().getSuperClass() ||
+                     codeAnalyzer.getClassDefinition().getSuperClass() ||
                      (field.getClassDeclaration().getName() == 
                       Constants.idJavaLangObject &&
-                      ca.getClassDefinition().getSuperClass() == null)))
+                      codeAnalyzer.getClassDefinition().getSuperClass() == null)))
                     object = "super";
                 else if (specialFlag)
-                    object = "(("+ca.getTypeString
+                    object = "(("+codeAnalyzer.getTypeString
                         (field.getClassDeclaration().getType())+
                         ") this)";
                 else
                     object = "";
             } else {
                 if (specialFlag)
-                    object = "(("+ca.getTypeString
+                    object = "(("+codeAnalyzer.getTypeString
                         (field.getClassDeclaration().getType())+
                         ") "+operands[arg]+")";
                 else
@@ -106,5 +108,12 @@ public class InvokeOperator extends Operator {
             params.append(operands[arg++]);
         }
         return method+"("+params+")";
+    }
+
+    public boolean equals(Object o) {
+	return (o instanceof InvokeOperator) &&
+	    ((InvokeOperator)o).field == field &&
+	    ((InvokeOperator)o).staticFlag == staticFlag &&
+	    ((InvokeOperator)o).specialFlag == specialFlag;
     }
 }

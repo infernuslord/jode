@@ -1,10 +1,11 @@
 package jode;
+import sun.tools.java.Type;
 
 public class DupOperator extends Instruction {
     int count, depth;
 
-    public DupOperator(int a, int l, int depth, int count) {
-        super(a,l);
+    public DupOperator(int depth, int count) {
+        super(MyType.tUnknown);
         this.count = count;
         this.depth = depth;
     }
@@ -17,9 +18,8 @@ public class DupOperator extends Instruction {
         return depth;
     }
 
-    public void dumpSource(TabbedPrintWriter tpw, CodeAnalyzer ca) 
-         throws java.io.IOException
+    public String toString() 
     {
-        tpw.println("dup"+count+"_x"+depth+";");
+        return "dup"+count+"_x"+depth;
     }
 }

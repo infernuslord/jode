@@ -1,220 +1,24 @@
 package jode;
 import java.io.*;
-import sun.tools.java.Type;
+import sun.tools.java.*;
 
-public interface Opcodes {
-    public final static int NOP_OP             =   0;
-    public final static int ACONST_NULL_OP     =   1;
-    public final static int ICONST_M1_OP       =   2;
-    public final static int ICONST_0_OP        =   3;
-    public final static int ICONST_1_OP        =   4;
-    public final static int ICONST_2_OP        =   5;
-    public final static int ICONST_3_OP        =   6;
-    public final static int ICONST_4_OP        =   7;
-    public final static int ICONST_5_OP        =   8;
-    public final static int LCONST_0_OP        =   9;
-    public final static int LCONST_1_OP        =  10;
-    public final static int FCONST_0_OP        =  11;
-    public final static int FCONST_1_OP        =  12;
-    public final static int FCONST_2_OP        =  13;
-    public final static int DCONST_0_OP        =  14;
-    public final static int DCONST_1_OP        =  15;
-    public final static int BIPUSH_OP          =  16;
-    public final static int SIPUSH_OP          =  17;
-    public final static int LDC_OP             =  18;
-    public final static int LDC_W_OP           =  19;
-    public final static int LDC2_W_OP          =  20;
-    public final static int ILOAD_OP           =  21;
-    public final static int LLOAD_OP           =  22;
-    public final static int FLOAD_OP           =  23;
-    public final static int DLOAD_OP           =  24;
-    public final static int ALOAD_OP           =  25;
-    public final static int ILOAD_0_OP         =  26;
-    public final static int ILOAD_1_OP         =  27;
-    public final static int ILOAD_2_OP         =  28;
-    public final static int ILOAD_3_OP         =  29;
-    public final static int LLOAD_0_OP         =  30;
-    public final static int LLOAD_1_OP         =  31;
-    public final static int LLOAD_2_OP         =  32;
-    public final static int LLOAD_3_OP         =  33;
-    public final static int FLOAD_0_OP         =  34;
-    public final static int FLOAD_1_OP         =  35;
-    public final static int FLOAD_2_OP         =  36;
-    public final static int FLOAD_3_OP         =  37;
-    public final static int DLOAD_0_OP         =  38;
-    public final static int DLOAD_1_OP         =  39;
-    public final static int DLOAD_2_OP         =  40;
-    public final static int DLOAD_3_OP         =  41;
-    public final static int ALOAD_0_OP         =  42;
-    public final static int ALOAD_1_OP         =  43;
-    public final static int ALOAD_2_OP         =  44;
-    public final static int ALOAD_3_OP         =  45;
-    public final static int IALOAD_OP          =  46;
-    public final static int LALOAD_OP          =  47;
-    public final static int FALOAD_OP          =  48;
-    public final static int DALOAD_OP          =  49;
-    public final static int AALOAD_OP          =  50;
-    public final static int BALOAD_OP          =  51;
-    public final static int CALOAD_OP          =  52;
-    public final static int SALOAD_OP          =  53;
-    public final static int ISTORE_OP          =  54;
-    public final static int LSTORE_OP          =  55;
-    public final static int FSTORE_OP          =  56;
-    public final static int DSTORE_OP          =  57;
-    public final static int ASTORE_OP          =  58;
-    public final static int ISTORE_0_OP        =  59;
-    public final static int ISTORE_1_OP        =  60;
-    public final static int ISTORE_2_OP        =  61;
-    public final static int ISTORE_3_OP        =  62;
-    public final static int LSTORE_0_OP        =  63;
-    public final static int LSTORE_1_OP        =  64;
-    public final static int LSTORE_2_OP        =  65;
-    public final static int LSTORE_3_OP        =  66;
-    public final static int FSTORE_0_OP        =  67;
-    public final static int FSTORE_1_OP        =  68;
-    public final static int FSTORE_2_OP        =  69;
-    public final static int FSTORE_3_OP        =  70;
-    public final static int DSTORE_0_OP        =  71;
-    public final static int DSTORE_1_OP        =  72;
-    public final static int DSTORE_2_OP        =  73;
-    public final static int DSTORE_3_OP        =  74;
-    public final static int ASTORE_0_OP        =  75;
-    public final static int ASTORE_1_OP        =  76;
-    public final static int ASTORE_2_OP        =  77;
-    public final static int ASTORE_3_OP        =  78;
-    public final static int IASTORE_OP         =  79;
-    public final static int LASTORE_OP         =  80;
-    public final static int FASTORE_OP         =  81;
-    public final static int DASTORE_OP         =  82;
-    public final static int AASTORE_OP         =  83;
-    public final static int BASTORE_OP         =  84;
-    public final static int CASTORE_OP         =  85;
-    public final static int SASTORE_OP         =  86;
-    public final static int POP_OP             =  87;
-    public final static int POP2_OP            =  88;
-    public final static int DUP_OP             =  89;
-    public final static int DUP_X1_OP          =  90;
-    public final static int DUP_X2_OP          =  91;
-    public final static int DUP2_OP            =  92;
-    public final static int DUP2_X1_OP         =  93;
-    public final static int DUP2_X2_OP         =  94;
-    public final static int SWAP_OP            =  95;
-    public final static int IADD_OP            =  96;
-    public final static int LADD_OP            =  97;
-    public final static int FADD_OP            =  98;
-    public final static int DADD_OP            =  99;
-    public final static int ISUB_OP            = 100;
-    public final static int LSUB_OP            = 101;
-    public final static int FSUB_OP            = 102;
-    public final static int DSUB_OP            = 103;
-    public final static int IMUL_OP            = 104;
-    public final static int LMUL_OP            = 105;
-    public final static int FMUL_OP            = 106;
-    public final static int DMUL_OP            = 107;
-    public final static int IDIV_OP            = 108;
-    public final static int LDIV_OP            = 109;
-    public final static int FDIV_OP            = 110;
-    public final static int DDIV_OP            = 111;
-    public final static int IREM_OP            = 112;
-    public final static int LREM_OP            = 113;
-    public final static int FREM_OP            = 114;
-    public final static int DREM_OP            = 115;
-    public final static int INEG_OP            = 116;
-    public final static int LNEG_OP            = 117;
-    public final static int FNEG_OP            = 118;
-    public final static int DNEG_OP            = 119;
-    public final static int ISHL_OP            = 120;
-    public final static int LSHL_OP            = 121;
-    public final static int ISHR_OP            = 122;
-    public final static int LSHR_OP            = 123;
-    public final static int IUSHR_OP           = 124;
-    public final static int LUSHR_OP           = 125;
-    public final static int IAND_OP            = 126;
-    public final static int LAND_OP            = 127;
-    public final static int IOR_OP             = 128;
-    public final static int LOR_OP             = 129;
-    public final static int IXOR_OP            = 130;
-    public final static int LXOR_OP            = 131;
-    public final static int IINC_OP            = 132;
-    public final static int I2L_OP             = 133;
-    public final static int I2F_OP             = 134;
-    public final static int I2D_OP             = 135;
-    public final static int L2I_OP             = 136;
-    public final static int L2F_OP             = 137;
-    public final static int L2D_OP             = 138;
-    public final static int F2I_OP             = 139;
-    public final static int F2L_OP             = 140;
-    public final static int F2D_OP             = 141;
-    public final static int D2I_OP             = 142;
-    public final static int D2L_OP             = 143;
-    public final static int D2F_OP             = 144;
-    public final static int I2B_OP             = 145;
-    public final static int I2C_OP             = 146;
-    public final static int I2S_OP             = 147;
-    public final static int LCMP_OP            = 148;
-    public final static int FCMPL_OP           = 149;
-    public final static int FCMPG_OP           = 150;
-    public final static int DCMPL_OP           = 151;
-    public final static int DCMPG_OP           = 152;
-    public final static int IFEQ_OP            = 153;
-    public final static int IFNE_OP            = 154;
-    public final static int IFLT_OP            = 155;
-    public final static int IFGE_OP            = 156;
-    public final static int IFGT_OP            = 157;
-    public final static int IFLE_OP            = 158;
-    public final static int IF_ICMPEQ_OP       = 159;
-    public final static int IF_ICMPNE_OP       = 160;
-    public final static int IF_ICMPLT_OP       = 161;
-    public final static int IF_ICMPGE_OP       = 162;
-    public final static int IF_ICMPGT_OP       = 163;
-    public final static int IF_ICMPLE_OP       = 164;
-    public final static int IF_ACMPEQ_OP       = 165;
-    public final static int IF_ACMPNE_OP       = 166;
-    public final static int GOTO_OP            = 167;
-    public final static int JSR_OP             = 168;
-    public final static int RET_OP             = 169;
-    public final static int TABLESWITCH_OP     = 170;
-    public final static int LOOKUPSWITCH_OP    = 171;
-    public final static int IRETURN_OP         = 172;
-    public final static int LRETURN_OP         = 173;
-    public final static int FRETURN_OP         = 174;
-    public final static int DRETURN_OP         = 175;
-    public final static int ARETURN_OP         = 176;
-    public final static int RETURN_OP          = 177;
-    public final static int GETSTATIC_OP       = 178;
-    public final static int PUTSTATIC_OP       = 179;
-    public final static int GETFIELD_OP        = 180;
-    public final static int PUTFIELD_OP        = 181;
-    public final static int INVOKEVIRTUAL_OP   = 182;
-    public final static int INVOKESPECIAL_OP   = 183;
-    public final static int INVOKESTATIC_OP    = 184;
-    public final static int INVOKEINTERFACE_OP = 185;
-    public final static int NEW_OP             = 187;
-    public final static int NEWARRAY_OP        = 188;
-    public final static int ANEWARRAY_OP       = 189;
-    public final static int ARRAYLENGTH_OP     = 190;
-    public final static int ATHROW_OP          = 191;
-    public final static int CHECKCAST_OP       = 192;
-    public final static int INSTANCEOF_OP      = 193;
-    public final static int MONITORENTER_OP    = 194;
-    public final static int MONITOREXIT_OP     = 195;
-    public final static int WIDE_OP            = 196;
-    public final static int MULTIANEWARRAY_OP  = 197;
-    public final static int IFNULL_OP          = 198;
-    public final static int IFNONNULL_OP       = 199;
-    public final static int GOTO_W_OP          = 200;
-    public final static int JSR_W_OP           = 201;
+/**
+ * This is an abstract class which creates InstructionHeader for the
+ * opcodes in an byte stream.
+ */
+public abstract class Opcodes implements RuntimeConstants{
 
-    public final static Type ALL_INT_TYPE = UnknownType.tUInt;
+    public final static Type ALL_INT_TYPE = MyType.tUInt;
     public final static Type     INT_TYPE = Type.tInt;
     public final static Type    LONG_TYPE = Type.tLong;
     public final static Type   FLOAT_TYPE = Type.tFloat;
     public final static Type  DOUBLE_TYPE = Type.tDouble;
-    public final static Type  OBJECT_TYPE = UnknownType.tUObject;
+    public final static Type  OBJECT_TYPE = MyType.tUObject;
     public final static Type BOOLEAN_TYPE = Type.tBoolean;
     public final static Type    BYTE_TYPE = Type.tByte;
     public final static Type    CHAR_TYPE = Type.tChar;
     public final static Type   SHORT_TYPE = Type.tShort;
+    public final static Type    VOID_TYPE = Type.tVoid;
 
     
     public final static Type types[][] = {
@@ -222,4 +26,439 @@ public interface Opcodes {
         {     INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE, 
              BYTE_TYPE, CHAR_TYPE, SHORT_TYPE }
     };
+
+
+    /**
+     * Read an opcode out of a data input stream containing the bytecode.
+     * @param addr    The current address.
+     * @param stream  The stream containing the java byte code.
+     * @param ca      The Code Analyzer 
+     *                (where further information can be get from).
+     * @return The InstructionHeader representing this opcode
+     *         or null if the stream is empty.
+     * @exception IOException  if an read error occured.
+     * @exception ClassFormatError  if an invalid opcode is detected.
+     */
+    public static 
+	InstructionHeader readOpcode(int addr, DataInputStream stream,
+				     CodeAnalyzer ca) 
+         throws IOException, ClassFormatError
+    {
+        try {
+            int opcode = stream.readUnsignedByte();
+            switch (opcode) {
+            case opc_nop:
+                return new InstructionHeader(addr, 1, new NopOperator());
+            case opc_aconst_null:
+                return new InstructionHeader
+		    (addr, 1, new ConstOperator(OBJECT_TYPE, "null"));
+	    case opc_iconst_m1: 
+            case opc_iconst_0: case opc_iconst_1: case opc_iconst_2:
+            case opc_iconst_3: case opc_iconst_4: case opc_iconst_5:
+                return new InstructionHeader
+                    (addr, 1, new ConstOperator
+		     (ALL_INT_TYPE, Integer.toString(opcode - opc_iconst_0)));
+            case opc_lconst_0: case opc_lconst_1:
+		return new InstructionHeader
+		    (addr, 1, new ConstOperator
+		     (LONG_TYPE, 
+		      Integer.toString(opcode - opc_lconst_0) + "L"));
+	    case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
+		return new InstructionHeader
+		    (addr, 1, new ConstOperator
+		     (FLOAT_TYPE, 
+		      Integer.toString(opcode - opc_fconst_0) + ".0F"));
+            case opc_dconst_0: case opc_dconst_1:
+		return new InstructionHeader
+		    (addr, 1, new ConstOperator
+		     (DOUBLE_TYPE, 
+		      Integer.toString(opcode - opc_dconst_0) + ".0"));
+            case opc_bipush:
+		return new InstructionHeader
+		    (addr, 2, new ConstOperator
+		     (ALL_INT_TYPE, Integer.toString(stream.readByte())));
+            case opc_sipush:
+		return new InstructionHeader
+                    (addr, 3, new ConstOperator
+		     (ALL_INT_TYPE, Integer.toString(stream.readShort())));
+            case opc_ldc: {
+                int index = stream.readUnsignedByte();
+		return new InstructionHeader
+                    (addr, 2, new ConstOperator
+		     (ca.env.getConstantType(index),
+		      ca.env.getConstant(index).toString()));
+            }
+            case opc_ldc_w:
+            case opc_ldc2_w: {
+                int index = stream.readUnsignedShort();
+		return new InstructionHeader
+                    (addr, 3, new ConstOperator
+		     (ca.env.getConstantType(index),
+		      ca.env.getConstant(index).toString()));
+	    }
+            case opc_iload: case opc_lload: 
+            case opc_fload: case opc_dload: case opc_aload:
+		return new InstructionHeader
+                    (addr, 2, new LocalLoadOperator
+		     (types[0][opcode-opc_iload],
+		      stream.readUnsignedByte()));
+            case opc_iload_0: case opc_iload_1: case opc_iload_2: case opc_iload_3:
+            case opc_lload_0: case opc_lload_1: case opc_lload_2: case opc_lload_3:
+            case opc_fload_0: case opc_fload_1: case opc_fload_2: case opc_fload_3:
+            case opc_dload_0: case opc_dload_1: case opc_dload_2: case opc_dload_3:
+            case opc_aload_0: case opc_aload_1: case opc_aload_2: case opc_aload_3:
+		return new InstructionHeader
+                    (addr, 1, new LocalLoadOperator
+		     (types[0][(opcode-opc_iload_0)/4],
+		      (opcode-opc_iload_0) & 3));
+            case opc_iaload: case opc_laload: 
+            case opc_faload: case opc_daload: case opc_aaload:
+            case opc_baload: case opc_caload: case opc_saload:
+		return new InstructionHeader
+		    (addr, 1, new ArrayLoadOperator
+		     (types[1][opcode - opc_iaload]));
+            case opc_istore: case opc_lstore: 
+            case opc_fstore: case opc_dstore: case opc_astore:
+		return new InstructionHeader
+                    (addr, 2, new LocalStoreOperator
+		     (types[0][opcode-opc_istore],
+		      stream.readUnsignedByte(),
+		      Operator.ASSIGN_OP));
+            case opc_istore_0: case opc_istore_1: 
+            case opc_istore_2: case opc_istore_3:
+            case opc_lstore_0: case opc_lstore_1: 
+            case opc_lstore_2: case opc_lstore_3:
+            case opc_fstore_0: case opc_fstore_1:
+            case opc_fstore_2: case opc_fstore_3:
+            case opc_dstore_0: case opc_dstore_1:
+            case opc_dstore_2: case opc_dstore_3:
+            case opc_astore_0: case opc_astore_1:
+            case opc_astore_2: case opc_astore_3:
+		return new InstructionHeader
+                    (addr, 1, new LocalStoreOperator
+		     (types[0][(opcode-opc_istore_0)/4],
+		      (opcode-opc_istore_0) & 3,
+		      Operator.ASSIGN_OP));
+            case opc_iastore: case opc_lastore:
+            case opc_fastore: case opc_dastore: case opc_aastore:
+            case opc_bastore: case opc_castore: case opc_sastore:
+		return new InstructionHeader
+                    (addr, 1, new ArrayStoreOperator
+		     (types[1][opcode - opc_iastore]));
+            case opc_pop: case opc_pop2:
+		return new InstructionHeader
+		    (addr, 1, new PopOperator(opcode - opc_pop + 1));
+            case opc_dup: case opc_dup_x1: case opc_dup_x2:
+            case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
+		return new InstructionHeader
+                    (addr, 1, new DupOperator
+		     ((opcode - opc_dup)%3, (opcode - opc_dup)/3+1));
+            case opc_swap:
+                return new InstructionHeader(addr, 1, new SwapOperator());
+            case opc_iadd: case opc_ladd: case opc_fadd: case opc_dadd:
+            case opc_isub: case opc_lsub: case opc_fsub: case opc_dsub:
+            case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
+            case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
+            case opc_irem: case opc_lrem: case opc_frem: case opc_drem:
+		return new InstructionHeader
+                    (addr, 1, new BinaryOperator
+		     (types[0][(opcode - opc_iadd)%4],
+		      (opcode - opc_iadd)/4+Operator.ADD_OP));
+            case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg:
+		return new InstructionHeader
+                    (addr, 1, new UnaryOperator
+		     (types[0][opcode - opc_ineg], Operator.NEG_OP));
+            case opc_ishl: case opc_lshl:
+            case opc_ishr: case opc_lshr:
+            case opc_iushr: case opc_lushr:
+                return new InstructionHeader
+		    (addr, 1, new ShiftOperator
+		     (types[0][(opcode - opc_ishl)%2],
+		      (opcode - opc_ishl)/2 + Operator.SHIFT_OP));
+            case opc_iand: case opc_land:
+            case opc_ior : case opc_lor :
+            case opc_ixor: case opc_lxor:
+                return new InstructionHeader
+		    (addr, 1, new BinaryOperator
+		     (types[0][(opcode - opc_iand)%2],
+		      (opcode - opc_iand)/2 + Operator.AND_OP));
+            case opc_iinc: {
+                int local = stream.readUnsignedByte();
+                int value = stream.readByte();
+                int operation = Operator.ADD_OP;
+                if (value < 0) {
+                    value = -value;
+                    operation = Operator.NEG_OP;
+                }
+                return new InstructionHeader
+		    (addr, 3, new IIncOperator
+		     (local, Integer.toString(value),
+		      operation + Operator.OPASSIGN_OP));
+            }
+            case opc_i2l: case opc_i2f: case opc_i2d:
+            case opc_l2i: case opc_l2f: case opc_l2d:
+            case opc_f2i: case opc_f2l: case opc_f2d:
+            case opc_d2i: case opc_d2l: case opc_d2f: {
+                int from = (opcode-opc_i2l)/3;
+                int to   = (opcode-opc_i2l)%3;
+                if (to >= from)
+                    to++;
+                return new InstructionHeader
+		    (addr, 1, new ConvertOperator(types[0][from], 
+						  types[0][to]));
+            }
+            case opc_i2b: case opc_i2c: case opc_i2s:
+                return new InstructionHeader
+		    (addr, 1, new ConvertOperator
+		     (ALL_INT_TYPE, types[1][(opcode-opc_i2b)+5]));
+	    case opc_lcmp:
+            case opc_fcmpl: case opc_fcmpg:
+            case opc_dcmpl: case opc_dcmpg:
+                return new InstructionHeader
+		    (addr, 1, new CompareToIntOperator
+		     (types[0][(opcode-opc_lcmp+3)/2], (opcode-opc_lcmp+3)%2));
+            case opc_ifeq: case opc_ifne: 
+            case opc_iflt: case opc_ifge: case opc_ifgt: case opc_ifle:
+                return InstructionHeader.conditional
+		    (addr, 3, addr+stream.readShort(),
+		     new CompareUnaryOperator
+		     (ALL_INT_TYPE, opcode - opc_ifeq+Operator.COMPARE_OP));
+            case opc_if_icmpeq: case opc_if_icmpne: case opc_if_icmplt: 
+            case opc_if_icmpge: case opc_if_icmpgt: case opc_if_icmple:
+                return InstructionHeader.conditional
+		    (addr, 3, addr+stream.readShort(),
+		     new CompareBinaryOperator
+		     (ALL_INT_TYPE, opcode - opc_if_icmpeq+Operator.COMPARE_OP));
+            case opc_if_acmpeq: case opc_if_acmpne:
+                return InstructionHeader.conditional
+		    (addr, 3, addr+stream.readShort(),
+		     new CompareBinaryOperator
+		     (OBJECT_TYPE, opcode - opc_if_acmpeq+Operator.COMPARE_OP));
+            case opc_goto:
+                return InstructionHeader.jump
+		    (addr, 3, addr+stream.readShort(), new NopOperator());
+            case opc_jsr:
+                return InstructionHeader.jump
+		    (addr, 3, addr+stream.readShort(), 
+		     new JsrOperator());
+            case opc_ret:
+                return InstructionHeader.ret
+		    (addr, 2, 
+                     new LocalLoadOperator
+		     (INT_TYPE, 
+		      stream.readUnsignedByte()));
+            case opc_tableswitch: {
+                int length = 3-(addr % 4);
+                stream.skip(length);
+                int def  = addr + stream.readInt();
+                int low  = stream.readInt();
+                int high = stream.readInt();
+                int[] cases = new int[high-low+1];
+                int[] dests = new int[high-low+2];
+                for (int i=0; i+low <= high; i++) {
+                    cases[i] = i+low;
+                    dests[i] = addr + stream.readInt();
+                }
+                dests[cases.length] = def;
+                length += 13 + 4 * cases.length;
+                return new InstructionHeader
+		    (addr, length, new NopOperator(),
+                     ALL_INT_TYPE, cases, dests);
+            }
+            case opc_lookupswitch: {
+                int length = 3-(addr % 4);
+                stream.skip(length);
+                int def    = addr + stream.readInt();
+                int npairs = stream.readInt();
+                int[] cases = new int[npairs];
+                int[] dests = new int[npairs+1];
+                for (int i=0; i < npairs; i++) {
+                    cases[i] = stream.readInt();
+                    dests[i] = addr + stream.readInt();
+                }
+                dests[npairs] = def;
+                length += 9 + 8 * npairs;
+                return new InstructionHeader
+		    (addr, length, new NopOperator(),
+                     ALL_INT_TYPE, cases, dests);
+            }
+            case opc_ireturn: case opc_lreturn: 
+            case opc_freturn: case opc_dreturn: case opc_areturn: {
+                Type retType = MyType.intersection
+                    (ca.getMethod().mdef.getType().getReturnType(),
+                     types[0][opcode-opc_ireturn]);
+		return InstructionHeader.ret
+		    (addr, 1, new ReturnOperator(retType));
+            }
+	    case opc_return: {
+                Type retType = MyType.intersection
+                    (ca.getMethod().mdef.getType().getReturnType(),
+                     VOID_TYPE);
+		return InstructionHeader.ret
+		    (addr, 1, new ReturnOperator(retType));
+	    }
+            case opc_getstatic:
+            case opc_getfield:
+                return new InstructionHeader
+		    (addr, 3, new GetFieldOperator
+		     (ca, opcode == opc_getstatic,
+		      (FieldDefinition)ca.env.getConstant
+		      (stream.readUnsignedShort())));
+            case opc_putstatic:
+            case opc_putfield:
+		return new InstructionHeader
+                    (addr, 3, new PutFieldOperator
+		     (ca, opcode == opc_putstatic,
+		      (FieldDefinition)ca.env.getConstant
+		      (stream.readUnsignedShort())));
+            case opc_invokevirtual:
+            case opc_invokespecial:
+            case opc_invokestatic :
+                return new InstructionHeader
+		    (addr, 3, new InvokeOperator
+		     (ca, 
+                      opcode == opc_invokestatic, opcode == opc_invokespecial, 
+		      (FieldDefinition)ca.env.getConstant
+		      (stream.readUnsignedShort())));
+            case opc_invokeinterface: {
+                InstructionHeader ih =  new InstructionHeader
+		    (addr, 5, new InvokeOperator
+		     (ca, false, false,
+		      (FieldDefinition)ca.env.getConstant
+		      (stream.readUnsignedShort())));
+                int reserved = stream.readUnsignedShort();
+		return ih;
+            }
+            case opc_new: {
+                ClassDeclaration cldec = (ClassDeclaration) 
+                    ca.env.getConstant(stream.readUnsignedShort());
+                Type type = MyType.tClassOrArray(cldec.getName());
+                return new InstructionHeader
+		    (addr, 3, new NewOperator(type, ca.env.getTypeString(type)));
+            }
+            case opc_newarray: {
+                Type type;
+                switch (stream.readUnsignedByte()) {
+                case  4: type = Type.tBoolean; break;
+                case  5: type = Type.tChar   ; break;
+                case  6: type = Type.tFloat  ; break;
+                case  7: type = Type.tDouble ; break;
+                case  8: type = Type.tByte   ; break;
+                case  9: type = Type.tShort  ; break;
+                case 10: type = Type.tInt    ; break;
+                case 11: type = Type.tLong   ; break;
+                default:
+                    throw new ClassFormatError("Invalid newarray operand");
+                }
+                return new InstructionHeader
+                    (addr, 2,
+                     new NewArrayOperator(MyType.tArray(type),
+                                          type.toString(), 1));
+            }
+            case opc_anewarray: {
+                ClassDeclaration cldec = (ClassDeclaration) ca.env.getConstant
+                    (stream.readUnsignedShort());
+                Identifier ident = cldec.getName();
+                Type type = MyType.tClassOrArray(cldec.getName());
+                return new InstructionHeader
+		    (addr, 3, new NewArrayOperator
+                     (MyType.tArray(type), ca.env.getTypeString(type),1));
+            }
+            case opc_arraylength:
+                return new InstructionHeader
+		    (addr, 1, new ArrayLengthOperator());
+            case opc_athrow:
+                return InstructionHeader.ret
+		    (addr, 1, new ThrowOperator());
+            case opc_checkcast: {
+                ClassDeclaration cldec = (ClassDeclaration) ca.env.getConstant
+                    (stream.readUnsignedShort());
+                Type type = MyType.tClassOrArray(cldec.getName());
+                return new InstructionHeader
+		    (addr, 3, new CheckCastOperator
+		     (type, ca.env.getTypeString(type)));
+            }
+            case opc_instanceof: {
+                ClassDeclaration cldec = (ClassDeclaration) ca.env.getConstant
+                    (stream.readUnsignedShort());
+                Type type = MyType.tClassOrArray(cldec.getName());
+                return new InstructionHeader
+		    (addr, 3,
+		     new InstanceOfOperator(type, ca.env.getTypeString(type)));
+            }
+            case opc_monitorenter:
+                return new InstructionHeader(addr, 1,
+					     new MonitorEnterOperator());
+            case opc_monitorexit:
+                return new InstructionHeader(addr, 1,
+					     new MonitorExitOperator());
+            case opc_wide: {
+                switch (opcode=stream.readUnsignedByte()) {
+                case opc_iload: case opc_lload: 
+                case opc_fload: case opc_dload: case opc_aload:
+                    return new InstructionHeader
+			(addr, 4,
+			 new LocalLoadOperator(types[0][opcode-opc_iload],
+					       stream.readUnsignedShort()));
+                case opc_istore: case opc_lstore: 
+                case opc_fstore: case opc_dstore: case opc_astore:
+                    return new InstructionHeader
+		    (addr, 4,
+		     new LocalStoreOperator(types[0][opcode-opc_istore],
+					    stream.readUnsignedShort(),
+					    Operator.ASSIGN_OP));
+                case opc_iinc: {
+		    int local = stream.readUnsignedShort();
+		    int value = stream.readShort();
+		    int operation = Operator.ADD_OP;
+		    if (value < 0) {
+			value = -value;
+			operation = Operator.NEG_OP;
+		    }
+		    return new InstructionHeader
+			(addr, 6, new IIncOperator
+			  (local, Integer.toString(value),
+			   operation + Operator.OPASSIGN_OP));
+		}
+                case opc_ret:
+		    return new RetInstructionHeader
+			(addr, 4, 
+			 new LocalLoadOperator
+			 (INT_TYPE, stream.readUnsignedShort()));
+                default:
+                    throw new ClassFormatError("Invalid wide opcode "+opcode);
+                }
+            }
+            case opc_multianewarray: {
+                ClassDeclaration cldec = (ClassDeclaration) ca.env.getConstant
+                    (stream.readUnsignedShort());
+                Type type = MyType.tClassOrArray(cldec.getName());
+                int dimension = stream.readUnsignedByte();
+                Type baseType = type;
+                for (int i=0; i<dimension; i++)
+                    baseType = baseType.getElementType();
+                return new InstructionHeader
+		    (addr, 4,
+		     new NewArrayOperator
+                     (type, ca.env.getTypeString(baseType), dimension));
+            }
+            case opc_ifnull: case opc_ifnonnull:
+                return InstructionHeader.conditional
+		    (addr, 3, addr+stream.readShort(),
+		     new CompareUnaryOperator
+		     (OBJECT_TYPE, opcode - opc_ifnull+Operator.COMPARE_OP));
+            case opc_goto_w:
+                return InstructionHeader.jump
+		    (addr, 5, addr + stream.readInt(), new NopOperator());
+            case opc_jsr_w:
+                return InstructionHeader.jump
+		    (addr, 5, addr+stream.readInt(), new JsrOperator());
+            default:
+                throw new ClassFormatError("Invalid opcode "+opcode);
+            }
+	} catch (ClassCastException ex) {
+            ex.printStackTrace();
+            throw new ClassFormatError("Constant has wrong type");
+        }
+    }
 }

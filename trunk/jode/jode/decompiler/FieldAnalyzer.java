@@ -15,6 +15,13 @@ public class FieldAnalyzer implements Analyzer {
     public void analyze() {
     }
 
+    public int unsigned(byte value) {
+        if (value < 0)
+            return value + 256;
+        else
+            return value;
+    }
+
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException 
     {
@@ -22,15 +29,14 @@ public class FieldAnalyzer implements Analyzer {
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
 
-        writer.println(fdef.getType().
-                     typeString(fdef.getName().toString(), false, false)+";");
-//         writer.tab();
-//         if (attributes.length > 0) {
-//             writer.println("/* Attributes: "+attributes.length+" */");
-//             for (int i=0; i < attributes.length; i++)
-//                 attributes[i].dumpSource(writer);
-//         }
-//         writer.untab();
+        writer.print(env.getTypeString(fdef.getType(), fdef.getName()));
+        byte[] attrib = 
+            ((BinaryField) fdef).getAttribute(Constants.idConstantValue);
+        if (attrib != null) {
+            int index = (unsigned(attrib[0]) << 8) | unsigned(attrib[1]);
+            writer.print(" = "+env.getConstant(index).toString());
+        }
+        writer.println(";");
     }
 }
 

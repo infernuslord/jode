@@ -2,8 +2,8 @@ package jode;
 import sun.tools.java.Type;
 
 public class IfThenElseOperator extends SimpleOperator {
-    public IfThenElseOperator(int addr, int length, Type type) {
-        super(addr,length, type, 0, 3);
+    public IfThenElseOperator(Type type) {
+        super(type, 0, 3);
         operandTypes[0] = Type.tBoolean;
     }
     
@@ -31,7 +31,7 @@ public class IfThenElseOperator extends SimpleOperator {
     public void setOperandType(Type[] inputTypes) {
         super.setOperandType(inputTypes);
         Type operandType = 
-            UnknownType.commonType(operandTypes[1],operandTypes[2]);
+            MyType.intersection(operandTypes[1],operandTypes[2]);
         type = operandTypes[1] = operandTypes[2] = operandType;
     }
 
@@ -41,7 +41,7 @@ public class IfThenElseOperator extends SimpleOperator {
      */
     public boolean setType(Type newType) {
         Type operandType = 
-            UnknownType.commonType(operandTypes[1], newType);
+            MyType.intersection(operandTypes[1], newType);
         if (type != operandType) {
             type = operandTypes[1] = operandTypes[2] = operandType;
             return true;
@@ -49,7 +49,11 @@ public class IfThenElseOperator extends SimpleOperator {
         return false;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public boolean equals(Object o) {
+	return (o instanceof IfThenElseOperator);
+    }
+
+    public String toString(String[] operands) {
         return operands[0] + " ? "+operands[1]+" : "+ operands[2];
     }
 }

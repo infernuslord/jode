@@ -6,13 +6,9 @@ public abstract class StoreInstruction extends Operator {
     public String lvCasts;
     Type lvalueType;
 
-    public StoreInstruction(int addr, int length, Type type) {
-        this (addr,length, type, ASSIGN_OP);
-    }
-
-    public StoreInstruction(int addr, int length, Type type, int operator) {
-        super(addr,length, Type.tVoid, operator);
-        lvalueType = type;
+    public StoreInstruction(Type type, int operator) {
+        super(Type.tVoid, operator);
+        lvalueType = MyType.tSubType(type);
         lvCasts = lvalueType.toString();
     }
 
@@ -31,16 +27,16 @@ public abstract class StoreInstruction extends Operator {
      * @return true if the operand types changed
      */
     public boolean setLValueType(Type type) {
-        if (!UnknownType.isOfType(type, this.lvalueType)) {
-            lvCasts = type.toString()+"/*invalid*/ <- " + lvCasts;
-        } else if (type != this.lvalueType) {
-            lvCasts = type.toString()+" <- " + lvCasts;
-        }
+//         if (!MyType.isOfType(type, this.lvalueType)) {
+//             lvCasts = type.toString()+"/*invalid*/ <- " + lvCasts;
+//         } else if (type != this.lvalueType) {
+//             lvCasts = type.toString()+" <- " + lvCasts;
+//         }
         this.lvalueType = type;
         return false;
     }
 
-    public abstract String getLValueString(CodeAnalyzer ca, String[] operands);
+    public abstract String getLValueString(String[] operands);
 
     public int getPriority() {
         return 100;
@@ -55,7 +51,7 @@ public abstract class StoreInstruction extends Operator {
 
     public Type getOperandType(int i) {
         if (i == getLValueOperandCount())
-            return getLValueType();
+            return MyType.tSubType(getLValueType());
         else
             return getLValueOperandType(i);
     }
@@ -63,18 +59,18 @@ public abstract class StoreInstruction extends Operator {
     public void setOperandType(Type[] t) {
         if (getLValueOperandCount() > 0)
             setLValueOperandType(t);
-        setLValueType
-            (UnknownType.commonType(lvalueType, t[getLValueOperandCount()]));
+        setLValueType(MyType.intersection
+		      (lvalueType, 
+		       MyType.tSuperType(t[getLValueOperandCount()])));
     }
 
     public int getOperandCount() {
         return 1 + getLValueOperandCount();
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands)
+    public String toString(String[] operands)
     {
-        return "{"+lvCasts+" "+getLValueString(ca, operands) + "} "+
-            getOperatorString() +" "+
+        return getLValueString(operands) + getOperatorString() +
             operands[getLValueOperandCount()];
     }
 }

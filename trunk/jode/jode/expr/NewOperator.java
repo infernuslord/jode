@@ -2,16 +2,18 @@ package jode;
 import sun.tools.java.Type;
 
 public class NewOperator extends NoArgOperator {
+    String typeString;
 
-    public NewOperator(int addr, int length, Type type) {
-        super(addr,length, type);
+    public NewOperator(Type type, String typeString) {
+        super(type);
+        this.typeString = typeString;
     }
 
     public int getPriority() {
         return 950;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
-        return "new "+getType().toString();
+    public String toString(String[] operands) {
+        return "new "+typeString;
     }
 }

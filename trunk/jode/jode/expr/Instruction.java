@@ -1,34 +1,20 @@
 package jode;
+import sun.tools.java.Type;
 
 public abstract class Instruction {
-    int addr,length;
+    protected Type type;
 
-    Instruction(int a, int l) {
-        addr = a;
-        length = l;
+    Instruction(Type type) {
+        this.type = type;
     }
 
-    public int getAddr() {
-        return addr;
+    public Type getType() {
+        return type;
     }
 
-    public void setAddr(int addr) {
-        this.addr = addr;
+    public Instruction simplify() {
+        return this;
     }
 
-    public int getLength() {
-        return length;
-    }
-
-    public void setLength(int length) {
-        this.length = length;
-    }
-
-    public int[] getSuccessors() {
-        int[] result = { addr + length };
-        return result;
-    }
-
-    public abstract void dumpSource(TabbedPrintWriter tpw, CodeAnalyzer ca)
-         throws java.io.IOException;
+    public abstract String toString();
 }

@@ -5,29 +5,31 @@ public abstract class Operator extends Instruction {
     public final static int ADD_OP     =  1;
     public final static int NEG_OP     =  2;
     public final static int SHIFT_OP   =  6;
+    public final static int AND_OP     =  9;
     public final static int ASSIGN_OP  = 12;
     public final static int OPASSIGN_OP= 12;
-    public final static int INC_OP     = 24;
+    public final static int INC_OP     = 24; /* must be even! */
+    public final static int DEC_OP     = 25;
     public final static int COMPARE_OP = 26; /* must be even! */
     public final static int LOG_AND_OP = 32; /* must be even! */
     public final static int LOG_OR_OP  = 33;
     public final static int LOG_NOT_OP = 34;
     static String opString[] = {
-        "", "+","-","*","/","%", "<<", ">>", ">>>", "&", "|", "^",
-        "=","+=","-=","*=","/=","%=", "<<=", ">>=", ">>>=", "&=", "|=", "^=",
+        "", " + ", " - ", " * ", " / ", " % ", 
+	" << ", " >> ", " >>> ", " & ", " | ", " ^ ",
+        " = ", " += ", " -= ", " *= ", " /= ", " %= ", 
+	" <<= ", " >>= ", " >>>= ", " &= ", " |= ", " ^= ",
         "++", "--",
-        "==","!=","<",">=",">", "<=", "&&", "||",
-        "~", "!"
+        " == "," != "," < "," >= "," > ", " <= ", " && ", " || ",
+        "!", "~"
     };
 
-    protected Type type;
     protected int operator;
     
     String casts;
 
-    Operator (int addr, int length, Type type, int op) {
-        super(addr,length);
-        this.type = type;
+    Operator (Type type, int op) {
+        super(type);
         this.operator = op;
         if (type == null)
             throw new AssertError("type == null");
@@ -46,17 +48,13 @@ public abstract class Operator extends Instruction {
      * @return true if the operand types changed
      */
     public boolean setType(Type type) {
-        if (!UnknownType.isOfType(type, this.type)) {
-            casts = type.toString()+"/*invalid*/ <- " + casts;
-        } else if (type != this.type) {
-            casts = type.toString()+" <- " + casts;
-        }
-        this.type = type;
+//         if (!MyType.isOfType(type, this.type)) {
+//             casts = type.toString()+"/*invalid*/ <- " + casts;
+//         } else if (type != this.type) {
+//             casts = type.toString()+" <- " + casts;
+//         }
+//         this.type = type;
         return false;
-    }
-
-    public final Type getType() {
-        return type;
     }
 
     public String getOperatorString() {
@@ -95,17 +93,14 @@ public abstract class Operator extends Instruction {
     public abstract Type getOperandType(int i);
     public abstract int getOperandCount();
     public abstract void setOperandType(Type[] inputTypes);
-    public abstract String toString(CodeAnalyzer ca, String[] operands);
+    public abstract String toString(String[] operands);
 
-    public void dumpSource(TabbedPrintWriter writer, CodeAnalyzer ca)
-         throws java.io.IOException
+    public String toString()
     {
-        if (type == null)
-            throw new AssertError("type == null");
         String[] operands = new String[getOperandCount()];
         for (int i=0; i< operands.length; i++) {
             operands[i] = "stack_"+(operands.length-i-1);
         }
-        writer.println(toString(ca, operands));
+        return toString(operands);
     }
 }

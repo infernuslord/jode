@@ -30,10 +30,8 @@ public class ClassAnalyzer implements Analyzer {
         }
         for (f= cdef.getFirstField(); f != null; f = f.getNextField()) {
             if (f.getType().getTypeCode() == Constants.TC_METHOD) {
-                System.err.println("analyzing method: "+f.getName());
                 fields[i] = new MethodAnalyzer(f, env);
             } else {
-                System.err.println("analyzing field: "+f.getName());
                 fields[i] = new FieldAnalyzer(f, env);
             }
             fields[i++].analyze();
@@ -48,7 +46,7 @@ public class ClassAnalyzer implements Analyzer {
         if (modif.length() > 0)
             writer.print(modif + " ");
         writer.print((cdef.isInterface())?"interface ":"class ");
-	writer.println(env.getNickName(cdef.getName().toString()));
+	writer.println(cdef.getName().getName().toString());
 	writer.tab();
 	if (cdef.getSuperClass() != null)
 	    writer.println("extends "+cdef.getSuperClass().getName().toString());
