@@ -1,0 +1,4 @@
+#!/bin/sh
+
+zip jode_src.zip COPYING *.java */*.java
+zip jode_cls.zip *.class */*.class
