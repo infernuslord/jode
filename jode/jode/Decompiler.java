@@ -55,7 +55,7 @@ public class Decompiler {
     public static int outputStyle = SUN_STYLE;
 
     public static void usage() {
-	PrintStream err = GlobalOptions.err;
+	PrintWriter err = GlobalOptions.err;
 	err.println("Version: " + GlobalOptions.version);
         err.print("use: jode [-v]"
 		  +"[--cp <classpath>][--dest <destdir>]"
