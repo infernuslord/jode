@@ -18,6 +18,7 @@
  */
 
 package jode.bytecode;
+import jode.Type;
 import jode.MethodType;
 import java.io.*;
 import java.util.*;
@@ -25,6 +26,8 @@ import java.util.*;
 ///import java.lang.ref.WeakReference;
 ///import java.lang.ref.ReferenceQueue;
 ///#endif
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
 /**
@@ -33,7 +36,7 @@ import java.lang.reflect.Modifier;
  *
  * The main difference to java.lang.Class is, that the objects are builded
  * from a stream containing the .class file, and that it uses the 
- * <code>jode.Type</code> to represent types instead of Class itself.
+ * <code>Type</code> to represent types instead of Class itself.
  *
  * @author Jochen Hoenicke
  */
@@ -114,9 +117,12 @@ public class ClassInfo extends BinaryInfo {
     }
     
     public static ClassInfo forName(String name) {
-        if (name == null)
-            return null;
-        name = name.replace('/', '.');
+//          name = name.replace('/', '.');
+	if (name == null
+	    || name.indexOf(';') != -1
+	    || name.indexOf('[') != -1
+	    || name.indexOf('/') != -1)
+	    throw new IllegalArgumentException("Illegal class name: "+name);
 ///#ifdef JDK12
 ///	java.lang.ref.Reference died;
 ///	while ((died = queue.poll()) != null) {
@@ -166,8 +172,8 @@ public class ClassInfo extends BinaryInfo {
         String name = cpool.getClassName(input.readUnsignedShort());
         if (!this.name.equals(name))
             new ClassFormatException("Class has wrong name: "+name);
-        superclass = ClassInfo.forName
-            (cpool.getClassName(input.readUnsignedShort()));
+	String superName = cpool.getClassName(input.readUnsignedShort());
+        superclass = superName != null ? ClassInfo.forName(superName) : null;
     }
 
     private void readInterfaces(ConstantPool cpool,
@@ -224,7 +230,6 @@ public class ClassInfo extends BinaryInfo {
     }
 
     public void loadInfoReflection(int howMuch) {
-
 	try {
 	    Class clazz = Class.forName(name);
 	    modifiers = clazz.getModifiers();
@@ -240,13 +245,52 @@ public class ClassInfo extends BinaryInfo {
 		    interfaces[i] = ClassInfo.forName(ifaces[i].getName());
 		status |= HIERARCHY;
 	    }
-	    if ((howMuch & ~HIERARCHY) != 0) {
+	    if ((howMuch & FIELDS) != 0) {
+		Field[] fs;
+		try {
+		    fs = clazz.getDeclaredFields();
+		} catch (SecurityException ex) {
+		    fs = clazz.getFields();
+		    jode.Decompiler.err.println
+			("Could only get public fields of class "
+			 + name + ".");
+		}
+		fields = new FieldInfo[fs.length];
+		for (int i = fs.length; --i >= 0; ) {
+		    Type type = Type.tType(fs[i].getType());
+		    fields[i] = new FieldInfo
+			(fs[i].getName(), type, fs[i].getModifiers());
+		}
+	    }
+	    if ((howMuch & METHODS) != 0) {
+		Method[] ms;
+		try {
+		    ms = clazz.getDeclaredMethods();
+		} catch (SecurityException ex) {
+		    ms = clazz.getMethods();
+		    jode.Decompiler.err.println
+			("Could only get public methods of class "
+			 + name + ".");
+		}
+		methods = new MethodInfo[ms.length];
+		for (int i = ms.length; --i >= 0; ) {
+		    MethodType type = Type.tMethod
+			(ms[i].getParameterTypes(), ms[i].getReturnType());
+		    methods[i] = new MethodInfo
+			(ms[i].getName(), type, ms[i].getModifiers());
+		}
+	    }
+            if ((howMuch & ~(FIELDS|METHODS|HIERARCHY)) != 0) {
                 jode.Decompiler.err.println
-		    ("Can't find class " + name
-		     + " in classpath.  Bad things may or may not happen.");
+		    ("Can't find class " + name + " in classpath.  "+
+		     "Can't load everything from reflection: "+howMuch);
 		status |= howMuch;
 	    } 
 	    
+	} catch (SecurityException ex) {
+	    jode.Decompiler.err.println
+		(ex+" while collecting info about class " + name + ".");
+	    jode.Decompiler.err.println("Bad things may happen?");
 	} catch (ClassNotFoundException ex) {
 	    // Nothing helped, ``guess'' the hierarchie
             String message = ex.getMessage();
