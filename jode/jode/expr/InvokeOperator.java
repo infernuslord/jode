@@ -142,9 +142,9 @@ public final class InvokeOperator extends Operator
 	boolean opIsThis = 
 	    (!staticFlag
 	     && operands[0] instanceof LocalLoadOperator
+	     && !codeAnalyzer.getMethod().isStatic()
 	     && (((LocalLoadOperator) operands[0]).getLocalInfo()
-		 .equals(codeAnalyzer.getParamInfo(0)))
-	     && !codeAnalyzer.getMethod().isStatic());
+		 .equals(codeAnalyzer.getParamInfo(0))));
         int arg = 1;
 
 	if (specialFlag) {
@@ -168,7 +168,9 @@ public final class InvokeOperator extends Operator
 	    }
 	} else if (staticFlag) {
 	    arg = 0;
-	    if (!isThis())
+	    if (isThis())
+		opIsThis = true;
+	    else
 		writer.printType(clazz);
 	} else {
 	    if (!opIsThis) {
