@@ -32,6 +32,8 @@ import javax.swing.tree.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import java.util.StringTokenizer;
+import java.util.ResourceBundle;
 
 public class Main 
     implements ActionListener, Runnable, TreeSelectionListener {
@@ -44,16 +46,35 @@ public class Main
     JTextArea  sourcecodeArea, errorArea;
     Thread decompileThread;
     String currentClassPath, lastClassName;
-    ClassPath classPath;
+    ClassPathDialog classPathDialog;
 
     JProgressBar progressBar;
 
     boolean hierarchyTree;
 
-    public Main(String classpath) {
+    public static ResourceBundle bundle;
+
+    public Main(String[] classpath) {
         decompiler = new Decompiler();
-	setClassPath(classpath);
 	frame = new JFrame(GlobalOptions.copyright);
+	classPathDialog = new ClassPathDialog(frame, classpath);
+	decompiler.setClassPath(classPathDialog.getClassPath());
+	classPathDialog.addActionListener(new ActionListener() {
+		public void actionPerformed(ActionEvent e) {
+		    ClassPath classPath = classPathDialog.getClassPath();
+		    decompiler.setClassPath(classPath);
+		    if (classTree != null)
+			classTree.clearSelection();
+		    if (packModel != null)
+			packModel.rebuild();
+		    if (hierModel != null && hierarchyTree) {
+			hierModel.rebuild();
+		    } else {
+			hierModel = null;
+		    }
+		}
+	    });
+
 	fillContentPane(frame.getContentPane());
 	addMenu(frame);
 	frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -62,10 +83,10 @@ public class Main
 		System.exit(0);
 	    }
 	});
+	frame.pack();
     }
 
     public void show() {
-	frame.pack();
 	frame.show();
     }
 
@@ -137,7 +158,7 @@ public class Main
 	    
 	    progressBar.setMinimum(0);
 	    progressBar.setMaximum(1000);
-	    progressBar.setString("decompiling");
+	    progressBar.setString(bundle.getString("main.decompiling"));
 	    progressBar.setStringPainted(true);
 	    decompileThread.start();
 	}
@@ -189,7 +210,7 @@ public class Main
 	    decompiler.decompile(lastClassName, writer, progListener);
 	} catch (Throwable t) {
 	    try {
-		writer.write("\nException while decompiling:");
+		writer.write(bundle.getString("main.exception"));
 		PrintWriter pw = new PrintWriter(writer);
 		t.printStackTrace(pw);
 		pw.flush();
@@ -220,8 +241,10 @@ public class Main
 	JMenuBar bar = new JMenuBar();
 	JMenu menu;
 	JMenuItem item;
-	menu = new JMenu("File");
-	item = new JMenuItem("Garbage collect");
+	menu = new JMenu(bundle.getString("menu.file"));
+	menu.setMnemonic('f');
+	item = new JMenuItem(bundle.getString("menu.file.gc"));
+	item.setMnemonic('c');
 	item.addActionListener(new ActionListener() {
 	    public void actionPerformed(ActionEvent ev) {
 		System.gc();
@@ -229,7 +252,8 @@ public class Main
 	    }
 	});
 	menu.add(item);
-	item = new JMenuItem("Exit");
+	item = new JMenuItem(bundle.getString("menu.file.exit"));
+	item.setMnemonic('x');
 	item.addActionListener(new ActionListener() {
 	    public void actionPerformed(ActionEvent ev) {
 		System.exit(0);
@@ -237,9 +261,12 @@ public class Main
 	});
 	menu.add(item);
 	bar.add(menu);
-	menu = new JMenu("Options");
+	menu = new JMenu(bundle.getString("menu.opt"));
+	menu.setMnemonic('o');
 	final JCheckBoxMenuItem hierItem
-	    = new JCheckBoxMenuItem("Class hierarchy", hierarchyTree);
+	    = new JCheckBoxMenuItem(bundle.getString("menu.opt.hier"),
+				    hierarchyTree);
+	hierItem.setMnemonic('h');
 	hierItem.addActionListener(new ActionListener() {
 	    public void actionPerformed(ActionEvent ev) {
 		hierarchyTree = hierItem.isSelected();
@@ -260,24 +287,11 @@ public class Main
 	});
 	menu.add(hierItem);
 	menu.add(new JSeparator());
-	item = new JMenuItem("Set classpath...");
+	item = new JMenuItem(bundle.getString("menu.opt.cp"));
+	item.setMnemonic('c');
 	item.addActionListener(new ActionListener() {
 	    public void actionPerformed(ActionEvent ev) {
-		
-		String newClassPath = (String) JOptionPane.showInputDialog
-		    (null, "New classpath:", null, 
-		     JOptionPane.QUESTION_MESSAGE, null,
-		     null, currentClassPath);
-		if (newClassPath != null
-		    && !newClassPath.equals(currentClassPath))
-		    setClassPath(newClassPath);
-	    }
-	});
-	menu.add(item);
-	item = new JMenuItem("Reload classpath");
-	item.addActionListener(new ActionListener() {
-	    public void actionPerformed(ActionEvent ev) {
-		setClassPath(currentClassPath);
+		classPathDialog.showDialog();
 	    }
 	});
 	menu.add(item);
@@ -286,25 +300,7 @@ public class Main
     }
 
     public ClassPath getClassPath() {
-	return classPath;
-    }
-
-    ClassPath reflectClassPath = new ClassPath("reflection:");
-    public void setClassPath(String classpath) {
-	if (classpath == null || classpath.length() == 0)
-	    classpath = ".";
-	currentClassPath = classpath;
-	classPath = new ClassPath(classpath, reflectClassPath);
-	decompiler.setClassPath(classPath);
-	if (classTree != null)
-	    classTree.clearSelection();
-	if (packModel != null)
-	    packModel.rebuild();
-	if (hierModel != null && hierarchyTree) {
-	    hierModel.rebuild();
-	} else {
-	    hierModel = null;
-	}
+	return classPathDialog.getClassPath();
     }
 
     public void treeNodesChanged(TreeModelEvent e) {
@@ -337,16 +333,13 @@ public class Main
 
     public static void usage() {
 	PrintWriter err = GlobalOptions.err;
-        err.println("usage: jode.swingui.Main flags* script");
-	err.println("  -h, --help           "+
-		    "show this information.");
-	err.println("  -c, --cp <path>, --classpath <path> "+
-		    "search for classes in specified classpath.");
-	err.println("                       "+
-		    "The directories should be separated by commas.");
+	int numUsage = Integer.parseInt(bundle.getString("usage.count"));
+	for (int i=0; i < numUsage ; i++)
+	    err.println(bundle.getString("usage."+i));
     }
 
     public static void main(String[] params) {
+	bundle = ResourceBundle.getBundle("jode.swingui.Resources");
 	String cp = System.getProperty("java.class.path", "");
 	cp = cp.replace(File.pathSeparatorChar, 
 			Decompiler.altPathSeparatorChar);
@@ -360,7 +353,12 @@ public class Main
 		return;
 	    }
 	}
-	Main win = new Main(cp);
+	StringTokenizer st = new StringTokenizer
+	    (cp, ""+Decompiler.altPathSeparatorChar);
+	String[] splitcp = new String[st.countTokens()];
+	for (int i = 0; i< splitcp.length; i++)
+	    splitcp[i] = st.nextToken();
+	Main win = new Main(splitcp);
 	win.show();
     }
 }
