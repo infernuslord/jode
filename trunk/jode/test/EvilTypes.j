@@ -4,6 +4,8 @@
 .class public jode/test/EvilTypes
 .super java/lang/Object
 
+.field public static runner Ljava/lang/Runnable;
+
 .method public static boolToInt(Z)I
 	.limit locals 1
 	.limit stack 1
@@ -78,6 +80,35 @@ done:
 	areturn
 .end method
 
+; The problem of this method is the type of local_0,  the code is as
+; follows:
+;     local_0 = null;
+;     for (;;) local_0 = local_0[0];
+;
+; Since local_0 is used as an array, it must be of array type.  Since 
+; local_0[0] is assigned to local_0, local_0[0] must be of array type,
+; so local_0 must be of type array of array of something, and so on...
+
+.method public static infinitiveArray()V
+	.limit locals 1
+	.limit stack 2
+	aconst_null
+	astore_0
+loop:
+	aload_0
+	iconst_0
+	aaload
+	astore_0
+	goto loop
+.end method
+
+; This tests shows how lazy the type checking even with verify is: 
+; The type error produced in the test method, is first seen on the 
+; invokeinterface opcode.  If there would be no invokeinterface it
+; would never have been noticed.
+; NOTE: An obfuscator may use this fact and replace every ocurrence
+; of an interface or Object type with any other interface type.
+
 .method public static main([Ljava/lang/String;)V
 	.limit locals 1
 	.limit stack 2
@@ -85,6 +116,9 @@ done:
 	iconst_0
 	aaload
 	invokestatic jode/test/EvilTypes/test(Ljava/lang/String;)Ljava/lang/Runnable;
+	putstatic jode/test/EvilTypes/runner Ljava/lang/Runnable;
+	getstatic jode/test/EvilTypes/runner Ljava/lang/Runnable;
 	invokeinterface java/lang/Runnable/run()V 1
 	return
 .end method
+
