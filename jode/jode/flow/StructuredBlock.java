@@ -25,7 +25,11 @@ import jode.decompiler.LocalInfo;
 import jode.decompiler.Declarable;
 import jode.util.SimpleSet;
 
-import java.util.Enumeration;
+///#ifdef JDK12
+///import java.util.Iterator;
+///#else
+import jode.util.Iterator;
+///#endif
 
 /**
  * A structured block is the building block of the source programm.
@@ -364,7 +368,6 @@ public abstract class StructuredBlock {
             /* All variables used in more than one sub blocks, are
              * used in this block, too.  
              */
-	    Enumeration enum = childUse.elements();
 	    SimpleSet intersection = new SimpleSet();
 	    intersection.addAll(childUse);
 	    intersection.retainAll(allUse);
@@ -441,14 +444,12 @@ public abstract class StructuredBlock {
      * @param done The set of the already declare variables.
      */
     public void makeDeclaration(SimpleSet done) {
-//  	System.err.println("makeDeclaration: done = "+done);
 	this.done = (SimpleSet) done.clone();
 	declare = new SimpleSet();
-	java.util.Enumeration enum = used.elements();
-//  	System.err.println("makeDeclaration: used = "+used);
+	Iterator iter = used.iterator();
     next_used:
-	while (enum.hasMoreElements()) {
-	    Declarable declarable = (Declarable) enum.nextElement();
+	while (iter.hasNext()) {
+	    Declarable declarable = (Declarable) iter.next();
 
 	    // Check if this is already declared.
 	    if (done.contains(declarable))
@@ -465,9 +466,9 @@ public abstract class StructuredBlock {
 		
 		// Merge with all locals in this block, that use the same 
 		// slot and have compatible types and names.
-		Enumeration doneEnum = done.elements();
-		while (doneEnum.hasMoreElements()) {
-		    Declarable previous = (Declarable) doneEnum.nextElement();
+		Iterator doneIter = done.iterator();
+		while (doneIter.hasNext()) {
+		    Declarable previous = (Declarable) doneIter.next();
 		    if (!(previous instanceof LocalInfo))
 			continue;
 		    LocalInfo prevLocal = (LocalInfo) previous;
@@ -501,9 +502,9 @@ public abstract class StructuredBlock {
 	    }
 	    
 	    if (declarable.getName() != null) {
-		Enumeration doneEnum = done.elements();
-		while (doneEnum.hasMoreElements()) {
-		    Declarable previous = (Declarable) doneEnum.nextElement();
+		Iterator doneIter = done.iterator();
+		while (doneIter.hasNext()) {
+		    Declarable previous = (Declarable) doneIter.next();
 		    if (declarable.getName().equals(previous.getName())) {
 			/* A name conflict happened. */
 			declarable.makeNameUnique();
@@ -513,7 +514,6 @@ public abstract class StructuredBlock {
 	    done.add(declarable);
 	    declare.add(declarable);
 	}
-//  	System.err.println("makeDeclaration: declare = "+declare);
         StructuredBlock[] subs = getSubBlocks();
 	for (int i=0; i<subs.length; i++)
 	    subs[i].makeDeclaration(done);
@@ -604,9 +604,9 @@ public abstract class StructuredBlock {
 	}
 
 	if (declare != null) {
-	    java.util.Enumeration enum = declare.elements();
-	    while (enum.hasMoreElements()) {
-		Declarable decl = (Declarable) enum.nextElement();
+	    Iterator iter = declare.iterator();
+	    while (iter.hasNext()) {
+		Declarable decl = (Declarable) iter.next();
 		decl.dumpDeclaration(writer);
 		writer.println(";");
 	    }
