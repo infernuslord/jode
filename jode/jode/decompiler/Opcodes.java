@@ -19,6 +19,7 @@
 
 package jode.decompiler;
 import jode.type.Type;
+import jode.type.IntegerType;
 import jode.type.MethodType;
 import jode.expr.*;
 import jode.flow.*;
@@ -32,6 +33,28 @@ import java.util.Vector;
  */
 public abstract class Opcodes implements jode.bytecode.Opcodes {
 
+    private final static Type tIntHint
+	= new IntegerType(IntegerType.IT_I,
+			  IntegerType.IT_I
+			  | IntegerType.IT_B
+			  | IntegerType.IT_C
+			  | IntegerType.IT_S);
+    private final static Type tBoolIntHint
+	= new IntegerType(IntegerType.IT_I
+			  | IntegerType.IT_Z,
+			  IntegerType.IT_I
+			  | IntegerType.IT_B
+			  | IntegerType.IT_C
+			  | IntegerType.IT_S
+			  | IntegerType.IT_Z);
+
+    private final static int LOCAL_TYPES = 0;
+    private final static int ARRAY_TYPES = 1;
+    private final static int UNARY_TYPES = 2;
+    private final static int I2BCS_TYPES = 3;
+    private final static int BIN_TYPES   = 4;
+    private final static int ZBIN_TYPES  = 5;
+
     private final static Type types[][] = {
 	// Local types
         { Type.tBoolUInt, Type.tLong, Type.tFloat, Type.tDouble, 
@@ -39,22 +62,24 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 	// Array types
         { Type.tInt, Type.tLong, Type.tFloat, Type.tDouble, Type.tUObject, 
           Type.tBoolByte, Type.tChar, Type.tShort },
+	// ifld2ifld and shl types
+        { Type.tInt, Type.tLong, Type.tFloat, Type.tDouble, Type.tUObject },
 	// i2bcs types
         { Type.tByte, Type.tChar, Type.tShort },
-	// add/sub/mul/div types
-        { Type.tInt, Type.tLong, Type.tFloat, Type.tDouble, Type.tUObject },
+	// cmp/add/sub/mul/div types
+        { tIntHint, Type.tLong, Type.tFloat, Type.tDouble, Type.tUObject },
 	// and/or/xor types
-        { Type.tBoolInt, Type.tLong, Type.tFloat, Type.tDouble, Type.tUObject }
+        { tBoolIntHint, Type.tLong, Type.tFloat, Type.tDouble, Type.tUObject }
     };
     
-    private static StructuredBlock createNormal(CodeAnalyzer ca, 
+    private static StructuredBlock createNormal(MethodAnalyzer ma, 
 						Instruction instr,
 						Expression expr)
     {
         return new InstructionBlock(expr, new Jump(FlowBlock.NEXT_BY_ADDR));
     }
 
-    private static StructuredBlock createSpecial(CodeAnalyzer ca, 
+    private static StructuredBlock createSpecial(MethodAnalyzer ma, 
 						 Instruction instr,
 						 int type, 
 						 int stackcount, int param)
@@ -63,20 +88,20 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 				new Jump(FlowBlock.NEXT_BY_ADDR));
     }
 
-    private static StructuredBlock createGoto(CodeAnalyzer ca,
+    private static StructuredBlock createGoto(MethodAnalyzer ma,
                                               Instruction instr)
     {
         return new EmptyBlock(new Jump((FlowBlock)instr.succs[0].tmpInfo));
     }
 
-    private static StructuredBlock createJsr(CodeAnalyzer ca, 
+    private static StructuredBlock createJsr(MethodAnalyzer ma, 
 					     Instruction instr)
     {
         return new JsrBlock(new Jump((FlowBlock)instr.succs[0].tmpInfo),
 			    new Jump(FlowBlock.NEXT_BY_ADDR));
     }
 
-    private static StructuredBlock createIfGoto(CodeAnalyzer ca, 
+    private static StructuredBlock createIfGoto(MethodAnalyzer ma, 
 						Instruction instr,
 						Expression expr)
     {
@@ -85,21 +110,21 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 	     new Jump(FlowBlock.NEXT_BY_ADDR));
     }
 
-    private static StructuredBlock createSwitch(CodeAnalyzer ca,
+    private static StructuredBlock createSwitch(MethodAnalyzer ma,
 						Instruction instr,
                                                 int[] cases, FlowBlock[] dests)
     {
         return new SwitchBlock(new NopOperator(Type.tUInt), cases, dests);
     }
 
-    private static StructuredBlock createBlock(CodeAnalyzer ca,
+    private static StructuredBlock createBlock(MethodAnalyzer ma,
                                                Instruction instr,
                                                StructuredBlock block)
     {
         return block;
     }
 
-    private static StructuredBlock createRet(CodeAnalyzer ca,
+    private static StructuredBlock createRet(MethodAnalyzer ma,
 					     Instruction instr,
 					     LocalInfo local)
     {
@@ -110,7 +135,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
      * Read an opcode out of a data input stream containing the bytecode.
      * @param addr    The current address.
      * @param stream  The stream containing the java byte code.
-     * @param ca      The Code Analyzer 
+     * @param ma      The Method Analyzer 
      *                (where further information can be get from).
      * @return The FlowBlock representing this opcode
      *         or null if the stream is empty.
@@ -118,79 +143,80 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
      * @exception ClassFormatError  if an invalid opcode is detected.
      */
     public static StructuredBlock readOpcode(Instruction instr, 
-					     CodeAnalyzer ca)
+					     MethodAnalyzer ma)
         throws ClassFormatError
     {
         int opcode = instr.opcode;
         switch (opcode) {
         case opc_nop:
-            return createBlock(ca, instr, new EmptyBlock
+            return createBlock(ma, instr, new EmptyBlock
 			       (new Jump(FlowBlock.NEXT_BY_ADDR)));
         case opc_ldc:
         case opc_ldc2_w:
-            return createNormal (ca, instr, new ConstOperator(instr.objData));
+            return createNormal (ma, instr, new ConstOperator(instr.objData));
 
         case opc_iload: case opc_lload: 
         case opc_fload: case opc_dload: case opc_aload:
             return createNormal
-                (ca, instr, new LocalLoadOperator
-                 (types[0][opcode-opc_iload], ca,
-                  ca.getLocalInfo(instr.addr, instr.localSlot)));
+                (ma, instr, new LocalLoadOperator
+                 (types[LOCAL_TYPES][opcode-opc_iload], ma,
+                  ma.getLocalInfo(instr.addr, instr.localSlot)));
         case opc_iaload: case opc_laload: 
         case opc_faload: case opc_daload: case opc_aaload:
         case opc_baload: case opc_caload: case opc_saload:
             return createNormal
-                (ca, instr, new ArrayLoadOperator
-                 (types[1][opcode - opc_iaload]));
+                (ma, instr, new ArrayLoadOperator
+                 (types[ARRAY_TYPES][opcode - opc_iaload]));
         case opc_istore: case opc_lstore: 
         case opc_fstore: case opc_dstore: case opc_astore:
             return createNormal
-                (ca, instr, new StoreInstruction
+                (ma, instr, new StoreInstruction
 		 (new LocalStoreOperator
-		  (types[0][opcode-opc_istore], 
-		   ca.getLocalInfo(instr.addr+instr.length,instr.localSlot))));
+		  (types[LOCAL_TYPES][opcode-opc_istore], 
+		   ma.getLocalInfo(instr.addr+instr.length,instr.localSlot))));
         case opc_iastore: case opc_lastore:
         case opc_fastore: case opc_dastore: case opc_aastore:
         case opc_bastore: case opc_castore: case opc_sastore:
             return createNormal
-                (ca, instr, new StoreInstruction
-		 (new ArrayStoreOperator(types[1][opcode - opc_iastore])));
+                (ma, instr, new StoreInstruction
+		 (new ArrayStoreOperator
+		  (types[ARRAY_TYPES][opcode - opc_iastore])));
         case opc_pop: case opc_pop2:
             return createSpecial
-                (ca, instr, SpecialBlock.POP, opcode - opc_pop + 1, 0);
+                (ma, instr, SpecialBlock.POP, opcode - opc_pop + 1, 0);
         case opc_dup: case opc_dup_x1: case opc_dup_x2:
         case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
             return createSpecial
-                (ca, instr, SpecialBlock.DUP, 
+                (ma, instr, SpecialBlock.DUP, 
                  (opcode - opc_dup)/3+1, (opcode - opc_dup)%3);
         case opc_swap:
-            return createSpecial(ca, instr, SpecialBlock.SWAP, 1, 0);
+            return createSpecial(ma, instr, SpecialBlock.SWAP, 1, 0);
         case opc_iadd: case opc_ladd: case opc_fadd: case opc_dadd:
         case opc_isub: case opc_lsub: case opc_fsub: case opc_dsub:
         case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
         case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
         case opc_irem: case opc_lrem: case opc_frem: case opc_drem:
             return createNormal
-                (ca, instr, new BinaryOperator
-                 (types[3][(opcode - opc_iadd)%4],
+                (ma, instr, new BinaryOperator
+                 (types[BIN_TYPES][(opcode - opc_iadd)%4],
                   (opcode - opc_iadd)/4+Operator.ADD_OP));
         case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg:
             return createNormal
-                (ca, instr, new UnaryOperator
-                 (types[3][opcode - opc_ineg], Operator.NEG_OP));
+                (ma, instr, new UnaryOperator
+                 (types[UNARY_TYPES][opcode - opc_ineg], Operator.NEG_OP));
         case opc_ishl: case opc_lshl:
         case opc_ishr: case opc_lshr:
         case opc_iushr: case opc_lushr:
             return createNormal
-                (ca, instr, new ShiftOperator
-                 (types[3][(opcode - opc_ishl)%2],
+                (ma, instr, new ShiftOperator
+                 (types[UNARY_TYPES][(opcode - opc_ishl)%2],
                   (opcode - opc_ishl)/2 + Operator.SHIFT_OP));
         case opc_iand: case opc_land:
         case opc_ior : case opc_lor :
         case opc_ixor: case opc_lxor:
             return createNormal
-                (ca, instr, new BinaryOperator
-                 (types[4][(opcode - opc_iand)%2],
+                (ma, instr, new BinaryOperator
+                 (types[ZBIN_TYPES][(opcode - opc_iand)%2],
                   (opcode - opc_iand)/2 + Operator.AND_OP));
         case opc_iinc: {
             int value = instr.intData;
@@ -199,10 +225,10 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 value = -value;
                 operation = Operator.SUB_OP;
             }
-            LocalInfo li = ca.getLocalInfo(instr.addr, instr.localSlot);
+            LocalInfo li = ma.getLocalInfo(instr.addr, instr.localSlot);
             return createNormal
-                (ca, instr, new IIncOperator
-                 (new LocalStoreOperator(Type.tUInt, li), 
+                (ma, instr, new IIncOperator
+                 (new LocalStoreOperator(Type.tInt, li), 
 		  value, operation + Operator.OPASSIGN_OP));
         }
         case opc_i2l: case opc_i2f: case opc_i2d:
@@ -214,56 +240,54 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             if (to >= from)
                 to++;
             return createNormal
-                (ca, instr, new ConvertOperator(types[3][from], 
-                                                  types[3][to]));
+                (ma, instr, new ConvertOperator(types[UNARY_TYPES][from], 
+						types[UNARY_TYPES][to]));
         }
         case opc_i2b: case opc_i2c: case opc_i2s:
             return createNormal
-                (ca, instr, new ConvertOperator
-                 (types[3][0], types[2][opcode-opc_i2b]));
+                (ma, instr, new ConvertOperator
+                 (types[UNARY_TYPES][0], types[I2BCS_TYPES][opcode-opc_i2b]));
         case opc_lcmp:
         case opc_fcmpl: case opc_fcmpg:
         case opc_dcmpl: case opc_dcmpg:
             return createNormal
-                (ca, instr, new CompareToIntOperator
-                 (types[3][(opcode-(opc_lcmp-3))/2], 
+                (ma, instr, new CompareToIntOperator
+                 (types[BIN_TYPES][(opcode-(opc_lcmp-3))/2], 
                   (opcode == opc_fcmpg || opcode == opc_dcmpg)));
         case opc_ifeq: case opc_ifne: 
             return createIfGoto
-		(ca, instr,
+		(ma, instr,
                  new CompareUnaryOperator
-                 (Type.tBoolUInt, opcode - (opc_ifeq-Operator.COMPARE_OP)));
+                 (Type.tBoolInt, opcode - (opc_ifeq-Operator.COMPARE_OP)));
         case opc_iflt: case opc_ifge: case opc_ifgt: case opc_ifle:
             return createIfGoto
-		(ca, instr,
+		(ma, instr,
                  new CompareUnaryOperator
-                 (Type.tUInt, opcode - (opc_ifeq-Operator.COMPARE_OP)));
+                 (Type.tInt, opcode - (opc_ifeq-Operator.COMPARE_OP)));
         case opc_if_icmpeq: case opc_if_icmpne:
             return createIfGoto
-		(ca, instr,
+		(ma, instr,
                  new CompareBinaryOperator
-                 (Type.tBoolInt, 
-                  opcode - (opc_if_icmpeq-Operator.COMPARE_OP)));
+                 (tBoolIntHint, opcode - (opc_if_icmpeq-Operator.COMPARE_OP)));
         case opc_if_icmplt: case opc_if_icmpge: 
         case opc_if_icmpgt: case opc_if_icmple:
             return createIfGoto
-		(ca, instr,
+		(ma, instr,
                  new CompareBinaryOperator
-                 (Type.tUInt, 
-                  opcode - (opc_if_icmpeq-Operator.COMPARE_OP)));
+                 (tIntHint, opcode - (opc_if_icmpeq-Operator.COMPARE_OP)));
         case opc_if_acmpeq: case opc_if_acmpne:
             return createIfGoto
-		(ca, instr,
+		(ma, instr,
                  new CompareBinaryOperator
                  (Type.tUObject, 
                   opcode - (opc_if_acmpeq-Operator.COMPARE_OP)));
         case opc_goto:
-            return createGoto(ca, instr);
+            return createGoto(ma, instr);
         case opc_jsr:
-            return createJsr(ca, instr);
+            return createJsr(ma, instr);
         case opc_ret:
             return createRet
-                (ca, instr, ca.getLocalInfo(instr.addr, instr.localSlot));
+                (ma, instr, ma.getLocalInfo(instr.addr, instr.localSlot));
         case opc_tableswitch: {
             int low  = instr.intData;
             int[] cases = new int[instr.succs.length-1];
@@ -273,7 +297,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 dests[i] = (FlowBlock) instr.succs[i].tmpInfo;
             }
             dests[cases.length] = (FlowBlock)instr.succs[cases.length].tmpInfo;
-            return createSwitch(ca, instr, cases, dests);
+            return createSwitch(ma, instr, cases, dests);
 	}
         case opc_lookupswitch: {
 	    int[] cases = (int[]) instr.objData;
@@ -281,30 +305,30 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             for (int i=0; i < dests.length; i++)
                 dests[i] = (FlowBlock) instr.succs[i].tmpInfo;
             dests[cases.length] = (FlowBlock)instr.succs[cases.length].tmpInfo;
-            return createSwitch(ca, instr, cases, dests);
+            return createSwitch(ma, instr, cases, dests);
         }
         case opc_ireturn: case opc_lreturn: 
         case opc_freturn: case opc_dreturn: case opc_areturn: {
-            Type retType = Type.tSubType(ca.getMethod().getReturnType());
+            Type retType = Type.tSubType(ma.getReturnType());
             return createBlock
-                (ca, instr, new ReturnBlock(new NopOperator(retType)));
+                (ma, instr, new ReturnBlock(new NopOperator(retType)));
         }
         case opc_return:
             return createBlock
-                (ca, instr, new EmptyBlock(new Jump(FlowBlock.END_OF_METHOD)));
+                (ma, instr, new EmptyBlock(new Jump(FlowBlock.END_OF_METHOD)));
         case opc_getstatic:
         case opc_getfield: {
             Reference ref = (Reference) instr.objData;
             return createNormal
-                (ca, instr, new GetFieldOperator
-                 (ca, opcode == opc_getstatic, ref));
+                (ma, instr, new GetFieldOperator
+                 (ma, opcode == opc_getstatic, ref));
         }
         case opc_putstatic:
         case opc_putfield: {
             Reference ref = (Reference) instr.objData;
             return createNormal
-                (ca, instr, new StoreInstruction
-		 (new PutFieldOperator(ca, opcode == opc_putstatic, ref)));
+                (ma, instr, new StoreInstruction
+		 (new PutFieldOperator(ma, opcode == opc_putstatic, ref)));
         }
         case opc_invokevirtual:
         case opc_invokespecial:
@@ -312,51 +336,51 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_invokeinterface: {
             Reference ref = (Reference) instr.objData;
             StructuredBlock block = createNormal
-                (ca, instr, new InvokeOperator
-                 (ca, opcode == opc_invokestatic, 
+                (ma, instr, new InvokeOperator
+                 (ma, opcode == opc_invokestatic, 
 		  opcode == opc_invokespecial, ref));
             return block;
         }
         case opc_new: {
             Type type = Type.tType((String) instr.objData);
-            ca.useType(type);
-            return createNormal(ca, instr, new NewOperator(type));
+            ma.useType(type);
+            return createNormal(ma, instr, new NewOperator(type));
         }
         case opc_arraylength:
             return createNormal
-                (ca, instr, new ArrayLengthOperator());
+                (ma, instr, new ArrayLengthOperator());
         case opc_athrow:
             return createBlock
-                (ca, instr, 
+                (ma, instr, 
                  new ThrowBlock(new NopOperator(Type.tUObject)));
         case opc_checkcast: {
             Type type = Type.tType((String) instr.objData);
-            ca.useType(type);
+            ma.useType(type);
             return createNormal
-                (ca, instr, new CheckCastOperator(type));
+                (ma, instr, new CheckCastOperator(type));
         }
         case opc_instanceof: {
             Type type = Type.tType((String) instr.objData);
-            ca.useType(type);
+            ma.useType(type);
             return createNormal
-                (ca, instr, new InstanceOfOperator(type));
+                (ma, instr, new InstanceOfOperator(type));
         }
         case opc_monitorenter:
-            return createNormal(ca, instr,
+            return createNormal(ma, instr,
                                 new MonitorEnterOperator());
         case opc_monitorexit:
-            return createNormal(ca, instr,
+            return createNormal(ma, instr,
                                 new MonitorExitOperator());
         case opc_multianewarray: {
             Type type = Type.tType((String) instr.objData);
-	    ca.useType(type);
+	    ma.useType(type);
             int dimension = instr.intData;
-            return createNormal(ca, instr, 
+            return createNormal(ma, instr, 
 				new NewArrayOperator(type, dimension));
         }
         case opc_ifnull: case opc_ifnonnull:
             return createIfGoto
-                (ca, instr, new CompareUnaryOperator
+                (ma, instr, new CompareUnaryOperator
                  (Type.tUObject, opcode - (opc_ifnull-Operator.COMPARE_OP)));
         default:
             throw new jode.AssertError("Invalid opcode "+opcode);

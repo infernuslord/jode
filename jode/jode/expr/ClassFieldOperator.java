@@ -19,7 +19,7 @@
 
 package jode.expr;
 import jode.type.Type;
-import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
 
 public class ClassFieldOperator extends NoArgOperator {

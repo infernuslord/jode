@@ -20,20 +20,20 @@
 package jode.expr;
 import jode.GlobalOptions;
 import jode.type.Type;
-import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 
 public class LocalLoadOperator extends Operator
     implements LocalVarOperator {
-    CodeAnalyzer codeAnalyzer;
+    MethodAnalyzer methodAnalyzer;
     LocalInfo local;
 
-    public LocalLoadOperator(Type type, CodeAnalyzer codeAnalyzer,
+    public LocalLoadOperator(Type type, MethodAnalyzer methodAnalyzer,
 			     LocalInfo local) {
         super(type);
-	this.codeAnalyzer = codeAnalyzer;
+	this.methodAnalyzer = methodAnalyzer;
         this.local = local;
         local.setOperator(this);
 	initOperands(0);
@@ -59,8 +59,8 @@ public class LocalLoadOperator extends Operator
 	return local.getLocalInfo();
     }
 
-    public void setCodeAnalyzer(CodeAnalyzer ca) {
-	codeAnalyzer = ca;
+    public void setMethodAnalyzer(MethodAnalyzer ma) {
+	methodAnalyzer = ma;
     }
 
     public void setLocalInfo(LocalInfo newLocal) {
@@ -78,8 +78,8 @@ public class LocalLoadOperator extends Operator
     public void updateType() {
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
             GlobalOptions.err.println("local "+local.getName()+" changed: "
-                               +type+" to "+local.getType()
-                               +" in "+parent);
+				      +type+" to "+local.getType()
+				      +" in "+parent);
 	updateParentType(local.getType());
     }
 

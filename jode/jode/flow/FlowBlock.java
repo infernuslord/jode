@@ -22,7 +22,7 @@ import java.util.*;
 import jode.GlobalOptions;
 import jode.AssertError;
 import jode.decompiler.TabbedPrintWriter;
-import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
 import jode.expr.CombineableOperator;
@@ -55,10 +55,10 @@ public class FlowBlock {
     }
 
     /**
-     * The code analyzer.  This is used to pretty printing the
+     * The method analyzer.  This is used to pretty printing the
      * Types and to get information about all locals in this code.
      */
-    CodeAnalyzer code;
+    MethodAnalyzer method;
 
     /**
      * The in locals.  This are the locals, which are used in this
@@ -138,8 +138,8 @@ public class FlowBlock {
     /**
      * The default constructor.  Creates a new empty flowblock.
      */
-    public FlowBlock(CodeAnalyzer code, int addr, int length) {
-	this.code = code;
+    public FlowBlock(MethodAnalyzer method, int addr, int length) {
+	this.method = method;
         this.addr = addr;
         this.length = length;
     }
@@ -148,9 +148,9 @@ public class FlowBlock {
      * The default constructor.  Creates a new flowblock containing
      * only the given structured block.
      */
-    public FlowBlock(CodeAnalyzer code, int addr, int length, 
+    public FlowBlock(MethodAnalyzer method, int addr, int length, 
 		     StructuredBlock block) {
-	this.code = code;
+	this.method = method;
         this.addr = addr;
         this.length = length;
 	setBlock(block);

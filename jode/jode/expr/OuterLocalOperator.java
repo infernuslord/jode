@@ -20,7 +20,7 @@
 package jode.expr;
 import jode.GlobalOptions;
 import jode.type.Type;
-import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
