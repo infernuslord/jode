@@ -503,8 +503,8 @@ public abstract class StructuredBlock {
 	    }
 	    done.add(declarable);
 	    declare.add(declarable);
-	    if (declare instanceof ClassAnalyzer)
-		((ClassAnalyzer) declare).makeDeclaration(done);
+	    if (declarable instanceof ClassAnalyzer)
+		((ClassAnalyzer) declarable).makeDeclaration(done);
 	}
         StructuredBlock[] subs = getSubBlocks();
 	for (int i=0; i<subs.length; i++)
