@@ -11,18 +11,36 @@ public class PackagesTreeModel implements TreeModel {
     class TreeElement {
 	String fullName;
 	String name;
+	boolean leaf;
 
 	public TreeElement(String prefix, String name) {
 	    this.fullName = prefix+name;
 	    this.name = name;
+	    this.leaf = !ClassInfo.isPackage(fullName);
 	}
 
 	public String getFullName() {
 	    return fullName;
 	}
 
+	public String getName() {
+	    return name;
+	}
+
+	public boolean isLeaf() {
+	    return leaf;
+	}
+
 	public String toString() {
 	    return name;
+	}
+
+	public int compareTo(Object o) {
+	    TreeElement other = (TreeElement) o;
+	    if (leaf != other.leaf)
+		// files come after directories
+		return leaf ? 1 : -1;
+	    return fullName.compareTo(other.fullName);
 	}
 
 	public boolean equals(Object o) {
@@ -46,7 +64,21 @@ public class PackagesTreeModel implements TreeModel {
 	    Enumeration enum = 
 		ClassInfo.getClassesAndPackages(parent.getFullName());
 	    while (enum.hasMoreElements()) {
-		v.addElement(new TreeElement(prefix, (String)enum.nextElement()));
+		//insert sorted and remove double elements;
+		String name = (String)enum.nextElement();
+		TreeElement newElem = new TreeElement(prefix, name);
+		for (int i=0; ; i++) {
+		    if (i == v.size()) {
+			v.addElement(newElem);
+			break;
+		    }
+		    int compare = newElem.compareTo(v.elementAt(i));
+		    if (compare < 0) {
+			v.insertElementAt(newElem, i);
+			break;
+		    } else if (compare == 0)
+			break;
+		}
 	    }
 	    result = new TreeElement[v.size()];
 	    v.copyInto(result);
@@ -88,7 +120,7 @@ public class PackagesTreeModel implements TreeModel {
     }
 
     public boolean isLeaf(Object node) {
-	return !ClassInfo.isPackage(((TreeElement) node).getFullName());
+	return ((TreeElement)node).isLeaf();
     }
 
     public String getFullName(Object node) {
