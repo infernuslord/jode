@@ -1,3 +1,8 @@
+/* Unreach Copyright (C) 1999 Dave Mugridge.
+ *
+ * $Id$
+ */
+
 package jode.test;
 
 /* A test class submitted by dave@onekiwi.demon.co.uk */
@@ -26,4 +31,3 @@ class Unreach
 	}
     }
 }
-
