@@ -21,8 +21,8 @@ package jode.flow;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.LocalInfo;
-import jode.expr.ComplexExpression;
 import jode.expr.Expression;
+import jode.expr.StoreInstruction;
 import jode.expr.LocalStoreOperator;
 
 /**
@@ -60,7 +60,7 @@ public class InstructionBlock extends InstructionContainer {
      */
     public VariableStack mapStackToLocal(VariableStack stack) {
 	VariableStack newStack;
-	int params = instr.getOperandCount();
+	int params = instr.getFreeOperandCount();
 	if (params > 0)
 	    this.stack = stack.peek(params);
 
@@ -79,10 +79,10 @@ public class InstructionBlock extends InstructionContainer {
 	if (stack != null)
 	    instr = stack.mergeIntoExpression(instr, used);
 	if (pushedLocal != null) {
-	    LocalStoreOperator store = new LocalStoreOperator
-		(pushedLocal.getType(), pushedLocal, 
-		 LocalStoreOperator.ASSIGN_OP);
-	    instr = new ComplexExpression(store, new Expression[] { instr });
+	    Expression store = new StoreInstruction
+		(new LocalStoreOperator
+		 (pushedLocal.getType(), pushedLocal)).addOperand(instr);
+	    instr = store;
 	    used.addElement(pushedLocal);
 	}
 	super.removePush();
@@ -102,18 +102,19 @@ public class InstructionBlock extends InstructionContainer {
      * variable.
      */
     public void checkDeclaration(VariableSet declareSet) {
-        if (instr.getOperator() instanceof LocalStoreOperator) {
+        if (instr instanceof StoreInstruction
+	    && (((StoreInstruction)instr).getLValue() 
+		instanceof LocalStoreOperator)) {
+	    StoreInstruction storeOp = (StoreInstruction) instr;
 	    LocalInfo local = 
-		((LocalStoreOperator) instr.getOperator()).getLocalInfo();
+		((LocalStoreOperator) storeOp.getLValue()).getLocalInfo();
             if (declareSet.contains(local)) {
 		/* Special case: This is a variable assignment, and
 		 * the variable has not been declared before.  We can
 		 * change this to a initializing variable declaration.  
 		 */
 		isDeclaration = true;
-		if (instr instanceof ComplexExpression)
-		    ((ComplexExpression) instr)
-			.getSubExpressions()[0].makeInitializer();
+		storeOp.getSubExpressions()[1].makeInitializer();
 		declareSet.removeElement(local);
 	    }
 	}
@@ -136,8 +137,9 @@ public class InstructionBlock extends InstructionContainer {
 	if (instr.getType() != Type.tVoid)
 	    writer.print("PUSH ");
         else if (isDeclaration) {
-            LocalInfo local = ((LocalStoreOperator) instr.getOperator())
-                .getLocalInfo();
+            LocalInfo local = 
+		((LocalStoreOperator) ((StoreInstruction) instr).getLValue())
+		.getLocalInfo();
 	    writer.printType(local.getType().getHint());
 	    writer.print(" ");
 	}
