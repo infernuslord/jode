@@ -226,8 +226,8 @@ public class ComplexExpression extends Expression {
             if (!opType.equals(exprType) && opType != Type.tError) {
                 if (Decompiler.isTypeDebugging)
                     Decompiler.err.println("change in "+this+": "
-                                       +exprType
-                                       +"->"+opType);
+					   +exprType
+					   +"->"+opType);
                 subExpressions[i].setType(opType);
                 changed = true;
             }
@@ -488,7 +488,8 @@ public class ComplexExpression extends Expression {
 		GetFieldOperator get = (GetFieldOperator) subExpressions[1];
 		ComplexExpression ass = (ComplexExpression) subExpressions[2];
 		PutFieldOperator put = (PutFieldOperator) ass.getOperator();
-		if (put.isSynthetic() && put.matches(get)
+		if (put.getField() != null
+		    && put.getField().isSynthetic() && put.matches(get)
 		    && cmp.subExpressions[0] instanceof GetFieldOperator
 		    && put.matches((GetFieldOperator)cmp.subExpressions[0])
 		    && ass.subExpressions[0] instanceof ComplexExpression
@@ -508,6 +509,7 @@ public class ComplexExpression extends Expression {
 			    .equals("class$" + clazz.replace('.', '$'))
 			    || put.getFieldName()
 			    .equals("class$L" + clazz.replace('.', '$'))) {
+			    put.getField().analyzedSynthetic();
 			    return new ClassFieldOperator(Type.tClass(clazz));
 			}
 		    }
