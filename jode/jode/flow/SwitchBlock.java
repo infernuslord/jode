@@ -31,31 +31,33 @@ implements BreakableBlock {
     VariableStack breakedStack;
 
     public SwitchBlock(Expression instr,
-		       int[] cases, int[] dests) {
+		       int[] cases, FlowBlock[] dests) {
 	super(instr);
 
 	/* First remove all dests that jump to the default dest. */
 	int numCases = dests.length;
-	int defaultDest = dests[cases.length];
+	FlowBlock defaultDest = dests[cases.length];
 	for (int i=0; i< cases.length; i++) {
 	    if (dests[i] == defaultDest) {
-		dests[i] = -1;
+		dests[i] = null;
 		numCases--;
 	    }
 	}
 
         caseBlocks = new CaseBlock[numCases];
-	int lastDest = -1;
+	FlowBlock lastDest = null;
         for (int i=numCases-1; i>=0; i--) {
 	    /**
 	     * Sort the destinations by finding the greatest destAddr
 	     */
 	    int index = 0;
 	    for (int j=1; j<dests.length; j++) {
-		if (dests[j] >= dests[index])
+		if (dests[j] != null 
+		    && (dests[index] == null
+			|| dests[j].getAddr() >= dests[index].getAddr()))
 		    index = j;
 	    }
-	    /* assert(dests[index] != -1) */
+	    /* assert(dests[index] != null) */
 
 	    int value;
 	    if (index == cases.length)
@@ -70,7 +72,7 @@ implements BreakableBlock {
 					      new Jump(dests[index]));
 	    caseBlocks[i].outer = this;
 	    lastDest = dests[index];
-	    dests[index] = -1;
+	    dests[index] = null;
 	    if (index == cases.length)
 		caseBlocks[i].isDefault = true;
         }
