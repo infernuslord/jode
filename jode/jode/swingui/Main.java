@@ -21,6 +21,7 @@ package jode.swingui;
 import jode.GlobalOptions;
 import jode.decompiler.*;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.SearchPath;
 ///#ifndef OLDSWING
 import javax.swing.*;
 import javax.swing.event.*;
@@ -87,7 +88,7 @@ public class MainWindow
 	rightPane.setDividerSize(4);
 	allPane.setDividerLocation(200);
 	allPane.setDividerSize(4);
-	GlobalOptions.err = new PrintWriter(new AreaWriter(errorArea));
+	GlobalOptions.err = new PrintWriter(new AreaWriter(errorArea), true);
     }
 
     public synchronized void valueChanged(TreeSelectionEvent e) {
@@ -181,13 +182,18 @@ public class MainWindow
 	    imports.init(lastClassName);
 	    ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
 	    clazzAna.analyze();
+	    clazzAna.analyzeInnerClasses();
+	    clazzAna.makeDeclaration();
 	    
 	    sourcecodeArea.setText("");
 	    TabbedPrintWriter writer = 
-		new TabbedPrintWriter(new AreaWriter(sourcecodeArea), imports);
+		new TabbedPrintWriter
+		(new BufferedWriter
+		 (new AreaWriter(sourcecodeArea), 1024), imports);
 
 	    imports.dumpHeader(writer);
 	    clazzAna.dumpSource(writer);
+	    writer.close();
 
 //  	    saveButton.setEnabled(true);
 	} catch (Throwable t) {
@@ -261,15 +267,16 @@ public class MainWindow
     }
 
     public static void main(String[] params) {
-	String cp = System.getProperty("java.class.path");
+	String cp = System.getProperty("java.class.path", "");
+	cp = cp.replace(File.pathSeparatorChar, SearchPath.pathSeparatorChar);
 	for (int i=0; i<params.length; i++) {
 	    if (params[i].equals("--cp"))
 		cp = params[++i];
 	    else
 		return;
 	}
+	GlobalOptions.verboseLevel = 1;
 	MainWindow win = new MainWindow(cp);
 	win.show();
     }
 }
-
