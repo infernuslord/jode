@@ -1,3 +1,22 @@
+/* 
+ * LocalInfo (c) 1998 Jochen Hoenicke
+ *
+ * You may distribute under the terms of the GNU General Public License.
+ *
+ * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
+ * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
+ * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
+ * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
+ * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
+ * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ *
+ * $Id$
+ */
+
 package jode;
 import sun.tools.java.*;
 
@@ -5,12 +24,12 @@ import sun.tools.java.*;
  * The LocalInfo represents a local variable of a method.
  * The problem is that two different local variables may use the same
  * slot.  The current strategie is to make the range of a local variable 
- * as small as possible.
+ * as small as possible.<p>
  *
  * There may be more than one LocalInfo for a single local variable,
  * because the algorithm begins with totally disjunct variables and
  * then unifies locals.  One of the local is then a shadow object which
- * calls the member functions of the other local.
+ * calls the member functions of the other local.<p>
  */
 public class LocalInfo {
     private static int serialnr = 0;
@@ -18,6 +37,10 @@ public class LocalInfo {
     private Identifier name;
     private Type type;
     private LocalInfo shadow;
+
+    /* The current implementation may use very much stack.  This
+     * should be changed someday.
+     */
 
     /**
      * Create a new local info.  The name will be an identifier
@@ -68,6 +91,14 @@ public class LocalInfo {
         if (name == null)
             name = Identifier.lookup("local_"+slot+"__"+serialnr++);
         return name;
+    }
+
+    /**
+     * Get the slot of this local.
+     */
+    public Identifier getSlot() {
+        /* The slot does not change when shadowing */
+        return slot;
     }
 
     /**
