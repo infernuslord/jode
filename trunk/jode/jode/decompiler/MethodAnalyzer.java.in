@@ -54,6 +54,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 import @COLLECTIONS@.Map;
+import @COLLECTIONS@.Iterator;
 
 public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     ImportHandler imports;
@@ -240,8 +241,9 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    /* First create a FlowBlock for every block that has a 
 	     * predecessor other than the previous instruction.
 	     */
-	    for (Instruction instr = code.getFirstInstr();
-		 instr != null; instr = instr.getNextByAddr()) {
+	    for (Iterator i = code.getInstructions().iterator(); 
+		 i.hasNext(); ) {
+		Instruction instr = (Instruction) i.next();
 		if (instr.getPrevByAddr() == null
 		    || instr.getPrevByAddr().doesAlwaysJump()
 		    || instr.getPreds() != null)
@@ -271,8 +273,9 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
             int mark = 1000;
             FlowBlock lastBlock = null;
 	    boolean   lastSequential = false;
-	    for (Instruction instr = code.getFirstInstr();
-		 instr != null; instr = instr.getNextByAddr()) {
+	    for (Iterator i = code.getInstructions().iterator(); 
+		 i.hasNext(); ) {
+		Instruction instr = (Instruction) i.next();
 
 		jode.flow.StructuredBlock block
 		    = Opcodes.readOpcode(instr, this);
@@ -306,7 +309,8 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
                 }
 	    }
 
-	    methodHeader = (FlowBlock) code.getFirstInstr().getTmpInfo();
+	    methodHeader = (FlowBlock)
+		((Instruction) code.getInstructions().get(0)).getTmpInfo();
             excHandlers = new TransformExceptionHandlers();
             for (int i=0; i<handlers.length; i++) {
                 Type type = null;
@@ -321,9 +325,10 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
                 excHandlers.addHandler(start, endAddr, handler, type);
             }
         }
-	for (Instruction instr = code.getFirstInstr();
-	     instr != null; instr = instr.getNextByAddr())
+	for (Iterator i = code.getInstructions().iterator(); i.hasNext(); ) {
+	    Instruction instr = (Instruction) i.next();
 	    instr.setTmpInfo(null);
+	}
 
         if (GlobalOptions.verboseLevel > 0)
             GlobalOptions.err.print('-');

@@ -22,21 +22,20 @@ import jode.bytecode.BytecodeInfo;
 import jode.bytecode.Instruction;
 import jode.bytecode.Handler;
 
+import @COLLECTIONS@.Iterator;
+
 public class DeadCodeAnalysis {
 
     private final static String REACHABLE = "R";
     private final static String REACHCHANGED = "C";
 
-    private static void propagateReachability(Instruction firstInstr, 
-					      Instruction reachInstr) {
-	if (reachInstr.getTmpInfo() != null)
-	    return;
-	reachInstr.setTmpInfo(REACHCHANGED);
+    private static void propagateReachability(BytecodeInfo code) {
 	boolean changed;
 	do {
 	    changed = false;
-	    for (Instruction instr = firstInstr; 
-		 instr != null; instr = instr.getNextByAddr()) {
+	    for (Iterator iter = code.getInstructions().iterator(); 
+		 iter.hasNext(); ) {
+		Instruction instr = (Instruction) iter.next();
 		if (instr.getTmpInfo() == REACHCHANGED) {
 		    changed = true;
 		    instr.setTmpInfo(REACHABLE);
@@ -59,7 +58,8 @@ public class DeadCodeAnalysis {
     }
 
     public static void removeDeadCode(BytecodeInfo code) {
-	propagateReachability(code.getFirstInstr(), code.getFirstInstr());
+	((Instruction) code.getInstructions().get(0)).setTmpInfo(REACHCHANGED);
+	propagateReachability(code);
 	Handler[] handlers = code.getExceptionHandlers();
 	boolean changed;
 	do {
@@ -72,8 +72,8 @@ public class DeadCodeAnalysis {
 		    for (Instruction instr = handlers[i].start; 
 			 instr != null; instr = instr.getNextByAddr()) {
 			if (instr.getTmpInfo() != null) {
-			    propagateReachability(code.getFirstInstr(), 
-						  handlers[i].catcher);
+			    handlers[i].catcher.setTmpInfo(REACHCHANGED);
+			    propagateReachability(code);
 			    changed = true;
 			    break;
 			}
@@ -105,14 +105,12 @@ public class DeadCodeAnalysis {
 	}
 
 	/* Now remove the dead code and clean up tmpInfo */
-	Instruction nextInstr;
-	for (Instruction instr = code.getFirstInstr(); 
-	     instr != null; instr = nextInstr) {
-	    nextInstr = instr.getNextByAddr();
-	    if (instr.getTmpInfo() == null)
-		instr.removeInstruction();
-	    else
+	for (Iterator i = code.getInstructions().iterator(); i.hasNext(); ) {
+	    Instruction instr = (Instruction) i.next();
+	    if (instr.getTmpInfo() != null)
 		instr.setTmpInfo(null);
+	    else
+		i.remove();
 	}
     }
 }
