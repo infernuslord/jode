@@ -100,4 +100,18 @@ public class TryBlock extends StructuredBlock {
             subBlocks[i].dumpSource(writer);
         writer.println("}");
     }
+
+    /**
+     * Determines if there is a sub block, that flows through to the end
+     * of this block.  If this returns true, you know that jump is null.
+     * @return true, if the jump may be safely changed.
+     */
+    public boolean jumpMayBeChanged() {
+        for (int i=0; i<subBlocks.length;i++) {
+            if (subBlocks[i].jump == null
+                && !subBlocks[i].jumpMayBeChanged())
+                return false;
+        }
+        return true;
+    }
 }

@@ -88,11 +88,12 @@ public class ComplexExpression extends Expression {
 		}
                 return 1;
 	    }
-	    for (int i=0; i < subExpressions.length; i++) {
-		int can = subExpressions[i].canCombine(e);
-		if (can != 0)
-                    return can;
-	    }
+            return subExpressions[0].canCombine(e);
+// 	    for (int i=0; i < subExpressions.length; i++) {
+// 		int can = subExpressions[i].canCombine(e);
+// 		if (can != 0)
+//                     return can;
+// 	    }
 	}
 	return 0;
     }
@@ -120,7 +121,7 @@ public class ComplexExpression extends Expression {
                 return this;
             }
         }
-        throw new AssertError("combine didn't succeed");
+        return null;
     }
 
     public Operator getOperator() {
@@ -235,37 +236,33 @@ public class ComplexExpression extends Expression {
         return true;
     }
 
-    static Expression emptyString = 
-        new EmptyStringOperator();
-
     public Expression simplifyStringBuffer() {
-        gnu.bytecode.CpoolRef field;
         if (operator instanceof InvokeOperator
             && (((InvokeOperator)operator).getClassType()
                 .equals(Type.tStringBuffer))
             && !((InvokeOperator)operator).isStatic() 
             && (((InvokeOperator)operator).getMethodName().equals("append"))
             && (((InvokeOperator)operator).getMethodType()
-                .getArgumentTypes().length == 1)) {
+                .getParameterTypes().length == 1)) {
 
             Expression e = subExpressions[0].simplifyStringBuffer();
             if (e == null)
                 return null;
             
-            if (e.getOperator() instanceof EmptyStringOperator &&
-                subExpressions[1].getType().isOfType(Type.tString))
+            if (e == EMPTYSTRING
+                && subExpressions[1].getType().isOfType(Type.tString))
                 return subExpressions[1];
 
             return new ComplexExpression
                 (new StringAddOperator(), new Expression[] 
                  { e, subExpressions[1] });
         }
-        if (operator instanceof ConstructorOperator &&
-            operator.getType().isOfType(Type.tStringBuffer)) {
-            if (subExpressions.length == 0)
-                return emptyString;
-            else if (subExpressions.length == 1 &&
-                     subExpressions[0].getType().isOfType(Type.tString))
+        if (operator instanceof ConstructorOperator
+            && (((ConstructorOperator) operator).getClassType() 
+                == Type.tStringBuffer)) {
+            
+            if (subExpressions.length == 1 &&
+                subExpressions[0].getType().isOfType(Type.tString))
                 return subExpressions[0];
         }
         return null;
@@ -276,7 +273,7 @@ public class ComplexExpression extends Expression {
             InvokeOperator invoke = (InvokeOperator) operator;
             if (invoke.getMethodName().equals("toString")
                 && !invoke.isStatic()
-                && (invoke.getClassType().equals(Type.tStringBuffer))
+                && invoke.getClassType().equals(Type.tStringBuffer)
                 && subExpressions.length == 1) {
                 Expression simple = subExpressions[0].simplifyStringBuffer();
                 if (simple != null)
@@ -292,7 +289,7 @@ public class ComplexExpression extends Expression {
                 
                 return new ComplexExpression
                     (new StringAddOperator(), new Expression[] 
-                     { emptyString, subExpressions[0] });
+                     { EMPTYSTRING, subExpressions[0] });
             }
             /* The pizza way (pizza is the compiler of kaffe) */
             else if (invoke.getMethodName().equals("concat")
@@ -304,7 +301,7 @@ public class ComplexExpression extends Expression {
                 if (right instanceof ComplexExpression
                     && right.getOperator() instanceof StringAddOperator
                     && (((ComplexExpression) right).subExpressions[0]
-                        == emptyString))
+                        == EMPTYSTRING))
                     right = ((ComplexExpression)right).subExpressions[1];
 
                 return new ComplexExpression

@@ -67,9 +67,13 @@ public class CombineIfGotoExpressions implements Transformation{
             if (prevJump.destination == cb.jump.destination) {
                 operator = BinaryOperator.LOG_AND_OP;
                 e[0] = cbprev.getInstruction().negate();
+                cb.jump.gen.unionExact(prevJump.gen);
+                cb.jump.kill.intersect(prevJump.kill);
             } else if (prevJump.destination == cb.trueBlock.jump.destination) {
                 operator = BinaryOperator.LOG_OR_OP;
                 e[0] = cbprev.getInstruction();
+                cb.trueBlock.jump.gen.unionExact(prevJump.gen);
+                cb.trueBlock.jump.kill.intersect(prevJump.kill);
             } else
                 return false;
 

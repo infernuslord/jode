@@ -22,36 +22,27 @@ import gnu.bytecode.CpoolRef;
 
 public final class InvokeOperator extends Operator {
     CodeAnalyzer codeAnalyzer;
-    boolean staticFlag;
     boolean specialFlag;
     MethodType methodType;
     String methodName;
     Type classType;
-    CpoolRef field;
 
     public InvokeOperator(CodeAnalyzer codeAnalyzer,
-                          boolean staticFlag, boolean specialFlag, 
-                          CpoolRef field) {
+                          boolean specialFlag, Type classType, 
+                          MethodType methodType, String methodName) {
         super(Type.tUnknown, 0);
-        methodType = new MethodType(field.getNameAndType().
-                                    getType().getString());
-        methodName = field.getNameAndType().getName().getString();
-        classType = Type.tClass(field.getCpoolClass().getName().getString());
+        this.methodType = methodType;
+        this.methodName = methodName;
+        this.classType = classType;
         this.type = methodType.getReturnType();
         this.codeAnalyzer  = codeAnalyzer;
-        this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
-        this.field = field;
-        if (staticFlag)
+        if (methodType.isStatic())
             classType.useType();
     }
 
     public boolean isStatic() {
-        return staticFlag;
-    }
-
-    public CpoolRef getField() {
-        return field;
+        return methodType.isStatic();
     }
 
     public MethodType getMethodType() {
@@ -71,22 +62,23 @@ public final class InvokeOperator extends Operator {
     }
 
     public int getOperandCount() {
-        return (staticFlag?0:1) + methodType.getArgumentTypes().length;
+        return (methodType.isStatic()?0:1) 
+            + methodType.getParameterTypes().length;
     }
 
     public int getOperandPriority(int i) {
-        if (!staticFlag && i == 0)
+        if (!methodType.isStatic() && i == 0)
             return 950;
         return 0;
     }
 
     public Type getOperandType(int i) {
-        if (!staticFlag) {
+        if (!methodType.isStatic()) {
             if (i == 0)
                 return getClassType();
             i--;
         }
-        return methodType.getArgumentTypes()[i];
+        return methodType.getParameterTypes()[i];
     }
 
     public void setOperandType(Type types[]) {
@@ -98,7 +90,7 @@ public final class InvokeOperator extends Operator {
 
     public String toString(String[] operands) {
         String object = 
-            staticFlag
+            methodType.isStatic()
             ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
                ? ""
                : classType.toString())
@@ -110,7 +102,7 @@ public final class InvokeOperator extends Operator {
                   : "")
                : operands[0]);
 
-        int arg = staticFlag ? 0 : 1;
+        int arg = methodType.isStatic() ? 0 : 1;
         String method;
         if (isConstructor())
             method = (object.length() == 0 ? "this" : object);
@@ -118,7 +110,7 @@ public final class InvokeOperator extends Operator {
             method = (object.length() == 0 ? "" : object + ".") + methodName;
 
         StringBuffer params = new StringBuffer();
-        for (int i=0; i < methodType.getArgumentTypes().length; i++) {
+        for (int i=0; i < methodType.getParameterTypes().length; i++) {
             if (i>0)
                 params.append(", ");
             params.append(operands[arg++]);
@@ -127,9 +119,10 @@ public final class InvokeOperator extends Operator {
     }
 
     public boolean equals(Object o) {
-	return (o instanceof InvokeOperator) &&
-	    ((InvokeOperator)o).field == field &&
-	    ((InvokeOperator)o).staticFlag == staticFlag &&
+	return o instanceof InvokeOperator &&
+	    ((InvokeOperator)o).classType.equals(classType) &&
+	    ((InvokeOperator)o).methodName.equals(methodName) &&
+	    ((InvokeOperator)o).methodType.equals(methodType) &&
 	    ((InvokeOperator)o).specialFlag == specialFlag;
     }
 }
