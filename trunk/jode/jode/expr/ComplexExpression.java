@@ -127,6 +127,7 @@ public class ComplexExpression extends Expression {
         if (newType != type) {
             type = newType;
             operator.setType(type);
+            updateSubTypes();
         }
     }
 

@@ -42,6 +42,9 @@ public class ClassRangeType extends MyType {
 	    bottomType = ((ClassRangeType)bottomType).bottomType;
 	if (topType != null && topType.getTypeCode() == 103)
 	    topType = ((ClassRangeType)topType).topType;
+        typeSig = "-"+
+            (bottomType == null ? "0" : bottomType.getTypeSignature()) + 
+            (topType    == null ? "0" : topType.getTypeSignature());
 	this.bottomType = bottomType;
 	this.topType    = topType;
     }
@@ -86,7 +89,9 @@ public class ClassRangeType extends MyType {
             top.getTypeCode() <= bottom.getTypeCode())
             return bottom;
 
-        if (top.getTypeCode() != 9 && top.getTypeCode() != 10)
+        if (top.getTypeCode() != 9 
+            && top.getTypeCode() != 10
+            && top.getTypeCode() != 104)
             return tError;
 
         if (bottom == null || bottom == tObject)
@@ -101,23 +106,17 @@ public class ClassRangeType extends MyType {
 	    return tArray(type);
         }
 
-	if (bottom.getTypeCode() != 10 || top.getTypeCode() != 10) 
+        if (bottom.getTypeCode() == 10)
+            bottom = new ClassInterfacesType(bottom);
+
+        if (top.getTypeCode() == 10)
+            top = new ClassInterfacesType(top);
+
+	if (bottom.getTypeCode() != 104 || top.getTypeCode() != 104)
 	    return tError;
 
-	if (bottom == top)
-	    return bottom;
-	
-	ClassDeclaration c1 = new ClassDeclaration(bottom.getClassName());
-	ClassDeclaration c2 = new ClassDeclaration(top.getClassName());
-	
-	try {
-	    if (c2.getClassDefinition(env).isInterface()
-		|| c1.getClassDefinition(env).superClassOf(env, c2)
- 		|| c1.getClassDefinition(env).implementedBy(env, c2))
-		return new ClassRangeType(bottom, top);
-	} catch (ClassNotFound ex) {
-	}
-	return tError;
+	return ClassInterfacesType.createRangeType
+            ((ClassInterfacesType) bottom, (ClassInterfacesType) top);
     }
 
     public Type getElementType() {
@@ -161,10 +160,14 @@ public class ClassRangeType extends MyType {
 		return t2;
 	}
 
-	if ((t1.getTypeCode() != 9 && t1.getTypeCode() != 10) ||
-	    (t2.getTypeCode() != 9 && t2.getTypeCode() != 10))
+	if ((t1.getTypeCode() != 9 
+             && t1.getTypeCode() != 10 
+             && t1.getTypeCode() != 104) 
+            || (t2.getTypeCode() != 9 
+                && t2.getTypeCode() != 10
+                && t2.getTypeCode() != 104))
 	    return tError;
-
+        
 	if (t1 == MyType.tObject)
 	    return t2;
 	if (t2 == MyType.tObject)
@@ -174,64 +177,17 @@ public class ClassRangeType extends MyType {
 	    return tArray(getSpecializedType(t1.getElementType(),
 					     t2.getElementType()));
 
-	if (t1.getTypeCode() != 10 || t2.getTypeCode() != 10)
+        if (t1.getTypeCode() == 10)
+            t1 = new ClassInterfacesType(t1);
+
+        if (t2.getTypeCode() == 10)
+            t2 = new ClassInterfacesType(t2);
+
+	if (t1.getTypeCode() != 104 || t2.getTypeCode() != 104)
 	    return tError;
 
-	/* Now we have two classes or interfaces.  The result should
-	 * be the object that is the the child of both objects resp
-	 * implements both interfaces.  
-	 *
-	 * I currently only handle the simple case where one of the
-	 * two objects implements the other or is a child of it.
-	 *
-	 * There are really complicated cases that are currently
-	 * ignored: imaging, c1 and c2 are both disjunct interfaces
-	 * and there are some object which implements them both.
-	 * There is no way for us to guess which.
-	 *
-	 * Another possibility is that c1 is an interface and c2
-	 * an Object that doesn't implement c1.  This is not an error,
-	 * because it may be a sub class of c1 and c2 that implements
-	 * c1 and c2.
-	 *
-	 * What can we do about this?  We probably need something more 
-	 * powerful than a simple class range.
-	 *
-	 * But think of this code fragment:
-	 *
-	 * class Foo implements i1, i2 { ... }
-	 *
-	 * class Bar {
-	 *    Foo getFoo() { ... }
-	 *    void someFunction() {
-	 *        while ((Foo foo = getFoo()) != null) {
-	 *           foo.interface1Method();
-	 *           foo.interface2Method();
-	 *        }
-         *    }
-	 * }
-	 *
-	 * Since the while condition is moved to the bottom of 
-	 * the loop, the type information of foo is only available
-	 * <em>after</em> the two interface methods are called.
-	 * The current code would produce tError.  
-         */
-	
-	ClassDeclaration c1 = new ClassDeclaration(t1.getClassName());
-	ClassDeclaration c2 = new ClassDeclaration(t2.getClassName());
-	
-	try {
-	    if (c1.getClassDefinition(env).superClassOf(env, c2))
-		return t2;
-	    if (c2.getClassDefinition(env).superClassOf(env, c1))
-		return t1;
-	    if (c1.getClassDefinition(env).implementedBy(env, c2))
-		return t2;
-	    if (c2.getClassDefinition(env).implementedBy(env, c1))
-		return t1;
-	} catch (ClassNotFound ex) {
-	}
-	return tError;
+	return ClassInterfacesType.getSpecializedType
+            ((ClassInterfacesType) t1, (ClassInterfacesType) t2);
     }
 
     /**
@@ -263,70 +219,38 @@ public class ClassRangeType extends MyType {
 	    else
 		return t2;
 	}
-	if ((t1.getTypeCode() != 9 && t1.getTypeCode() != 10) ||
-	    (t1.getTypeCode() != 9 && t1.getTypeCode() != 10))
+	if ((t1.getTypeCode() != 9 
+             && t1.getTypeCode() != 10 
+             && t1.getTypeCode() != 104) 
+            || (t2.getTypeCode() != 9 
+                && t2.getTypeCode() != 10
+                && t2.getTypeCode() != 104))
 	    return tError;
-
+        
 	if (t1 == MyType.tObject)
 	    return t1;
 	if (t2 == MyType.tObject)
 	    return t2;
 
-	if (t1.getTypeCode() == 9 && t2.getTypeCode() == 9) 
-	    return tArray(getGeneralizedType(t1.getElementType(),
-					     t2.getElementType()));
+	if (t1.getTypeCode() == 9 && t2.getTypeCode() == 9) {
+            Type type = getGeneralizedType(t1.getElementType(),
+                                           t2.getElementType());
+            if (type == null)
+                return null;
+	    return tArray(type);
+        }
 
-	if (t1.getTypeCode() != 10 || t2.getTypeCode() != 10)
+        if (t1.getTypeCode() == 10)
+            t1 = new ClassInterfacesType(t1);
+
+        if (t2.getTypeCode() == 10)
+            t2 = new ClassInterfacesType(t2);
+
+	if (t1.getTypeCode() != 104 || t2.getTypeCode() != 104)
 	    return tError;
 
-	/* This code is not always correct:
-	 * We don't want a real super type in all cases, but maybe only
-	 * an interface which both objects implement. Think of this:
-	 *
-	 * interface I;
-	 * class C1 implements I;
-	 * class C2 implements I;
-	 *
-	 *  {
-	 *     I var;
-	 *     if (cond)
-	 *       var = getC1();
-	 *     else
-	 *       var = getC2();
-	 *     return var.interfaceMethod();
-	 *  }
-	 *
-	 * The current code would first assign the type object to
-	 * var and then produce a type error when interfaceMethod
-	 * is called.
-	 *
-	 * Now we have proved that we need some better concept for
-	 * types.  (Maybe a set of types for the upper and lower
-	 * bound)
-	 */
-	
-	ClassDeclaration c1 = new ClassDeclaration(t1.getClassName());
-	ClassDeclaration c2 = new ClassDeclaration(t2.getClassName());
-	
-	try {
-	    /* if one of the two types is an interface, return
-	     * the other type, since at least a subtype of the
-	     * other type may implement the interface.
-	     */
-	    if (c1.getClassDefinition(env).isInterface())
-		return t2;
-	    if (c2.getClassDefinition(env).isInterface())
-		return t1;
-
-	    ClassDefinition c = c1.getClassDefinition(env);
-	    while(c != null && !c.superClassOf(env, c2)) {
-		c = c.getSuperClass(env).getClassDefinition(env);
-	    }
-	    if (c != null)
-		return tClass(c.getName());
-	} catch (ClassNotFound ex) {
-	}
-	return tObject;
+	return ClassInterfacesType.getGeneralizedType
+            ((ClassInterfacesType) t1, (ClassInterfacesType) t2);
     }
 	    
     public Type getIntersection(ClassRangeType type)
@@ -360,14 +284,15 @@ public class ClassRangeType extends MyType {
     {
 	if (Decompiler.isTypeDebugging)
 	    return "<"+bottomType+"-"+topType+">" + string;
-	else if (bottomType != null)
-	    return bottomType.typeString(string, flag1, flag2);
+        else if (topType != null)
+            return topType.typeString(string, flag1, flag2);
+        else if (bottomType != null)
+            /* This means, that the local variable is never assigned to.
+             * If bottom type is a ClassRangeType, there may be problems,
+             * that are ignored.  They produce compiler errors.
+             */
+            return bottomType.typeString(string, flag1, flag2);
         else
-	    return tObject.typeString(string, flag1, flag2);
+            return "<Unknown>"+string;
     }
-
-//     public String toString()
-//     {
-// 	    return "<"+bottomType+"-"+topType+">";
-//     }
 }
