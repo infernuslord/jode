@@ -48,7 +48,7 @@ public class CodeInfo extends BinaryInfo {
         maxLocals = input.readUnsignedShort();
         int codeLength = input.readInt();
         code = new byte[codeLength];
-        input.read(code);
+        input.readFully(code);
         int count = 4*input.readUnsignedShort();
         exceptionTable = new int[count];
         for (int i = 0; i< count; i+=4) {
