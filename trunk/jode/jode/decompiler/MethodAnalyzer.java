@@ -118,7 +118,8 @@ public class MethodAnalyzer implements Analyzer {
 	}
 
 	if (isConstructor()
-	    && classAnalyzer.getParent() instanceof ClassAnalyzer) {
+	    && classAnalyzer.getParent() instanceof ClassAnalyzer
+	    && !classAnalyzer.isStatic()) {
 	    ClassAnalyzer parent = (ClassAnalyzer) classAnalyzer.getParent();
 	    LocalInfo clazz = code.getParamInfo(1);
 	    clazz.setType(Type.tClass(parent.getClazz()));
