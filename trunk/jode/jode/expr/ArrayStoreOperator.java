@@ -39,6 +39,10 @@ public class ArrayStoreOperator extends StoreInstruction {
         return loadop instanceof ArrayLoadOperator;
     }
 
+    public int getLValuePriority() {
+        return 950;
+    }
+
     public int getLValueOperandCount() {
         return 2;
     }
