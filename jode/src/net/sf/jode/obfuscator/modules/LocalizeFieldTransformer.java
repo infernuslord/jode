@@ -26,10 +26,7 @@ import net.sf.jode.obfuscator.*;
  */
 public class LocalizeFieldTransformer implements CodeTransformer {
 
-    public static void transformCode(BytecodeInfo bytecode) {
-	for (Instruction instr = bytecode.getFirstInstr(); 
-	     instr != null; instr = instr.nextByAddr) {
-
-	}
+    public void transformCode(BasicBlocks bb) {
+	/* XXX implement */
     }
 }

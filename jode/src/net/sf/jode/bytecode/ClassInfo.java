@@ -47,27 +47,42 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
-/**   
- * Accesses, creates or modifies java bytecode classes or interfaces.
- * This class represents a class or interface, it can't be used for
- * primitive or array types.  Every class/interface is associated with
- * a class path, which is used to load the class in memory.
+/**
+ * Represents a class or interface.  It can't be used for primitive
+ * or array types.  Every class/interface is associated with a class
+ * path, which is used to load the class and its dependent classes.
  *
- * <h3>Creating a class</h3>
- * You create a new ClassInfo, by calling {@link
- * ClassPath#getClassInfo}.  The resulting ClassInfo is empty and you
- * now have two different possibilities to fill it with informations:
- * You load the class from its classpath (from which it was created)
- * or you build it from scratch by setting its contents with the 
+ * <h3>ClassInfo and ClassPath</h3>
+ *
+ * Every ClassInfo instance belongs to a {@link ClassPath}.  This
+ * class path is used to find the class and its dependent classes,
+ * e.g. the super class.  Even if you want to create a class info from
+ * the scratch you have to associate it with a class path, in which
+ * the dependent classes are searched.
+ *
+ * For every class path and every class name there exists at most one
+ * class info object with this class name.  The only exception is when
+ * you overwrite a loaded class, e.g. by calling setName().
+ *
+ * <h3>Creating a Class</h3> 
+ * As you can see, there is no public constructor.  Instead you create
+ * a new ClassInfo, by calling {@link ClassPath#getClassInfo}.
+ * Multiple calls of this method with the same class name result in
+ * the same object.  The resulting ClassInfo is initially empty and
+ * you now have three different means to fill it with informations:
+ * You can {@link #load load} the class from its classpath (from which
+ * it was created), you can {@link #guess guess} the information
+ * (useful if the class can't be loaded), or you build it from scratch
+ * by setting its contents with the various <code>setSomething</code>
+ * methods.
+ *
+ * <h3>Changing a Class</h3> 
+ * Whether or not the classinfo was already filled with information,
+ * you can change it.  You can, for example, provide another array of
+ * methods, change the modifiers, or rename the class.  Use the
  * various <code>setSomething</code> methods.
  *
- * <h3>Changing a class</h3> 
- * Even if the class is already filled with information you can change
- * it.  You can, for example, set another array of methods, change the
- * modifiers, or rename the class.  Use the various
- * <code>setSomething</code> methods.
- *
- * <h3>The components of a class</h3>
+ * <h3>The Components of a Class</h3>
  * A class consists of several components:
  * <dl>
  * <dt>name</dt><dd>
@@ -94,21 +109,20 @@ import java.lang.reflect.Modifier;
  * <dt>modifiers</dt><dd>
  *   There is a set of access modifiers (AKA access flags) attached to
  *   each class.  They are represented as integers (bitboard) and can
- *   be conveniently accessed via
- *   <code>java.lang.reflect.Modifier</code>. <br> <br>
+ *   be conveniently accessed via {@link java.lang.reflect.Modifier}.
+ *   <br>
  *
- *   Inner classes can have more modifiers than normal classes.  To be
- *   backwards compatible this was implemented by Sun by having the real 
- *   modifiers for inner classes at a special location, while the old
- *   location has only the modifiers that were allowed previously.
- *   This package knows about this and always returns the real modifiers.  
- *   The old modifiers are checked if they match the new extended ones.<br>
- *   <b>TODO:</b> Check that reflection returns the new modifiers!
+ *   Inner classes can have more modifiers than normal classes, as
+ *   they can be private, protected or static.  These extended modifiers
+ *   are supported, too. <br>
+ *
+ *   <b>TODO:</b> Check that reflection returns the extended modifiers!
  * </dd>
  * <dt>superclass</dt><dd>
- *   Every class except java.lang.Object has a super class.  The super class
- *   is created in the same classpath as the current class.  Interfaces
- *   always have <code>java.lang.Object</code> as their super class.
+ *   Every class except <code>java.lang.Object</code> has a super
+ *   class.  The super class is created in the same classpath as the
+ *   current class.  Interfaces always have
+ *   <code>java.lang.Object</code> as their super class.
  * </dd>
  * <dt>interfaces</dt><dd>
  *   Every class (resp. interfaces) can implement (resp. extend) 
@@ -118,61 +132,62 @@ import java.lang.reflect.Modifier;
  *   Fields are represented as {@link FieldInfo} objects.
  * </dd>
  * <dt>methods</dt><dd>
- *   Fields are represented as {@link MethodInfo} objects.
+ *   Methods are represented as {@link MethodInfo} objects.
  * </dd>
  * <dt>method scoped</dt><dd>
  *   A boolean value; true if this class is an anonymous or method
  *   scoped class.
  * </dd>
  * <dt>outer class</dt><dd>
- *   the class of which this class is the inner class.  It returns
- *   null for package scoped and method scoped classes. <br>
+ *   the class in which this class or interface was declared.  It
+ *   returns null for package scoped and method scoped classes.
  * </dd>
  * <dt>classes</dt><dd>
- *   the inner classes which is an array of ClassInfo.  This doesn't
- *   include method scoped classes.<br>
+ *   the inner classes declared in this class.  This doesn't include
+ *   method scoped classes.
  * </dd>
  * <dt>source file</dt><dd>
  *   The name of source file.  The JVM uses this field when a stack
- *   trace is produced.
+ *   trace is produced.  It may be null if the class was compiled
+ *   without debugging information.
  * </dd>
  * </dl>
  *
- * <h3>inner classes</h3> 
+ * <h3>Inner Classes</h3> 
  * Inner classes are supported as far as the information is present in
- * the bytecode.  But you can always ignore this inner information,
- * and access inner classes by their bytecode name,
- * e.g. <code>java.util.Map$Entry</code>.  There are four different types
- * of classes:
+ * the bytecode.  However, you can always ignore this inner
+ * information, and access inner classes by their bytecode name,
+ * e.g. <code>java.util.Map$Entry</code>.  There are four different
+ * types of classes:
  * <dl>
  * <dt>normal package scoped classes</dt><dd>
  *   A class is package scoped if, and only if
- *   <code>getOuterClass()</code> returns <code>null</code> and
- *   <code>isMethodScoped()</code> returns <code>false</code>.
+ *   {@link #getOuterClass()} returns <code>null</code> and
+ *   {@link #isMethodScoped()} returns <code>false</code>.
  * </dd>
  * <dt>class scoped classes (inner classes)</dt><dd>
  *   A class is class scoped if, and only if
- *   <code>getOuterClass()</code> returns not <code>null</code>.
+ *   {@link #getOuterClass()} returns not <code>null</code>.
  *
- *   The bytecode name (<code>getName()</code>) of an inner class is
- *   in most cases of the form <code>Package.Outer$Inner</code>.  But
+ *   The bytecode name ({@link #getName()}) of an inner class is
+ *   in normally of the form <code>Package.Outer$Inner</code>.  However,
  *   ClassInfo also supports differently named classes, as long as the
  *   InnerClass attribute is present.  The method
- *   <code>getClassName()</code> returns the name of the inner class
+ *   {@link #getClassName()} returns the name of the inner class
  *   (<code>Inner</code> in the above example).
  *
  *   You can get all inner classes of a class with the
- *   <code>getClasses</code> method.
+ *   method {@link #getClasses}.
  * </dd>
  * <dt>named method scoped classes</dt><dd>
  *   A class is a named method scoped class if, and only if
- *   <code>isMethodScoped()</code> returns <code>true</code> and
- *   <code>getClassName()</code> returns not <code>null</code>.  In
- *   that case <code>getOuterClass()</code> returns <code>null</code>,
+ *   {@link #isMethodScoped()} returns <code>true</code> and
+ *   {@link #getClassName()} returns not <code>null</code>.  In
+ *   that case {@link #getOuterClass()} returns <code>null</code>,
  *   too.<br><br>
  *
- *   The bytecode name (<code>getName()</code>) of an method scoped class is
- *   in most cases of the form <code>Package.Outer$Number$Inner</code>.  But
+ *   The bytecode name ({@link #getName()}) of a method scoped class is
+ *   normally of the form <code>Package.Outer$Number$Inner</code>.  However,
  *   ClassInfo also supports differently named classes, as long as the
  *   InnerClass attribute is present.  <br><br>
  *
@@ -182,16 +197,15 @@ import java.lang.reflect.Modifier;
  * </dd>
  * <dt>anonymous classes</dt><dd>
  *   A class is an anonymous class if, and only if
- *   <code>isMethodScoped()</code> returns <code>true</code> and
- *   <code>getClassName()</code> returns <code>null</code>.  In that
- *   case <code>getOuterClass()</code> returns <code>null</code>,
+ *   {@link #isMethodScoped()} returns <code>true</code> and
+ *   {@link #getClassName()} returns <code>null</code>.  In that
+ *   case {@link #getOuterClass()} returns <code>null</code>,
  *   too.<br><br>
  *
- *   The bytecode name (<code>getName()</code>) of an method scoped
- *   class is in most cases of the form
- *   <code>Package.Outer$Number</code>.  But ClassInfo also supports
- *   differently named classes, as long as the InnerClass attribute is
- *   present.  <br><br>
+ *   The bytecode name ({@link #getName()}) of a method scoped class
+ *   is normally of the form <code>Package.Outer$Number</code>.
+ *   However, ClassInfo also supports differently named classes, as
+ *   long as the InnerClass attribute is present.  <br><br>
  *
  *   There's no way to get the anonymous classes of a method, except
  *   by analyzing its instructions.  And even that is error prone, since
@@ -200,22 +214,21 @@ import java.lang.reflect.Modifier;
  * </dl>
  *
  * <hr>
- * <h3>Open Questions</h3>
+ * <h3>Open Question</h3>
  *
- * I represent most types as <code>java/lang/String</code> (type
+ * I represent most types as {@link String} objects (type
  * signatures); this is convenient since java bytecode does the same.
  * On the other hand a class type should be represented as
- * <code>jode/bytecode/ClassInfo</code> class.  There should be a
- * method to convert to it, but I need a ClassPath for this.  Should
- * the method be in ClassInfo (I don't think so), should an instance
- * of TypeSignature have a ClassPath as member variable, or should
- * getClassInfo() take a ClassPath parameter as it is currently?
- * What about arrays, shall we support special ClassInfo's for them,
- * as java.lang.Class does?  I think the current solution is okay.
- * <br>
+ * {@link ClassInfo} object.  There is a method in {@link TypeSignature}
+ * to convert between them, which needs a class path.  This is a
+ * bit difficult to use.  <br>
  *
- * @author Jochen Hoenicke 
- */
+ * However the alternative would be to represents types as ClassInfo
+ * and create ClassInfo objects for primitive and array types.  But
+ * this contradicts the purpose of this class, which is to read and
+ * write class files.  I think the current solution is okay.  <br>
+ *
+ * @author Jochen Hoenicke */
 public final class ClassInfo extends BinaryInfo implements Comparable {
 
     private static ClassPath defaultClasspath;
@@ -250,16 +263,15 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     public static final int NONE               = 0;
     /** 
      * This constant can be used as parameter to load.  It specifies
-     * that at least the outer class information should be loaded, i.e.
-     * the outer class, the class name.  It is the
-     * only information that is loaded recursively:  It is also 
-     * automatically loaded for the outer class and it is loaded for
-     * all inner and extra classes, if these fields are loaded.
-     * The reason for the recursive load is simple:  In java bytecode
-     * a class contains the outer class information for all outer, 
-     * inner and extra classes, so we can create this information 
+     * that at least the outer class information should be loaded,
+     * i.e.  the outer class and the java class name.  It is the only
+     * information that is loaded recursively: It is also
+     * automatically loaded for all classes that are accessed by this
+     * class.  The reason for the recursive load is simple: In java
+     * bytecode a class contains the outer class information for all
+     * classes that it accesses, so we can create this information
      * without the need to read the outer class.  We also need this
-     * information for outer and inner classes when writing a class.
+     * information when writing a class.
      *
      * @see #load 
      */
@@ -355,6 +367,14 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	return defaultClasspath.getClassInfo(name);
     }
 
+    /**
+     * Disable the default constructor.
+     * @exception InternalError always.
+     */
+    private ClassInfo() throws InternalError {
+	throw new InternalError();
+    }
+    
     ClassInfo(String name, ClassPath classpath) {
 	/* Name may be null when reading class with unknown name from
 	 * stream.
@@ -936,22 +956,21 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     }
 
     /**
-     * Loads the contents of a class from the classpath.
-     * @param howMuch The amount of information that should be read
-     *                in, one of <code>HIERARCHY</code>,
-     *                <code>PUBLICDECLARATIONS</code>,
-     *                <code>DECLARATIONS</code>, <code>ALMOSTALL</code>
-     *                or <code>ALL</code>.
+     * Loads the contents of a class from its class path.
+     * @param howMuch The amount of information that should be loaded
+     * at least, one of {@link #OUTERCLASS}, {@link #HIERARCHY}, {@link
+     * #PUBLICDECLARATIONS}, {@link #DECLARATIONS}, {@link #NODEBUG},
+     * {@link #ALMOSTALL} or {@link #ALL}.  Note that more information
+     * than requested can be loaded if this is convenient.
      * @exception ClassFormatException if the file doesn't denote a
      *            valid class.
      * @exception FileNotFoundException if class wasn't found in classpath.
-     * @exception IOException if an io exception occured.
-     * @exception IllegalStateException if this ClassInfo was modified.
-     * @see #HIERARCHY
-     * @see #PUBLICDECLARATIONS
-     * @see #DECLARATIONS
-     * @see #ALMOSTALL
-     * @see #ALL 
+     * @exception IOException if an io exception occured while reading
+     * the class.
+     * @exception SecurityException if a security manager prohibits loading
+     * the class.
+     * @exception IllegalStateException if this ClassInfo was modified by
+     * calling one of the setSomething methods.
      */
     public void load(int howMuch) 
 	throws IOException
@@ -975,8 +994,8 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
      * extends java.lang.Object, implements no interfaces and has no
      * fields, methods or inner classes.
      *
-     * @param howMuch The amount of information that should be read, e.g.
-     *                <code>HIERARCHY</code>.
+     * @param howMuch The amount of information that should be read,
+     * e.g.  {@link #HIERARCHY}.
      * @see #OUTERCLASS
      * @see #HIERARCHY
      * @see #PUBLICDECLARATIONS
@@ -1035,9 +1054,11 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 
     /**  
      * This is the counter part to load and guess.  It will drop all
-     * informations bigger than "keep" and clean up the memory.
+     * informations bigger than "keep" and clean up the memory.  Note
+     * that drop should be used with care if more than one thread 
+     * accesses this ClassInfo.
      * @param keep tells how much info we should keep, can be
-     *    <code>NONE</code> or anything that <code>load</code> accepts.
+     *    {@link #NONE} or anything that <code>load</code> accepts.
      * @see #load
      */
     public void drop(int keep) {
@@ -1091,6 +1112,11 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         return name;
     }
 
+    /**
+     * Tells whether the information in this class was guessed by a call
+     * to {@link #guess}.
+     * @return true if the information was guessed.
+     */
     public boolean isGuessed() {
         return isGuessed;
     }
@@ -1142,16 +1168,37 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         return interfaces;
     }
 
+    /**
+     * Gets the modifiers of this class, e.g. public or abstract.  The
+     * information is only available if at least {@link #HIERARCHY} is
+     * loaded.
+     * @return a bitboard of the modifiers.
+     * @see Class#getModifiers
+     * @see Modifier
+     */
     public int getModifiers() {
         if (modifiers == -1)
             throw new IllegalStateException("status is "+status);
         return modifiers;
     }
 
+    /**
+     * Checks whether this class info represents an interface.  The
+     * information is only available if at least {@link #HIERARCHY} is
+     * loaded.
+     * @return true if this class info represents an interface.
+     */
     public boolean isInterface() {
         return Modifier.isInterface(getModifiers());
     }
 
+    /**
+     * Searches for a field with given name and type signature.
+     * @param name the name of the field.
+     * @param typeSig the {@link TypeSignature type signature} of the
+     * field.
+     * @return the field info for the field.  
+     */
     public FieldInfo findField(String name, String typeSig) {
         if (status < PUBLICDECLARATIONS)
             throw new IllegalStateException("status is "+status);
@@ -1162,6 +1209,13 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         return null;
     }
 
+    /**
+     * Searches for a method with given name and type signature.
+     * @param name the name of the method.
+     * @param typeSig the {@link TypeSignature type signature} of the
+     * method.
+     * @return the method info for the method.  
+     */
     public MethodInfo findMethod(String name, String typeSig) {
         if (status < PUBLICDECLARATIONS)
             throw new IllegalStateException("status is "+status);
@@ -1172,12 +1226,18 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         return null;
     }
 
+    /**
+     * Gets the methods of this class.
+     */
     public MethodInfo[] getMethods() {
         if (status < PUBLICDECLARATIONS)
             throw new IllegalStateException("status is "+status);
         return methods;
     }
 
+    /**
+     * Gets the fields (class and member variables) of this class.
+     */
     public FieldInfo[] getFields() {
         if (status < PUBLICDECLARATIONS)
             throw new IllegalStateException("status is "+status);
@@ -1200,7 +1260,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     }
 
     /**
-     * Returns true if the class was declared inside a method.
+     * Tells whether the class was declared inside a method.
      * This needs the OUTERCLASS information loaded. 
      * @return true if this is a method scoped or an anonymous class,
      * false otherwise.
@@ -1215,11 +1275,12 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     }
 
     /**
-     * Returns the inner classes declared in this class.
+     * Gets the inner classes declared in this class.
      * This needs at least PUBLICDECLARATION information loaded. 
      * @return an array containing the inner classes, guaranteed != null.
      * @exception IllegalStateException if PUBLICDECLARATIONS information
-     * wasn't loaded yet.  */
+     * wasn't loaded yet.  
+     */
     public ClassInfo[] getClasses() {
         if (status < PUBLICDECLARATIONS)
             throw new IllegalStateException("status is "+status);
@@ -1457,6 +1518,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         return clazz == this;
     }
 
+    /**
+     * Returns a string representation of the class.  This is just the
+     * full qualified class name.
+     */
     public String toString() {
         return name;
     }
