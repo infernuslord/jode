@@ -18,17 +18,9 @@
  */
 
 package jode.expr;
-import jode.type.Type;
-import jode.type.NullType;
-import jode.type.ClassInterfacesType;
 import jode.bytecode.Reference;
-import jode.bytecode.ClassInfo;
-import jode.bytecode.FieldInfo;
 import jode.decompiler.MethodAnalyzer;
-import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.FieldAnalyzer;
-import jode.decompiler.TabbedPrintWriter;
-import jode.decompiler.Scope;
 
 public class PutFieldOperator extends FieldOperator
     implements LValueExpression {
