@@ -47,7 +47,7 @@ public class FlowBlock {
     StructuredBlock lastModified;
 
     /**
-     * All jumps that this flow block contains. 
+     * All Jumps that this flow block contains. 
      */
     Vector successors;
 
@@ -58,40 +58,47 @@ public class FlowBlock {
      */
     Vector predecessors;
     
-    public void optimizeJumps(FlowBlock successor) {
-        /* remove all unconditional jumps to the successor which have the
-         * end of the block as normal successor.
+    /**
+     * This method optimizes the jumps to successor.
+     * Returns true, if all jumps could be eliminated.
+     */
+    public boolean optimizeJumps(FlowBlock successor,
+                                 StructuredBlock structBlock) {
+        /* if the jump is the jump of the structBlock, skip it.
          */
+        
+        /* remove all jumps to the successor which have the successor
+         * as getNextFlowBlock().  */
 
         /* replace all conditional jumps to the successor, which are followed
          * by a block which has the end of the block as normal successor,
          * with "if (not condition) block".
          */
 
-        /* if there are jumps in a while block, which has the end of
-         * the block as normal successor or is followed by a
-         * unconditional jump to successor, replace jumps with breaks
-         * to the while block.  If the condition of the while is true,
-         * and the first instruction is converted to a conditional break
-         * remove that break and use the condition in the while block.
+        /* if the successor is the dummy return instruction, replace all
+         * jumps with a return.
+         */
+
+        /* if there are jumps in a while block or switch block and the
+         * while/switch block is followed by a jump to successor or has
+         * successor as getNextFlowBlock(), replace jump with break to
+         * the innermost such while/switch block.
+         *
+         * If the switch block hasn't been breaked before we could
+         * take some heuristics and add a jump after the switch to
+         * succesor, so that the above succeeds.
+         *
+         * If this is a while and the condition of the while is true,
+         * and this jump belongs to the first instruction in this
+         * while block and is inside a ConditionalBlock remove that
+         * ConditionalBlock an move the condition to the while block.  
          */
            
-
-        /* if there are jumps in an switch block, which has as normal
-         * successor the end of this FlowBlock, replace them with a
-         * break to the switch block.
-         * if there successor isn't the end of this FlowBlock, but
-         * there are many, or the next rule could work (some more
-         * heuristics?)  and there is currently no flow to the end of
-         * the switch block, replace all such successors with a break
-         * and add a new unconditional jump after the switch block.  */
-
-        /* if there are unconditional jumps in an if-then block, which
+        /* if there are jumps in an if-then block, which
          * have as normal successor the end of the if-then block, and
-         * the if-then block is followed by a single block, which has
-         * as normal successor the end of the block,  then replace
+         * the if-then block is followed by a single block, then replace
          * the if-then block with a if-then-else block and remove the
-         * unconditional jumps.
+         * unconditional jump.
          */
     }
 
@@ -162,34 +169,96 @@ public class FlowBlock {
 
     public boolean doT1 {
         /* search successor with smallest addr. */
+        Enumeration enum = successors.elements();
+        FlowBlock succ = null;
+        while (enum.hasMoreElements()) {
+            FlowBlock fb = ((Jump) enum.nextElement()).destination;
+            if (succ == null || fb.addr < succ.addr) {
+                succ = fb;
+            }
+        }
+        if (succ == null) {
+            /* There are no successors at all */
+            return false;
+        }
            
         /* check if this successor has only this block as predecessor. */
         /* if not, return false. */
+        if (succ.predecessors.size() != 1)
+            return false;
 
-        /* The switch case: if the last instruction in this block is a
-         * switch block, and all jumps to successor lie in a single case,
-         * or if all jumps
-         * which doesn't have the end of the block as normal
-         * successor, combine the successor with that block. But this
-         * doesn't catch all cases.
+        /* First find the innermost block that contains all jumps to this
+         * successor and the last modified block.
+         */
+        Enumeration enum = successors.elements();
+        StructuredBlock structBlock = lastModified;
+        while(enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+
+            while (!structBlock.contains(jump.parent))
+                structBlock = structBlock.outer;
+            /* structBlock can't be null now, because the
+             * outermost block contains every structured block.  
+             */
+        }
+
+        /* The switch "fall through" case: if the structBlock is a
+         * switch, and the successor is the address of a case, and all
+         * other successors are inside the block preceding that case.  
+         */
+        if (case != null) {
+            SwitchBlock switchBlock = (StructuredBlock) structBlock;
+
+            /* Now put the succ.block into the next case.
+             */
+            switchBlock.replaceSubBlock(nextcase,succ.block);
+
+            /* Do the following modifications on the struct block. */
+            structBlock = precedingcase;
+
+        } else {
+
+            /* Prepare the unification of the blocks: Make sure that
+             * structBlock has a successor outside of this block.  This is
+             * always possible, because it contains lastModified.  
+             */
+            if (structBlock.jump == null) {
+                /* assert(structBlock.jump.getNextFlowBlock() != null) */
+                structBlock.setJump(structBlock.getNextFlowBlock());
+            }
+            
+            /* Now unify the blocks: Create a new SequentialBlock
+             * containing structBlock and successor.block.  Then replace
+             * structBlock with the new sequential block.
+             */
+        }
+
+        /* Try to eliminate as many jumps as possible.
+         */
+            
+        optimizeJumps(succ, structBlock);
+
+        /* Now remove the jump of the structBlock if it points to successor.
          */
 
-        optimizeJumps(successor);
-        
-        /* if the successor is the dummy return instruction, replace all
-         * jumps with a return.
-         */
+        if (structBlock.jump == null)
+            structBlock.removeJump();
 
         /* If there are further jumps, put a do/while(0) block around
-         * current block and replace every necessary jump with a break
-         * to the do/while block.  Then combine the block with a
-         * sequential composition.  */
+         * structBlock and replace every remaining jump with a break
+         * to the do/while block.
+         */
+
+        /* Set last modified to correct value.
+         */
+        lastModified = succ.lastModified;
     }
 
     public boolean doT2() {
         /* If there are no jumps to the beginning of this flow block
          * or if this block has other predecessors which weren't
-         * considered yet, return false.  
+         * considered yet, return false.  The second condition make
+         * sure that the while isn't created up to the first continue.
          */
 
         /* If there is only one jump to the beginning and it is the
@@ -197,56 +266,28 @@ public class FlowBlock {
          * everything but the last instruction, or the last
          * instruction is a increase/decrease statement), replace the
          * do/while(0) with a for(;;last_instr) resp. create a new one
-         * and replace breaks to do/while with continue.  
+         * and replace breaks to do/while with continue to for.  
          */
         {
             /* Otherwise: */
-            optimizeJumps(this);
-            
+
             /* create a new while(true) block.
              */
-        }
 
-        /* if there are further jumps to this, replace every jump with a
-         * continue to while block and return true.  
-         */
+            /* Try to eliminate as many jumps as possible.
+             */
+            optimizeJumps(this, block);
+
+            /* Now remove the jump of block if it points to this.
+             */
+
+            /* if there are further jumps to this, replace every jump with a
+             * continue to while block and return true.  
+             */
+        }
     }
 }
 
-/**
- * A structured block describes a structured program.  There may be a
- * Jump after a block (even after a inner structured block), but the 
- * goal is, to remove all such jumps and make a single flow block.<p>
- *
- * There are following types of structured blocks: <ul>
- * <li>if-then-(else)-block  (IfThenElseBlock)</li>
- * <li>(do)-while/for-block  (LoopBlock)
- * <li>switch-block          (SwitchBlock)
- * <li>try-catch-finally-block (TryBlock)
- * <li>A block consisting of sub blocks  (SequentialBlock)
- * </ul>
- */
-public class StructuredBlock {
-    /** The surrounding block, or null if this is the outermost block in a
-     * flow block.
-     */
-    StructuredBlock parent;
 
-    /** The flow block to which this structured block belongs.
-     */
-    FlowBlock flow;
 
-}
 
-public class ConditionalJump extends Jump {
-    Expression condition;
-    StructuredBlock prev;
-    FlowBlock parent;
-    FlowBlock jump, nojump;
-}
-
-public class UnconditionalJump extends Jump {
-    StructuredBlock prev;
-    FlowBlock parent;
-    FlowBlock jump;
-}
