@@ -68,9 +68,7 @@ href="http://jedit.standmed.com/plugins/JavaInsight">JavaInsight plugin</a> for
 from the <a href="http://www.classpath.org">GNU Classpath Project</a>
 into its own package (<code>gnu.java.util.collections</code>).  This
 script is now part of GNU classpath.  For your convenience I have put a
-precompiled <a
-href="http://www.informatik.uni-oldenburg.de/~delwi/jode/collections.jar">jar
-file</a> on this server.
+precompiled <a href="collections.jar">jar file</a> on this server.
 </dd>
 </dl>
 <?php require("footer.inc"); ?>
