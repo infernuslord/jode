@@ -124,6 +124,8 @@ public class ArrayType extends Type {
     }
 
     public String getDefaultName() {
+	if (elementType instanceof ArrayType)
+	    return elementType.getDefaultName();
         return pluralize(elementType.getDefaultName());
     }
 
