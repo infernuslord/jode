@@ -818,7 +818,7 @@ public class FlowBlock {
 		info.gen.addAll(succGen);
 		info.kill.addAll(succKill);
 	    }
-	} else {
+	} else if (!(block instanceof EmptyBlock)) {
 	    checkConsistent();
 	    if ((GlobalOptions.debuggingFlags
 		 & GlobalOptions.DEBUG_FLOW) != 0) {

@@ -371,31 +371,31 @@ public class TransformConstructors {
     private Expression renameJikesSuper(Expression expr, 
 					MethodAnalyzer methodAna,
 					int firstOuterSlot,
-					int firstParamSlot,
-					int slotDist) {
+					int firstParamSlot) {
 	if (expr instanceof LocalLoadOperator) {
 	    LocalLoadOperator llop = (LocalLoadOperator) expr;
 	    int slot = llop.getLocalInfo().getSlot();
-	    if (slot < firstOuterSlot)
-		return llop;
-	    if (slot >= firstParamSlot) {
+	    if (slot >= firstOuterSlot && slot < firstParamSlot)
+		return outerValues.getValueBySlot(slot);
+	    else {
 		Type[] paramTypes = methodAna.getType().getParameterTypes();
 		int param;
-		slot -= slotDist + 1;
-		for (param = 0; slot > 0 && param < paramTypes.length; param++)
+		/* Adjust the slot */
+		if (slot >= firstParamSlot)
+		    slot -= firstParamSlot - firstOuterSlot;
+		for (param = 0; slot > 1 && param < paramTypes.length; param++)
 		    slot -= paramTypes[param].stackSize();
 		llop.setLocalInfo(methodAna.getParamInfo(1+param));
 		llop.setMethodAnalyzer(methodAna);
 		return llop;
 	    }
-	    return outerValues.getValueBySlot(slot);
 	}
 	if (expr instanceof Operator) {
 	    Expression subExpr[] = ((Operator)expr).getSubExpressions();
 	    for (int i=0; i< subExpr.length; i++) {
 		Expression newSubExpr = 
 		    renameJikesSuper(subExpr[i], methodAna, 
-				     firstOuterSlot, firstParamSlot, slotDist);
+				     firstOuterSlot, firstParamSlot);
 		if (newSubExpr != subExpr[i])
 		    ((Operator)expr).setSubExpressions(i, newSubExpr);
 	    }
@@ -425,21 +425,26 @@ public class TransformConstructors {
 	     *   constructor$?(optional outerValues[0], params);
 	     * }
 	     *
-	     * The outerValues[0] parameter is the normal this of the
-	     * surrounding method (but what is the surrounding method?
-	     * That can't be determined in some cases).  If the
-	     * surrounding method is static, the outerValues[0] parameter
-	     * disappears!
+	     * The outerValues[0] parameter is the this local in the
+	     * surrounding method.  But we can't be sure, what the 
+	     * surrounding method is, since it could be either the method
+	     * that uses the class, or a method that declares the class, that
+	     * contains the method that uses the class.<br>
+	     *
+	     * If the surrounding method is static, the outerValues[0]
+	     * parameter disappears.
 	     *
 	     * Move optional super to method constructor$?
 	     * (renaming local variables) and mark constructor and
-	     * constructor$? as Jikes constructor.  
-	     */
+	     * constructor$? as Jikes constructor.  */
 	    StructuredBlock sb = constr.getMethodHeader().block;
 	    
 	    Vector localLoads = null;
 	    InstructionBlock superBlock = null;
 	    if (i >= type0Count) {
+		/* Extract the super() or this() call at the beginning
+		 * of the constructor
+		 */
 		if (!(sb instanceof SequentialBlock)
 		    || !(sb.getSubBlocks()[1] instanceof InstructionBlock))
 		    continue constr_loop;
@@ -493,8 +498,8 @@ public class TransformConstructors {
 	    if (outerValues.isJikesAnonymousInner())
 		paramCount--;
 
-	    int minOuterCount = 0;
 	    int maxOuterCount = paramCount - methodParams.length + 2;
+	    int minOuterCount = maxOuterCount - 1;
 	    int slot = 1;
 	    int firstParam = 1;
 	    Expression outer0 = null;
@@ -502,18 +507,18 @@ public class TransformConstructors {
 	    if (maxOuterCount > 0 
 		&& methodParams.length > 1
 		&& outerValues.getCount() > 0) {
-		/* check if the outerValues[0] param is present. 
+		/* Check if the outerValues[0] param is present. 
 		 * we can't be sure if maxOuterCount equals 1, but
-		 * we assume so.
-		 * Also calculate the correct minOuterSlots.
+		 * we assume so, since at this time all possible
+		 * info about outers have been collected.
 		 */
 		if (((LocalLoadOperator)methodParams[firstParam]
 		     ).getLocalInfo().getSlot() == 1) {
+		    minOuterCount = maxOuterCount;
 		    outer0 = outerValues.getValue(0);
 		    firstParam++;
 		} else
 		    maxOuterCount--;
-		minOuterCount = maxOuterCount;
 		for (int j=0; j < maxOuterCount; j++)
 		    slot += paramTypes[j].stackSize();
 	    }
@@ -541,13 +546,13 @@ public class TransformConstructors {
 	    if (superBlock != null) {
 		Expression newExpr = 
 		    renameJikesSuper(superBlock.getInstruction(), methodAna, 
-				     firstOuterSlot, firstParamSlot, slotDist);
+				     firstOuterSlot, firstParamSlot);
 		superBlock.removeBlock();
 		methodAna.insertStructuredBlock(superBlock);
 	    }
 	    if (outer0 != null) {
-		constr.getParamInfo(1).setExpression(outer0);
-		cons[i].getMethodHeader().simplify();
+		methodAna.getParamInfo(1).setExpression(outer0);
+		methodAna.getMethodHeader().simplify();
 	    }
 
 	    if ((GlobalOptions.debuggingFlags
