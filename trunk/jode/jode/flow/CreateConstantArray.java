@@ -18,7 +18,7 @@
  */
 
 package jode.flow;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.expr.*;
 import jode.type.Type;
 
@@ -92,8 +92,8 @@ public class CreateConstantArray {
                 if (arraylength <= index)
                     return false;
 
-                if (Decompiler.isVerbose)
-                    Decompiler.err.print('a');
+                if (GlobalOptions.verboseLevel > 0)
+                    GlobalOptions.err.print('a');
 
                 ConstantArrayOperator cao 
                     = new ConstantArrayOperator(newArrayOp.getType(), 
