@@ -59,8 +59,12 @@ public class SequentialBlock extends StructuredBlock {
      * @return stack the stack afterwards.
      */
     public VariableStack mapStackToLocal(VariableStack stack) {
-	return subBlocks[1].mapStackToLocal
-	    (subBlocks[0].mapStackToLocal(stack));
+	VariableStack middle = subBlocks[0].mapStackToLocal(stack);
+	if (middle != null)
+	    // Otherwise the second block is at least "logical" dead code
+	    return subBlocks[1].mapStackToLocal(middle);
+	jode.Decompiler.err.println("Dead code after Block " + subBlocks[0]);
+	return null;
     }
 
     /**
