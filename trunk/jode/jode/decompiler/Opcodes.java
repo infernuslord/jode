@@ -32,26 +32,19 @@ import java.util.Vector;
  */
 public abstract class Opcodes implements jode.bytecode.Opcodes {
 
-    private final static Type  ALL_INT_TYPE = Type.tUInt;
-    private final static Type BOOL_INT_TYPE = Type.tBoolInt;
-    private final static Type      INT_TYPE = Type.tInt;
-    private final static Type     LONG_TYPE = Type.tLong;
-    private final static Type    FLOAT_TYPE = Type.tFloat;
-    private final static Type   DOUBLE_TYPE = Type.tDouble;
-    private final static Type   OBJECT_TYPE = Type.tUObject;
-    private final static Type  BOOLEAN_TYPE = Type.tBoolean;
-    private final static Type BYTEBOOL_TYPE = Type.tBoolByte;
-    private final static Type     BYTE_TYPE = Type.tByte;
-    private final static Type     CHAR_TYPE = Type.tChar;
-    private final static Type    SHORT_TYPE = Type.tShort;
-    private final static Type     VOID_TYPE = Type.tVoid;
-
     private final static Type types[][] = {
-        {BOOL_INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE },
-        {     INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE, 
-         BYTEBOOL_TYPE, CHAR_TYPE, SHORT_TYPE },
-        {    BYTE_TYPE, CHAR_TYPE, SHORT_TYPE },
-        { ALL_INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE }
+	// Local types
+        { Type.tBoolUInt, Type.tLong, Type.tFloat, Type.tDouble, 
+	  Type.tUObject },
+	// Array types
+        { Type.tInt, Type.tLong, Type.tFloat, Type.tDouble, Type.tUObject, 
+          Type.tBoolByte, Type.tChar, Type.tShort },
+	// i2bcs types
+        { Type.tByte, Type.tChar, Type.tShort },
+	// add/sub/mul/div types
+        { Type.tInt, Type.tLong, Type.tFloat, Type.tDouble, Type.tUObject },
+	// and/or/xor types
+        { Type.tBoolInt, Type.tLong, Type.tFloat, Type.tDouble, Type.tUObject }
     };
     
     private static StructuredBlock createNormal(CodeAnalyzer ca, 
@@ -273,58 +266,50 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 (ca, addr, 1, new EmptyBlock(new Jump(addr+1)));
         case opc_aconst_null:
             return createNormal
-                (ca, addr, 1, new ConstOperator(OBJECT_TYPE, "null"));
-        case opc_iconst_0: case opc_iconst_1: 
-            return createNormal
-                (ca, addr, 1, new ConstOperator
-                 (Type.tBoolInt, Integer.toString(opcode - opc_iconst_0)));
-        case opc_iconst_m1: case opc_iconst_2:
+                (ca, addr, 1, new ConstOperator(Type.tUObject, "null"));
+        case opc_iconst_m1: 
+        case opc_iconst_0: case opc_iconst_1: case opc_iconst_2:
         case opc_iconst_3: case opc_iconst_4: case opc_iconst_5:
             return createNormal
-                (ca, addr, 1, new ConstOperator
-                 (ALL_INT_TYPE, Integer.toString(opcode - opc_iconst_0)));
+                (ca, addr, 1, new ConstOperator(opcode - opc_iconst_0));
         case opc_lconst_0: case opc_lconst_1:
             return createNormal
                 (ca, addr, 1, new ConstOperator
-                 (LONG_TYPE, 
-                  Integer.toString(opcode - opc_lconst_0)));
+                 (Type.tLong, (char) (opcode + ('0'-opc_lconst_0)) + ""));
         case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
             return createNormal
                 (ca, addr, 1, new ConstOperator
-                 (FLOAT_TYPE, 
-                  Integer.toString(opcode - opc_fconst_0) + ".0"));
+                 (Type.tFloat, (char) (opcode + ('0'-opc_fconst_0)) + ".0F"));
         case opc_dconst_0: case opc_dconst_1:
             return createNormal
                 (ca, addr, 1, new ConstOperator
-                 (DOUBLE_TYPE, 
-                  Integer.toString(opcode - opc_dconst_0) + ".0"));
+                 (Type.tDouble, (char) (opcode + ('0'-opc_dconst_0)) + ".0"));
         case opc_bipush:
             return createNormal
-                (ca, addr, 2, new ConstOperator
-                 (ALL_INT_TYPE, Integer.toString(stream.readByte())));
-        case opc_sipush: {
-            short value = stream.readShort();
+                (ca, addr, 2, new ConstOperator(stream.readByte()));
+        case opc_sipush:
             return createNormal
-                (ca, addr, 3, new ConstOperator
-                 ((value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) 
-                  /* yes javac codes -128 with sipush :-( */
-                  ? Type.tRange(Type.tInt, Type.tChar) : ALL_INT_TYPE,
-                  Integer.toString(value)));
-        }
+                (ca, addr, 3, new ConstOperator(stream.readShort()));
         case opc_ldc: {
             int index = stream.readUnsignedByte();
-            return createNormal
-                (ca, addr, 2, new ConstOperator
-                 (cpool.getConstantType(index), 
-                  cpool.getConstantString(index)));
+	    ConstOperator op;
+	    if (cpool.getConstantType(index) == Type.tInt)
+		op = new ConstOperator(cpool.getConstantInt(index));
+	    else
+		op = new ConstOperator(cpool.getConstantType(index), 
+				       cpool.getConstantString(index));
+            return createNormal (ca, addr, 2, op);
         }
         case opc_ldc_w:
         case opc_ldc2_w: {
             int index = stream.readUnsignedShort();
-            return createNormal
-                (ca, addr, 3, new ConstOperator
-                 (cpool.getConstantType(index),
-                  cpool.getConstantString(index)));
+	    ConstOperator op;
+	    if (cpool.getConstantType(index) == Type.tInt)
+		op = new ConstOperator(cpool.getConstantInt(index));
+	    else
+		op = new ConstOperator(cpool.getConstantType(index), 
+				       cpool.getConstantString(index));
+            return createNormal(ca, addr, 3, op);
         }
         case opc_iload: case opc_lload: 
         case opc_fload: case opc_dload: case opc_aload:
@@ -410,7 +395,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_ixor: case opc_lxor:
             return createNormal
                 (ca, addr, 1, new BinaryOperator
-                 (types[0][(opcode - opc_iand)%2],
+                 (types[4][(opcode - opc_iand)%2],
                   (opcode - opc_iand)/2 + Operator.AND_OP));
         case opc_iinc: {
             int local = stream.readUnsignedByte();
@@ -421,7 +406,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 operation = Operator.NEG_OP;
             }
             LocalInfo li = ca.getLocalInfo(addr, local);
-            li.setType(ALL_INT_TYPE);
+            li.setType(Type.tUInt);
             return createNormal
                 (ca, addr, 3, new IIncOperator
                  (li, Integer.toString(value),
@@ -442,7 +427,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_i2b: case opc_i2c: case opc_i2s:
             return createNormal
                 (ca, addr, 1, new ConvertOperator
-                 (ALL_INT_TYPE, types[2][opcode-opc_i2b]));
+                 (types[3][0], types[2][opcode-opc_i2b]));
         case opc_lcmp:
         case opc_fcmpl: case opc_fcmpg:
         case opc_dcmpl: case opc_dcmpg:
@@ -454,12 +439,12 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return createIfGoto
                 (ca, addr, 3, addr+stream.readShort(),
                  new CompareUnaryOperator
-                 (BOOL_INT_TYPE, opcode - (opc_ifeq-Operator.COMPARE_OP)));
+                 (Type.tBoolUInt, opcode - (opc_ifeq-Operator.COMPARE_OP)));
         case opc_iflt: case opc_ifge: case opc_ifgt: case opc_ifle:
             return createIfGoto
                 (ca, addr, 3, addr+stream.readShort(),
                  new CompareUnaryOperator
-                 (ALL_INT_TYPE, opcode - (opc_ifeq-Operator.COMPARE_OP)));
+                 (Type.tUInt, opcode - (opc_ifeq-Operator.COMPARE_OP)));
         case opc_if_icmpeq: case opc_if_icmpne:
             return createIfGoto
                 (ca, addr, 3, addr+stream.readShort(),
@@ -471,13 +456,13 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return createIfGoto
                 (ca, addr, 3, addr+stream.readShort(),
                  new CompareBinaryOperator
-                 (ALL_INT_TYPE, 
+                 (Type.tUInt, 
                   opcode - (opc_if_icmpeq-Operator.COMPARE_OP)));
         case opc_if_acmpeq: case opc_if_acmpne:
             return createIfGoto
                 (ca, addr, 3, addr+stream.readShort(),
                  new CompareBinaryOperator
-                 (OBJECT_TYPE, 
+                 (Type.tUObject, 
                   opcode - (opc_if_acmpeq-Operator.COMPARE_OP)));
         case opc_goto:
             return createGoto
@@ -648,7 +633,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                     operation = Operator.NEG_OP;
                 }
                 LocalInfo li = ca.getLocalInfo(addr, local);
-                li.setType(ALL_INT_TYPE);
+                li.setType(Type.tUInt);
                 return createNormal
                     (ca, addr, 6, new IIncOperator
                      (li, Integer.toString(value),
@@ -674,7 +659,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return createIfGoto
                 (ca, addr, 3, addr+stream.readShort(),
                  new CompareUnaryOperator
-                 (OBJECT_TYPE, opcode - (opc_ifnull-Operator.COMPARE_OP)));
+                 (Type.tUObject, opcode - (opc_ifnull-Operator.COMPARE_OP)));
         case opc_goto_w:
             return createGoto
                 (ca, addr, 5, addr + stream.readInt());

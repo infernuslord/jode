@@ -35,8 +35,8 @@ import java.util.Hashtable;
  *  tObject  boolean  int
  *    /  \            /  \
  *   /  tArray     short char
- * other              \  /
- * classes            byte 
+ * other             | 
+ * classes          byte 
  * </pre>
  *
  * int implements the "interface" tBoolInt.  boolean and byte
@@ -86,30 +86,40 @@ public class Type {
     public static final int TC_ERROR = 13;
     public static final int TC_UNKNOWN = 101;
     public static final int TC_RANGE = 103;
-    public static final int TC_BOOLBYTE = 105;
-    public static final int TC_BOOLINT  = 106;
+    public static final int TC_INTEGER = 107;
 
     protected static JodeEnvironment env;
 
     public static final Hashtable classHash = new Hashtable();
     public static final Hashtable arrayHash = new Hashtable();    
 
-    public static final Type tBoolean = new Type(TC_BOOLEAN);
-    public static final Type tByte    = new Type(TC_BYTE);
-    public static final Type tChar    = new Type(TC_CHAR);
-    public static final Type tShort   = new Type(TC_SHORT);
-    public static final Type tInt     = new Type(TC_INT);
+    public static final Type tBoolean = new IntegerType(IntegerType.IT_Z);
+    public static final Type tByte    = new IntegerType(IntegerType.IT_B);
+    public static final Type tChar    = new IntegerType(IntegerType.IT_C);
+    public static final Type tShort   = new IntegerType(IntegerType.IT_S);
+    public static final Type tInt     = new IntegerType(IntegerType.IT_I);
     public static final Type tLong    = new Type(TC_LONG);
     public static final Type tFloat   = new Type(TC_FLOAT);
     public static final Type tDouble  = new Type(TC_DOUBLE);
     public static final Type tVoid    = new Type(TC_VOID);
     public static final Type tError   = new Type(TC_ERROR);
     public static final Type tUnknown = new Type(TC_UNKNOWN);
-    public static final Type tUInt    = tRange(tInt, tByte);
-    public static final Type tBoolInt = new Type(TC_BOOLINT);
-    public static final Type tBoolByte= new Type(TC_BOOLBYTE);
-    public static final Type tObject  = tClass("java.lang.Object");
-    public static final Type tUObject = tRange(tObject, tUnknown);
+    public static final Type tUInt    = new IntegerType(IntegerType.IT_I
+							| IntegerType.IT_B
+							| IntegerType.IT_C
+							| IntegerType.IT_S);
+    public static final Type tBoolInt = new IntegerType(IntegerType.IT_I
+							| IntegerType.IT_Z);
+    public static final Type tBoolUInt= new IntegerType(IntegerType.IT_I
+							| IntegerType.IT_B
+							| IntegerType.IT_C
+							| IntegerType.IT_S
+							| IntegerType.IT_Z);
+    public static final Type tBoolByte= new IntegerType(IntegerType.IT_B
+							| IntegerType.IT_Z);
+    public static final ClassInterfacesType tObject = tClass("java.lang.Object");
+    public static final ClassInterfacesType tNull   = new NullType();
+    public static final Type tUObject = tRange(tObject, tNull);
     public static final Type tString  = tClass("java.lang.String");
     public static final Type tStringBuffer = tClass("java.lang.StringBuffer");
     public static final Type tJavaLangClass = tClass("java.lang.Class");
@@ -148,14 +158,14 @@ public class Type {
 
     }
 
-    public static final Type tClass(String clazzname) {
+    public static final ClassInterfacesType tClass(String clazzname) {
         clazzname = clazzname.replace('/', '.');
         Object result = classHash.get(clazzname);
         if (result == null) {
             result = new ClassInterfacesType(clazzname);
             classHash.put(clazzname, result);
         }
-        return (Type) result;
+        return (ClassInterfacesType) result;
     }
 
     public static final Type tArray(Type type) {
@@ -169,25 +179,17 @@ public class Type {
         return result;
     }
 
-    public static final Type tRange(Type bottom, Type top) {
-        if (bottom.typecode == TC_RANGE
-            || top.typecode == TC_RANGE)
-            throw new AssertError("tRange("+bottom+","+top+")");
+    public static final Type tRange(ClassInterfacesType bottom, 
+				    ClassInterfacesType top) {
         return new RangeType(bottom, top);
     }
 
     public static Type tSuperType(Type type) {
-        if (type.getTop() == tUnknown) {
-            if (type == tBoolInt || type == tBoolByte)
-                return tBoolInt;
-            if (type.getBottom().typecode == TC_CLASS)
-                return tUObject;
-        }
-        return type.getTop().createRangeType(tUnknown);
+        return type.getSuperType();
     }
 
     public static Type tSubType(Type type) {
-        return tUnknown.createRangeType(type.getBottom());
+        return type.getSubType();
     }
 	
     public static Type tClassOrArray(String ident) {
@@ -210,13 +212,21 @@ public class Type {
         this.typecode = typecode;
     }
 
-    public Type getBottom() {
+    public Type getSubType() {
         return this;
     }
 
-    public Type getTop() {
-        return (this == tBoolByte || this == tBoolInt) ? tUnknown : this;
+    public Type getSuperType() {
+        return this;
     }
+
+//      public Type getBottom() {
+//          return this;
+//      }
+
+//      public Type getTop() {
+//          return this;
+//      }
 
     public Type getHint() {
 	return this;
@@ -243,184 +253,82 @@ public class Type {
         }
     }
 
-    /**
-     * Returns the common sub type of this and type.
-     * @param type the other type.
-     * @return the common sub type.
-     */
-    public Type getSpecializedType(Type type) {
-        /*  tError  , x       -> tError
-         *  tUnknown, x       -> x
-         *  x       , x       -> x
-         *  boolean , boolint -> boolean
-         *  byte    , boolint -> byte
-         *  boolean , boolbyte -> boolean
-         *  byte    , boolbyte -> byte
-         *  short   , boolbyte -> byte
-         *  int     , boolbyte -> byte
-         *  byte    , short   -> byte
-         *  boolint , short   -> short
-         *  boolint , boolbyte -> boolbyte
-         *  boolbyte, short   -> tError
-         */
-        return (this == tError || type == tError) ? tError
-            :  (this == type || type == tUnknown) ? this
-            :  (this == tUnknown)                 ? type
+//      /**
+//       * Returns the common sub type of this and type.
+//       * @param type the other type.
+//       * @return the common sub type.
+//       */
+//      public Type getSpecializedType(Type type) {
+//          /*  tError  , x       -> tError
+//           *  tUnknown, x       -> x
+//           *  x       , x       -> x
+//           */
+//          return (this == tError || type == tError) ? tError
+//              :  (this == type || type == tUnknown) ? this
+//              :  (this == tUnknown)                 ? type
+//              : tError;
+//      }
 
-            :  (typecode == TC_BOOLEAN) ? 
-            /* TC_BOOLEAN is only compatible to TC_BOOLINT / TC_BOOLBYTE */
-            ((type == tBoolInt || type == tBoolByte) ? this : tError)
+//      /**
+//       * Returns the common super type of this and type.
+//       * @param type the other type.
+//       * @return the common super type.
+//       */
+//      public Type getGeneralizedType(Type type) {
+//          /* Note that type can't be boolint/boolbyte  (set getBottom) */
+//          /*  tError  , x        -> tError
+//           *  tUnknown, x        -> x
+//           *  x       , x        -> x
+//           *  byte    , short    -> short
+//           */
 
-            :  (typecode <= TC_INT)
-            /* TC_BYTE, ..., TC_INT are compatible to higher
-             * types and TC_BOOLINT, TC_BYTE is compatible to TC_BOOLBYTE
-             */
-            ?   ((  type.typecode == TC_BOOLEAN) ? tError
-                 : (type.typecode <= typecode)   ? type
-                 : (type.typecode <= TC_INT
-                    || type.typecode == TC_BOOLINT) ? this 
-                 : (type == tBoolByte) ? tByte
-                 : tError)
+//          return (this == tError || type == tError) ? tError
+//              :  (this == type || type == tUnknown) ? this
+//              :  (this == tUnknown)                 ? type
+//              :     tError;
+//      }
 
-            :  (typecode == TC_BOOLINT)
-            /* TC_BOOLEAN,...,TC_INT all implement TC_BOOLINT
-             */
-            ?   ( (type.typecode <= TC_INT 
-                   || type.typecode == TC_BOOLBYTE) ? type : tError )
+//      /**
+//       * Create the type corresponding to the range from bottomType to this.
+//       * @param bottomType the start point of the range
+//       * @return the range type, or tError if not possible.
+//       */
+//      public Type createRangeType(Type bottomType) {
+//          /* Note that this can't be tBoolByte or tBoolInt */
+//          /*  x       , tError   -> tError
+//           *  x       , x        -> x
+//           *  tUnknown, x        -> x
+//           *  object  , tUnknown -> <object, tUnknown>
+//           *  int     , tUnknown -> int
+//  	 *  x       , tUnknown -> x
+//           */
 
-            :  (typecode == TC_BOOLBYTE)
-            /* TC_BOOLEAN, TC_BYTE implement TC_BOOLBYTE;
-             * TC_BYTE extend TC_SHORT, TC_INT.
-             * TC_BOOLBYTE extends TC_BOOLINT.
-             */
-            ?   ( (type.typecode <= TC_BYTE) ? type
-                  : (type.typecode <= TC_INT) ? tByte
-                  : (type == tBoolInt) ? this : tError )
-
-            : tError;
-    }
-
-    /**
-     * Returns the common super type of this and type.
-     * @param type the other type.
-     * @return the common super type.
-     */
-    public Type getGeneralizedType(Type type) {
-        /* Note that type can't be boolint/boolbyte  (set getBottom) */
-        /*  tError  , x        -> tError
-         *  tUnknown, x        -> x
-         *  x       , x        -> x
-         *  byte    , short    -> short
-         */
-
-        return (this == tError || type == tError) ? tError
-            :  (this == type || type == tUnknown) ? this
-            :  (this == tUnknown)                 ? type
-
-            :  (typecode >= TC_BYTE && typecode <= TC_INT)
-            /* TC_BYTE, ..., TC_INT are compatible to higher
-             */
-            ?     ((type.typecode < TC_BYTE) ? tError
-                   : (type.typecode <= typecode) ? this
-                   : (type.typecode <= TC_INT) ? type : tError)
-            
-            :     tError;
-    }
-
-    /**
-     * Create the type corresponding to the range from bottomType to this.
-     * @param bottomType the start point of the range
-     * @return the range type, or tError if not possible.
-     */
-    public Type createRangeType(Type bottomType) {
-        /* Note that this can't be tBoolByte or tBoolInt */
-        /*  x       , tError   -> tError
-         *  object  , tUnknown -> <object, tUnknown>
-         *  boolean , tUnknown -> boolean
-         *  int     , tUnknown -> <int, byte>
-         *  boolint , tUnknown -> boolint
-         *  x       , x        -> x
-         *  tUnknown, boolean  -> boolean
-         *  tUnknown, short    -> <int, short>
-         *  short   , byte     -> <short, byte>
-         *  byte    , short    -> tError
-         *  tUnknown, float    -> float
-         */
-
-        return (this == tError || bottomType == tError) ? tError
-            :  (this == bottomType)                     ? this
-
-            :  (this == tUnknown) 
-            ?      ((bottomType == tBoolInt
-                     || bottomType == tBoolByte
-                     || bottomType == tBoolean
-                     || bottomType == tByte   ) ? bottomType
-                    :(bottomType.typecode <= TC_INT) 
-                    ?   tRange(bottomType, tByte)
-                    :   tRange(bottomType, this))
-
-            :  (this == tBoolean)
-            ?      ((bottomType == tBoolInt 
-                     || bottomType == tBoolByte
-                     || bottomType == tUnknown) ? this : tError)
-            
-            :  (typecode <= TC_INT) 
-            /*  tUnknown, short    -> <int, short>
-             *  short   , byte     -> <short, byte>
-             *  byte    , short    -> tError
-             *  boolint , short    -> <int, short>
-             *  boolbyte, byte     -> byte
-             *  boolbyte, short    -> tError
-             */
-            ?      ((bottomType.typecode < typecode) 
-                    ?    tError
-
-                    : (bottomType.typecode <= TC_INT)
-                    ?    tRange(bottomType, this)
-
-                    : (bottomType.typecode == TC_BOOLBYTE
-                       && this == tByte)
-                    ?    tByte
-
-                    : (bottomType.typecode == TC_BOOLINT
-                       || bottomType.typecode == TC_UNKNOWN)
-                    ?    (this == tInt) ? tInt : tRange(tInt, this)
-
-                    :    tError)
-            : (bottomType.typecode == TC_UNKNOWN) ? this
-            :      tError;
-    }
+//          return (this == tError || bottomType == tError) ? tError
+//              :  (this == bottomType)                     ? this
+//              :  (bottomType == tUnknown)                 ? this
+//              :  (this == tUnknown) 
+//              ?  ((bottomType.typecode == TC_ARRAY
+//  		 || bottomType.typecode == TC_CLASS)
+//  		? tRange(bottomType, this) 
+//  		: bottomType)
+//  	    :      tError;
+//      }
 
     /**
      * Intersect this type with another type and return the new type.
      * @param type the other type.
      * @return the intersection, or tError, if a type conflict happens.
      */
-    public final Type intersection(Type type) {
-
-        Type top = getTop().getGeneralizedType(type.getTop());
-        Type bottom = getBottom().getSpecializedType(type.getBottom());
-        Type result = top.createRangeType(bottom);
-
-        if (result == tError) {
-            boolean oldTypeDebugging = Decompiler.isTypeDebugging;
-            Decompiler.isTypeDebugging = true;
-            Decompiler.err.println("intersecting "+ this +" and "+ type
-                               + " to <" + bottom + "," + top + ">"
-                               + " to <error>");
-            Decompiler.isTypeDebugging = oldTypeDebugging;
-            if (oldTypeDebugging)
-                throw new AssertError("type error");
-        } else if (Decompiler.isTypeDebugging) {
-            if (this.equals(type)) {
-//                 Decompiler.err.println("intersecting identical: "+this);
-//                 Thread.dumpStack();
-            } else
-                Decompiler.err.println("intersecting "+ this +" and "+ type + 
-                                   " to " + result);
-
-	}	    
-        return result;
+    public Type intersection(Type type) {
+	if (this == tError || type == tError)
+	    return type;
+	if (this == tUnknown)
+	    return type;
+	if (this == type)
+	    return this;
+	Decompiler.err.println("intersecting "+ this +" and "+ type
+			       + " to <error>");
+	return tError;
     }
 
     /**
@@ -437,9 +345,7 @@ public class Type {
      * of minimum types.
      */
     public boolean isValidType() {
-	return typecode <= TC_DOUBLE
-	    || typecode == TC_BOOLBYTE
-	    || typecode == TC_BOOLINT;
+	return typecode <= TC_DOUBLE;
     }
 
     /**
@@ -454,10 +360,8 @@ public class Type {
      * @param type  a simple type; this mustn't be a range type.
      * @return true if this is the case.
      */
-    public final boolean isOfType(Type type) {
-        return (getTop().getGeneralizedType(type.getTop()).createRangeType
-                (getBottom().getSpecializedType(type.getBottom())) != tError);
-//         return (getSpecializedType(type).equals(type));
+    public boolean isOfType(Type type) {
+	return (this == tUnknown || (this == type && this != tError));
     }
 
     /**
@@ -469,18 +373,6 @@ public class Type {
 
     public String getDefaultName() {
         switch (typecode) {
-        case TC_BOOLINT:
-        case TC_BOOLBYTE:
-        case TC_BOOLEAN:
-            return "bool";
-        case TC_BYTE:
-            return "i";
-        case TC_CHAR:
-            return "c";
-        case TC_SHORT:
-            return "i";
-        case TC_INT:
-            return "i";
         case TC_LONG:
             return "l";
         case TC_FLOAT:
@@ -494,18 +386,6 @@ public class Type {
 
     public String getTypeSignature() {
         switch (typecode) {
-        case TC_BOOLINT:
-        case TC_BOOLBYTE:
-        case TC_BOOLEAN:
-            return "Z";
-        case TC_BYTE:
-            return "B";
-        case TC_CHAR:
-            return "C";
-        case TC_SHORT:
-            return "S";
-        case TC_INT:
-            return "I";
         case TC_LONG:
             return "J";
         case TC_FLOAT:
@@ -519,24 +399,6 @@ public class Type {
     
     public String toString() {
         switch (typecode) {
-        case TC_BOOLINT:
-            if (Decompiler.isTypeDebugging)
-                return "<bool or int>";
-            /* fall through */
-        case TC_BOOLBYTE:
-            if (Decompiler.isTypeDebugging)
-                return "<bool or byte>";
-            /* fall through */
-        case TC_BOOLEAN:
-            return "boolean";
-        case TC_BYTE:
-            return "byte";
-        case TC_CHAR:
-            return "char";
-        case TC_SHORT:
-            return "short";
-        case TC_INT:
-            return "int";
         case TC_LONG:
             return "long";
         case TC_FLOAT:

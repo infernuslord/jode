@@ -19,15 +19,42 @@
 
 package jode.expr;
 import jode.Type;
+import jode.IntegerType;
 
 public class ConstOperator extends NoArgOperator {
     String value;
-
     boolean isInitializer = false;
+
+    private static final Type tBoolConstInt 
+	= new IntegerType(IntegerType.IT_I | IntegerType.IT_C 
+			  | IntegerType.IT_Z
+			  | IntegerType.IT_S | IntegerType.IT_B);
+
 
     public ConstOperator(Type type, String value) {
         super(type);
         this.value = value;
+    }
+
+    public ConstOperator(int value) {
+        super(tBoolConstInt);
+        this.value = Integer.toString(value);
+	if (value < 0 || value > 1) { 
+	    setType 
+		((value < Short.MIN_VALUE 
+		  || value > Character.MAX_VALUE) ? Type.tInt
+		 : new IntegerType
+		 ((value < Byte.MIN_VALUE) 
+		  ?    IntegerType.IT_S|IntegerType.IT_I
+		  : (value < 0)
+		  ?    IntegerType.IT_S|IntegerType.IT_B|IntegerType.IT_I
+		  : (value <= Byte.MAX_VALUE)
+		  ?    (IntegerType.IT_S|IntegerType.IT_B
+			|IntegerType.IT_C|IntegerType.IT_I)
+		  : (value <= Short.MAX_VALUE)
+		  ?    IntegerType.IT_S|IntegerType.IT_C|IntegerType.IT_I
+		  :    IntegerType.IT_C|IntegerType.IT_I));
+	}
     }
 
     public String getValue() {
@@ -58,7 +85,7 @@ public class ConstOperator extends NoArgOperator {
 		throw new jode.AssertError
 		    ("boolean is neither false nor true");
         } 
-	if (type.getBottom() == Type.tChar) {
+	if (type.getHint().equals(Type.tChar)) {
             char c = (char) Integer.parseInt(value);
             switch (c) {
             case '\0':
@@ -114,7 +141,9 @@ public class ConstOperator extends NoArgOperator {
             return value+"L";
         if (type.isOfType(Type.tFloat))
             return value+"F";
-        if (!type.isOfType(Type.tInt) && type.isOfType(Type.tUInt) 
+        if (!type.isOfType(Type.tInt) 
+	    && (type.getHint().equals(Type.tByte)
+		|| type.getHint().equals(Type.tShort))
             && !isInitializer
 	    && (parent == null 
 		|| parent.getOperator().getOperatorIndex() != ASSIGN_OP)) {
@@ -123,7 +152,7 @@ public class ConstOperator extends NoArgOperator {
              * But in assignments and initializers this cast is unnecessary.
 	     * See JLS section 5.2
              */
-            return "("+type+") "+value;
+            return "("+type.getHint()+") "+value;
 	}
 
         return value;

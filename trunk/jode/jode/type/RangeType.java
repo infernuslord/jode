@@ -36,62 +36,79 @@ import java.util.Hashtable;
  * @date 98/08/06
  */
 public class RangeType extends Type {
-    final Type bottomType;
-    final Type topType;
-    final Type hintType;
+    final ClassInterfacesType bottomType;
+    final ClassInterfacesType topType;
+//      final Type hintType;
 
-    public RangeType(Type bottomType, Type topType, Type hintType) {
+//      public RangeType(Type bottomType, Type topType, Type hintType) {
+//          super(TC_RANGE);
+//          if (bottom.typecode == TC_RANGE
+//              || top.typecode == TC_RANGE)
+//              throw new AssertError("tRange("+bottom+","+top+")");
+//  	if (top.typecode == TC_UNKNOWN)
+//  	    throw new AssertError("tRange(tUnknown, "+top+")");
+//  	this.bottomType = bottomType;
+//  	this.topType    = topType;
+//  	this.hintType   = hintType;
+//      }
+
+    public RangeType(ClassInterfacesType bottomType, 
+		     ClassInterfacesType topType) {
         super(TC_RANGE);
+	if (bottomType == tNull)
+	    throw new jode.AssertError("bottom is NULL");
 	this.bottomType = bottomType;
 	this.topType    = topType;
-	this.hintType   = hintType;
+//  	this.hintType   = bottomType.isValidType() ? bottomType : topType;
     }
 
-    public RangeType(Type bottomType, Type topType) {
-        super(TC_RANGE);
-	this.bottomType = bottomType;
-	this.topType    = topType;
-	this.hintType   = bottomType.isValidType() ? bottomType : topType;
-    }
-
-    public Type getBottom() {
+    public ClassInterfacesType getBottom() {
         return bottomType;
     }
 
-    public Type getTop() {
+    public ClassInterfacesType getTop() {
         return topType;
     }
 
     public Type getHint() {
-	return hintType.getHint();
+	return topType == tNull && bottomType.equals(bottomType.getHint()) 
+	    ? bottomType.getHint(): topType.getHint();
     }
 
-    /**
-     * Create the type corresponding to the range from bottomType to this.
-     * @param bottomType the start point of the range
-     * @return the range type, or tError if not possible.
-     */
-    public Type createRangeType(Type bottomType) {
-        throw new AssertError("createRangeType called on RangeType");
+    public Type getSuperType() {
+	return topType.getSuperType();
     }
 
-    /**
-     * Returns the common sub type of this and type.
-     * @param type the other type.
-     * @return the common sub type.
-     */
-    public Type getSpecializedType(Type type) {
-        throw new AssertError("getSpecializedType called on RangeType");
+    public Type getSubType() {
+        return bottomType.getSubType();
     }
 
-    /**
-     * Returns the common super type of this and type.
-     * @param type the other type.
-     * @return the common super type.
-     */
-    public Type getGeneralizedType(Type type) {
-        throw new AssertError("getGeneralizedType called on RangeType");
-    }
+//      /**
+//       * Create the type corresponding to the range from bottomType to this.
+//       * @param bottomType the start point of the range
+//       * @return the range type, or tError if not possible.
+//       */
+//      public ClassInterfacesType createRangeType(ClassInterfacesType bottomType) {
+//          throw new AssertError("createRangeType called on RangeType");
+//      }
+
+//      /**
+//       * Returns the common sub type of this and type.
+//       * @param type the other type.
+//       * @return the common sub type.
+//       */
+//      public ClassInterfacesType getSpecializedType(ClassInterfacesType type) {
+//          throw new AssertError("getSpecializedType called on RangeType");
+//      }
+
+//      /**
+//       * Returns the common super type of this and type.
+//       * @param type the other type.
+//       * @return the common super type.
+//       */
+//      public Type getGeneralizedType(Type type) {
+//          throw new AssertError("getGeneralizedType called on RangeType");
+//      }
 	    
     /**
      * Marks this type as used, so that the class is imported.
@@ -122,13 +139,13 @@ public class RangeType extends Type {
 
     public String toString()
     {
-        if (jode.Decompiler.isTypeDebugging)
-            return "<" + bottomType + "-" + hintType + "-" + topType + ">";
-	return hintType.toString();
+	if (topType == tNull)
+	    return "<" + bottomType + "-NULL>";
+	return "<" + bottomType + "-" + topType + ">";
     }
 
     public String getDefaultName() {
-	return hintType.getDefaultName();
+	throw new AssertError("getDefaultName() not called on Hint");
     }
 
     public int hashCode() {
@@ -143,5 +160,39 @@ public class RangeType extends Type {
                 && bottomType.equals(type.bottomType);
         }
         return false;
+    }
+
+    /**
+     * Intersect this type with another type and return the new type.
+     * @param type the other type.
+     * @return the intersection, or tError, if a type conflict happens.
+     */
+    public Type intersection(Type type) {
+	if (type == tError)
+	    return type;
+	if (type == Type.tUnknown)
+	    return this;
+
+	Type top, bottom, result;
+	top = topType.getGeneralizedType(type);
+	bottom = bottomType.getSpecializedType(type);
+	if (top.equals(bottom))
+	    result = top;
+	else if (top instanceof ClassInterfacesType
+		 && bottom instanceof ClassInterfacesType)
+	    result = ((ClassInterfacesType)top)
+		.createRangeType((ClassInterfacesType)bottom);
+	else
+	    result = tError;
+
+        if (result == tError) {
+            Decompiler.err.println("intersecting "+ this +" and "+ type
+				   + " to <" + bottom + "," + top + ">"
+				   + " to <error>");
+        } else if (Decompiler.isTypeDebugging) {
+	    Decompiler.err.println("intersecting "+ this +" and "+ type + 
+                                   " to " + result);
+	}	    
+        return result;
     }
 }

@@ -73,7 +73,15 @@ public class ClassInterfacesType extends Type {
         this.ifaces = ifaces;
     }
 
-    static Type create(ClassInfo clazz, ClassInfo[] ifaces) {
+    public Type getSuperType() {
+	return (this == tObject) ? tObject : tRange(tObject, this);
+    }
+
+    public Type getSubType() {
+        return tRange(this, tNull);
+    }
+
+    static ClassInterfacesType create(ClassInfo clazz, ClassInfo[] ifaces) {
         /* Make sure that every {java.lang.Object} equals tObject */
         if (ifaces.length == 0 && clazz == null) 
             return tObject;
@@ -99,15 +107,13 @@ public class ClassInterfacesType extends Type {
      * @param bottom the start point of the range
      * @return the range type, or tError if range is empty.  
      */
-    public Type createRangeType(Type bottomType) {
+    public Type createRangeType(ClassInterfacesType bottom) {
 
-        if (bottomType == tUnknown || bottomType == tObject)
+        if (bottom == tObject)
             return (this == tObject) ? tObject : tRange(tObject, this);
         
-        if (bottomType.typecode != TC_CLASS)
+        if (bottom.typecode != TC_CLASS)
             return tError;
-
-        ClassInterfacesType bottom = (ClassInterfacesType) bottomType;
 
         if (bottom.clazz != null) {
             /* The searched type must be a class type.
@@ -181,7 +187,7 @@ public class ClassInterfacesType extends Type {
         }
     }
 
-    boolean implementsAllIfaces(ClassInfo[] otherIfaces) {
+    protected boolean implementsAllIfaces(ClassInfo[] otherIfaces) {
     big:
         for (int i=0; i < otherIfaces.length; i++) {
             ClassInfo iface = otherIfaces[i];
@@ -204,10 +210,14 @@ public class ClassInterfacesType extends Type {
      */
     public Type getSpecializedType(Type type) {
         int code = type.typecode;
-        if (code == TC_UNKNOWN)
-            return this;
+	if (code == TC_RANGE) {
+	    type = ((RangeType) type).getBottom();
+	    code = type.typecode;
+	}
+	if (code == TC_NULL)
+	    return this;
         if (code == TC_ARRAY)
-	    return type.getSpecializedType(this);
+	    return ((ArrayType) type).getSpecializedType(this);
         if (code != TC_CLASS)
             return tError;
 
@@ -229,9 +239,9 @@ public class ClassInterfacesType extends Type {
         else
             return tError;
 
-        /* Most times (99.9999999%) one of the two classes is already
+        /* Most times (99.9999999 %) one of the two classes is already
          * more specialized.  Optimize for this case. (I know of one
-         * class where this doesn't succeed at one intersection) 
+         * class where at one intersection this doesn't succeed) 
 	 */
         if (clazz == this.clazz 
             && implementsAllIfaces(other.ifaces))
@@ -294,10 +304,14 @@ public class ClassInterfacesType extends Type {
      * implements.  */
     public Type getGeneralizedType(Type type) {
         int code = type.typecode;
-        if (code == TC_UNKNOWN)
+	if (code == TC_RANGE) {
+	    type = ((RangeType) type).getTop();
+	    code = type.typecode;
+	}
+        if (code == TC_NULL)
             return this;
 	if (code == TC_ARRAY)
-	    return type.getGeneralizedType(this);
+	    return ((ArrayType) type).getGeneralizedType(this);
         if (code != TC_CLASS)
             return tError;
         ClassInterfacesType other = (ClassInterfacesType) type;
@@ -388,12 +402,10 @@ public class ClassInterfacesType extends Type {
      * Marks this type as used, so that the class is imported.
      */
     public void useType() {
-        if (!jode.Decompiler.isTypeDebugging) {
-            if (clazz != null)
-                env.useClass(clazz.getName());
-            else if (ifaces.length > 0)
-                env.useClass(ifaces[0].getName());
-        }
+	if (clazz != null)
+	    env.useClass(clazz.getName());
+	else if (ifaces.length > 0)
+	    env.useClass(ifaces[0].getName());
     }
 
     public String getTypeSignature() {
@@ -407,67 +419,58 @@ public class ClassInterfacesType extends Type {
 
     public String toString()
     {
-        if (jode.Decompiler.isTypeDebugging) {
-            if (this == tObject)
-                return "java.lang.Object";
+	if (this == tObject)
+	    return env.classString("java.lang.Object");
+	
+	if (ifaces.length == 0)
+	    return env.classString(clazz.getName());
+	if (clazz == null && ifaces.length == 1)
+	    return env.classString(ifaces[0].getName());
 
-	    if (ifaces.length == 0)
-		return clazz.getName();
-	    if (clazz == null && ifaces.length == 1)
-		return ifaces[0].getName();
-
-            StringBuffer sb = new StringBuffer("{");
-            String comma = "";
-            if (clazz != null) {
-                sb = sb.append(clazz.getName());
+	StringBuffer sb = new StringBuffer("{");
+	String comma = "";
+	if (clazz != null) {
+	    sb = sb.append(clazz.getName());
                 comma = ", ";
-            }
-            for (int i=0; i< ifaces.length; i++) {
-                sb.append(comma).append(ifaces[i].getName());
-                comma = ", ";
-            }
-            return sb.append("}").toString();
-        } else {
-            if (clazz != null)
-                return env.classString(clazz.getName());
-            else if (ifaces.length > 0)
-                return env.classString(ifaces[0].getName());
-            else
-                return env.classString("java.lang.Object");
-        }
-    }
-
-    /**
-     * Checks if we need to cast to a middle type, before we can cast from
-     * fromType to this type.
-     * @return the middle type, or null if it is not necessary.
-     */
-    public Type getCastHelper(Type fromType) {
-	Type topType = fromType.getTop();
-	switch (topType.getTypeCode()) {
-	case TC_ARRAY:
-	    if (clazz == null
-		&& ArrayType.implementsAllIfaces(this.ifaces))
-		return null;
-	    else
-		return tObject;
-	case TC_CLASS:
-	    ClassInterfacesType top = (ClassInterfacesType) topType;
-	    if (top.clazz == null || clazz == null
-		|| clazz.superClassOf(top.clazz)
-		|| top.clazz.superClassOf(clazz))
-		return null;
-	    ClassInfo superClazz = clazz.getSuperclass();
-	    while (superClazz != null
-		   && !superClazz.superClassOf(top.clazz)) {
-		superClazz = superClazz.getSuperclass();
-	    }
-	    return tClass(superClazz.getName());
-	case TC_UNKNOWN:
-	    return null;
 	}
-	return tObject;
+	for (int i=0; i< ifaces.length; i++) {
+	    sb.append(comma).append(ifaces[i].getName());
+	    comma = ", ";
+	}
+	return sb.append("}").toString();
     }
+
+//      /**
+//       * Checks if we need to cast to a middle type, before we can cast from
+//       * fromType to this type.
+//       * @return the middle type, or null if it is not necessary.
+//       */
+//      public Type getCastHelper(Type fromType) {
+//  	Type topType = fromType.getTop();
+//  	switch (topType.getTypeCode()) {
+//  	case TC_ARRAY:
+//  	    if (clazz == null
+//  		&& ArrayType.implementsAllIfaces(this.ifaces))
+//  		return null;
+//  	    else
+//  		return tObject;
+//  	case TC_CLASS:
+//  	    ClassInterfacesType top = (ClassInterfacesType) topType;
+//  	    if (top.clazz == null || clazz == null
+//  		|| clazz.superClassOf(top.clazz)
+//  		|| top.clazz.superClassOf(clazz))
+//  		return null;
+//  	    ClassInfo superClazz = clazz.getSuperclass();
+//  	    while (superClazz != null
+//  		   && !superClazz.superClassOf(top.clazz)) {
+//  		superClazz = superClazz.getSuperclass();
+//  	    }
+//  	    return tClass(superClazz.getName());
+//  	case TC_UNKNOWN:
+//  	    return null;
+//  	}
+//  	return tObject;
+//      }
 
     /**
      * Checks if this type represents a valid type instead of a list
@@ -503,7 +506,7 @@ public class ClassInterfacesType extends Type {
     public boolean equals(Object o) {
         if (o == this) 
             return true;
-        if (o instanceof ClassInterfacesType) {
+        if (o instanceof Type && ((Type)o).typecode == TC_CLASS) {
             ClassInterfacesType type = (ClassInterfacesType) o;
             if (type.clazz == clazz
                 && type.ifaces.length == ifaces.length) {
@@ -519,5 +522,52 @@ public class ClassInterfacesType extends Type {
             }
         }
         return false;
+    }
+
+    /**
+     * Intersect this type with another type and return the new type.
+     * @param type the other type.
+     * @return the intersection, or tError, if a type conflict happens.
+     */
+    public Type intersection(Type type) {
+	if (type == tError)
+	    return type;
+	if (type == Type.tUnknown)
+	    return this;
+
+	ClassInterfacesType top, bottom;
+//  	if (type instanceof RangeType) {
+//  	    top = ((RangeType)type).getTop();
+//  	    bottom = ((RangeType)type).getBottom();
+//  	} else if (type instanceof ClassInterfacesType) {
+//  	    top = bottom = (ClassInterfacesType) type;
+//  	} else {
+//              Decompiler.err.println("intersecting "+ this +" and "+ type
+//  				   + " to <error>");
+//              if (Decompiler.isTypeDebugging)
+//                  throw new AssertError("type error");
+//  	    return tError;
+//  	}
+	Type newBottom = getSpecializedType(type);
+	Type newTop    = getGeneralizedType(type);
+	Type result;
+	if (newTop.equals(newBottom))
+	    result = newTop;
+	else if (newTop instanceof ClassInterfacesType
+		 && newBottom instanceof ClassInterfacesType)
+	    result = ((ClassInterfacesType) newTop)
+		.createRangeType((ClassInterfacesType) newBottom);
+	else
+	    result = tError;
+
+        if (result == tError) {
+            Decompiler.err.println("intersecting "+ this +" and "+ type
+                               + " to <" + newBottom + "," + newTop + ">"
+                               + " to <error>");
+        } else if (Decompiler.isTypeDebugging) {
+	    Decompiler.err.println("intersecting "+ this +" and "+ type + 
+                                   " to " + result);
+	}	    
+        return result;
     }
 }
