@@ -278,6 +278,7 @@ public class SearchPath  {
 		ZipEntry ze;
 		while ((ze = zis.getNextEntry()) != null) {
 		    if (ze.getName().equals(filename)) {
+///#ifdef JDK11
 			// The skip method in jdk1.1.7 ZipInputStream
 			// is buggy.  We return a wrapper that fixes
 			// this.
@@ -296,6 +297,9 @@ public class SearchPath  {
 				return skipped;
 			    }
 			};
+///#else
+///			return zis;
+///#endif
 		    }
 		    zis.closeEntry();
 		}
