@@ -45,10 +45,20 @@ public class PutFieldOperator extends StoreInstruction {
     }
 
     public boolean isSynthetic() {
-	if (!classType.equals(Type.tClass(codeAnalyzer.getClazz().getName())))
+	if (!isThis())
 	    return false;
 	return codeAnalyzer.getClassAnalyzer()
 	    .getField(fieldName, fieldType).isSynthetic();
+    }
+
+    /**
+     * Checks, whether this is a call of a method from this class.
+     * @XXX check, if this class implements the method and if not
+     * allow super class
+     */
+    public boolean isThis() {
+        return (classType.equals(Type.tClass(codeAnalyzer.getClazz().
+                                             getName())));
     }
 
     public String getFieldName() {
