@@ -34,6 +34,15 @@ public abstract class StoreInstruction extends Operator {
         return lvalueType;
     }
 
+    /**
+     * Makes a non void expression out of this store instruction.
+     */
+    public void makeNonVoid() {
+        if (type != Type.tVoid)
+            throw new AssertError("already non void");
+        type = lvalueType;
+    }
+
     public abstract boolean matches(Operator loadop);
     public abstract int getLValueOperandCount();
     public abstract int getLValueOperandPriority(int i);
