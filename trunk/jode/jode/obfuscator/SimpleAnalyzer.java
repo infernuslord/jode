@@ -22,20 +22,12 @@ import jode.bytecode.*;
 import jode.type.Type;
 
 public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
-    MethodIdentifier m;
-    BytecodeInfo bytecode;
-
-    public SimpleAnalyzer(BytecodeInfo bytecode,MethodIdentifier m) {
-	this.m = m;
-	this.bytecode = bytecode;
-    }
-
     /**
      * Reads the opcodes out of the code info and determine its 
      * references
      * @return an enumeration of the references.
      */
-    public void analyzeCode() {
+    public void analyzeCode(MethodIdentifier m, BytecodeInfo bytecode) {
 	for (Instruction instr = bytecode.getFirstInstr();
 	     instr != null; instr = instr.nextByAddr) {
 	    switch (instr.opcode) {
@@ -52,22 +44,62 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		}
 		break;
 	    }
-	    case opc_getstatic:
-	    case opc_getfield:
 	    case opc_invokespecial:
 	    case opc_invokestatic:
 	    case opc_invokeinterface:
-	    case opc_invokevirtual: {
+	    case opc_invokevirtual:
+	    case opc_putstatic:
+	    case opc_putfield:
+		m.setGlobalSideEffects();
+		/* fall through */
+	    case opc_getstatic:
+	    case opc_getfield: {
 		Reference ref = (Reference) instr.objData;
+		Identifier ident = Main.getClassBundle().getIdentifier(ref);
 		String clName = ref.getClazz();
-		/* Don't have to reach array methods */
-		if (clName.charAt(0) != '[') {
-		    clName = clName.substring(1, clName.length()-1)
-			.replace('/', '.');
-		    Main.getClassBundle().reachableIdentifier
-			(clName+"."+ref.getName()+"."+ref.getType(), 
-		     instr.opcode == opc_invokevirtual 
-		     || instr.opcode == opc_invokeinterface);
+		String realClazzName;
+		if (ident != null) {
+		    ClassIdentifier clazz = (ClassIdentifier)ident.getParent();
+		    realClazzName = "L" + (clazz.getFullName()
+					   .replace('.', '/')) + ";";
+		    if (instr.opcode == opc_putstatic
+			|| instr.opcode == opc_putfield) {
+			FieldIdentifier fi = (FieldIdentifier) ident;
+			if (fi != null && !fi.isNotConstant())
+			    fi.setNotConstant();
+		    } else {
+			clazz.reachableIdentifier
+			    (ref.getName(), ref.getType(),
+			     instr.opcode == opc_invokevirtual 
+			     || instr.opcode == opc_invokeinterface);
+		    }
+		} else {
+		    /* We have to look at the ClassInfo's instead, to
+		     * point to the right method.
+		     */
+		    ClassInfo clazz;
+		    if (clName.charAt(0) == '[') {
+			/* Arrays don't define new methods (well clone(),
+			 * but that can be ignored).
+			 */
+			clazz = ClassInfo.javaLangObject;
+		    } else {
+			clazz = ClassInfo.forName
+			    (clName.substring(1, clName.length()-1)
+			     .replace('/','.'));
+		    }
+		    while (clazz != null
+			   && clazz.findMethod(ref.getName(), 
+					       ref.getType()) == null)
+			clazz = clazz.getSuperclass();
+
+		    realClazzName = (clazz != null) ? clName
+			: "L" + clazz.getName().replace('.', '/') + ";";
+		}
+		if (!realClazzName.equals(ref.getClazz())) {
+		    ref = Reference.getReference(realClazzName, 
+						 ref.getName(), ref.getType());
+		    instr.objData = ref;
 		}
 		break;
 	    }
@@ -82,7 +114,7 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 	}
     }
 
-    public BytecodeInfo stripCode() {
+    public void transformCode(BytecodeInfo bytecode) {
 	for (Instruction instr = bytecode.getFirstInstr(); 
 	     instr != null; instr = instr.nextByAddr) {
 	    if (instr.opcode == opc_putstatic
@@ -112,6 +144,5 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		}
 	    }
 	}
-	return bytecode;
     }
 }
