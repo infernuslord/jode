@@ -26,7 +26,11 @@ public class OptimizeTest {
     }
 
     public int g;
-    
+   
+    /**
+     * This is a really brutal test.  It shows that side effects can
+     * make the handling of inlined methods really, really difficult.
+     */ 
     public final int sideInline(int a) {
 	return g++ + a;
     }
