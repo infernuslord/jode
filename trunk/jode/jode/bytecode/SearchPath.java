@@ -69,9 +69,8 @@ public class SearchPath  {
 	    String name = ze.getName();
 	    if (name.endsWith("/"))
 		name = name.substring(0, name.length()-1);
-	    if (ze.isDirectory() && !zipEntries[nr].containsKey(name))
-		zipEntries[nr].put(name, new Vector());
-	    addEntry(zipEntries[nr], name);
+	    if (!ze.isDirectory() && name.endsWith(".class"))
+		addEntry(zipEntries[nr], name);
 	}
     }
 
@@ -130,9 +129,8 @@ public class SearchPath  {
 		String name = ze.getName();
 		if (name.endsWith("/"))
 		    name = name.substring(0, name.length()-1);
-		if (ze.isDirectory() && !zipEntries[nr].containsKey(name))
-		    zipEntries[nr].put(name, new Vector());
-		addEntry(zipEntries[nr], name);
+		if (!ze.isDirectory() && name.endsWith(".class"))
+		    addEntry(zipEntries[nr], name);
 		zis.closeEntry();
 	    }
 	    zis.close();
