@@ -44,7 +44,7 @@ public class BinaryInfo {
     public static final int OUTERCLASSES    = 0x40;
     public static final int FULLINFO        = 0xff;
 
-    protected Map unknownAttributes;
+    private Map unknownAttributes = new SimpleMap();
 
     protected void skipAttributes(DataInputStream input) throws IOException {
         int count = input.readUnsignedShort();
@@ -129,7 +129,7 @@ public class BinaryInfo {
                                   DataInputStream input, 
                                   int howMuch) throws IOException {
 	int count = input.readUnsignedShort();
-	unknownAttributes = new SimpleMap();
+	unknownAttributes.clear();
 	for (int i=0; i< count; i++) {
 	    String attrName = 
 		constantPool.getUTF8(input.readUnsignedShort());
@@ -196,6 +196,6 @@ public class BinaryInfo {
     }
 
     public void removeAllAttributes() {
-	unknownAttributes = new SimpleMap();
+	unknownAttributes.clear();
     }
 }
