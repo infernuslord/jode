@@ -30,7 +30,7 @@ import jode.type.Type;
 public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 
     public Identifier canonizeReference(Instruction instr) {
-	Reference ref = (Reference) instr.objData;
+	Reference ref = instr.getReference();
 	Identifier ident = Main.getClassBundle().getIdentifier(ref);
 	String clName = ref.getClazz();
 	String realClazzName;
@@ -53,7 +53,7 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		    (clName.substring(1, clName.length()-1)
 		     .replace('/','.'));
 	    }
-	    if (instr.opcode >= opc_invokevirtual) {
+	    if (instr.getOpcode() >= opc_invokevirtual) {
 		while (clazz != null
 		       && clazz.findMethod(ref.getName(), 
 					   ref.getType()) == null)
@@ -75,7 +75,7 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 	if (!realClazzName.equals(ref.getClazz())) {
 	    ref = Reference.getReference(realClazzName, 
 					 ref.getName(), ref.getType());
-	    instr.objData = ref;
+	    instr.setReference(ref);
 	}
 	return ident;
     }
@@ -88,12 +88,12 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
      */
     public void analyzeCode(MethodIdentifier m, BytecodeInfo bytecode) {
 	for (Instruction instr = bytecode.getFirstInstr();
-	     instr != null; instr = instr.nextByAddr) {
-	    switch (instr.opcode) {
+	     instr != null; instr = instr.getNextByAddr()) {
+	    switch (instr.getOpcode()) {
 	    case opc_checkcast:
 	    case opc_instanceof:
 	    case opc_multianewarray: {
-		String clName = (String) instr.objData;
+		String clName = instr.getClazzType();
 		int i = 0;
 		while (i < clName.length() && clName.charAt(i) == '[')
 		    i++;
@@ -115,13 +115,13 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 	    case opc_getfield: {
 		Identifier ident = canonizeReference(instr);
 		if (ident != null) {
-		    if (instr.opcode == opc_putstatic
-			|| instr.opcode == opc_putfield) {
+		    if (instr.getOpcode() == opc_putstatic
+			|| instr.getOpcode() == opc_putfield) {
 			FieldIdentifier fi = (FieldIdentifier) ident;
 			if (fi != null && !fi.isNotConstant())
 			    fi.setNotConstant();
-		    } else if (instr.opcode == opc_invokevirtual
-			       || instr.opcode == opc_invokeinterface) {
+		    } else if (instr.getOpcode() == opc_invokevirtual
+			       || instr.getOpcode() == opc_invokeinterface) {
 			((ClassIdentifier) ident.getParent())
 			    .reachableIdentifier(ident.getName(), 
 						 ident.getType(), true);
@@ -144,10 +144,10 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 
     public void transformCode(BytecodeInfo bytecode) {
 	for (Instruction instr = bytecode.getFirstInstr(); 
-	     instr != null; instr = instr.nextByAddr) {
-	    if (instr.opcode == opc_putstatic
-		|| instr.opcode == opc_putfield) {
-		Reference ref = (Reference) instr.objData;
+	     instr != null; instr = instr.getNextByAddr()) {
+	    if (instr.getOpcode() == opc_putstatic
+		|| instr.getOpcode() == opc_putfield) {
+		Reference ref = instr.getReference();
 		FieldIdentifier fi = (FieldIdentifier)
 		    Main.getClassBundle().getIdentifier(ref);
 		if (fi != null
@@ -155,20 +155,16 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		    && !fi.isReachable()) {
 		    /* Replace instruction with pop opcodes. */
 		    int stacksize = 
-			(instr.opcode 
+			(instr.getOpcode() 
 			 == Instruction.opc_putstatic) ? 0 : 1;
 		    stacksize += Type.tType(ref.getType()).stackSize();
 		    if (stacksize == 3) {
 			/* Add a pop instruction after this opcode. */
-			Instruction second = instr.appendInstruction();
-			second.length = 1;
-			second.opcode = Instruction.opc_pop;
+			instr.appendInstruction(Instruction.opc_pop);
 			stacksize--;
 		    }
-		    instr.objData = null;
-		    instr.intData = 0;
-		    instr.opcode = Instruction.opc_pop - 1 + stacksize;
-		    instr.length = 1;
+		    instr.replaceInstruction(Instruction.opc_pop - 1
+					     + stacksize);
 		}
 	    }
 	}

@@ -91,14 +91,16 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
     private static StructuredBlock createGoto(MethodAnalyzer ma,
                                               Instruction instr)
     {
-        return new EmptyBlock(new Jump((FlowBlock)instr.succs[0].tmpInfo));
+        return new EmptyBlock
+	    (new Jump((FlowBlock)instr.getSuccs()[0].getTmpInfo()));
     }
 
     private static StructuredBlock createJsr(MethodAnalyzer ma, 
 					     Instruction instr)
     {
-        return new JsrBlock(new Jump((FlowBlock)instr.succs[0].tmpInfo),
-			    new Jump(FlowBlock.NEXT_BY_ADDR));
+        return new JsrBlock
+	    (new Jump((FlowBlock)instr.getSuccs()[0].getTmpInfo()),
+	     new Jump(FlowBlock.NEXT_BY_ADDR));
     }
 
     private static StructuredBlock createIfGoto(MethodAnalyzer ma, 
@@ -106,7 +108,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 						Expression expr)
     {
         return new ConditionalBlock
-	    (expr, new Jump((FlowBlock)instr.succs[0].tmpInfo), 
+	    (expr, new Jump((FlowBlock)instr.getSuccs()[0].getTmpInfo()), 
 	     new Jump(FlowBlock.NEXT_BY_ADDR));
     }
 
@@ -146,21 +148,22 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 					     MethodAnalyzer ma)
         throws ClassFormatError
     {
-        int opcode = instr.opcode;
+        int opcode = instr.getOpcode();
         switch (opcode) {
         case opc_nop:
             return createBlock(ma, instr, new EmptyBlock
 			       (new Jump(FlowBlock.NEXT_BY_ADDR)));
         case opc_ldc:
         case opc_ldc2_w:
-            return createNormal (ma, instr, new ConstOperator(instr.objData));
+            return createNormal (ma, instr, 
+				 new ConstOperator(instr.getConstant()));
 
         case opc_iload: case opc_lload: 
         case opc_fload: case opc_dload: case opc_aload:
             return createNormal
                 (ma, instr, new LocalLoadOperator
                  (types[LOCAL_TYPES][opcode-opc_iload], ma,
-                  ma.getLocalInfo(instr.addr, instr.localSlot)));
+                  ma.getLocalInfo(instr.getAddr(), instr.getLocalSlot())));
         case opc_iaload: case opc_laload: 
         case opc_faload: case opc_daload: case opc_aaload:
         case opc_baload: case opc_caload: case opc_saload:
@@ -173,7 +176,8 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 (ma, instr, new StoreInstruction
 		 (new LocalStoreOperator
 		  (types[LOCAL_TYPES][opcode-opc_istore], 
-		   ma.getLocalInfo(instr.addr+instr.length,instr.localSlot))));
+		   ma.getLocalInfo(instr.getAddr()+instr.getLength(), 
+				   instr.getLocalSlot()))));
         case opc_iastore: case opc_lastore:
         case opc_fastore: case opc_dastore: case opc_aastore:
         case opc_bastore: case opc_castore: case opc_sastore:
@@ -219,13 +223,14 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                  (types[ZBIN_TYPES][(opcode - opc_iand)%2],
                   (opcode - opc_iand)/2 + Operator.AND_OP));
         case opc_iinc: {
-            int value = instr.intData;
+            int value = instr.getIntData();
             int operation = Operator.ADD_OP;
             if (value < 0) {
                 value = -value;
                 operation = Operator.SUB_OP;
             }
-            LocalInfo li = ma.getLocalInfo(instr.addr, instr.localSlot);
+            LocalInfo li
+		= ma.getLocalInfo(instr.getAddr(), instr.getLocalSlot());
             return createNormal
                 (ma, instr, new IIncOperator
                  (new LocalStoreOperator(Type.tInt, li), 
@@ -287,24 +292,27 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return createJsr(ma, instr);
         case opc_ret:
             return createRet
-                (ma, instr, ma.getLocalInfo(instr.addr, instr.localSlot));
+                (ma, instr, 
+		 ma.getLocalInfo(instr.getAddr(), instr.getLocalSlot()));
         case opc_tableswitch: {
-            int low  = instr.intData;
-            int[] cases = new int[instr.succs.length-1];
-            FlowBlock[] dests = new FlowBlock[instr.succs.length];
+            int low  = instr.getIntData();
+            int[] cases = new int[instr.getSuccs().length-1];
+            FlowBlock[] dests = new FlowBlock[instr.getSuccs().length];
             for (int i=0; i < cases.length; i++) {
                 cases[i] = i+low;
-                dests[i] = (FlowBlock) instr.succs[i].tmpInfo;
+                dests[i] = (FlowBlock) instr.getSuccs()[i].getTmpInfo();
             }
-            dests[cases.length] = (FlowBlock)instr.succs[cases.length].tmpInfo;
+            dests[cases.length] = (FlowBlock)
+		instr.getSuccs()[cases.length].getTmpInfo();
             return createSwitch(ma, instr, cases, dests);
 	}
         case opc_lookupswitch: {
-	    int[] cases = (int[]) instr.objData;
-            FlowBlock[] dests = new FlowBlock[instr.succs.length];
+	    int[] cases = instr.getValues();
+            FlowBlock[] dests = new FlowBlock[instr.getSuccs().length];
             for (int i=0; i < dests.length; i++)
-                dests[i] = (FlowBlock) instr.succs[i].tmpInfo;
-            dests[cases.length] = (FlowBlock)instr.succs[cases.length].tmpInfo;
+                dests[i] = (FlowBlock) instr.getSuccs()[i].getTmpInfo();
+            dests[cases.length] = (FlowBlock)
+		instr.getSuccs()[cases.length].getTmpInfo();
             return createSwitch(ma, instr, cases, dests);
         }
         case opc_ireturn: case opc_lreturn: 
@@ -318,14 +326,14 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 (ma, instr, new EmptyBlock(new Jump(FlowBlock.END_OF_METHOD)));
         case opc_getstatic:
         case opc_getfield: {
-            Reference ref = (Reference) instr.objData;
+            Reference ref = instr.getReference();
             return createNormal
                 (ma, instr, new GetFieldOperator
                  (ma, opcode == opc_getstatic, ref));
         }
         case opc_putstatic:
         case opc_putfield: {
-            Reference ref = (Reference) instr.objData;
+            Reference ref = instr.getReference();
             return createNormal
                 (ma, instr, new StoreInstruction
 		 (new PutFieldOperator(ma, opcode == opc_putstatic, ref)));
@@ -334,7 +342,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_invokespecial:
         case opc_invokestatic :
         case opc_invokeinterface: {
-            Reference ref = (Reference) instr.objData;
+            Reference ref = instr.getReference();
             StructuredBlock block = createNormal
                 (ma, instr, new InvokeOperator
                  (ma, opcode == opc_invokestatic, 
@@ -342,7 +350,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return block;
         }
         case opc_new: {
-            Type type = Type.tType((String) instr.objData);
+            Type type = Type.tType(instr.getClazzType());
             ma.useType(type);
             return createNormal(ma, instr, new NewOperator(type));
         }
@@ -354,13 +362,13 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 (ma, instr, 
                  new ThrowBlock(new NopOperator(Type.tUObject)));
         case opc_checkcast: {
-            Type type = Type.tType((String) instr.objData);
+            Type type = Type.tType(instr.getClazzType());
             ma.useType(type);
             return createNormal
                 (ma, instr, new CheckCastOperator(type));
         }
         case opc_instanceof: {
-            Type type = Type.tType((String) instr.objData);
+            Type type = Type.tType(instr.getClazzType());
             ma.useType(type);
             return createNormal
                 (ma, instr, new InstanceOfOperator(type));
@@ -372,9 +380,9 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return createNormal(ma, instr,
                                 new MonitorExitOperator());
         case opc_multianewarray: {
-            Type type = Type.tType((String) instr.objData);
+            Type type = Type.tType(instr.getClazzType());
 	    ma.useType(type);
-            int dimension = instr.intData;
+            int dimension = instr.getIntData();
             return createNormal(ma, instr, 
 				new NewArrayOperator(type, dimension));
         }

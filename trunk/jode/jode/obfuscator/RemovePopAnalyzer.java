@@ -21,8 +21,6 @@ package jode.obfuscator;
 import jode.bytecode.*;
 import jode.AssertError;
 import jode.GlobalOptions;
-import jode.type.MethodType;
-import jode.type.Type;
 
 public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
     public RemovePopAnalyzer() {
@@ -35,15 +33,15 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
     }
 
     static Instruction shrinkPop(Instruction popInstr, int amount) {
-	int newPop = popInstr.opcode - (opc_pop-1) - amount;
+	int newPop = popInstr.getOpcode() - (opc_pop-1) - amount;
 	if (newPop < 0)
 	    throw new jode.AssertError("pop1 on long or double");
 	if (newPop == 0) {
-	    Instruction nextInstr = popInstr.nextByAddr;
+	    Instruction nextInstr = popInstr.getNextByAddr();
 	    popInstr.removeInstruction();
 	    return nextInstr;
 	}
-	popInstr.opcode = opc_pop - 1 + newPop;
+	popInstr.replaceInstruction(opc_pop - 1 + newPop);
 	return popInstr;
     }
 
@@ -51,9 +49,9 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 	int poppush[] = new int[2];
 	Instruction instr = bytecode.getFirstInstr(); 
 	while (instr != null) {
-	    switch (instr.opcode) {
+	    switch (instr.getOpcode()) {
 	    case opc_nop: {
-		Instruction nextInstr = instr.nextByAddr;
+		Instruction nextInstr = instr.getNextByAddr();
 		instr.removeInstruction();
 		instr = nextInstr;
 		continue;
@@ -64,14 +62,14 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		int count = 0;
 		Instruction pushInstr = instr;
 		while (true) {
-		    if (pushInstr.preds != null) {
+		    if (pushInstr.getPreds() != null) {
 			pushInstr = null;
 			break;
 		    }
-		    pushInstr = pushInstr.prevByAddr;
+		    pushInstr = pushInstr.getPrevByAddr();
 		    if (pushInstr == null
-			|| pushInstr.succs != null 
-			|| pushInstr.alwaysJumps) {
+			|| pushInstr.getSuccs() != null 
+			|| pushInstr.doesAlwaysJump()) {
 			pushInstr = null;
 			break;
 		    }
@@ -80,7 +78,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 			break;
 		    count += poppush[0] - poppush[1];
 		}
-		int opcode = pushInstr == null ? -1 : pushInstr.opcode;
+		int opcode = pushInstr == null ? -1 : pushInstr.getOpcode();
 
 		if (count > 0) {
 		    /* If this is a dup and the instruction popped is the 
@@ -92,7 +90,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 			continue;
 		    }
 		    
-		    if (instr.opcode == opc_pop2
+		    if (instr.getOpcode() == opc_pop2
 			&& count > 1 && count <= 3 
 			&& opcode == (opc_dup2 + count-2)) {
 			pushInstr.removeInstruction();
@@ -118,16 +116,16 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		case opc_iaload: case opc_faload: case opc_aaload:
 		case opc_baload: case opc_caload: case opc_saload:
 		    /* We have to pop one entry more. */
-		    pushInstr.opcode = opc_pop;
+		    pushInstr.replaceInstruction(opc_pop);
 		    instr = pushInstr;
 		    continue;
 
 		case opc_dup_x1:
-		    pushInstr.opcode = opc_swap;
+		    pushInstr.replaceInstruction(opc_swap);
 		    instr = shrinkPop(instr, 1);
 		    continue;
 		case opc_dup2: 
-		    if (instr.opcode == opc_pop2) {
+		    if (instr.getOpcode() == opc_pop2) {
 			pushInstr.removeInstruction();
 			instr = shrinkPop(instr, 2);
 		    }
@@ -136,7 +134,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		case opc_lneg: case opc_dneg:
 		case opc_l2d: case opc_d2l:
 		case opc_laload: case opc_daload:
-		    if (instr.opcode != opc_pop2)
+		    if (instr.getOpcode() != opc_pop2)
 			break;
 		    /* fall through */
 		case opc_ineg: case opc_fneg: 
@@ -158,7 +156,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		case opc_fcmpl: case opc_fcmpg:
 		case opc_l2i: case opc_l2f:
 		case opc_d2i: case opc_d2f:
-		    pushInstr.opcode = opc_pop2;
+		    pushInstr.replaceInstruction(opc_pop2);
 		    shrinkPop(instr, 1);
 		    instr = pushInstr;
 		    continue;
@@ -168,44 +166,42 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		case opc_ldiv: case opc_ddiv:
 		case opc_lrem: case opc_drem:
 		case opc_land: case opc_lor : case opc_lxor:
-		    if (instr.opcode != opc_pop2)
+		    if (instr.getOpcode() != opc_pop2)
 			break;
-		    pushInstr.opcode = opc_pop2;
+		    pushInstr.replaceInstruction(opc_pop2);
 		    instr = pushInstr;
 		    continue;
 		case opc_lshl: case opc_lshr: case opc_lushr:
-		    if (instr.opcode != opc_pop2)
+		    if (instr.getOpcode() != opc_pop2)
 			break;
-		    pushInstr.opcode = opc_pop;
+		    pushInstr.replaceInstruction(opc_pop);
 		    instr = pushInstr;
 		    continue;
 
 		case opc_i2l: case opc_i2d:
 		case opc_f2l: case opc_f2d:
-		    if (instr.opcode != opc_pop2)
+		    if (instr.getOpcode() != opc_pop2)
 			break;
 		    pushInstr.removeInstruction();
-		    instr.opcode = opc_pop;
+		    instr.replaceInstruction(opc_pop);
 		    continue;
 		    
 		case opc_lcmp:
 		case opc_dcmpl: case opc_dcmpg:
-		    pushInstr.opcode = opc_pop2;
-		    if (instr.opcode == opc_pop)
-			instr.opcode = opc_pop2;
+		    pushInstr.replaceInstruction(opc_pop2);
+		    if (instr.getOpcode() == opc_pop)
+			instr.replaceInstruction(opc_pop2);
 		    else {
-			Instruction thirdPop = instr.appendInstruction();
-			thirdPop.length = 1;
-			thirdPop.opcode = opc_pop;
+			instr.appendInstruction(opc_pop);
 		    }
 		    instr = pushInstr;
 		    continue;
 				    
 		case opc_getstatic:
 		case opc_getfield: {
-		    Reference ref = (Reference) pushInstr.objData;
-		    int size = Type.tType(ref.getType()).stackSize();
-		    if (pushInstr.opcode == opc_getfield)
+		    Reference ref = pushInstr.getReference();
+		    int size = TypeSignature.getTypeSize(ref.getType());
+		    if (pushInstr.getOpcode() == opc_getfield)
 			size--;
 		    pushInstr.removeInstruction();
 		    if (size > 0)
@@ -214,18 +210,15 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		}
 
 		case opc_multianewarray: {
-		    int dims = pushInstr.intData;
+		    int dims = pushInstr.getIntData();
 		    pushInstr.removeInstruction();
 		    if (dims == 0)
 			instr = shrinkPop(instr, 1);
 		    else {
 			dims--;
 			while (dims > 0) {
-			    Instruction aPop = instr.insertInstruction();
-			    aPop.length = 1;
-			    aPop.opcode = opc_pop;
+			    instr = instr.insertInstruction(opc_pop);
 			    dims--;
-			    instr = aPop;
 			}
 		    }
 		    continue;
@@ -235,35 +228,33 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		case opc_invokespecial:
 		case opc_invokestatic:
 		case opc_invokeinterface:
-		    if (((MethodType) 
-			 Type.tType(((Reference) pushInstr.objData).getType()))
-			.getReturnType().stackSize() != 1)
+		    if (TypeSignature.getReturnSize
+			(pushInstr.getReference().getType()) != 1)
 			break;
 		    /* fall through */
 		case opc_checkcast:
 		case -1:
-		    if (instr.opcode == opc_pop2) {
+		    if (instr.getOpcode() == opc_pop2) {
 			/* This is/may be a double pop on a single value
 			 * split it and continue with second half
 			 */
-			instr.opcode = opc_pop;
-			instr = instr.appendInstruction();
-			instr.opcode = opc_pop;
-			instr.length = 1;
+			instr.replaceInstruction(opc_pop);
+			instr = instr.appendInstruction(opc_pop);
 			continue;
 		    }
 		}
-		if (instr.opcode == opc_pop  && instr.preds == null
-		    && instr.prevByAddr.opcode == opc_pop) {
+		if (instr.getOpcode() == opc_pop
+		    && instr.getPreds() == null
+		    && instr.getPrevByAddr().getOpcode() == opc_pop) {
 		    /* merge two single pops together. */
-		    instr.prevByAddr.removeInstruction();
-		    instr.opcode = opc_pop2;
+		    instr.getPrevByAddr().removeInstruction();
+		    instr.replaceInstruction(opc_pop2);
 		}
 		/* Cant do anything with this pop */
 	    }
 	    /* fall through */
 	    default:
-		instr = instr.nextByAddr;
+		instr = instr.getNextByAddr();
 		continue;
 	    }
 	}

@@ -189,14 +189,15 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    }
 
 	    for (Instruction instr = bytecode.getFirstInstr(); 
-		 instr != null; instr = instr.nextByAddr) {
-		switch (instr.opcode) {
+		 instr != null; instr = instr.getNextByAddr()) {
+		switch (instr.getOpcode()) {
 		case opc_invokespecial:
 		case opc_invokestatic:
 		case opc_invokeinterface:
 		case opc_invokevirtual: {
-		    instr.objData = Main.getClassBundle()
-			.getReferenceAlias((Reference) instr.objData);
+		    instr.setReference
+			(Main.getClassBundle()
+			 .getReferenceAlias(instr.getReference()));
 		    break;
 
 		}
@@ -204,16 +205,18 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		case opc_putfield:
 		case opc_getstatic:
 		case opc_getfield: {
-		    instr.objData = Main.getClassBundle()
-			.getReferenceAlias((Reference) instr.objData);
+		    instr.setReference
+			(Main.getClassBundle()
+			 .getReferenceAlias(instr.getReference()));
 		    break;
 		}
 		case opc_new:
 		case opc_checkcast:
 		case opc_instanceof:
 		case opc_multianewarray: {
-		    instr.objData = Main.getClassBundle()
-			.getTypeAlias((String) instr.objData);
+		    instr.setClazzType
+			(Main.getClassBundle()
+			 .getTypeAlias(instr.getClazzType()));
 		    break;
 		}
 		}
