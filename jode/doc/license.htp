@@ -1,6 +1,5 @@
-<?php require("header.inc"); ?>
-<h1>License</h1> 
-<p><i>JODE</i> is Copyright &copy; 1998-2000 by Jochen Hoenicke. <br><br>
+<section title="License">
+<p><i>JODE</i> is Copyright &copy; 1998-2004 by Jochen Hoenicke. <br><br>
 
 <p>This program is free software; you can redistribute it and/or modify
 it under the terms of the <a
@@ -19,4 +18,4 @@ but <b>without any warranty</b>; without even the implied warranty of
 <b>merchantability</b> or <b>fitness for a particular purpose</b>.  See the
 GNU General Public License for more details.</p>
 
-<?php require("footer.inc"); ?>
+</section>

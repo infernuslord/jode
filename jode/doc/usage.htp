@@ -1,37 +1,40 @@
-<?php require("header.inc") ?>
-<?php /* MOVE TO menu.inc
+<if we_want_a_menu>
+<p>On this page:<br>
 <a href="#decompiler">Decompiler</a><br>
 &nbsp;&nbsp;&nbsp;<a href="#cmdline">Command&nbsp;Line</a><br>
 &nbsp;&nbsp;&nbsp;<a href="#awt">AWT&nbsp;Interface</a><br>
 &nbsp;&nbsp;&nbsp;<a href="#swing">Swing&nbsp;Interface</a><br>
 &nbsp;&nbsp;&nbsp;<a href="#java">Java&nbsp;Interface</a><br>
 <a href="#optimizer">Obfuscator</a><br>
-*/ ?>
-<h1><a name="decompiler">Using the Decompiler</a></h1>
-<p>After you have <?php selflink("download") ?>downloaded</a> the jar archive
+</p>
+</if>
+
+<section title="Using the Decompiler">
+<p>After you have <a href="download.html">downloaded</a> the jar archive
 put it into your <tt>CLASSPATH</tt>. The package
 <tt>swingall.jar</tt> is also needed if you are using JDK 1.1.</p>
 
 <ul><li>Under Windows you have to start a MSDOS session and type
 something like:
 <pre>
-set CLASSPATH=C:\download\jode-<?php echo "$version"?>.jar;C:\swing\swingall.jar
+set CLASSPATH=C:\download\jode-<use version>.jar;C:\swing\swingall.jar
 </pre>
 
 <li>Under Unix you start a shell and type (for bourne shell):
-<pre>export CLASSPATH=/tmp/jode-<?php echo "$version"?>.jar:/usr/local/swing/swingall.jar</pre>
+<pre>export CLASSPATH=/tmp/jode-<use version>.jar:/usr/local/swing/swingall.jar</pre>
 or for csh:
-<pre>setenv CLASSPATH /tmp/jode-<?php echo "$version"?>.jar:/usr/local/swing/swingall.jar</pre>
+<pre>setenv CLASSPATH /tmp/jode-<use version>.jar:/usr/local/swing/swingall.jar</pre>
 </ul>
 <br>
 There is also a batch file for windows and a script file for unix,
 that you can use.  You can extract it with the following command:
 <pre>
-  jar -xvf jode-<?php echo "$version-jdk1.1"?>.jar bin/jode.bat <i>resp.</i> bin/jode
+  jar -xvf jode-<use version>".jar bin/jode.bat <i>resp.</i> bin/jode
 </pre>
 Edit the file to adapt it to your paths and put it to a convenient location.
+</section>
 
-<h3><a name="cmdline">Command Line Interface</a></h3>
+<section title="Command Line Interface">
 
 The most powerful way to start <I>JODE</I>'s decompiler is the command
 line interface.  Some people don't like long command lines; they
@@ -51,10 +54,10 @@ If you have installed the batch file/script, you can use it like this:
 
 <h3><a name="awt">AWT Interface</a></h3>
 
-The AWT Interface looks exactly like the <?php selflink("applet") ?>
+The AWT Interface looks exactly like the <a href="applet.html">
 applet</a>.  In fact the applet uses the AWT Interface. You start it
-after setting the <tt>CLASSPATH</tt> (see <?php
-selflink("usage#decompiler") ?>above</a>), with 
+after setting the <tt>CLASSPATH</tt> (see <a
+href="#decompiler">above</a>), with
 
 <pre>java jode.decompiler.Window</pre>
 
@@ -67,8 +70,12 @@ appear.  You can save it via the <code>save</code> button.
 <h3><a name="swing">Swing Interface</a></h3>
 
 For the swing interface you need java version 1.2 or the separately
-available swing package (see <?php selflink("links#swing") ?>link
-page</a>.  You can invoke it with the following command:
+available swing package (see <a href="links.html#swing">link
+page</a>.  You can invoke it with the following command (JDK1.2 only):
+<pre>
+java -jar jode-<use version>.jar classes.jar
+</pre>
+or if you have set the classpath (see above)
 <pre>
 java jode.swingui.Main classes.jar
 <i>resp.</i> jode swi classes.jar
@@ -95,14 +102,14 @@ class.  Note that the LGPL allows dynamic linking as long as you don't change
 Jode itself.  Please tell me if you use <i>JODE</i> in this way.</p>
 
 <p>You should ship <code>jode-1.1-embedded.jar</code> with your program.  This jar file is
-available in the <? sflink("project/showfiles.php") ?>download area</a>.
+available in the <sflink href="project/showfiles.php">download area</a>.
 It works only under JDK&nbsp;1.2 and above.</p>
+</section>
 
-<h1><a name="optimizer">Using the Obfuscator</a></h1>
-
+<section title="Using the Obfuscator">
 <p>To use the obfuscator you should first create a script file, say <a
 href="myproject.jos"><tt>myproject.jos</tt></a>.  Then you can invoke the
-obfuscator with:
+obfuscator with:</p>
 <pre>
 java jode.obfuscator.Main myproject.jos
 </pre>
@@ -204,7 +211,7 @@ renamer = new StrongRenamer
 <p>You can also create a renaming table with the same format as the
 table written by revtable.  The entries in the table get precedence
 over renamer.  Entries not in the table will get renamed by the
-renamer.<p>
+renamer.</p>
 <pre>
 table = "translat.tbl"
 </pre>
@@ -215,7 +222,6 @@ needs to get the same name (overloading), and which method names
 mustn't change (overload of library methods, e.g. <tt>nextElement</tt>
 for <tt>Enumeration</tt>s). There are currently two analyzers.
 </p>
-
 <dl><dt>SimpleAnalyzer</dt>
 <dd>Straight forward analyzer.  It is fast and will remove dead code
 on method basis.</dd>
@@ -241,4 +247,4 @@ change the bytecode interface.</p>
 <pre>
 post = new LocalOptimizer, new RemovePopAnalyzer
 </pre>
-<?php require("footer.inc") ?>
+</section>

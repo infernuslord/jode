@@ -1,5 +1,4 @@
-<?php require("header.inc"); ?>
-<h1>The <i>JODE</i> Applet</h1>
+<section title="The <i>JODE</i> Applet">
 
 <p>Please be patience, loading the applet may take some time.</p>
 
@@ -35,4 +34,5 @@ files from the same server as the applet, and this is the reason why
 you have to use such a weird URL.<br><br>
 
 Save probably doesn't work, because it is forbidden by your browser.<br><br>
-<?php require("footer.inc"); ?>
+
+</section>

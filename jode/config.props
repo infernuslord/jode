@@ -19,10 +19,10 @@ javadoc.href=http://java.sun.com/products/jdk/1.2/docs/api/
 # Remove the next line if perl is not installed.
 perl.present=true
 
-# Is PHP installed on your system?
+# Is HTP installed on your system?
 #
-# php is needed to generate html files from php files.  
-# You also need perl.
+# htp is needed to generate html files from htp files.
+# see http://htp.sourceforge.net/
 # 
-# Remove the next line if either perl or php is not installed.
-php.present=true
+# Remove the next line if either htp is not installed.
+htp.present=true

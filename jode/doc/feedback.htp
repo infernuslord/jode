@@ -1,6 +1,4 @@
-<?php require("header.inc"); ?> 
-
-<h1>Feedback</h1>
+<section title="Feedback">
 
 <p>You can report bugs to the <?php sflink("bugs/")?>bug forum</a>. </p>
 
@@ -10,5 +8,4 @@ users.sourceforge.net</a>.  Please mention <i>jode</i> in the
 subject.</p>
 
 <p>There is a mailing list.  Check <a href="http://lists.sourceforge.net/mailman/listinfo/jode-users">this page</a> for subscription informations.</p>
-
-<?php require("footer.inc"); ?> 
+</section>

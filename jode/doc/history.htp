@@ -1,6 +1,4 @@
-<?php require("header.inc"); ?>
-<h1>History</h1> 
-
+<section title="History">
 <p>Someday I found <code>guavad</code>, a disassembler for java byte
 code (it does similar things like <code>javap&nbsp;-c</code>).  I used
 it on a class file, and found that it was possible to reconstruct the
@@ -19,5 +17,4 @@ now, because it suited best.</p>
 
 <p>Just for the records: the java code is now more than 50 times
 bigger than the original perl script and is still growing.</p>
-<?php require("footer.inc"); ?>
-
+</section>
