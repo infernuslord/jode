@@ -120,7 +120,8 @@ public class InstructionBlock extends InstructionContainer {
             Expression expr = 
                 ((ComplexExpression) instr).getSubExpressions()[0];
             expr.makeInitializer();
-            writer.println(local.getType() + " " + local.getName() + " = "
+            writer.println(local.getType().getHint() + " "
+			   + local.getName() + " = "
                            + expr.simplify().toString() + ";");
         } else {
             if (instr.getType() != jode.Type.tVoid)
