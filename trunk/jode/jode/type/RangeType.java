@@ -82,14 +82,23 @@ public class RangeType extends Type {
      */
     public void useType() {
         /* The topType will be printed */
-        if (topType.isClassType() || bottomType == tUnknown)
+        if (topType.isClassType() || !bottomType.isValidType())
             topType.useType();
         else
             bottomType.useType();
     }
 
+    /**
+     * Checks if we need to cast to a middle type, before we can cast from
+     * fromType to this type.
+     * @return the middle type, or null if it is not necessary.
+     */
+    public Type getCastHelper(Type fromType) {
+	return topType.getCastHelper(fromType);
+    }
+
     public String getTypeSignature() {
-        if (topType.isClassType() || bottomType == tUnknown)
+        if (topType.isClassType() || !bottomType.isValidType())
             return topType.getTypeSignature();
         else
             return bottomType.getTypeSignature();
@@ -99,14 +108,14 @@ public class RangeType extends Type {
     {
         if (jode.Decompiler.isTypeDebugging)
             return "<" + bottomType + "-" + topType + ">";
-        if (topType.isClassType() || bottomType == tUnknown)
+        if (topType.isClassType() || !bottomType.isValidType())
             return topType.toString();
         else
             return bottomType.toString();
     }
 
     public String getDefaultName() {
-        if (topType.isClassType() || bottomType == tUnknown)
+        if (topType.isClassType() || !bottomType.isValidType())
             return topType.getDefaultName();
         else
             return bottomType.getDefaultName();
