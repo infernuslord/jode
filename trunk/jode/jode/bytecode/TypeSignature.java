@@ -67,8 +67,45 @@ public class TypeSignature {
     }
 
     /**
-     * Check if the given type is a two slot type.
+     * Generate a Class for a type signature.  This is the pendant to
+     * getSignature.
+     * @param typeSig a single type signature
+     * @return the Class object representing that type.
      */
+    public static Class getClass(String typeSig) 
+	throws ClassNotFoundException 
+    {
+        switch(typeSig.charAt(0)) {
+        case 'Z':
+            return Boolean.TYPE;
+        case 'B':
+            return Byte.TYPE;
+        case 'C':
+            return Character.TYPE;
+        case 'S':
+            return Short.TYPE;
+        case 'I':
+            return Integer.TYPE;
+        case 'F':
+            return Float.TYPE;
+        case 'J':
+            return Long.TYPE;
+        case 'D':
+            return Double.TYPE;
+        case 'V':
+            return Void.TYPE;
+        case 'L':
+	    typeSig = typeSig.substring(1, typeSig.length()-1)
+		.replace('/','.');
+	    /* fall through */
+        case '[':
+	    return Class.forName(typeSig);
+        }
+        throw new IllegalArgumentException(typeSig);
+    }
+
+    /**
+     * Check if the given type is a two slot type.  */
     private static boolean usingTwoSlots(char type) {
 	return "JD".indexOf(type) >= 0;
     }
