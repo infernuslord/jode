@@ -27,6 +27,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 
+/**
+ * This is a runtime environment using reflection.
+ * Monitors are not supported by this class so exit/enterMonitor
+ * will through an InterpreterException.
+ */
 public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 
     public static Object fromReflectType(String typeSig, Object value) {

@@ -30,9 +30,10 @@ import java.lang.UnsupportedOperationException;
 ///#enddef
 
 /**
- * This class represent the constant pool.  You normally don't need to
- * access this class, except if you want to add your own custom
- * attributes that use the constant pool.
+ * This class represent the constant pool.  Normally you wont need to
+ * touch this class, as ClassInfo already does all the hard work.  You
+ * will only need it if you want to add your own custom attributes
+ * that use the constant pool.
  *
  * @author Jochen Hoenicke
  */
@@ -179,13 +180,16 @@ public class ConstantPool {
     public String getClassName(int i) throws ClassFormatException {
         if (tags[i] != CLASS)
             throw new ClassFormatException("Tag mismatch");
-	String clName = getUTF8(indices1[i]);
-	try {
-	    TypeSignature.checkTypeSig("L"+clName+";");
-	} catch (IllegalArgumentException ex) {
-	    throw new ClassFormatException(ex.getMessage());
+	if (constants[i] == null) {
+	    String clName = getUTF8(indices1[i]);
+	    try {
+		TypeSignature.checkTypeSig("L"+clName+";");
+	    } catch (IllegalArgumentException ex) {
+		throw new ClassFormatException(ex.getMessage());
+	    }
+	    constants[i] = clName.replace('/','.').intern();
 	}
-        return clName.replace('/','.').intern();
+	return (String) constants[i];
     }
 
     /**

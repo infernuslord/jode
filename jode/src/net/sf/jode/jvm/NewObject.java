@@ -24,7 +24,7 @@ package net.sf.jode.jvm;
  *
  * @author Jochen Hoenicke
  */
-public class NewObject {
+class NewObject {
     Object instance;
     String type;
 

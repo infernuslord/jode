@@ -24,7 +24,17 @@ import java.util.Iterator;
 ///#enddef
 
 /**
- * A simple class containing the info of the LocalVariableTable
+ * A simple class containing the info of the LocalVariableTable.  This
+ * info is stored decentral: every load, store or iinc instruction contains
+ * the info for its local.  When writing code it will automatically be
+ * collected again. <br>
+ *
+ * You can't modify a LocalVariableInfo, for this reason they can and
+ * will be shared.<br>
+ *
+ * This information consists of name, type signature and slot number.
+ * There is no public constructor; use the static getInfo() methods
+ * instead.
  */
 public final class LocalVariableInfo {
     private String name, type;
@@ -56,14 +66,25 @@ public final class LocalVariableInfo {
 	for (int i=start; i< upper; i++)
 	    anonymous[i] = new LocalVariableInfo(i);
     }
-	
+
+    /**
+     * Creates a new local variable info, with no name or type.
+     * @param slot the slot number.
+     */
     public static LocalVariableInfo getInfo(int slot) {
 	if (slot >= anonymous.length)
 	    grow(Math.max(slot + 1, anonymous.length * 2));
 	return anonymous[slot];
     }
 
-    public static LocalVariableInfo getInfo(int slot, String name, String type) {
+    /**
+     * Creates a new local variable info, with given name and type.
+     * @param slot the slot number.
+     * @param name the name of the local.
+     * @param type the type signature of the local.
+     */
+    public static LocalVariableInfo getInfo(int slot, 
+					    String name, String type) {
 	if (name == null && type == null)
 	    return getInfo(slot);
 	int hash = slot ^ name.hashCode() ^ type.hashCode();
@@ -80,18 +101,31 @@ public final class LocalVariableInfo {
 	return lvi;
     }
     
+    /**
+     * Gets the slot number.
+     */
     public int getSlot() {
 	return slot;
     }
 
+    /**
+     * Gets the name.
+     */
     public String getName() {
 	return name;
     }
     
+    /**
+     * Gets the type signature.
+     * @see TypeSignature
+     */
     public String getType() {
 	return type;
     }
 
+    /**
+     * Gets a string representation for debugging purposes.
+     */
     public String toString() {
 	String result = ""+slot;
 	if (name != null)

@@ -60,22 +60,27 @@ import net.sf.jode.util.UnifyHash;
  * <li> A URL (unified resource location), pointing to a directory </li>
  * <li> A URL pointing to a jar or zip file. </li>
  * <li> A Jar URL (see {@link java.net.JarURLConnection}), useful if
- * the jar file is not packed correctly</li>
- * <li> The reflection URL <code>reflection:/</code> This location can
- * only load declarations of classes.  If a security manager is
- * present, it can only load public declarations.</li>
+ * the jar file is not packed correctly.</li>
+ * <li> The reflection URL <code>reflection:/</code>.  This is a
+ * special location, which fills the ClassInfo with the information
+ * from the java reflection API.  Obviously it can't load any files
+ * nor the full bytecode. It only loads declarations of classes.  If a
+ * security manager is present, it can only load public
+ * declarations. </li>
  * </ul>
  *
- * We use standard java means to find a class file: package correspong
+ * We use standard java means to find a class file: package correspond
  * to directories and the class file must have the <code>.class</code>
  * extension.  For example if the class path points to
  * <code>/home/java</code>, the class <code>java.lang.Object</code> is
- * loaded from <code>/home/java/java/lang/Object.class</code>.
+ * loaded from <code>/home/java/java/lang/Object.class</code>.  Of course
+ * you can write your own {@link Location}s that break this rule.
  *
  * A class path can have another ClassPath as fallback.  If
  * ClassInfo.loadInfo is called and the class isn't found the fallback
  * ClassPath is searched instead.  This repeats until there is no
- * further fallback.
+ * further fallback.  The fallback is not used when listing classes or
+ * files.
  *
  * The main method for creating classes is {@link #getClassInfo}.  The
  * other available methods are useful to find other files in the
@@ -86,51 +91,133 @@ import net.sf.jode.util.UnifyHash;
  * them.
  * 
  * @author Jochen Hoenicke
- * @version 1.1 */
+ * @version 1.1 
+ */
 public class ClassPath  {
 
     /**
-     * We need a different pathSeparatorChar, since ':' (used for most
-     * UNIX System) is used a protocol separator in URLs.  
+     * We need a different pathSeparatorChar, since ':' (used for UNIX
+     * systems) is also used as protocol separator in URLs. <br>
      *
      * We currently allow both pathSeparatorChar and
      * altPathSeparatorChar and decide if it is a protocol separator
      * by context.  This doesn't always work, so use
-     * <code>altPathSeparator</code>, or the ClassPath(String[])
-     * constructor.  
+     * <code>altPathSeparator</code>, or better yet the
+     * ClassPath(String[]) or ClassPath(Location[]) constructors.
      */
     public static final char altPathSeparatorChar = ',';
 
-    private class Path {
-	public boolean exists(String file) {
+    /**
+     * A location is a single component of the ClassPath.  It provides
+     * methods to find files, list all files and reading them. <br>
+     *
+     * Files and directories are always separated by "/" in this class,
+     * even under Windows where the default is a "\".  This behaviour
+     * is consistent with that of {@link ZipFile}. <br>
+     *
+     * You can extend this class to provide your own custom locations.
+     */
+    public static class Location {
+	/**
+	 * Tells whether there exists a file or directory with
+	 * the given name at this location. <br>
+	 * The default implementation returns false.
+	 * @param file the name of the file, directories are always
+	 * separated by "/".
+	 * @return true if a file exists at this location.
+	 */
+	protected boolean exists(String file) {
 	    return false;
 	}
-	public boolean isDirectory(String file) {
+
+	/**
+	 * Tells whether there exists a directory (or package) with
+	 * the given name at this location. <br>
+	 * The default implementation returns false.
+	 * @param file the name of the directory, subdirectories are always
+	 * separated by "/".
+	 * @return true if a file exists at this location.
+	 */
+	protected boolean isDirectory(String file) {
 	    return false;
 	}
-	public InputStream getFile(String file) throws IOException {
-	    return null;
-	}
-	public Enumeration listFiles(String directory) {
+
+	/**
+	 * Returns an input stream that reads the given file.  It is only
+	 * called for files for which exists returns true. <br>
+	 * The default implementation returns null.
+	 * @param file the name of the file, subdirectories are always
+	 * separated by "/".
+	 * @return an input stream for the given file, or null if file
+	 * was not found.
+	 * @exception IOException if an io exception occured while opening
+	 * the file.
+	 */
+	protected InputStream getFile(String file) throws IOException {
 	    return null;
 	}
 
-	public boolean loadClass(ClassInfo clazz, int howMuch) 
+	/**
+	 * Lists the files and subdirectory in a directory.  This is
+	 * only called for directories for which isDirectory returns
+	 * true.  <br>
+	 *
+	 * The objects returned by the nextElement()
+	 * method of the Enumeration should be of type String and
+	 * contain the file resp directory name without any parent
+	 * directory names. <br>
+	 *
+	 * Note that this method is also used by
+	 * {@link ClassPath#listClassesAndPackages}. <br>
+	 *
+	 * The default implementation returns null, which is equivalent
+	 * to an empty enumeration.
+	 *
+	 * @param directory the name of the directory, subdirectories
+	 * are always separated by "/".
+	 * @return an enumeration, listing the file names. It may
+	 * return null instead of an empty enumeration.
+	 */
+	protected Enumeration listFiles(String directory) {
+	    return null;
+	}
+
+	/**
+	 * Loads a class from this location and fills it with the given
+	 * information. <br>
+	 * The default implementation will get the corresponding ".class"
+	 * file via getFile() and fill the information from the stream.
+	 * So normally there is no need to override this method.
+	 * <br>
+	 *	 
+	 * If you want to build classes on the fly, for example if you
+	 * wrote a parser for java files and want to build class files
+	 * from them, you can override this method.
+	 *
+	 * @param clazz the dot separated full qualified class name.
+	 * @param howMuch the amount of information to load
+	 * @return true, if loading the class was successful, false 
+	 * if it was not found.
+	 * @exception ClassFormatException if class format is illegal
+	 * @exception IOException if an io exception occured while reading
+	 * the class.
+	 * @see ClassInfo#read
+	 */
+	protected boolean loadClass(ClassInfo clazz, int howMuch) 
 	    throws IOException, ClassFormatException 
 	{
 	    String file = clazz.getName().replace('.', '/') + ".class";
 	    if (!exists(file))
 		return false;
 	    DataInputStream input = new DataInputStream
-		(new BufferedInputStream
-		 (getFile(file)));
+		(new BufferedInputStream(getFile(file)));
 	    clazz.read(input, howMuch);
 	    return true;
 	}
     }
 
-    private class ReflectionPath extends Path {
-	public boolean loadClass(ClassInfo classinfo, int howMuch) 
+    private static class ReflectionLocation extends Location {
+	protected boolean loadClass(ClassInfo classinfo, int howMuch) 
 	    throws IOException, ClassFormatException 
 	{
 	    if (howMuch > ClassInfo.DECLARATIONS)
@@ -157,14 +244,14 @@ public class ClassPath  {
 	}
     }
 
-    private class LocalPath extends Path {
+    private static class LocalLocation extends Location {
 	private File dir;
 
-	public LocalPath(File path) {
+	protected LocalLocation(File path) {
 	    dir = path;
 	}
 
-	public boolean exists(String filename) {
+	protected boolean exists(String filename) {
 	    if (java.io.File.separatorChar != '/')
 		filename = filename
 		    .replace('/', java.io.File.separatorChar);
@@ -175,14 +262,14 @@ public class ClassPath  {
 	    }
 	}
 
-	public boolean isDirectory(String filename) {
+	protected boolean isDirectory(String filename) {
 	    if (java.io.File.separatorChar != '/')
 		filename = filename
 		    .replace('/', java.io.File.separatorChar);
 	    return new File(dir, filename).isDirectory();
 	}
 
-	public InputStream getFile(String filename) throws IOException {
+	protected InputStream getFile(String filename) throws IOException {
 	    if (java.io.File.separatorChar != '/')
 		filename = filename
 		    .replace('/', java.io.File.separatorChar);
@@ -190,7 +277,7 @@ public class ClassPath  {
 	    return new FileInputStream(f);
 	}
 
-	public Enumeration listFiles(String directory) {
+	protected Enumeration listFiles(String directory) {
 	    if (File.separatorChar != '/')
 		directory = directory
 		    .replace('/', File.separatorChar);
@@ -222,7 +309,7 @@ public class ClassPath  {
 	}
     }
 
-    private class ZipPath extends Path {
+    private static class ZipLocation extends Location {
 	private Hashtable entries = new Hashtable();
 	private ZipFile file;
 	private byte[] contents;
@@ -261,7 +348,7 @@ public class ClassPath  {
 	    } while (name.length() > 0);
 	}
 
-	public ZipPath(ZipFile zipfile, String prefix) {
+	ZipLocation(ZipFile zipfile, String prefix) {
 	    this.file = zipfile;
 	    this.prefix = prefix;
 
@@ -272,7 +359,7 @@ public class ClassPath  {
 	    }
 	}
 
-	public ZipPath(byte[] zipcontents, String prefix) 
+	ZipLocation(byte[] zipcontents, String prefix) 
 	    throws IOException
 	{
 	    this.contents = zipcontents;
@@ -290,7 +377,7 @@ public class ClassPath  {
 	    zis.close();
 	}
 
-	public boolean exists(String filename) {
+	protected boolean exists(String filename) {
 	    if (entries.containsKey(filename))
 		return true;
 
@@ -307,11 +394,11 @@ public class ClassPath  {
 	    return false;
 	}
 
-	public boolean isDirectory(String filename) {
+	protected boolean isDirectory(String filename) {
 	    return entries.containsKey(filename);
 	}
 
-	public InputStream getFile(String filename) throws IOException {
+	protected InputStream getFile(String filename) throws IOException {
 	    String fullname = prefix != null ? prefix + filename : filename;
 	    if (contents != null) {
 		ZipInputStream zis = new ZipInputStream
@@ -353,7 +440,7 @@ public class ClassPath  {
 	    return null;
 	}
 
-	public Enumeration listFiles(String directory) {
+	protected Enumeration listFiles(String directory) {
 	    Vector direntries = (Vector) entries.get(directory);
 	    if (direntries != null)
 		return direntries.elements();
@@ -365,14 +452,14 @@ public class ClassPath  {
 	}
     }
 
-    private class URLPath extends Path {
+    private static class URLLocation extends Location {
 	private URL base;
 
-	public URLPath(URL base) {
+	public URLLocation(URL base) {
 	    this.base = base;
 	}
 
-	public boolean exists(String filename) {
+	protected boolean exists(String filename) {
 	    try {
 		URL url = new URL(base, filename);
 		URLConnection conn = url.openConnection();
@@ -384,7 +471,7 @@ public class ClassPath  {
 	    }
 	}
 
-	public InputStream getFile(String filename) throws IOException {
+	protected InputStream getFile(String filename) throws IOException {
 	    try {
 		URL url = new URL(base, filename);
 		URLConnection conn = url.openConnection();
@@ -395,9 +482,12 @@ public class ClassPath  {
 	    }
 	}
 
-	public boolean loadClass(ClassInfo clazz, int howMuch) 
+	protected boolean loadClass(ClassInfo clazz, int howMuch) 
 	    throws IOException, ClassFormatException 
 	{
+	    /* We override this method to avoid the costs of the
+	     * exists call, and to optimize howMuch.
+	     */
 	    String file = clazz.getName().replace('.', '/') + ".class";
 	    InputStream is = getFile(file);
 	    if (is == null)
@@ -405,7 +495,11 @@ public class ClassPath  {
 
 	    DataInputStream input = new DataInputStream
 		(new BufferedInputStream(is));
-	    clazz.read(input, howMuch);
+
+	    /* Reading an URL may be expensive.  Therefore we ignore
+	     * howMuch and read everything to avoid reading it again.
+	     */
+	    clazz.read(input, ClassInfo.ALL);
 	    return true;
 	}
 
@@ -414,7 +508,7 @@ public class ClassPath  {
 	}
     }
 
-    private Path[] paths;
+    private Location[] paths;
     private UnifyHash classes = new UnifyHash();
     
     ClassPath fallback = null;
@@ -422,7 +516,8 @@ public class ClassPath  {
     /**
      * Creates a new class path for the given path.  See the class
      * description for more information, which kind of paths are
-     * supported.
+     * supported. When a class or a file is not found in the class
+     * path the fallback is used.
      * @param path An array of paths.
      * @param fallback The fallback classpath.
      */
@@ -439,6 +534,25 @@ public class ClassPath  {
      */
     public ClassPath(String[] paths) {
 	initPath(paths);
+    }
+
+    /**
+     * Creates a new class path for the given path.  When a class
+     * or a file is not found in the class path the fallback is used.
+     * @param locs An array of locations.
+     * @param fallback The fallback classpath.
+     */
+    public ClassPath(Location[] locs, ClassPath fallback) {
+	this.fallback = fallback;
+	paths = locs;
+    }
+
+    /**
+     * Creates a new class path for the given path.  
+     * @param locs An array of locations.
+     */
+    public ClassPath(Location[] locs) {
+	paths = locs;
     }
 
     /**
@@ -468,7 +582,66 @@ public class ClassPath  {
 	initPath(tokenizeClassPath(path));
     }
 
-    private String[] tokenizeClassPath(String path) {
+    /**
+     * Creates a location for a given path component.  See the
+     * class comment which path components are supported.
+     * @param path the path component.
+     * @return a location corresponding to the class.
+     * @exception NullPointerException if path is null.
+     * @exception IOException if an io exception occured while accessing the
+     * path component.
+     * @exception SecurityException if a security exception occured
+     * while accessing the path component.
+     */
+    public static Location createLocation(String path) 
+	throws IOException, SecurityException
+    {
+	String zipPrefix = null;
+	// The special reflection URL
+	if (path.startsWith("reflection:"))
+	    return new ReflectionLocation();
+	
+	// We handle jar URL's ourself, this makes them work even with
+	// java 1.1
+	if (path.startsWith("jar:")) {
+	    int index = 0;
+	    do {
+		index = path.indexOf('!', index);
+	    } while (index != -1 && index != path.length()-1
+		     && path.charAt(index+1) != '/');
+	    
+	    if (index == -1 || index == path.length() - 1)
+		throw new MalformedURLException(path);
+	    zipPrefix = path.substring(index+2);
+	    if (!zipPrefix.endsWith("/"))
+		zipPrefix += "/";
+	    path = path.substring(4, index);
+	}
+	
+	int index = path.indexOf(':');
+	/* Grrr, we need to distinguish c:\foo from URLs. */
+	if (index > 1) {
+	    // This looks like an URL.
+	    URL base = new URL(path);
+	    URLConnection connection = base.openConnection();
+	    if (zipPrefix != null
+		|| path.endsWith(".zip") || path.endsWith(".jar")
+		|| connection.getContentType().endsWith("/zip")) {
+		// This is a zip file.  Read it into memory.
+		byte[] contents = readURLZip(connection);
+		return new ZipLocation(contents, zipPrefix);
+	    } else
+		return new URLLocation(base);
+	} else {
+	    File dir = new File(path);
+	    if (zipPrefix != null || !dir.isDirectory()) {
+		return new ZipLocation(new ZipFile(dir), zipPrefix);
+	    } else
+		return new LocalLocation(dir);
+	}
+    }
+
+    private static String[] tokenizeClassPath(String path) {
 	// Calculate a good approximation (rounded upwards) of the tokens
 	// in this path.
 	int length = 1;
@@ -528,133 +701,66 @@ public class ClassPath  {
 	return tokens;
     }
 
-    private byte[] readURLZip(URLConnection conn) {
+    private static byte[] readURLZip(URLConnection conn) throws IOException {
 	int length = conn.getContentLength();
 	if (length <= 0)
 	    // Give a approximation if length is unknown
 	    length = 10240;
 	else
 	    // Increase the length by one, so we hopefully don't need
-	    // to grow the array later (we need a little overshot to
+	    // to grow the array later (we need one byte overshot to
 	    // know when the end is reached).
 	    length++;
 
 	byte[] contents = new byte[length];
 
-	try {
-	    InputStream is = conn.getInputStream();
-	    int pos = 0;
-	    for (;;) {
-		// This is ugly, is.available() may return zero even
-		// if there are more bytes.
-		int avail = Math.max(is.available(), 1);
-		if (pos + is.available() > contents.length) {
-		    // grow the byte array.
-		    byte[] newarr = new byte 
-			[Math.max(2*contents.length, pos + is.available())];
-		    System.arraycopy(contents, 0, newarr, 0, pos);
-		    contents = newarr;
-		}
-		int count = is.read(contents, pos, contents.length-pos);
-		if (count == -1)
-		    break;
-		pos += count;
-	    }
-	    if (pos < contents.length) {
-		// shrink the byte array again.
-		byte[] newarr = new byte[pos];
+	InputStream is = conn.getInputStream();
+	int pos = 0;
+	for (;;) {
+	    // This is ugly, is.available() may return zero even
+	    // if there are more bytes.
+	    int avail = Math.max(is.available(), 1);
+	    if (pos + avail > contents.length) {
+		// grow the byte array.
+		byte[] newarr = new byte 
+		    [Math.max(2*contents.length, pos + avail)];
 		System.arraycopy(contents, 0, newarr, 0, pos);
 		contents = newarr;
 	    }
-	    return contents;
-	} catch (IOException ex) {
-	    return null;
+	    int count = is.read(contents, pos, contents.length-pos);
+	    if (count == -1)
+		break;
+	    pos += count;
 	}
+	if (pos < contents.length) {
+	    // shrink the byte array again.
+	    byte[] newarr = new byte[pos];
+	    System.arraycopy(contents, 0, newarr, 0, pos);
+	    contents = newarr;
+	}
+	return contents;
     }
 
     private void initPath(String[] tokens) {
 	int length = tokens.length;
-	paths = new Path[length];
+	paths = new Location[length];
 
         for (int i = 0; i < length; i++) {
-	    String path = tokens[i];
-	    if (path == null)
+	    if (tokens[i] == null)
 		continue;
-
-	    String zipPrefix = null;
-	    // The special reflection URL
-	    if (path.startsWith("reflection:")) {
-		paths[i] = new ReflectionPath();
-		continue;
-	    }
-
-	    // We handle jar URL's ourself.
-	    if (path.startsWith("jar:")) {
-		int index = 0;
-		do {
-		    index = path.indexOf('!', index);
-		} while (index != -1 && index != path.length()-1
-			 && path.charAt(index+1) != '/');
-		
-		if (index == -1 || index == path.length() - 1) {
-		    GlobalOptions.err.println("Warning: Illegal jar url "
-+ path + ".");
-		    continue;
-		}
-		zipPrefix = path.substring(index+2);
-		if (!zipPrefix.endsWith("/"))
-		    zipPrefix += "/";
-		path = path.substring(4, index);
-	    }
-	    int index = path.indexOf(':');
-	    if (index != -1 && index < path.length()-2
-		&& path.charAt(index+1) == '/'
-		&& path.charAt(index+2) == '/') {
-		// This looks like an URL.
-		try {
-		    URL base = new URL(path);
-		    try {
-			URLConnection connection = base.openConnection();
-			if (zipPrefix != null
-			    || path.endsWith(".zip") || path.endsWith(".jar")
-			    || connection.getContentType().endsWith("/zip")) {
-			    // This is a zip file.  Read it into memory.
-			    byte[] contents = readURLZip(connection);
-			    if (contents != null)
-				paths[i] = new ZipPath(contents, zipPrefix);
-			} else
-			    paths[i] = new URLPath(base);
-		    } catch (IOException ex) {
-			GlobalOptions.err.println
-			    ("Warning: IO exception while accessing "
-			     +path+".");
-		    } catch (SecurityException ex) {
-			GlobalOptions.err.println
-			    ("Warning: Security exception while accessing "
-			     +path+".");
-		    }
-		} catch (MalformedURLException ex) {
-		    GlobalOptions.err.println
-			("Warning: Malformed URL "+ path + ".");
-		}
-	    } else {
-		try {
-		    File dir = new File(path);
-		    if (zipPrefix != null || !dir.isDirectory()) {
-			try {
-			    paths[i] = new ZipPath(new ZipFile(dir), 
-						   zipPrefix);
-			} catch (java.io.IOException ex) {
-			    GlobalOptions.err.println
-				("Warning: Can't read "+ path + ".");
-			}
-		    } else
-			paths[i] = new LocalPath(dir);
-		} catch (SecurityException ex) {
-		    GlobalOptions.err.println
-			("Warning: SecurityException while accessing "
-			 + path + ".");
-		}
+	    try {
+		paths[i] = createLocation(tokens[i]);
+	    } catch (MalformedURLException ex) {
+		GlobalOptions.err.println
+		    ("Warning: Malformed URL "+ tokens[i] + ".");
+	    } catch (IOException ex) {
+		GlobalOptions.err.println
+		    ("Warning: IO exception while accessing "
+		     +tokens[i]+".");
+	    } catch (SecurityException ex) {
+		GlobalOptions.err.println
+		    ("Warning: Security exception while accessing "
+		     +tokens[i]+".");
 	    }
 	}
     }
@@ -663,10 +769,17 @@ public class ClassPath  {
     /** 
      * Creates a new class info for a class residing in this search
      * path.  This doesn't load the class immediately, this is done by
-     * ClassInfo.loadInfo.  It is no error if class doesn't exists.
+     * ClassInfo.loadInfo.  It is no error if class doesn't exists. <br>
+     *
+     * ClassInfos are guaranteed to be unique, i.e. if you have two
+     * ClsssInfo objects loaded from the same class path with the same
+     * classname they will always be identical.  The only exception is
+     * if you use setName() or getClassInfoFromStream() and explicitly
+     * overwrite a previous class.<br>
+     *
      * @param classname the dot-separated full qualified name of the class.  
      *        For inner classes you must use the bytecode name with $,
-     *        e.g. <code>java.util.Map$Entry.</code> 
+     *        e.g. <code>java.util.Map$Entry</code>.
      * @exception IllegalArgumentException if class name isn't valid.
      */
     public ClassInfo getClassInfo(String classname) 
@@ -682,6 +795,44 @@ public class ClassPath  {
 	ClassInfo clazz = new ClassInfo(classname, this);
 	classes.put(hash, clazz);
         return clazz;
+    }
+
+    /** 
+     * Creates a new class info from an input stream containing the
+     * bytecode.  This method is useful if you don't know the class
+     * name or if you have the class in an unusual location.  The
+     * class is fully loaded ({@link ClassInfo#ALL}) when you use this
+     * method. <br>
+     *
+     * If a class with the same name was already created with
+     * getClassInfo() it will effectively be removed from the class
+     * path, although references to it may still exists elsewhere.
+     *
+     * @param stream the input stream containing the bytecode.
+     * @return the ClassInfo representing this class.
+     * @exception IOException if an io exception occurs.
+     * @exception ClassFormatException if bytecode isn't valid.
+     */
+    public ClassInfo getClassInfoFromStream(InputStream stream) 
+	throws IOException, ClassFormatException
+    {
+	ClassInfo classInfo = new ClassInfo(null, this);
+	classInfo.read(new DataInputStream(new BufferedInputStream(stream)),
+		   ClassInfo.ALL);
+	String classname = classInfo.getName();
+	/* Remove the classinfo with the same name from this path if
+	 * it exists.
+	 */
+	Iterator iter = classes.iterateHashCode(classname.hashCode());
+	while (iter.hasNext()) {
+	    ClassInfo clazz = (ClassInfo) iter.next();
+	    if (clazz.getName().equals(classname)) {
+		iter.remove();
+		break;
+	    }
+	}
+	classes.put(classname.hashCode(), classInfo);
+	return classInfo;
     }
 
     /**
@@ -740,7 +891,7 @@ public class ClassPath  {
     /**
      * Searches for a file in the class path.
      * @param filename the filename. The path components should be separated
-     * by <code>/</code>.
+     * by "/".
      * @return An InputStream for the file.
      */
     public InputStream getFile(String filename) throws IOException {
@@ -748,6 +899,8 @@ public class ClassPath  {
 	    if (paths[i] != null && paths[i].exists(filename))
 		return paths[i].getFile(filename);
 	}
+	if (fallback != null)
+	    return fallback.getFile(filename);
 	throw new FileNotFoundException(filename);
     }
 
@@ -755,7 +908,7 @@ public class ClassPath  {
      * Searches for a filename in the class path and tells if it is a
      * directory.
      * @param filename the filename. The path components should be separated
-     * by <code>/</code>.
+     * by "/".
      * @return true, if filename exists and is a directory, false otherwise.
      */
     public boolean isDirectory(String filename) {
@@ -768,7 +921,8 @@ public class ClassPath  {
 
     /**
      * Searches for a filename in the class path and tells if it is a
-     * package.  This is the same as isDirectory.
+     * package.  This is the same as isDirectory, but takes dot separated
+     * names.
      * @param fqn the full qualified name. The components should be dot
      * separated.
      * @return true, if filename exists and is a package, false otherwise.
@@ -781,7 +935,7 @@ public class ClassPath  {
     /**
      * Get a list of all files in a given directory.
      * @param dirName the directory name. The path components must
-     * be separated by <code>/</code>.
+     * be separated by "/".
      * @return An enumeration with all files/directories in the given
      * directory.  If dirName doesn't denote a directory it returns null.
      */
@@ -855,6 +1009,9 @@ public class ClassPath  {
         };
     }
 
+    /**
+     * Loads the contents of a class.  This is only called by ClassInfo.
+     */
     boolean loadClass(ClassInfo clazz, int howMuch) 
 	throws IOException, ClassFormatException
     {
@@ -867,13 +1024,17 @@ public class ClassPath  {
 	return false;
     }
 
+    /**
+     * Returns a string representation of this classpath.
+     * @return a string useful for debugging purposes.
+     */
     public String toString() {
 	StringBuffer sb = new StringBuffer("ClassPath[");
 	for (int i = 0; i < paths.length; i++) {
 	    if (paths[i] != null)
 		sb.append(paths[i]).append(',');
 	}
-	sb.append(fallback).append(']');
+	sb.append("fallback=").append(fallback).append(']');
 	return sb.toString();
     }
 }

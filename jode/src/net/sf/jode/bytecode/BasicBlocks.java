@@ -49,25 +49,43 @@ import java.lang.UnsupportedOperationException;
  * Instead this information is stored inside the blocks. See
  * <code>Block</code> for details.</p>
  *
- * <p>A subroutine block, i.e. a block where some jsr instructions may
- * jump to, must store its return address in a local variable
- * immediately.  There must be exactly one block with the
- * corresponding <code>opc_ret</code> instruction and all blocks that
- * belong to this subroutine must point to the ret block.  Bytecode
- * that doesn't have this condition is automatically transformed on
- * reading.</p>
- *
  * <p>Exception Handlers are represented by the Handler class. Their
  * start/end range must span over some consecutive BasicBlocks and
  * there handler must be another basic block.</p>
  *
- * <p>If you want to create or modify the byte code, you must first set
- * the basic blocks and then set exception handlers.  If you set new
- * blocks the previous exception handlers will be removed.</p>
+ * <!-- <p>Future work: A subroutine block, i.e. a block where some jsr
+ * instructions may jump to, must store its return address in a local
+ * variable immediately.  There must be exactly one block with the
+ * corresponding <code>opc_ret</code> instruction and all blocks that
+ * belong to this subroutine must point to the ret block.  Bytecode
+ * that doesn't have this condition is automatically transformed on
+ * reading.</p> -->
  *
  * <p>When the code is written to a class file, the blocks are written
  * in the given order.  Goto and return instructions are inserted as
- * necessary, you don't have to care about that.</p>
+ * necessary, you don't need to care about that.</p>
+ *
+ * <h3>Creating new BasicBlocks</h3>
+ *
+ * <p>If you want to create a new BasicBlocks object, first create the
+ * Block objects, then initialize them (you need to have all successor
+ * blocks created for this).  Afterwards create a new BasicBlock and
+ * fill its sub blocks: </p>
+ *
+ * <pre>
+ *   MethodInfo myMethod = new MethodInfo("foo", "()V", PUBLIC);
+ *   Block blocks = new Block[10];
+ *   for (int i = 0; i < 10; i++) blocks[i] = new Block();
+ *   blocks[0].setCode(new Instruction[] {...}, 
+ *                     new Block[] {blocks[3], blocks[1]});
+ *   ...
+ *   Handler[] excHandlers = new Handler[1];
+ *   excHandlers[0] = new Handler(blocks[2], blocks[5], blocks[6],
+ *                                "java.lang.NullPointerException");
+ *   BasicBlocks bb = new BasicBlocks(myMethod);
+ *   bb.setCode(blocks, blocks[0], excHandlers);
+ *   classInfo.setMethods(new MethodInfo[] { myMethod });
+ * </pre>
  *
  * @see net.sf.jode.bytecode.Block
  * @see net.sf.jode.bytecode.Instruction
@@ -238,13 +256,13 @@ public class BasicBlocks extends BinaryInfo implements Opcodes {
 
     public void setBlocks(Block[] blocks, Block startBlock, 
 			  Handler[] handlers) {
-	for (int i = 0; i < blocks.length; i++)
-	    blocks[i].blockNr = i;
 	this.blocks = blocks;
 	this.startBlock = startBlock;
+
 	exceptionHandlers = handlers.length == 0 ? Handler.EMPTY : handlers;
 	ArrayList activeHandlers = new ArrayList();
 	for (int i = 0; i < blocks.length; i++) {
+	    blocks[i].blockNr = i;
 	    for (int j = 0; j < handlers.length; j++) {
 		if (handlers[j].getStart() == blocks[i])
 		    activeHandlers.add(handlers[j]);
@@ -257,6 +275,17 @@ public class BasicBlocks extends BinaryInfo implements Opcodes {
 	    for (int j = 0; j < handlers.length; j++) {
 		if (handlers[j].getEnd() == blocks[i])
 		    activeHandlers.remove(handlers[j]);
+	    }
+	}
+	/* Check if all successor blocks are in this basic block */
+	for (int i = 0; i < blocks.length; i++) {
+	    Block[] succs = blocks[i].getSuccs();
+	    for (int j = 0; j < succs.length; j++) {
+		if (succs[j] != null
+		    && succs[j] != blocks[succs[j].blockNr])
+		    throw new IllegalArgumentException
+			("Succ " + j + " of block " + i
+			 + " not in basicblocks");
 	    }
 	}
 	updateMaxStackLocals();

@@ -82,6 +82,10 @@ public final class InvokeOperator extends Operator
      * first element is the hint type of the return value, the
      * remaining entries are the hint types of the parameters.  All
      * hint types may be null, if that parameter shouldn't be hinted.  
+     *
+     * The reason why we don't put the class name into the top level
+     * key, is that we don't necessarily know the class.  We may have
+     * a sub class, but the hint should of course still apply.
      */
     private final static HashMap hintTypes = new HashMap();
 
@@ -100,7 +104,7 @@ public final class InvokeOperator extends Operator
 	 * make much sense to hint for byte, since its constant
 	 * representation is more difficult than an int
 	 * representation.  If you have more hints to suggest, please
-	 * write contact me. (see GlobalOptions.EMAIL)
+	 * contact me. (see GlobalOptions.EMAIL)
 	 */
 	Type tCharHint = new IntegerType(IntegerType.IT_I, IntegerType.IT_C);
 	Type[] hintC   = new Type[] { tCharHint };
@@ -1208,7 +1212,7 @@ public final class InvokeOperator extends Operator
 	}
 	writer.endOp();
 
-	/* No the easier part:  Dump the arguments from arg to length.
+	/* Now the easier part:  Dump the arguments from arg to length.
 	 * We still need to check for casts though.
 	 */
 	writer.breakOp();

@@ -26,6 +26,39 @@ import java.lang.reflect.Modifier;
 import java.lang.Comparable;
 ///#enddef
 
+/**
+ * Represents a java bytecode field (class variable).  A field
+ * consists of the following parts:
+ *
+ * <dl>
+ *
+ * <dt>name</dt><dd>The field's name</dd>
+ *
+ * <dt>type</dt><dd>The field's {@link TypeSignature type signature}
+ * in bytecode format.</dd>
+ *
+ * <dt>modifiers</dt><dd>The modifiers of the field like private, public etc.
+ * These are created by or-ing the constants {@link Modifier#PUBLIC},
+ * {@link Modifier#PRIVATE}, {@link Modifier#PROTECTED}, 
+ * {@link Modifier#STATIC}, {@link Modifier#FINAL}, 
+ * {@link Modifier#VOLATILE}, {@link Modifier#TRANSIENT}, 
+ * {@link Modifier#STRICT}
+ * of class {@link java.lang.reflect.Modifier}. </dt>
+ *
+ * <dt>synthetic</dt><dd>true if this field is synthetic.</dd>
+ *
+ * <dt>deprecated</dt><dd>true if this field is deprecated.</dd>
+ *
+ * <dt>constant</dt> <dd>Final static fields may have a constant
+ * value.  This is either of type String, Integer, Long, Float or
+ * Double.  </dt>
+ *
+ * </dl>
+ *
+ * @author Jochen Hoenicke
+ * @see net.sf.jode.bytecode.TypeSignature
+ * @see net.sf.jode.bytecode.BasicBlocks
+ */
 public final class FieldInfo extends BinaryInfo implements Comparable {
     int modifier;
     String name;
@@ -34,10 +67,21 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
     Object constant;
     boolean syntheticFlag;
     boolean deprecatedFlag;
-
+    
+    /**
+     * Creates a new empty field info.
+     */
     public FieldInfo() {
     }
 
+    /**
+     * Creates a new field with given name, type and modifiers.
+     * @param name the name of the field.
+     * @param typeSig the typeSig the type signature.
+     * @param modifier the modifier
+     * @see TypeSignature
+     * @see Modifier
+     */
     public FieldInfo(String name, String typeSig, int modifier) {
 	this.name = name;
 	this.typeSig = typeSig;
@@ -134,7 +178,7 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
     }
 
     void write(GrowableConstantPool constantPool, 
-		      DataOutputStream output) throws IOException {
+	       DataOutputStream output) throws IOException {
 	output.writeShort(modifier);
 	output.writeShort(constantPool.putUTF8(name));
 	output.writeShort(constantPool.putUTF8(typeSig));
@@ -147,38 +191,81 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	super.drop(keep);
     }
 
+    /**
+     * Gets the name of the field.
+     * @return the name.
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Gets the type signature of the field.
+     * @return the type signature.
+     * @see TypeSignature
+     */
     public String getType() {
         return typeSig;
     }
 
+    /**
+     * Gets the modifier of the field.
+     * @return the modifiers.
+     * @see Modifier
+     */
     public int getModifiers() {
         return modifier;
     }
     
+    /**
+     * Tells whether this field is synthetic.
+     * @return true if the field is synthetic.
+     */
     public boolean isSynthetic() {
 	return syntheticFlag;
     }
 
+    /**
+     * Tells whether this field is deprecated.
+     * @return true if the field is deprecated.
+     */
     public boolean isDeprecated() {
 	return deprecatedFlag;
     }
 
+    /**
+     * Gets the constant value of the field.  For static final fields
+     * that have a simple String, int, float, double or long constant, 
+     * this returns the corresponding constant as String, Integer, Float
+     * Double or long.  For other fields it returns null.
+     * @return The constant, or null.
+     */
     public Object getConstant() {
 	return constant;
     }
 
+    /**
+     * Sets the name of the field.
+     * @param newName the name.
+     */
     public void setName(String newName) {
         name = newName;
     }
 
+    /**
+     * Sets the type signature of the field.
+     * @param newType the type signature.
+     * @see TypeSignature
+     */
     public void setType(String newType) {
         typeSig = newType;
     }
 
+    /**
+     * Sets the modifier of the field.
+     * @param newModifier the modifiers.
+     * @see Modifier
+     */
     public void setModifiers(int newModifier) {
         modifier = newModifier;
     }
