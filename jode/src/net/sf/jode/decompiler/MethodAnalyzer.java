@@ -475,9 +475,8 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    int count = 0;
 	    for (int i=0; i < blocks.length; i++) {
 		int mark = 100;
-		int last = blocks[i].getInstructions().length - 1;
-		for (int j=0; j <= last; j++) {
-		    Instruction instr = blocks[i].getInstructions()[j];
+		Instruction[] instrs = blocks[i].getInstructions();
+		for (int j=0; j < instrs.length; j++) {
 		    if (GlobalOptions.verboseLevel > 0 && j > mark) {
 			GlobalOptions.err.print('.');
 			mark += 100;
@@ -487,11 +486,12 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 			pl.updateProgress(done, methodName);
 			count = 0;
 		    }
-		    Opcodes.addOpcode(flows[i], instr, this);
+		    Opcodes.addOpcode(flows[i], instrs[j], this);
 		}
 		Block[] succs = blocks[i].getSuccs();
 		FlowBlock[] flowSuccs;
-		int lastOpcode = blocks[i].getInstructions()[last].getOpcode();
+		int lastOpcode = instrs.length > 0
+		    ? instrs[instrs.length-1].getOpcode() : Opcodes.opc_nop;
 		if (lastOpcode >= Opcodes.opc_ireturn
 		    && lastOpcode <= Opcodes.opc_areturn) {
 		    flowSuccs = new FlowBlock[] { FlowBlock.END_OF_METHOD };
