@@ -21,7 +21,7 @@ package jode;
 import java.util.Hashtable;
 
 /**
- * This is my type class.  It differs from sun.tools.java.Type, in
+ * This is my type class.  It differs from java.lang.class, in
  * that it maintains a type range.  This type range may be implicit or
  * explicit. <p>
  *
@@ -138,16 +138,31 @@ public class Type {
             int index = type.indexOf(';');
             if (index != type.length()-1)
                 return tError;
-            return tClass(type.substring(1, index).replace('/', '.'));
+            return tClass(type.substring(1, index));
         }
         throw new AssertError("Unknown type signature: "+type);
     }
 
-    public static final Type tType(sun.tools.java.Type type) {
-        return tType(type.getTypeSignature());
+    public static final Type tType(Class clazz) {
+        if (clazz.isArray())
+            return tArray(tType(clazz.getComponentType()));
+        if (clazz.isPrimitive()) {
+            return clazz == Boolean.TYPE   ? tBoolean 
+                :  clazz == Byte.TYPE      ? tByte 
+                :  clazz == Character.TYPE ? tChar 
+                :  clazz == Short.TYPE     ? tShort 
+                :  clazz == Integer.TYPE   ? tInt 
+                :  clazz == Float.TYPE     ? tFloat 
+                :  clazz == Long.TYPE      ? tLong 
+                :  clazz == Double.TYPE    ? tDouble 
+                :  clazz == Void.TYPE      ? tVoid 
+                :  tError;
+        }
+        return tClass(clazz.getName());
     }
 
     public static final Type tClass(String clazzname) {
+        clazzname = clazzname.replace(java.io.File.separatorChar, '.');
         Object result = classHash.get(clazzname);
         if (result == null) {
             result = new ClassInterfacesType(clazzname);
@@ -184,11 +199,11 @@ public class Type {
         return tUnknown.createRangeType(type.getBottom());
     }
 	
-    public static Type tClassOrArray(sun.tools.java.Identifier ident) {
-        if (ident.toString().charAt(0) == '[')
-            return Type.tType(ident.toString());
+    public static Type tClassOrArray(String ident) {
+        if (ident.charAt(0) == '[')
+            return Type.tType(ident);
         else
-            return Type.tClass(ident.toString());
+            return Type.tClass(ident);
     }
 
     public static void setEnvironment(JodeEnvironment e) {

@@ -18,70 +18,90 @@
  */
 
 package jode;
-import java.lang.reflect.Modifier;
 import java.io.IOException;
-import sun.tools.java.*;
+import java.lang.reflect.*;
+import gnu.bytecode.ClassType;
+import gnu.bytecode.ConstantPool;
+import gnu.bytecode.CpoolEntry;
+import gnu.bytecode.CpoolString;
+import gnu.bytecode.CpoolValue1;
+import gnu.bytecode.CpoolValue2;
 
 public class ClassAnalyzer implements Analyzer {
-    BinaryClass cdef;
     JodeEnvironment env;
-    Analyzer fields[];
+    Analyzer analyzers[];
+    Class clazz;
+    ClassType classType;
+    ClassAnalyzer parent;
     
-    public ClassAnalyzer(BinaryClass bc, JodeEnvironment e)
+    public ClassAnalyzer(ClassAnalyzer parent, Class clazz, 
+                         JodeEnvironment env)
     {
-        cdef = bc;
-        env  = e;
+        this.parent = parent;
+        this.clazz = clazz;
+        this.env  = env;
+        try {
+            this.classType = gnu.bytecode.ClassFileInput.
+                readClassType(env.getClassStream(clazz));
+        } catch (java.io.IOException ex) {
+            ex.printStackTrace();
+        }
     }
     
     public void analyze() {
         int numFields = 0, i=0;
         
-        FieldDefinition f;
-        for (f= cdef.getInnerClassField(); f != null; f = f.getNextField())
-            numFields++;
-        for (f= cdef.getFirstField(); f != null; f = f.getNextField())
-            numFields++;
-        fields = new Analyzer[numFields];
-        for (f= cdef.getInnerClassField(); f != null; f = f.getNextField()) {
-            System.err.println("analyzing inner: "+f.getName());
-            fields[i] = new ClassAnalyzer((BinaryClass) f.getInnerClass(), env);
-            fields[i++].analyze();
+        Field[] fields = clazz.getDeclaredFields(); 
+        Method[] methods = clazz.getDeclaredMethods();
+        Constructor[] constrs = clazz.getDeclaredConstructors();
+        Class[] clazzes = clazz.getDeclaredClasses();
+
+        analyzers = new Analyzer[fields.length + methods.length
+                             + constrs.length + clazzes.length];
+
+        for (int j=0; j< clazzes.length; j++, i++) {
+            analyzers[i] = new ClassAnalyzer(this, clazzes[j], env);
+            analyzers[i].analyze();
         }
-        for (f= cdef.getFirstField(); f != null; f = f.getNextField()) {
-            if (f.getType().getTypeCode() == Constants.TC_METHOD) {
-                fields[i] = new MethodAnalyzer(f, env);
-            } else {
-                fields[i] = new FieldAnalyzer(f, env);
-            }
-            fields[i++].analyze();
+
+        for (int j=0; j< fields.length; j++, i++) {
+            analyzers[i] = new FieldAnalyzer(this, fields[j], env);
+            analyzers[i].analyze();
+        }
+    
+        for (int j=0; j< constrs.length; j++, i++) {
+            analyzers[i] = new MethodAnalyzer(this, constrs[j], env);
+            analyzers[i].analyze();
+        }
+        for (int j=0; j< methods.length; j++, i++) {
+            analyzers[i] = new MethodAnalyzer(this, methods[j], env);
+            analyzers[i].analyze();
         }
     }
 
     public void dumpSource(TabbedPrintWriter writer) throws IOException
     {
-        if (cdef.getSource() != null)
-            writer.println("/* Original source: "+cdef.getSource()+" */");
+//         if (cdef.getSource() != null)
+//             writer.println("/* Original source: "+cdef.getSource()+" */");
 
-        if (cdef.getName().isQualified())
-            writer.println("package " + cdef.getName().getQualifier() + ";");
-        /* XXX imports */
-        writer.println("");
-
-        String modif = Modifier.toString(cdef.getModifiers());
+        String modif = Modifier.toString(clazz.getModifiers());
         if (modif.length() > 0)
             writer.print(modif + " ");
-        writer.print((cdef.isInterface())?"interface ":"class ");
-	writer.println(cdef.getName().getName().toString());
+        writer.print((clazz.isInterface())?"interface ":"class ");
+	writer.println(env.classString(clazz));
 	writer.tab();
-	if (cdef.getSuperClass() != null)
-	    writer.println("extends "+cdef.getSuperClass().getName().toString());
-        ClassDeclaration interfaces[] = cdef.getInterfaces();
+        Class superClazz = clazz.getSuperclass();
+	if (superClazz != null &&
+            superClazz != new Object().getClass()) {
+	    writer.println("extends "+env.classString(superClazz));
+        }
+        Class interfaces[] = clazz.getInterfaces();
 	if (interfaces.length > 0) {
 	    writer.print("implements ");
 	    for (int i=0; i < interfaces.length; i++) {
 		if (i > 0)
 		    writer.print(", ");
-		writer.print(interfaces[i].getName().toString());
+		writer.print(env.classString(interfaces[i]));
 	    }
             writer.println("");
 	}
@@ -89,10 +109,85 @@ public class ClassAnalyzer implements Analyzer {
 	writer.println("{");
 	writer.tab();
 
-	for (int i=0; i< fields.length; i++)
-	    fields[i].dumpSource(writer);
+	for (int i=0; i< analyzers.length; i++)
+	    analyzers[i].dumpSource(writer);
 	writer.untab();
 	writer.println("}");
+    }
+
+
+    public ConstantPool getConstantPool() {
+        return classType.getConstants();
+    }
+
+    public CpoolEntry getConstant(int i) {
+        return classType.getConstant(i);
+    }
+
+    public Type getConstantType(int i) 
+         throws ClassFormatError
+    {
+        int t = classType.getConstant(i).getTag();
+        switch(t) {
+        case ConstantPool.INTEGER: return Type.tInt   ;
+        case ConstantPool.FLOAT  : return Type.tFloat ;
+        case ConstantPool.LONG   : return Type.tLong  ;
+        case ConstantPool.DOUBLE : return Type.tDouble;
+        case ConstantPool.STRING : return Type.tString;
+        default:
+            throw new ClassFormatError("invalid constant type: "+t);
+        }
+    }
+
+    private static String quoted(String str) {
+        StringBuffer result = new StringBuffer("\"");
+        for (int i=0; i< str.length(); i++) {
+            switch (str.charAt(i)) {
+            case '\t':
+                result.append("\\t");
+                break;
+            case '\n':
+                result.append("\\n");
+                break;
+            case '\\':
+                result.append("\\\\");
+                break;
+            case '\"':
+                result.append("\\\"");
+                break;
+            default:
+                result.append(str.charAt(i));
+            }
+        }
+        return result.append("\"").toString();
+    }
+
+    public String getConstantString(int i) 
+    {
+        CpoolEntry constant = classType.getConstant(i);
+        switch (constant.getTag()) {
+        case ConstantPool.INTEGER: 
+            return Integer.toString(((CpoolValue1)constant).getValue());
+        case ConstantPool.FLOAT:
+            return Float.toString
+                (Float.intBitsToFloat(((CpoolValue1)constant).getValue()));
+        case ConstantPool.LONG:
+            return Long.toString(((CpoolValue2)constant).getValue());
+        case ConstantPool.DOUBLE:
+            return Double.toString
+                (Double.longBitsToDouble(((CpoolValue2)constant).getValue()));
+        case ConstantPool.STRING: 
+            return quoted(((CpoolString)constant).getString().getString());
+        }
+        throw new AssertError("unknown constant type");
+    }
+        
+    public String getTypeString(Type type) {
+        return type.toString();
+    }
+
+    public String getTypeString(Type type, String name) {
+        return type.toString() + " " + name;
     }
 }
 

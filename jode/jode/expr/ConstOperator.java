@@ -24,8 +24,6 @@ public class ConstOperator extends NoArgOperator {
 
     public ConstOperator(Type type, String value) {
         super(type);
-        if (type == Type.tString)
-            value = quoted(value);
         this.value = value;
     }
 
@@ -35,29 +33,6 @@ public class ConstOperator extends NoArgOperator {
 
     public int getPriority() {
         return 1000;
-    }
-
-    public static String quoted(String str) {
-        StringBuffer result = new StringBuffer("\"");
-        for (int i=0; i< str.length(); i++) {
-            switch (str.charAt(i)) {
-            case '\t':
-                result.append("\\t");
-                break;
-            case '\n':
-                result.append("\\n");
-                break;
-            case '\\':
-                result.append("\\\\");
-                break;
-            case '\"':
-                result.append("\\\"");
-                break;
-            default:
-                result.append(str.charAt(i));
-            }
-        }
-        return result.append("\"").toString();
     }
 
     public boolean equals(Object o) {

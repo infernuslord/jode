@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Identifier;
 import java.util.Enumeration;
 import java.util.Vector;
 
@@ -36,7 +35,7 @@ import java.util.Vector;
 public class LocalInfo {
     private static int serialnr = 0;
     private int slot;
-    private Identifier name;
+    private String name;
     private Type type;
     private LocalInfo shadow;
     private Vector operators = new Vector();
@@ -46,9 +45,7 @@ public class LocalInfo {
      */
 
     /**
-     * Create a new local info.  The name will be an identifier
-     * of the form local_x__yyy, where x is the slot number and
-     * yyy a unique number.
+     * Create a new local info.  The name will be a string
      * @param slot  The slot of this variable.
      */
     public LocalInfo(int slot) {
@@ -108,7 +105,7 @@ public class LocalInfo {
     /**
      * Get the name of this local.
      */
-    public Identifier getName() {
+    public String getName() {
         if (shadow != null) {
             while (shadow.shadow != null) {
                 shadow = shadow.shadow;
@@ -116,7 +113,7 @@ public class LocalInfo {
             return shadow.getName();
         }
         if (name == null)
-            name = Identifier.lookup("local_"+slot+"__"+serialnr++);
+            name = "local_"+slot+"__"+serialnr++;
         return name;
     }
 
@@ -131,7 +128,7 @@ public class LocalInfo {
     /**
      * Set the name of this local.
      */
-    public void setName(Identifier name) {
+    public void setName(String name) {
         if (shadow != null) 
             shadow.setName(name);
         else

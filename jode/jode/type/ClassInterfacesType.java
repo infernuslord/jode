@@ -17,7 +17,6 @@
  * $Id$
  */
 package jode;
-import sun.tools.java.*;
 import java.util.Vector;
 import java.util.Stack;
 
@@ -370,9 +369,9 @@ public class ClassInterfacesType extends Type {
             return sb.append("}").toString();
         } else {
             if (clazz != null)
-                return clazz.getName();
+                return env.classString(clazz);
             else if (ifaces.length > 0)
-                return ifaces[0].getName();
+                return env.classString(ifaces[0]);
             else
                 return "{<error>}";
         }

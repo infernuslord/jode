@@ -18,8 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.*;
-import java.lang.reflect.Modifier;
 
 public class Decompiler {
     public static boolean isVerbose = false;
@@ -29,6 +27,8 @@ public class Decompiler {
     public static boolean debugInOut = false;
     public static boolean showLVT = false;
     public static boolean doChecks = false;
+    public static int importPackageLimit = 3;
+    public static int importClassLimit = 3;
 
     public static void main(String[] params) {
         JodeEnvironment env = new JodeEnvironment();
@@ -47,7 +47,10 @@ public class Decompiler {
                 showLVT = true;
             else if (params[i].equals("-check"))
                 doChecks = true;
-            else
+            else if (params[i].equals("-import")) {
+                importPackageLimit = Integer.parseInt(params[++i]);
+                importClassLimit = Integer.parseInt(params[++i]);
+            } else
                 env.doClass(params[i]);
         }
     }

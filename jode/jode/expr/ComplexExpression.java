@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Constants;
 
 public class ComplexExpression extends Expression {
     Operator     operator;
@@ -181,14 +180,14 @@ public class ComplexExpression extends Expression {
         new EmptyStringOperator();
 
     Expression simplifyStringBuffer() {
-        sun.tools.java.FieldDefinition field;
-        if (operator instanceof InvokeOperator &&
-            (field = ((InvokeOperator)operator).getField())
-            .getClassDefinition().getName() 
-            == Constants.idJavaLangStringBuffer 
+        gnu.bytecode.CpoolRef field;
+        if (operator instanceof InvokeOperator
+            && ((field = ((InvokeOperator)operator).getField())
+                .getCpoolClass().getName().getString()
+                .equals("java.lang.StringBuffer"))
             && !((InvokeOperator)operator).isStatic() &&
-            field.getName() == Constants.idAppend &&
-            field.getType().getArgumentTypes().length == 1) {
+            field.getNameAndType().getName().getString().equals("append") &&
+            ((InvokeOperator)operator).getMethodType().getArgumentTypes().length == 1) {
 
             Expression e = subExpressions[0].simplifyStringBuffer();
             if (e == null)
@@ -286,26 +285,26 @@ public class ComplexExpression extends Expression {
                 return subExpressions[0].simplify();
         }
 
-        if (operator instanceof InvokeOperator &&
-            ((InvokeOperator)operator).getField()
-            .getName() == Constants.idToString &&
-            !((InvokeOperator)operator).isStatic() &&
-            ((InvokeOperator)operator).getField()
-            .getClassDefinition().getName() 
-            == Constants.idJavaLangStringBuffer &&
-            subExpressions.length == 1) {
+        if (operator instanceof InvokeOperator
+            && (((InvokeOperator)operator).getField()
+                .getNameAndType().getName().getString().equals("toString"))
+            && !((InvokeOperator)operator).isStatic()
+            && (((InvokeOperator)operator).getField()
+                .getCpoolClass().getName().getString()
+                .equals("java.lang.StringBuffer"))
+            && subExpressions.length == 1) {
             Instruction simple = subExpressions[0].simplifyStringBuffer();
             if (simple != null)
                 return simple;
         }
-        if (operator instanceof InvokeOperator &&
-            ((InvokeOperator)operator).getField()
-            .getName() == Constants.idValueOf &&
-            ((InvokeOperator)operator).isStatic() &&
-            ((InvokeOperator)operator).getField()
-            .getClassDefinition().getName() 
-            == Constants.idJavaLangString &&
-            subExpressions.length == 1) {
+        if (operator instanceof InvokeOperator
+            && (((InvokeOperator)operator).getField()
+                .getNameAndType().getName().getString().equals("valueOf"))
+            && ((InvokeOperator)operator).isStatic() 
+            && (((InvokeOperator)operator).getField()
+                .getCpoolClass().getName().getString()
+                .equals("java.lang.String"))
+            && subExpressions.length == 1) {
             if (subExpressions[0].getType() == Type.tString)
                 return subExpressions[0].simplify();
             else {

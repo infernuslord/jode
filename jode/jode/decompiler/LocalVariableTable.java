@@ -18,61 +18,42 @@
  */
 
 package jode;
-import sun.tools.java.Identifier;
-import java.io.*;
+import java.util.Enumeration;
+import gnu.bytecode.CpoolUtf8;
+import gnu.bytecode.LocalVarsAttr;
+import gnu.bytecode.Variable;
+import gnu.bytecode.Spy;
 
 public class LocalVariableTable {
     LocalVariableRangeList[] locals;
-    boolean readfromclass;
 
-    public LocalVariableTable(int size) {
+    public LocalVariableTable(int size, 
+                              ClassAnalyzer cla, LocalVarsAttr attr) {
+
         locals = new LocalVariableRangeList[size];
-        readfromclass = false;
-    }
-
-    public int getSize() {
-	return locals.length;
-    }
-
-    public boolean isReadFromClass() {
-        return readfromclass;
-    }
-
-    public void read(JodeEnvironment env, DataInputStream stream)
-         throws IOException
-    {
-        int count = stream.readUnsignedShort();
-        for (int i=0; i<count; i++) {
-            int start  = stream.readUnsignedShort();
-            int length = stream.readUnsignedShort();
-            int name_i = stream.readUnsignedShort();
-            int desc_i = stream.readUnsignedShort();
-            int slot   = stream.readUnsignedShort();
-            LocalVariableRangeList lv = locals[slot];
-            if (lv == null) {
-                lv = new LocalVariableRangeList(slot);
-                locals[slot] = lv;
-            }
-            lv.addLocal(start, length, 
-                        Identifier.lookup((String)
-                                          env.getConstantPool().
-                                          getValue(name_i)),
-                        Type.tType(env.getConstantPool().getType(desc_i)));
+        for (int i=0; i<size; i++)
+            locals[i] = new LocalVariableRangeList(i);
+        
+        Enumeration vars = attr.allVars();
+        while (vars.hasMoreElements()) {
+            Variable var = (Variable) vars.nextElement();
+            
+            int start  = Spy.getStartPC(var);
+            int end    = Spy.getEndPC(var);
+            int slot = Spy.getSlot(var);
+            String name = var.getName();
+            Type type = Type.tType(var.getType().getSignature());
+            locals[slot].addLocal(start, end-start, name, type);
 	    if (Decompiler.showLVT)
-		System.err.println(""+env.getConstantPool().getValue(name_i)
-				   +": "+env.getConstantPool().getType(desc_i)
-				   +" range "+start+" - "+(start+length)
+		System.err.println(name + ": " + type
+				   +" range "+start+" - "+end
 				   +" slot "+slot);
         }
-        readfromclass = true;
     }
 
     public LocalVariableRangeList getLocal(int slot) 
          throws ArrayIndexOutOfBoundsException
     {
-        LocalVariableRangeList lv = locals[slot];
-        if (lv == null)
-            lv = new LocalVariableRangeList(slot);
-        return lv;
+        return locals[slot];
     }
 }

@@ -22,13 +22,11 @@ package jode;
 public class NewArrayOperator extends SimpleOperator {
     String baseTypeString;
 
-    public NewArrayOperator(Type arrayType, String baseTypeString, 
-                            int dimensions) {
+    public NewArrayOperator(Type arrayType, int dimensions) {
         super(arrayType, 0, dimensions);
         for (int i=0; i< dimensions; i++) {
             operandTypes[i] = Type.tInt;
         }
-        this.baseTypeString = baseTypeString;
     }
 
     public int getPriority() {
@@ -40,11 +38,16 @@ public class NewArrayOperator extends SimpleOperator {
     }
 
     public String toString(String[] operands) {
-        StringBuffer result 
-            = new StringBuffer("new ").append(baseTypeString);
-        for (int i=0; i< getOperandCount(); i++) {
-            result.append("[").append(operands[i]).append("]");
+        StringBuffer arrays = new StringBuffer();
+        Type flat = type;
+        int i = 0;
+        while (flat instanceof ArrayType) {
+            flat = ((ArrayType)flat).getElementType();
+            if (i < getOperandCount())
+                arrays.append("[").append(operands[i++]).append("]");
+            else
+                arrays.append("[]");
         }
-        return result.toString();
+        return "new "+flat.toString()+arrays;
     }
 }

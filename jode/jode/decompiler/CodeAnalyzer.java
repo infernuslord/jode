@@ -18,18 +18,23 @@
  */
 
 package jode;
-import sun.tools.java.*;
-import java.util.Stack;
-import java.io.*;
 import jode.flow.FlowBlock;
 import jode.flow.Jump;
 import jode.flow.StructuredBlock;
 import jode.flow.RawTryCatchBlock;
 
-public class CodeAnalyzer implements Analyzer, Constants {
-    
-    BinaryCode bincode;
+import java.util.Stack;
+import java.io.DataInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 
+import gnu.bytecode.CodeAttr;
+import gnu.bytecode.Attribute;
+import gnu.bytecode.LocalVarsAttr;
+import gnu.bytecode.CpoolClass;
+
+public class CodeAnalyzer implements Analyzer {
+    
     FlowBlock methodHeader;
     MethodAnalyzer method;
     public JodeEnvironment env;
@@ -43,25 +48,15 @@ public class CodeAnalyzer implements Analyzer, Constants {
      */
     public MethodAnalyzer getMethod() {return method;}
     
-    void readCode() 
+    void readCode(CodeAttr bincode) 
          throws ClassFormatError
     {
 
-        BinaryAttribute attr = bincode.getAttributes();
-        while (attr != null) {
-            if (attr.getName() == Constants.idLocalVariableTable) {
-                DataInputStream stream = 
-                    new DataInputStream
-                    (new ByteArrayInputStream(attr.getData()));
-                try {
-                    lvt = new LocalVariableTable(bincode.getMaxLocals());
-                    lvt.read(env, stream);
-                } catch (IOException ex) {
-                    throw new ClassFormatError(ex.toString());
-                }
-            }
-            attr = attr.getNextAttribute();
-        }
+        LocalVarsAttr attr = 
+            (LocalVarsAttr) Attribute.get(bincode, "LocalVariableTable");
+        if (attr != null)
+            lvt = new LocalVariableTable(bincode.getMaxLocals(), 
+                                         method.classAnalyzer, attr);
 
         byte[] code = bincode.getCode();
         FlowBlock[] instr = new FlowBlock[code.length];
@@ -84,27 +79,30 @@ public class CodeAnalyzer implements Analyzer, Constants {
 	methodHeader = instr[0];
         methodHeader.makeStartBlock();
 
-        BinaryExceptionHandler[] handlers = bincode.getExceptionHandlers();
-        for (int i=0; i<handlers.length; i++) {
-            StructuredBlock tryBlock = instr[handlers[i].startPC].getBlock();
+        short[] handlers = gnu.bytecode.Spy.getExceptionHandlers(bincode);
+        for (int i=0; i<handlers.length; i += 4) {
+            StructuredBlock tryBlock = instr[handlers[i + 0]].getBlock();
             while (tryBlock instanceof RawTryCatchBlock
                    && (((RawTryCatchBlock) tryBlock).getCatchAddr()
-                       > handlers[i].handlerPC)) {
+                       > handlers[i + 2])) {
 
                 tryBlock = ((RawTryCatchBlock)tryBlock).getTryBlock();
             }
             
-            Type type =
-                (handlers[i].exceptionClass != null)? 
-                Type.tClass(handlers[i].exceptionClass.getName().toString()) : null;
+            Type type = null;
+
+            if (handlers[i + 3 ] != 0) {
+                CpoolClass cpcls = (CpoolClass)
+                    method.classAnalyzer.getConstant(handlers[i + 3]);
+                type = Type.tClass(cpcls.getName().getString());
+            }
             
             new RawTryCatchBlock(type, tryBlock, 
-                                 new Jump(instr[handlers[i].endPC]),
-                                 new Jump(instr[handlers[i].handlerPC]));
+                                 new Jump(instr[handlers[i + 1]]),
+                                 new Jump(instr[handlers[i + 2]]));
         }
 
-	int paramCount = method.mdef.getType().getArgumentTypes().length 
-	    + (method.mdef.isStatic() ? 0 : 1);
+	int paramCount = method.getParamCount();
 	param = new jode.flow.VariableSet();
 	for (int i=0; i<paramCount; i++)
 	    param.addElement(getLocalInfo(0, i));
@@ -117,13 +115,12 @@ public class CodeAnalyzer implements Analyzer, Constants {
         methodHeader.dumpSource(writer);
     }
 
-    public CodeAnalyzer(MethodAnalyzer ma, BinaryCode bc, JodeEnvironment e)
+    public CodeAnalyzer(MethodAnalyzer ma, CodeAttr bc, JodeEnvironment e)
          throws ClassFormatError
     {
         method = ma;
         env  = e;
-	bincode = bc;
-        readCode();
+        readCode(bc);
     }
 
     public LocalInfo getLocalInfo(int addr, int slot) {
@@ -142,12 +139,17 @@ public class CodeAnalyzer implements Analyzer, Constants {
         methodHeader.analyze();
     }
 
-    public String getTypeString(Type type) {
-        return env.getTypeString(type);
+    public void useClass(Class clazz) 
+    {
+        env.useClass(clazz);
     }
 
-    public ClassDefinition getClassDefinition() {
-        return env.getClassDefinition();
+    public String getTypeString(Type type) {
+        return method.classAnalyzer.getTypeString(type);
+    }
+
+    public Class getClazz() {
+        return method.classAnalyzer.clazz;
     }
 }
 
