@@ -74,7 +74,7 @@ public class WildCard {
 		    return false;
 		test = test.substring(1);
 	    }
-	    test = test.substring(nextWild - lastWild);
+	    test = test.substring(nextWild - lastWild - 1);
 	    lastWild = nextWild;
 	}
 
