@@ -35,11 +35,10 @@ public class CreatePostIncExpression implements Transformation {
         Type type;
         try {
             lastBlock = (InstructionContainer) flow.lastModified;
-	    Expression iincExpr = (Expression) lastBlock.getInstruction();
-	    iinc = (IIncOperator) iincExpr.getOperator();
-	    if (iinc.getOperator() == iinc.ADD_OP + iinc.OPASSIGN_OP)
+	    iinc = (IIncOperator) lastBlock.getInstruction();
+	    if (iinc.getOperatorIndex() == iinc.ADD_OP + iinc.OPASSIGN_OP)
                 op = Operator.INC_OP;
-            else if (iinc.getOperator() == iinc.NEG_OP + iinc.OPASSIGN_OP)
+            else if (iinc.getOperatorIndex() == iinc.NEG_OP + iinc.OPASSIGN_OP)
                 op = Operator.DEC_OP;
             else
                 return false;
@@ -54,9 +53,7 @@ public class CreatePostIncExpression implements Transformation {
                 return false;
 
             InstructionBlock ib = (InstructionBlock) sequBlock.subBlocks[0];
-	    Expression loadExpr = (Expression) ib.getInstruction();
-	    LocalLoadOperator load = 
-		(LocalLoadOperator)loadExpr.getOperator();
+	    LocalLoadOperator load = (LocalLoadOperator)ib.getInstruction();
 	    if (!iinc.matches(load))
 		return false;
 
@@ -80,26 +77,34 @@ public class CreatePostIncExpression implements Transformation {
         SequentialBlock sequBlock;
         try {
             lastBlock = (InstructionBlock) flow.lastModified;
-	    store = (StoreInstruction) lastBlock.getInstruction();
+
+            Expression storeExpr = (Expression) lastBlock.getInstruction();
+	    store = (StoreInstruction) storeExpr.getOperator();
 
             sequBlock = (SequentialBlock) lastBlock.outer;
             if (sequBlock.subBlocks[1] != lastBlock)
                 return false;
 
-            InstructionBlock ib = (InstructionBlock) sequBlock.subBlocks[0];
-            BinaryOperator binOp = (BinaryOperator) ib.getInstruction();
-            if (binOp.getOperator() == store.ADD_OP)
+            BinaryOperator binOp;
+            InstructionBlock ib;
+            if (store.getLValueOperandCount() > 0) {
+                ib = (InstructionBlock) sequBlock.subBlocks[0];
+                binOp = (BinaryOperator) ib.getInstruction();
+                sequBlock = (SequentialBlock) sequBlock.outer;
+            } else
+                binOp = (BinaryOperator) 
+                    ((ComplexExpression) storeExpr).getSubExpressions()[0];
+
+            if (binOp.getOperatorIndex() == store.ADD_OP)
                 op = Operator.INC_OP;
-            else if (store.getOperator() == store.NEG_OP)
+            else if (store.getOperatorIndex() == store.NEG_OP)
                 op = Operator.DEC_OP;
             else
                 return false;
-
-            sequBlock = (SequentialBlock) sequBlock.outer;
+                
             ib = (InstructionBlock) sequBlock.subBlocks[0];
 
-            Expression expr = (Expression) ib.getInstruction();
-            ConstOperator constOp = (ConstOperator) expr.getOperator();
+            ConstOperator constOp = (ConstOperator) ib.getInstruction();
             if (!constOp.getValue().equals("1") &&
 		!constOp.getValue().equals("-1"))
                 return false;
@@ -117,12 +122,7 @@ public class CreatePostIncExpression implements Transformation {
             sequBlock = (SequentialBlock) sequBlock.outer;
             ib = (InstructionBlock) sequBlock.subBlocks[0];
 
-            Instruction instr = ib.getInstruction();
-            if (instr instanceof Expression
-                && ((Expression)instr).getSubExpressions().length == 0)
-                instr = ((Expression)instr).getOperator();
-
-            Operator load = (Operator) instr;
+            Operator load = (Operator) ib.getInstruction();
 	    if (!store.matches(load))
 		return false;
 

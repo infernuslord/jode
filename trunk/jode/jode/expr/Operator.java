@@ -20,7 +20,7 @@
 package jode;
 import sun.tools.java.Type;
 
-public abstract class Operator extends Instruction {
+public abstract class Operator extends Expression {
     public final static int ADD_OP     =  1;
     public final static int NEG_OP     =  2;
     public final static int SHIFT_OP   =  6;
@@ -59,10 +59,14 @@ public abstract class Operator extends Instruction {
         expression = expr;
     }
 
-    public int getOperator() {
+    public Operator getOperator() {
+        return this;
+    }
+
+    public int getOperatorIndex() {
         return operator;
     }
-    public void setOperator(int op) {
+    public void setOperatorIndex(int op) {
         operator = op;
     }
 
@@ -120,3 +124,4 @@ public abstract class Operator extends Instruction {
         return toString(operands);
     }
 }
+

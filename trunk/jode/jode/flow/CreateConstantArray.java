@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.Expression;
+import jode.ComplexExpression;
 import jode.DupOperator;
 import jode.ArrayStoreOperator;
 import jode.NewArrayOperator;
@@ -69,9 +70,8 @@ public class CreateConstantArray implements Transformation {
                     return false;
 		else { 
                     while (index < lastindex) {
-                        consts[lastindex--] = new Expression
-                            (new ConstOperator(MyType.tUnknown, "0"), 
-                             new Expression[0]);
+                        consts[lastindex--] = 
+                            new ConstOperator(MyType.tUnknown, "0");
                     }
                 }
                 consts[lastindex--] = lastconst;
@@ -88,11 +88,11 @@ public class CreateConstantArray implements Transformation {
             if (count == 0)
                 return false;
             while (lastindex >= 0) {
-                consts[lastindex--] = new Expression
-                    (new ConstOperator(MyType.tUnknown, "0"), 
-                     new Expression[0]);
+                consts[lastindex--] = 
+                    new ConstOperator(MyType.tUnknown, "0");
             }
-            Expression newArrayExpr = (Expression) ib.getInstruction();
+            ComplexExpression newArrayExpr = 
+                (ComplexExpression) ib.getInstruction();
             NewArrayOperator newArrayOp = 
                 (NewArrayOperator) newArrayExpr.getOperator();
             type = newArrayOp.getType();
@@ -111,9 +111,7 @@ public class CreateConstantArray implements Transformation {
                 Expression[] newConsts = new Expression[arraylength];
                 System.arraycopy(consts, 0, newConsts, 0, consts.length);
                 for (int i=consts.length; i<arraylength; i++)
-                    newConsts[i] = new Expression
-                        (new ConstOperator(MyType.tUnknown, "0"), 
-                         new Expression[0]);
+                    newConsts[i] = new ConstOperator(MyType.tUnknown, "0");
                 consts = newConsts;
             }
         } catch (NullPointerException ex) {
@@ -125,8 +123,9 @@ public class CreateConstantArray implements Transformation {
             System.err.print("a");
 
 	lastBlock.setInstruction
-	    (new Expression(new ConstantArrayOperator(type, consts.length), 
-			    consts));
+	    (new ComplexExpression
+             (new ConstantArrayOperator(type, consts.length), 
+              consts));
 	lastBlock.replace(sequBlock.subBlocks[0], lastBlock);
 	flow.lastModified.replace(sequBlock.subBlocks[1], flow.lastModified);
         return true;

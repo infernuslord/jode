@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.Expression;
+import jode.ComplexExpression;
 import jode.IfThenElseOperator;
 import jode.MyType;
 import jode.CompareUnaryOperator;
@@ -76,9 +77,9 @@ public class CreateIfThenElseOperator implements Transformation {
                 (CompareUnaryOperator) conditional.getInstruction();
 
             FlowBlock trueDestination;
-            if (compare.getOperator() == compare.EQUALS_OP)
+            if (compare.getOperatorIndex() == compare.EQUALS_OP)
                 trueDestination = conditional.jump.destination;
-            else if (compare.getOperator() == compare.NOTEQUALS_OP)
+            else if (compare.getOperatorIndex() == compare.NOTEQUALS_OP)
                 trueDestination = conditional.trueBlock.jump.destination;
             else
                 return false;
@@ -116,10 +117,8 @@ public class CreateIfThenElseOperator implements Transformation {
                 InstructionBlock pushBlock =
                     (InstructionBlock) sequBlock.subBlocks[1];
                 
-                Expression zeroExpr = 
-                    (Expression) pushBlock.getInstruction();
                 jode.ConstOperator zero = 
-                    (jode.ConstOperator) zeroExpr.getOperator();
+                    (jode.ConstOperator) pushBlock.getInstruction();
                 if (!zero.getValue().equals("0"))
                     return false;
                 
@@ -149,7 +148,7 @@ public class CreateIfThenElseOperator implements Transformation {
             (MyType.intersection(e[1].getType(),e[2].getType()));
 
         ((InstructionBlock)ifBlock.thenBlock).
-            setInstruction(new Expression(iteo, e));
+            setInstruction(new ComplexExpression(iteo, e));
         ifBlock.thenBlock.replace(ifBlock, ifBlock.thenBlock);
         return true;
     }
@@ -210,7 +209,7 @@ public class CreateIfThenElseOperator implements Transformation {
             (MyType.intersection(e[1].getType(),e[2].getType()));
 
         ((InstructionBlock)flow.lastModified).
-            setInstruction(new Expression(iteo, e));
+            setInstruction(new ComplexExpression(iteo, e));
         flow.lastModified.replace(flow.lastModified.outer, flow.lastModified);
         return true;
     }

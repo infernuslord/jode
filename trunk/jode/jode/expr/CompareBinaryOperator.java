@@ -27,7 +27,7 @@ public class CompareBinaryOperator extends SimpleOperator {
     }
 
     public int getPriority() {
-        switch (getOperator()) {
+        switch (getOperatorIndex()) {
         case 26:
         case 27:
             return 500;
