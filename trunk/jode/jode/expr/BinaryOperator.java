@@ -63,7 +63,6 @@ public class BinaryOperator extends Operator {
 	Type rightType = Type.tSuperType(subExpressions[1].getType());
 	subExpressions[0].setType(Type.tSubType(rightType));
 	subExpressions[1].setType(Type.tSubType(leftType));
-	/* propagate hints? XXX */
 	updateParentType(leftType.intersection(rightType));
     }
 
