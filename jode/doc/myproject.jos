@@ -1,0 +1,28 @@
+# This is a sample script file to obfuscate my project
+
+strip = "unreach","lvt","inner"
+
+load = new WildCard { value = "org.myorg.myproject" },
+       new WildCard { value = "org.myorg.mylib*" },
+       new WildCard { value = "org.otherorg.shortlib" }
+
+preserve = new WildCard { value = "org.myorg.application.main.*" },
+           new WildCard { value = "org.myorg.applet.<init>.()V" },
+           new WildCard { value = "org.resources.bundle*.<init>.()V" },
+           new MultiIdentifierMatcher { 
+               and = new WildCard { value = "org.myorg.publiclib.*" },
+	             new ModifierMatcher { access = "PUBLIC" }
+	   }
+
+renamer = ney KeywordRenamer {
+  backup = new StrongRenamer {
+    charsetStart = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    charsetPart =
+	   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"
+    charsetPackage = "abcdefghijklmnopqrstuvwxyz"
+    charsetClass = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  }
+}
+
+analyzer = new SimpleAnalyzer
+post = new LocalOptimizer, new RemovePopAnalyzer

@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.0//EN">
+<html>
+<head>
+<title>Java Optimize and Decompile Environment (JODE)</title>
+<meta name="robots" content="noindex">
+<meta name="date" content="1999-10-24">
+</head>
+
+<body>
+<table cellpadding=4 cellspacing=1 width=100%>
+<tr>
+<td></td>
+<td> <img src="jode-logo.gif" alt="JODE" width=286 height=110></td>
+</tr>
+<tr>
+<td valign="top">
+<B><a href="http://www.informatik.uni-oldenburg.de/~delwi">Homepage</a></B>
+<br><br>
+<a href="jode.html">
+<B>Jode</B></a>
+<ul>
+<li>Test It Online</li>
+<li><a href="download.html">Download</a></li>
+<li><a href="usage.html">Usage</a></li>
+<li><a href="license.html">License</a></li>
+<li><a href="history.html">History</a></li>
+</ul>
+</td>
+<td>
+<h1>The <i>JODE</i> Applet</h1>
+
+<applet code="jode/JodeApplet.class" archive="jode-applet.jar" width=540 height=400>
+<param name=classpath 
+value="http://www.informatik.uni-oldenburg.de/~mw/plasma.jar">
+<param name=class value="PlasmaApplet">
+</applet><br><br>http://www.informatik.uni-oldenburg.de
+
+Press the start button to decompile <a
+href="http://www.informatik.uni-oldenburg.de/~mw/">Michael</a>'s <a
+href="http://www.informatik.uni-oldenburg.de/~mw/plasma">Plasma
+applet</a>.  You may change the classpath and class name to point to a
+class file of your choice.  But note that most browsers doesn't allow
+loading files from a different server.<br><br>
+
+Save probably doesn't work, because it is forbidden by the browser.<br><br>
+
+You may give multiple entries in the class path field separated by a
+comma.  The components may be local or remote zip or jar files or
+directories.  Note that browsers forbid accesses to different hosts or
+local files that are not in a subdirectory of the applet
+directory.<br><br>
+
+
+    <h1>Removing security restrictions with Internet Explorer</h1>
+
+    <p>This information was submitted by <a
+    href="mailto:PopescuM@health.missouri.edu">Mihail Popescu
+    <PopescuM@health.missouri.edu></a>.  Please note that this will
+    <i>give all applets on our web server full access to your computer</i>,
+    so use it at your own risk.</p>
+
+<p>Go to the View/Internet Options... dialog<br>
+Select the "Security" tab</p>
+<ul>
+<li>Set "Zone:" to "Trusted sites zone"</li>
+<li>Click "Add Sites..."
+<ul><li>Add http://www.informatik.uni-oldenburg.de</li>
+    <li>Uncheck "Requires server verificaton..."</li>
+    <li>Click "OK"</li>
+</ul></li>
+<li>Check "Custom (for expert users)"</li>
+<li>Click "Settings..."
+<ul><li>Under Java/Java permissions, check "Custom"</li>
+    <li>Click "Java Custom Settings"
+    <ul><li>Select "Edit Permissions" tab</li>
+        <li>Under "Unsigned Content"/"Run Unsigned Content", make sure
+            "Run in sandbox" is checked and then check all the "Enable"
+            buttons under "Additional Unsigned Permissions"</li>
+        <li>Click "OK"</li>
+    </ul></li>
+    <li>Click "OK"</li>
+</ul></li>
+<li>Click "OK"</li>
+</ul>
+</td>
+</table>
+
+<hr>
+
+<p><A HREF="mailto:Jochen.Hoenicke@Informatik.Uni-Oldenburg.DE">
+http://www.informatik.uni-oldenburg.de/~delwi/jode/applet.html</A>, last
+updated on <em>24-Okt-1999</em>.</p>
+
+</body>
+</html>
