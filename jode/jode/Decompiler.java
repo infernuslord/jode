@@ -40,6 +40,7 @@ public class Decompiler {
     public static boolean debugInOut = false;
     public static boolean debugAnalyze = false;
     public static boolean showLVT = false;
+    public static boolean useLVT = true;
     public static boolean doChecks = false;
     public static boolean prettyLocals = false;
     public static boolean immediateOutput = false;
@@ -54,6 +55,7 @@ public class Decompiler {
         err.println("use: jode [-v][--dest <destdir>]"
 			   +"[--imm][--pretty]"
 			   +"[--cp <classpath>]"
+		           +"[--nolvt]"
                            +"[--import <pkglimit> <clslimit>]"
 		           +"[--debug][--analyze][--flow]"
 			   +"[--type][--inout][--lvt][--check]"
@@ -68,6 +70,8 @@ public class Decompiler {
 		    "use `pretty' names for local variables.");
 	err.println("\t--cp <classpath> "+
 		    "search for classes in specified classpath.");
+	err.println("\t--nolvt          "+
+		    "don't use the local variable table.");
 	err.println("\t--style {sun|gnu}"+
 		    " specifies indentation style");
 	err.println("\t--import <pkglimit> <clslimit>");
@@ -114,6 +118,8 @@ public class Decompiler {
                 isFlowDebugging = true;
             else if (params[i].equals("--inout"))
                 debugInOut = true;
+            else if (params[i].equals("--nolvt"))
+                useLVT = false;
             else if (params[i].equals("--lvt"))
                 showLVT = true;
             else if (params[i].equals("--check"))
