@@ -37,6 +37,9 @@ import java.lang.Comparable;
  * <dt>type</dt><dd>The field's {@link TypeSignature type signature}
  * in bytecode format.</dd>
  *
+ * <dt>signature</dt><dd>The field's {@link TypeSignature type signature}
+ * in bytecode format including template information.</dd>
+ *
  * <dt>modifiers</dt><dd>The modifiers of the field like private, public etc.
  * These are created by or-ing the constants {@link Modifier#PUBLIC},
  * {@link Modifier#PRIVATE}, {@link Modifier#PROTECTED}, 
@@ -65,7 +68,6 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
     String typeSig;
 
     Object constant;
-    boolean syntheticFlag;
     boolean deprecatedFlag;
     /**
      * The type signature that also contains template information.
@@ -104,7 +106,7 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	    int index = input.readUnsignedShort();
 	    constant = cp.getConstant(index);
 	} else if (name.equals("Synthetic")) {
-	    syntheticFlag = true;
+	    modifier |= ACC_SYNTHETIC;
 	    if (length != 0)
 		throw new ClassFormatException
 		    ("Synthetic attribute has wrong length");
@@ -140,7 +142,7 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	    else
 		gcp.putConstant(constant);
 	}
-	if (syntheticFlag)
+	if (isSynthetic())
 	    gcp.putUTF8("Synthetic");
 	if (deprecatedFlag)
 	    gcp.putUTF8("Deprecated");
@@ -151,7 +153,7 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	int count = super.getAttributeCount();
 	if (constant != null)
 	    count++;
-	if (syntheticFlag)
+	if (isSynthetic())
 	    count++;
 	if (deprecatedFlag)
 	    count++;
@@ -173,7 +175,7 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 		index = gcp.putConstant(constant);
 	    output.writeShort(index);
 	}
-	if (syntheticFlag) {
+	if (isSynthetic()) {
 	    output.writeShort(gcp.putUTF8("Synthetic"));
 	    output.writeInt(0);
 	}
@@ -215,6 +217,16 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
     }
 
     /**
+     * Gets the type signature including template information of the field.
+     * <b>WARNING:</b> This field may disappear and merged into getType later.
+     * @return the type signature.
+     * @see TypeSignature
+     */
+    public String getSignature() {
+        return signature != null ? signature : typeSig;
+    }
+
+    /**
      * Gets the modifier of the field.
      * @return the modifiers.
      * @see Modifier
@@ -228,7 +240,7 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
      * @return true if the field is synthetic.
      */
     public boolean isSynthetic() {
-	return syntheticFlag;
+	return (modifier & ACC_SYNTHETIC) != 0;
     }
 
     /**
@@ -277,7 +289,10 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
     }
 
     public void setSynthetic(boolean flag) {
-	syntheticFlag = flag;
+	if (flag)
+	    modifier |= ACC_SYNTHETIC;
+	else
+	    modifier &= ~ACC_SYNTHETIC;
     }
 
     public void setDeprecated(boolean flag) {

@@ -688,6 +688,10 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
      * @return true, iff it shouldn't be written to the source code.
      */
     public boolean skipWriting() {
+	if (isSynthetic()
+	    && (minfo.getModifiers() & 0x0040 /*ACC_BRIDGE*/) != 0)
+	    return true;
+	
 	if (synth != null) {
 	    // We don't need this class anymore (hopefully?)
 	    if (synth.getKind() == synth.GETCLASS)

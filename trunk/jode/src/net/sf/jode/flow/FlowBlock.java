@@ -820,7 +820,9 @@ public class FlowBlock {
                 /* The special start marker */
                 continue;
             if (!pred.successors.containsKey(this))
-                throw new InternalError("Inconsistency");
+                throw new InternalError
+		    ("Inconsistency: "+pred.getLabel()+" not in "
+		     +this.getLabel()+".successors");
         }
 
         StructuredBlock last = lastModified;
@@ -829,41 +831,51 @@ public class FlowBlock {
                || last.outer instanceof FinallyBlock)
             last = last.outer;
         if (last.outer != null)
-            throw new InternalError("Inconsistency");
+            throw new InternalError
+		("Inconsistency: last "+lastModified
+		 +" surrounded by unexpected structure");
 
         Iterator iter = successors.entrySet().iterator();
         while (iter.hasNext()) {
 	    Map.Entry entry = (Map.Entry) iter.next();
             FlowBlock dest = (FlowBlock) entry.getKey();
             if (dest.predecessors.contains(this) == (dest == END_OF_METHOD))
-                throw new InternalError("Inconsistency");
+		throw new InternalError
+		    ("Inconsistency: dest "+dest.getLabel()
+		     +" doesn't contain this predecessor");
                 
             Jump jumps = ((SuccessorInfo) entry.getValue()).jumps;
             if (jumps == null)
-                throw new InternalError("Inconsistency");
+		throw new InternalError("Inconsistency: no jumps for "
+					+dest.getLabel());
                 
             for (; jumps != null; jumps = jumps.next) {
                     
                 if (jumps.destination != dest)
-                    throw new InternalError("Inconsistency");
+                    throw new InternalError("Inconsistency:" +jumps
+					    + "doesn't point to "
+					    +dest.getLabel());
                     
                 if (jumps.prev == null
 		    || jumps.prev.flowBlock != this 
 		    || jumps.prev.jump != jumps)
-                    throw new InternalError("Inconsistency");
+                    throw new InternalError("Inconsistency in" +jumps);
                     
             prev_loop:
                 for (StructuredBlock prev = jumps.prev; prev != block;
                      prev = prev.outer) {
                     if (prev.outer == null)
-                        throw new RuntimeException("Inconsistency");
+			throw new InternalError("Inconsistency: " +prev
+						+" not in flowblock");
                     StructuredBlock[] blocks = prev.outer.getSubBlocks();
                     int i;
                     for (i=0; i<blocks.length; i++)
                         if (blocks[i] == prev)
                             continue prev_loop;
                         
-                    throw new InternalError("Inconsistency");
+		    throw new InternalError("Inconsistency: " +prev
+					    +" not in its outer block "
+					    +prev.outer);
                 }
             }
         }
@@ -1357,18 +1369,45 @@ public class FlowBlock {
                 changed |= analyzeSwitch(start, end);
             } 
 
-
-            if (doT1(start, end)) {
-
-                if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
-                    GlobalOptions.err.println("after T1: "+this);
-
-                /* T1 transformation succeeded.  This may
-                 * make another T2 analysis in the previous
-                 * block possible.  
-                 */
+	    /* Do T1 analysis when there is a loop, but only if:
+	     *  - the loop has only one exit (plus returns)
+	     *  - or the successor block doesn't belong to the loop.
+	     *
+	     * The reason for the extra checks are loops like
+	     *
+	     *   while (x)
+	     *     ...
+	     *     if (y)
+	     *       ...
+	     *       return
+	     *
+	     * which would otherwise be translated to:
+	     *
+	     * outer: do {
+	     *   do {
+	     *     if (!x) break outer;
+	     *     ...
+	     *   } while(!y)
+	     *   ...
+	     *   return
+	     * } while(false)
+	     */
+	    if (successors.containsKey(this)
+		&& (!successors.containsKey(nextByCodeOrder)
+		    || successors.size() == 2
+		    || (successors.size() == 3
+			&& successors.containsKey(END_OF_METHOD)))
+		&& doT1(start, end)) {
+		
+		if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+		    GlobalOptions.err.println("after T1: "+this);
+		
+		/* T1 transformation succeeded.  This may
+		 * make another T2 analysis in the previous
+		 * block possible.  
+		 */
 		return true;
-            }
+	    }
 
             FlowBlock succ = getSuccessor(start, end);
             while (true) {
@@ -1443,7 +1482,7 @@ public class FlowBlock {
      * The switch analyzation.  This calls doSwitchT2 and doT1 on apropriate
      * regions.  Only blocks whose block number lies in the given block number
      * range are considered and it is taken care of, that the switch
-     * is never leaved. <p>
+     * is never left. <p>
      * The current flow block must contain the switch block as lastModified.
      * @param start the start of the block number range.
      * @param end the end of the block number range.
