@@ -39,25 +39,17 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 	for (Instruction instr = bytecode.getFirstInstr();
 	     instr != null; instr = instr.nextByAddr) {
 	    switch (instr.opcode) {
-	    case opc_new:
-	    case opc_anewarray:
 	    case opc_checkcast:
 	    case opc_instanceof:
 	    case opc_multianewarray: {
 		String clName = (String) instr.objData;
-		if (clName.charAt(0) == '[') {
-		    int i;
-		    for (i=0; i< clName.length(); i++)
-			if (clName.charAt(i) != '[')
-			    break;
-		    if (i >= clName.length() || clName.charAt(i) != 'L')
-			break;
-		    int index = clName.indexOf(';', i);
-		    if (index != clName.length()-1)
-			break;
-		    clName = clName.substring(i+1, index);
+		int i = 0;
+		while (i < clName.length() && clName.charAt(i) == '[')
+		    i++;
+		if (i < clName.length() && clName.charAt(i) == 'L') {
+		    clName = clName.substring(i+1, clName.length()-1);
+		    m.clazz.bundle.reachableIdentifier(clName, false);
 		}
-		m.clazz.bundle.reachableIdentifier(clName, false);
 		break;
 	    }
 	    case opc_getstatic:
@@ -67,10 +59,15 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 	    case opc_invokeinterface:
 	    case opc_invokevirtual: {
 		Reference ref = (Reference) instr.objData;
-		m.clazz.bundle.reachableIdentifier
-		    (ref.getClazz()+"."+ref.getName()+"."+ref.getType(), 
+		String clName = ref.getClazz();
+		/* Don't have to reach array methods */
+		if (clName.charAt(0) != '[') {
+		    clName = clName.substring(1, clName.length()-1).replace('/', '.');
+		    m.clazz.bundle.reachableIdentifier
+			(clName+"."+ref.getName()+"."+ref.getType(), 
 		     instr.opcode == opc_invokevirtual 
 		     || instr.opcode == opc_invokeinterface);
+		}
 		break;
 	    }
 	    }
@@ -89,29 +86,26 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 	    if (instr.opcode == opc_putstatic
 		|| instr.opcode == opc_putfield) {
 		Reference ref = (Reference) instr.objData;
-		ClassIdentifier ci = (ClassIdentifier)
-		    m.clazz.bundle.getIdentifier(ref.getClazz());
-		if (ci != null) {
-		    FieldIdentifier fi = (FieldIdentifier) 
-			ci.getIdentifier(ref.getName(), ref.getType());
-		    if (jode.Obfuscator.shouldStrip && !fi.isReachable()) {
-			/* Replace instruction with pop opcodes. */
-			int stacksize = 
-			    (instr.opcode 
-				 == Instruction.opc_putstatic) ? 0 : 1;
-			stacksize += Type.tType(ref.getType()).stackSize();
-			if (stacksize == 3) {
-			    /* Add a pop instruction after this opcode. */
-			    Instruction second = instr.appendInstruction();
-			    second.length = 1;
-			    second.opcode = Instruction.opc_pop;
-			    stacksize--;
-			}
-			instr.objData = null;
-			instr.intData = 0;
-			instr.opcode = Instruction.opc_pop - 1 + stacksize;
-			instr.length = 1;
-		    } 
+		FieldIdentifier fi = (FieldIdentifier)
+		    m.clazz.bundle.getIdentifier(ref);
+		if (fi != null
+		    && jode.Obfuscator.shouldStrip && !fi.isReachable()) {
+		    /* Replace instruction with pop opcodes. */
+		    int stacksize = 
+			(instr.opcode 
+			 == Instruction.opc_putstatic) ? 0 : 1;
+		    stacksize += Type.tType(ref.getType()).stackSize();
+		    if (stacksize == 3) {
+			/* Add a pop instruction after this opcode. */
+			Instruction second = instr.appendInstruction();
+			second.length = 1;
+			second.opcode = Instruction.opc_pop;
+			stacksize--;
+		    }
+		    instr.objData = null;
+		    instr.intData = 0;
+		    instr.opcode = Instruction.opc_pop - 1 + stacksize;
+		    instr.length = 1;
 		}
 	    }
 	}
