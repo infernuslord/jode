@@ -252,6 +252,13 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		if (instr.tmpInfo == null)
 		    instr.tmpInfo 
 			= new FlowBlock(this, instr.addr, instr.length);
+		/* end doesn't have a predecessor, but we must prevent
+		 * it from being merged with the previous instructions.
+		 */
+		instr = handlers[i].end.nextByAddr;
+		if (instr.tmpInfo == null)
+		    instr.tmpInfo 
+			= new FlowBlock(this, instr.addr, instr.length);
 		instr = handlers[i].catcher;
 		if (instr.tmpInfo == null)
 		    instr.tmpInfo 
@@ -285,7 +292,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		    && !instr.alwaysJumps && instr.succs == null) {
 		    
                     lastBlock.doSequentialT2(block, instr.length);
-
                 } else {
 
 		    if (instr.tmpInfo == null)
