@@ -95,16 +95,22 @@ public class ClassInfo extends BinaryInfo {
     public final static ClassInfo javaLangObject = forName("java.lang.Object");
 
     public static void setClassPath(String path) {
-        classpath = new SearchPath(path);
-	Iterator i = classes.iterator();
-	while (i.hasNext()) {
-	    ClassInfo ci = (ClassInfo) i.next();
-	    ci.status = 0;
-	    ci.superclass = null;
-	    ci.fields = null;
-	    ci.interfaces = null;
-	    ci.methods = null;
-	    ci.removeAllAttributes();
+        setClassPath(new SearchPath(path));
+    }
+
+    public static void setClassPath(SearchPath path) {
+	if (classpath != path) { 
+	    classpath = path;
+	    Iterator i = classes.iterator();
+	    while (i.hasNext()) {
+		ClassInfo ci = (ClassInfo) i.next();
+		ci.status = 0;
+		ci.superclass = null;
+		ci.fields = null;
+		ci.interfaces = null;
+		ci.methods = null;
+		ci.removeAllAttributes();
+	    }
 	}
     }
 
@@ -240,7 +246,7 @@ public class ClassInfo extends BinaryInfo {
 		int outerPtr = 0;
 		String lastOuterName = getName();
 		for (int i = count - extraCount - outerCount; 
-		     i < count && lastOuterName != null; i++) {
+		     i < count; i++) {
 		    InnerClassInfo ici = innerClassInfo[i];
 
 		    /* If we counted correctly there is no NullPointer
