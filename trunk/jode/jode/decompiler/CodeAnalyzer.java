@@ -1,18 +1,18 @@
-/* 
- * CodeAnalyzer (c) 1998 Jochen Hoenicke
+/* CodeAnalyzer Copyright (C) 1998-1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
@@ -107,8 +107,6 @@ public class CodeAnalyzer implements Analyzer {
 		    || instr.preds.size() != 1)
 		    instr.tmpInfo = new FlowBlock
 			(this, instr.addr, instr.length);
-		else
-		    instr.tmpInfo = null;
 	    }
 
 	    for (int i=0; i < handlers.length; i++) {
@@ -181,6 +179,9 @@ public class CodeAnalyzer implements Analyzer {
                 excHandlers.addHandler(start, endAddr, handler, type);
             }
         }
+	for (Instruction instr = code.getFirstInstr();
+	     instr != null; instr = instr.nextByAddr)
+	    instr.tmpInfo = null;
 
         if (Decompiler.isVerbose)
             Decompiler.err.print('-');
