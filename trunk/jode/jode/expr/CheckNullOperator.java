@@ -19,6 +19,7 @@
 
 package jode.decompiler;
 import jode.Type;
+import jode.LocalInfo;
 
 /**
  * This is a pseudo operator, which represents the check against null
@@ -37,11 +38,20 @@ import jode.Type;
  * </pre>
  */
 
-public class CheckNullOperator extends SimpleOperator {
+public class CheckNullOperator extends Operator {
 
-    public CheckNullOperator(Type type) {
-        super(type, 0, 1);
-        operandTypes[0] = type;
+    Type operandType;
+    LocalInfo local;
+
+    public CheckNullOperator(Type type, LocalInfo li) {
+        super(type, 0);
+        operandType = type;
+	local = li;
+	local.setType(type);
+    }
+
+    public int getOperandCount() {
+	return 1;
     }
 
     public int getPriority() {
@@ -52,6 +62,24 @@ public class CheckNullOperator extends SimpleOperator {
         return 0;
     }
 
+    public Type getOperandType(int i) {
+        return operandType;
+    }
+
+    public void setOperandType(Type[] inputTypes) {
+        operandType = operandType.intersection(inputTypes[0]);
+        type = operandType;
+	local.setType(type);
+    }
+
+    /**
+     * Sets the return type of this operator.
+     */
+    public void setType(Type newType) {
+        type = operandType = operandType.intersection(newType);
+	local.setType(type);
+    }
+
     public String toString(String[] operands) {
 	/* There is no way to produce exactly the same code.
 	 * This is a good approximation.
@@ -59,7 +87,8 @@ public class CheckNullOperator extends SimpleOperator {
 	 * is null, otherwise return something not equal to null.
 	 * The bad thing is that this isn't atomar.
 	 */
-	return "/*CHECK NULL*/ " + 
-	    operands[0] + ".getClass() != null ? " + operands[0] + " : null";
+	return ("(" + local.getName() + " = "
+		+ operands[0] + ").getClass() != null ? "
+		+ local.getName() + " : null");
     }
 }
