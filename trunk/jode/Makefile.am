@@ -2,6 +2,4 @@
 
 SUBDIRS = jode doc test
 
-EXTRA_DIST = TODO \
-    jode.html jode-applet.html jode-obfuscator.html jode-unix.html \
-    jode-useapplet.html jode-win.html
+EXTRA_DIST = TODO
