@@ -434,6 +434,8 @@ public class ClassIdentifier extends Identifier {
 	if (GlobalOptions.verboseLevel > 0)
 	    GlobalOptions.err.println("Writing "+this);
 	info.write(out);
+	info = null;
+	identifiers = null;
     }
 
     public Identifier getParent() {
