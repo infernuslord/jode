@@ -34,71 +34,59 @@ public class IfInstructionHeader extends InstructionHeader {
     boolean hasElsePart;
     
     /**
-     * Creates a new if statement.  There are several conditions that
-     * must be met:
-     * <ul>
-     * <li><code>   ifHeader.successors[0] == thenStart
-     * </code></li>
-     * <li><code>   ifHeader.successors[1] == thenEnd.nextInstruction 
-     * </code></li>
-     * <li><code>   elseStart == null || (thenEnd.flowType = GOTO &&
-     *               elseEnd.nextInstruction == thenEnd.successors[0])
-     * </code></li>
-     * <li><code>   elseStart == null || elseStart = thenEnd.nextInstruction 
-     * </code></li>
-     * <li><code>   thenStart.nextInstruction....nextInstruction = thenEnd
-     * </code></li>
-     * <li><code>   elseStart.nextInstruction....nextInstruction = elseEnd
-     * </code></li>
-     * </ul>
+     * Creates a new if statement.
      * @param ifHeader  the instruction header whichs contains the 
-     *                  if goto statement.
-     * @param thenStart the start of the then part.
-     * @param thenEnd   the end of the then part.
-     * @param elseStart the start of the else part.
-     * @param elseEnd   the end of the then part.
-     * @param next      the next instruction after the if statement.
+     *                  if goto statement, must have a nextInstruction.
+     * @param elseBlock the start of the else part, same outer, may be null.
+     *                  if not null, it must equals ifHeader.successors[1].
+     * @param next      the next instruction after the if statement, 
+     *                  same outer, may be null.
+     * @param endBlock  the instruction where the control flows after the if,
+     *                  outer may differ, not null.
      */
     public IfInstructionHeader(InstructionHeader ifHeader,
-                               boolean           hasElsePart,
-                               InstructionHeader thenEnd,
-                               InstructionHeader elseEnd,
-                               InstructionHeader endBlock) {
+                               InstructionHeader elseBlock,
+                               InstructionHeader next) {
 
-        super(IFSTATEMENT, ifHeader.addr, endBlock.addr, 
+        super(IFSTATEMENT, ifHeader.addr, ifHeader.addr, 
               ifHeader.successors, ifHeader.outer);
 
+        hasElsePart = elseBlock != null;
         this.instr = ((Expression)ifHeader.getInstruction()).negate();
 
         this.movePredecessors(ifHeader);
-        this.endBlock = endBlock;
+        /* this.moveSuccessors(ifHeader); */
         successors[0].predecessors.removeElement(ifHeader);
         successors[1].predecessors.removeElement(ifHeader);
         successors[0].predecessors.addElement(this);
         successors[1].predecessors.addElement(this);
 
-        successors[0].prevInstruction = null;
-        InstructionHeader next = thenEnd.nextInstruction;
-        thenEnd.nextInstruction = null;
-
-        for (InstructionHeader ih = successors[0]; ih != null; 
-             ih = ih.nextInstruction)
-            if (ih.outer == outer)
-                ih.outer = this;
-
+        /* unlink the first instruction of the if */
+        ifHeader.nextInstruction.prevInstruction = null;
+        /* unlink the last instruction of the if */
+        if (next != null)
+            next.prevInstruction.nextInstruction = null;
+        
         this.hasElsePart = hasElsePart;
         if (hasElsePart) {
-            thenEnd.flowType = thenEnd.NORMAL;
 
-            successors[1].prevInstruction = null;
-            next = elseEnd.nextInstruction;
-            elseEnd.nextInstruction = null;
+            /* unlink the instructions around the else */
+            elseBlock.prevInstruction.nextInstruction = null;
+            elseBlock.prevInstruction = null;
 
             for (InstructionHeader ih = successors[1]; ih != null; 
                  ih = ih.nextInstruction)
                 if (ih.outer == outer)
                     ih.outer = this;
         }
+
+        /* Do this now, because the end of the then part is cut in
+         * the else part above.
+         */
+        for (InstructionHeader ih = successors[0]; ih != null; 
+             ih = ih.nextInstruction)
+            if (ih.outer == outer)
+                ih.outer = this;
 
         this.nextInstruction = next;
         if (next != null)
@@ -136,7 +124,10 @@ public class IfInstructionHeader extends InstructionHeader {
             braces = successors[1].flowType != NORMAL ||
                 successors[1].nextInstruction != null;
 
-            if (!braces && successors[1].flowType == IFSTATEMENT) {
+            if (successors[1].flowType == IFSTATEMENT &&
+                successors[1].nextInstruction == null) {
+                /* write "else if" */
+                braces = false;
                 writer.print("else ");
                 successors[1].dumpSource(writer);
             } else {

@@ -27,7 +27,10 @@ public class InstructionHeader {
     public final static int FORSTATEMENT     = 13;
     public final static int SWITCHSTATEMENT  = 14;
     public final static int TRYCATCHBLOCK    = 15;
-    public final static int BREAKSTATEMENT   = 19;
+    public final static int CASESTATEMENT    = 16;
+    public final static int BREAK      = 20;
+    public final static int CONTINUE   = 21;
+    public final static int VOIDRETURN = 22;
 
     public final static int EMPTY    = 99;
 
@@ -54,13 +57,26 @@ public class InstructionHeader {
      * (without caring about jump instructions).
      */
     InstructionHeader nextInstruction, prevInstruction;
-    /**
-     * The first instruction after this block.  This should be only
-     * set for blocks, that is headers which are outer of other headers.    
-     * This gives the instruction where the control flows after this
-     * block.  
+    /** 
+     * This should be implemented for those blocks, that is headers
+     * which are outer of other headers.  This gives the instruction
+     * where the control flows after this block.
+     * @return the first instruction after this block.  
      */
-    InstructionHeader endBlock;
+    InstructionHeader getEndBlock() {
+        if (nextInstruction != null) {
+            return nextInstruction.getShadow();
+        }
+        return outer.getEndBlock();
+    }
+
+    /** 
+     * Get the instruction header where this jumps to if this is a 
+     * unconditional goto.  Otherwise returns this header.
+     */
+    InstructionHeader getShadow() {
+        return (flowType == GOTO)? successors[0].getShadow() : this;
+    }
 
     /**
      * A more complex doubly linked list of instructions.  The
@@ -147,7 +163,8 @@ public class InstructionHeader {
      * @param instr  The underlying Instruction.
      */
     public static InstructionHeader createReturn(int addr, int length, 
-                                                 Instruction instr) {
+                                                 Instruction instr) 
+    {
          return new InstructionHeader(RETURN, addr, addr + length, 
                                       instr, new int[0]);
     }
@@ -159,11 +176,10 @@ public class InstructionHeader {
      * @param instr  The underlying Instruction.
      * @param dest   The destination address of the jump.
      */
-    public static InstructionHeader createGoto(int addr, int length, int dest,
-                                               Instruction instr) {
+    public static InstructionHeader createGoto(int addr, int length, int dest) 
+    {
          int [] succs = { dest };
-         return new InstructionHeader (GOTO, addr, addr + length, 
-                                       instr, succs);
+         return new InstructionHeader(GOTO, addr, addr + length, null, succs);
     }
 
     /**
@@ -309,8 +325,8 @@ public class InstructionHeader {
         for (int i=0; i<predecessors.size(); i++) {
             InstructionHeader ih = 
                 (InstructionHeader)predecessors.elementAt(i);
-            if (ih.flowType == GOTO || 
-                (ih.flowType == IFGOTO && ih.successors[1] == this))
+            if ((ih.flowType == GOTO || ih.flowType == IFGOTO) && 
+                ih.getEndBlock() != this)
                 return true;
         }
         return false;
@@ -368,6 +384,7 @@ public class InstructionHeader {
     public void dumpDebugging(TabbedPrintWriter writer)
 	throws java.io.IOException
     {
+        writer.println("");
         writer.print(""+toString()+
                      ": <"+addr + " - "+(nextAddr-1)+">  preds: ");
         for (int i=0; i<predecessors.size(); i++) {
@@ -375,7 +392,7 @@ public class InstructionHeader {
             writer.print(""+predecessors.elementAt(i));
         }
         writer.println("");
-        writer.print("out: "+outer+" end: "+endBlock+
+        writer.print("out: "+outer + 
                      " prev: "+prevInstruction+", next: "+ nextInstruction +
                      "  succs: ");
         for (int i=0; i<successors.length; i++) {
@@ -402,8 +419,23 @@ public class InstructionHeader {
 
         if (flowType == IFGOTO) {
 
-            writer.println("if ("+instr.toString()+") goto "+
-                           successors[1].getLabel());
+            writer.println("if ("+instr.toString()+")");
+            writer.tab();
+            if (successors[1] != getEndBlock())
+                writer.println("goto "+successors[1].getLabel());
+            else
+                writer.println("/*empty*/;");
+            writer.untab();
+
+        } else if (flowType == GOTO) {
+
+            if (successors[0] != getEndBlock())
+                writer.println("goto "+successors[0].getLabel());
+
+        } else if (flowType == RETURN) { 
+
+            writer.println((instr != null ? instr.toString() : 
+                            "return") + ";");
 
         } else {
 
@@ -413,8 +445,6 @@ public class InstructionHeader {
                         writer.print("push ");
                     writer.println(instr.toString()+";");
                 }
-                if (flowType == GOTO)
-                    writer.println("goto "+successors[0].getLabel());
             }
 
         }
@@ -431,11 +461,13 @@ public class InstructionHeader {
      * @param from The instruction header which predecessors are moved.
      */
     public void movePredecessors(InstructionHeader from) {
+        if (this == from)
+            return;
         addr = from.addr;
         prevInstruction = from.prevInstruction;
-        if (prevInstruction != null)
+        if (prevInstruction != null) {
             prevInstruction.nextInstruction = this;
-
+        }
         predecessors = from.predecessors;
         for (int i=0; i < predecessors.size(); i++) {
             InstructionHeader pre = 
@@ -444,6 +476,44 @@ public class InstructionHeader {
             for (int j=0; j<pre.successors.length; j++)
                 if (pre.successors[j] == from)
                     pre.successors[j] = this;
+        }
+        from.predecessors = new Vector();
+    }
+
+    /**
+     * Moves the predecessors from the InstructionHeader <em>from</em> to
+     * the current instruction. <p>
+     * The predecessors of <em>from</em> are informed about this change.
+     * @param from The instruction header which predecessors are moved.
+     */
+    public void addPredecessors(InstructionHeader from) {
+        for (int i=0; i < from.predecessors.size(); i++) {
+            InstructionHeader pre = 
+                (InstructionHeader)from.predecessors.elementAt(i);
+
+            predecessors.addElement(pre);
+            for (int j=0; j < pre.successors.length; j++)
+                if (pre.successors[j] == from)
+                    pre.successors[j] = this;
+        }
+        from.predecessors.removeAllElements();
+    }
+
+    /**
+     * Moves the successors from the InstructionHeader <em>from</em> to
+     * the current instruction.  The current successors are overwritten
+     * and you must make sure that is has no live InstructionHeaders.
+     * Also the <em>from</em> InstructionHeader musnt't be used any more.<p>
+     *
+     * The successors of <em>from</em> are informed about this change.
+     * @param from The instruction header which successors are moved.
+     */
+    public void moveSuccessors(InstructionHeader from) {
+        successors = from.successors;
+        from.successors = null;
+        for (int i=0; i < successors.length; i++) {
+            successors[i].predecessors.removeElement(from);
+            successors[i].predecessors.addElement(this);
         }
     }
 

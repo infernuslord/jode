@@ -58,9 +58,10 @@ public class ClassAnalyzer implements Analyzer {
 		    writer.print(", ");
 		writer.print(interfaces[i].getName().toString());
 	    }
+            writer.println("");
 	}
 	writer.untab();
-	writer.println(" {");
+	writer.println("{");
 	writer.tab();
 
 	for (int i=0; i< fields.length; i++)

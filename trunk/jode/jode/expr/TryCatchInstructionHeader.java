@@ -70,13 +70,11 @@ public class TryCatchInstructionHeader extends InstructionHeader {
             if (tryHeader.nextInstruction != null)
                 tryHeader.nextInstruction.prevInstruction = null;
         }
-        this.endBlock = endBlock;
 
         if (endBlock.outer == outer) {
             nextInstruction = endBlock;
             endBlock.prevInstruction = this;
-        } else {
-            if (endBlock != outer.endBlock) {
+        } else if (endBlock.getShadow() != outer.getEndBlock()) {
                 /* Create a goto after this block, that
                  * jumps to endBlock
                  */
@@ -87,9 +85,8 @@ public class TryCatchInstructionHeader extends InstructionHeader {
                 nextInstruction.prevInstruction = this;
                 nextInstruction.successors[0] = endBlock;
                 endBlock.predecessors.addElement(nextInstruction);
-            } else
-                nextInstruction = null;
-        }
+        } else
+            nextInstruction = null;
 
         if (endHeader != successors[1])
             endHeader.successors[0].predecessors.removeElement(endHeader);
@@ -117,14 +114,6 @@ public class TryCatchInstructionHeader extends InstructionHeader {
                     || ih.nextInstruction == endBlock)
 
                     ih.nextInstruction = null;
-                
-                if (ih.nextInstruction == null &&
-                    (ih.flowType == GOTO ||
-                     (ih.flowType == RETURN && 
-                      ih.getInstruction().getType() == MyType.tVoid)) &&
-                    ih.successors[0] == endBlock)
-                    
-                    ih.flowType = NORMAL;
             }
         }
     }
@@ -145,7 +134,7 @@ public class TryCatchInstructionHeader extends InstructionHeader {
 
         writer.println("try {");
         writer.tab();
-        if (successors[0] == endBlock)
+        if (successors[0] == getEndBlock())
             writer.print("/* empty?? */");
         else {
             for (InstructionHeader ih = successors[0]; ih != null; 

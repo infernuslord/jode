@@ -8,7 +8,6 @@ import java.util.Enumeration;
 public class BreakInstructionHeader extends InstructionHeader {
 
     boolean conditional;
-    boolean isBreak;
     String breakLabel;
     
     /**
@@ -18,15 +17,14 @@ public class BreakInstructionHeader extends InstructionHeader {
      * @param label      the label where to break to, may be null.
      * @param isBreak    is this a break or a continue.
      */
-    public BreakInstructionHeader(InstructionHeader gotoHeader,
-                               String            label,
-                               boolean           isBreak) {
+    public BreakInstructionHeader(int               flowType,
+                                  InstructionHeader gotoHeader,
+                                  String            label) {
 
-        super(BREAKSTATEMENT, gotoHeader.addr, gotoHeader.nextAddr,
+        super(flowType, gotoHeader.addr, gotoHeader.nextAddr,
               gotoHeader.successors, gotoHeader.outer);
 
         this.instr = gotoHeader.getInstruction();
-        this.isBreak  = isBreak;
         this.conditional = (gotoHeader.flowType == IFGOTO);
         this.breakLabel = label;
 
@@ -58,14 +56,9 @@ public class BreakInstructionHeader extends InstructionHeader {
         if (conditional) {
             writer.println("if ("+instr.toString()+")");
             writer.tab();
-        } else {
-            if (!(instr instanceof NopOperator)) {
-                if (instr.getType() != MyType.tVoid)
-                    writer.print("push ");
-                writer.println(instr.toString()+";");
-            }
         }
-        writer.println((isBreak?"break":"continue") +
+        writer.println((flowType == BREAK ? "break" :
+                        flowType == CONTINUE ? "continue" : "return") +
                        (breakLabel != null?" "+breakLabel:"")+";");
         
         if (conditional)
