@@ -37,7 +37,7 @@ href="http://jedit.standmed.com/plugins/JavaInsight">JavaInsight plugin</a> for
 </li>
 <li>A great place for developing free software is
      <a href="http://sourceforge.net"><img
-      src="http://sourceforge.net/sflogo.php?group_id=3790&type=1"
+      src="http://sourceforge.net/sflogo.php?group_id=3790&amp;type=1"
       border=0 width=88 height=31 alt="SourceForge"></a>
 </li>
 </ul>

@@ -21,7 +21,7 @@ function selflink($link) {
 function sflink($link) {
   echo "<a href=\"http://sourceforge.net/$link?group_id=3790\">";
 }
-?><!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.0//EN">
+?><!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
 <title>Java Optimize and Decompile Environment (JODE)</title>
@@ -40,7 +40,7 @@ body { color:#000000; background-color: #FFFFFF; }
 </style>
 </head>
 
-<body text=#000000 bgcolor=#FFFFFF>
+<body text="#000000" bgcolor="#FFFFFF">
 
 <table cellpadding=4 cellspacing=1 width="100%"
   ><tr
@@ -49,7 +49,7 @@ body { color:#000000; background-color: #FFFFFF; }
     ></td
     ><td align="right"
       >Powered by <a href="http://sourceforge.net"><img
-      src="http://sourceforge.net/sflogo.php?group_id=3790&type=1"
+      src="http://sourceforge.net/sflogo.php?group_id=3790&amp;type=1"
       border=0 width=88 height=31 alt="SourceForge"></a><br
       >Best viewed with <a
       href="http://www.anybrowser.org/campaign/"><img

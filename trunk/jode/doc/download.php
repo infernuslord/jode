@@ -16,7 +16,7 @@ the swing interface, you have to download swing separately, all other
 packages are already included in the archive. </li>
 
 <li>jode-1.1.jar is for JDK&nbsp;1.2 or better.  It should run
-without any other package.</li> </ul> </p>
+without any other package.</li> </ul>
 
 <h1>CVS Repository</h1>
 
@@ -35,6 +35,6 @@ the <code>configure.in</code> file resides and run
 
 <pre>aclocal && automake -a && autoconf</pre>
 
-Afterwards follow the instruction in the INSTALL file.  </p>
+<p>Afterwards follow the instruction in the INSTALL file.  </p>
 <?php require("footer.inc"); ?>
 

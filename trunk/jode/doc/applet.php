@@ -6,7 +6,7 @@
 <center>
 <applet code="jode/Applet.class" archive="jode-applet.jar" width=540 height=400>
 <param name=pagecolor value="ffffff">
-<param name=classpath value="http://jode.sourceforge.net/http/www.informatik.uni-oldenburg.de/~mw/plasma.jar">
+<param name=classpath value="http://jode.sourceforge.net/plasma.jar">
 <param name=class value="PlasmaApplet">
 <p>Sorry you need a java enabled browser to test a java applet ;-)</p>
 <p>Don't read the rest, it only contains information about the applet.</p>

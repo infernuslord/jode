@@ -7,8 +7,7 @@
 &nbsp;&nbsp;&nbsp;<a href="#java">Java&nbsp;Interface</a><br>
 <a href="#optimizer">Obfuscator</a><br>
 */ ?>
-<a name="decompiler">
-<h1>Using the Decompiler</h1></a>
+<h1><a name="decompiler">Using the Decompiler</a></h1>
 <p>After you have <?php selflink("download") ?>downloaded</a> the jar archive
 put it into your <tt>CLASSPATH</tt>. The package
 <tt>swingall.jar</tt> is also needed if you are using JDK 1.1.</p>
@@ -32,7 +31,7 @@ that you can use.  You can extract it with the following command:
 </pre>
 Edit the file to adapt it to your paths and put it to a convenient location.
 
-<a name="cmdline"><h3>Command Line Interface</h3></a>
+<h3><a name="cmdline">Command Line Interface</a></h3>
 
 The most powerful way to start <I>JODE</I>'s decompiler is the command
 line interface.  Some people don't like long command lines; they
@@ -50,7 +49,7 @@ If you want to decompile a jar package you can do it this way:
 If you have installed the batch file/script, you can use it like this:
 <pre>jode --dest srcdir program.jar</pre>
 
-<a name="awt"><h3>AWT Interface</h3></a>
+<h3><a name="awt">AWT Interface</a></h3>
 
 The AWT Interface looks exactly like the <?php selflink("applet") ?>
 applet</a>.  In fact the applet uses the AWT Interface. You start it
@@ -65,7 +64,7 @@ dot(<tt>.</tt>) separated name of the class you want to decompile.
 Press the <code>start</code> button and the decompiled class should
 appear.  You can save it via the <code>save</code> button.
 
-<a name="swing"><h3>Swing Interface</h3></a>
+<h3><a name="swing">Swing Interface</a></h3>
 
 For the swing interface you need java version 1.2 or the separately
 available swing package (see <?php selflink("links#swing") ?>link
@@ -86,28 +85,27 @@ you don't have the source code.  You can also use it to trace bugs in
 library code.  It is not meant to generate <tt>java</tt> files and so
 you won't find a save option there.</p>
 
-<a name="java"><h3>Java Interface</h3></a>
+<h3><a name="java">Java Interface</a></h3>
 
 <p>If you want to integrate <i>JODE</i> into your own java program,
 you can use the <a
-href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jode/jode/jode/decompiler/Decompiler.java?rev=jode_1_1&content-type=text/vnd.viewcvs-markup"
+href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jode/jode/jode/decompiler/Decompiler.java?rev=jode_1_1&amp;content-type=text/vnd.viewcvs-markup"
 ><code>jode.decompiler.Decompiler</code></a>
-class.  Note that the GPL only allows you to integrate <i>JODE</i>
-into GPL programs.  Please tell me if you use <i>JODE</i> in this
-way.</p>
+class.  Note that the LGPL allows dynamic linking as long as you don't change
+Jode itself.  Please tell me if you use <i>JODE</i> in this way.</p>
 
 <p>You should ship <code>jode-1.1-embedded.jar</code> with your program.  This jar file is
 available in the <? sflink("project/showfiles.php") ?>download area</a>.
 It works only under JDK&nbsp;1.2 and above.</p>
 
-<a name="optimizer"><h1>Using the Obfuscator</h1>
+<h1><a name="optimizer">Using the Obfuscator</a></h1>
 
 <p>To use the obfuscator you should first create a script file, say <a
 href="myproject.jos"><tt>myproject.jos</tt></a>.  Then you can invoke the
 obfuscator with:
 <pre>
 java jode.obfuscator.Main myproject.jos
-</pre></p>
+</pre>
 
 <p>The script file should contain the following options: </p>
 
@@ -216,6 +214,8 @@ analyzer is to mark all reachable methods, find out which methods
 needs to get the same name (overloading), and which method names
 mustn't change (overload of library methods, e.g. <tt>nextElement</tt>
 for <tt>Enumeration</tt>s). There are currently two analyzers.
+</p>
+
 <dl><dt>SimpleAnalyzer</dt>
 <dd>Straight forward analyzer.  It is fast and will remove dead code
 on method basis.</dd>
@@ -227,7 +227,6 @@ and replace constant instruction with a load of the constant, or
 remove them completely.<br> This analyzer is especially useful to
 revert the flow obfuscation of some other obfuscators.</dd>
 </dl>
-</p>
 <pre>
 analyzer = new ConstantAnalyzer
 </pre>
