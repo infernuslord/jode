@@ -85,7 +85,9 @@ public class LocalInfo {
                     LocalVarOperator lvo = 
                         (LocalVarOperator) enum.nextElement();
                     if (needTypeUpdate) {
-//                 System.err.println("updating "+lvo+" in "+lvo.parent);
+                        if (Decompiler.isTypeDebugging)
+                            System.err.println("updating " + lvo + " in "
+                                               + ((Expression)lvo).parent);
                         lvo.updateType();
                     }
                     shadow.operators.addElement(lvo);

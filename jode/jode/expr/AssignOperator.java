@@ -34,6 +34,7 @@ public class AssignOperator extends Operator {
     public AssignOperator(int op, StoreInstruction store) {
         super(store.getLValueType(), op);
         this.store = store;
+        store.parent = this;
     }
 
     public StoreInstruction getStore() {
