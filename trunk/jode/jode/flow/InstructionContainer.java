@@ -63,7 +63,8 @@ public abstract class InstructionContainer extends StructuredBlock {
             || CreatePrePostIncExpression.transform(this, last)
             || CreateAssignExpression.transform(this, last)
             || CreateIfThenElseOperator.create(this, last)
-            || CreateConstantArray.transform(this, last);
+            || CreateConstantArray.transform(this, last)
+	    || CreateCheckNull.transformJavac(this, last);
     }
 
     /**

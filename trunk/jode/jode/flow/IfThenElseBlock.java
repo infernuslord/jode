@@ -150,4 +150,9 @@ public class IfThenElseBlock extends StructuredBlock {
             && elseBlock != null
             && (elseBlock.jump != null || elseBlock.jumpMayBeChanged());
     }
+
+    public boolean doTransformations() {
+        StructuredBlock last = flowBlock.lastModified;
+        return CreateCheckNull.transformJikes(this, last);
+    }
 }
