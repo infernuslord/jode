@@ -211,10 +211,12 @@ public class MethodInfo extends BinaryInfo {
     }
 
     public void setBytecode(BytecodeInfo newBytecode) {
+	clazzInfo.loadInfo(ALL_ATTRIBUTES);
 	bytecode = newBytecode;
     }
 
     public void setExceptions(String[] newExceptions) {
+	clazzInfo.loadInfo(ALL_ATTRIBUTES);
 	exceptions = newExceptions;
     }
 

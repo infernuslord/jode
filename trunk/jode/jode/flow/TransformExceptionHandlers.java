@@ -323,13 +323,16 @@ public class TransformExceptionHandlers {
     }
 
     public void checkAndRemoveMonitorExit(FlowBlock tryFlow, LocalInfo local, 
+					  int startOutExit, int endOutExit,
                                           int startMonExit, int endMonExit) {
         FlowBlock subRoutine = null;
+	FlowBlock exitBlock = null;
         Iterator succs = tryFlow.getSuccessors().iterator();
     dest_loop:
         while (succs.hasNext()) {
+	    boolean isFirstJump = true;
             for (Jump jumps = tryFlow.getJumps((FlowBlock) succs.next());
-                 jumps != null; jumps = jumps.next) {
+                 jumps != null; jumps = jumps.next, isFirstJump = false) {
 
                 StructuredBlock prev = jumps.prev;
 
@@ -390,28 +393,59 @@ public class TransformExceptionHandlers {
                     continue;
                 }
 
-                /* The block is a jsr that is not preceeded by another jsr.
-                 * This must be the monitorexit subroutine.
-                 */
-                if (prev instanceof JsrBlock && subRoutine == null) {
-                    
-                    subRoutine = jumps.destination;
-                    subRoutine.analyze(startMonExit, endMonExit);
-                    transformSubRoutine(subRoutine.block);
-                
-                    if (subRoutine.block instanceof InstructionBlock) {
-                        Expression instr = 
-                            ((InstructionBlock)subRoutine.block)
-                            .getInstruction();
-                        if (isMonitorExit(instr, local)) {
-                            tryFlow.mergeAddr(subRoutine);
-                            continue dest_loop;
-                        }
-                    }
-                }
+		if (isFirstJump) {
+		    /* This is the first jump to that destination.
+		     * Check if the destination does the monitorExit
+		     */
 
-                /* Now we have a jump that is not preceded by a monitorexit.
-                 * Complain!
+		    /* The block is a jsr that is not preceeded by
+		     * another jsr.  This must be the monitorexit
+		     * subroutine.  
+		     */
+		    if (prev instanceof JsrBlock && subRoutine == null) {
+			
+			subRoutine = jumps.destination;
+			subRoutine.analyze(startMonExit, endMonExit);
+			transformSubRoutine(subRoutine.block);
+			
+			if (subRoutine.block instanceof InstructionBlock) {
+			    Expression instr = 
+				((InstructionBlock)subRoutine.block)
+				.getInstruction();
+			    if (isMonitorExit(instr, local)) {
+				tryFlow.mergeAddr(subRoutine);
+				continue dest_loop;
+			    }
+			}
+		    }
+		    
+		    /* Now we have a jump that is not preceded by a
+		     * monitorexit.  There's a last chance: the jump
+		     * jumps directly to the correct monitorexit
+		     * instruction, which lies outside the try/catch
+		     * block.  
+		     */
+		    if (exitBlock == null
+			&& jumps.destination.getAddr() >= startOutExit
+			&& jumps.destination.getNextAddr() <=  endOutExit) {
+			jumps.destination.analyze(startOutExit, endOutExit);
+		    
+			StructuredBlock sb = jumps.destination.block;
+			if (sb instanceof SequentialBlock)
+			    sb = sb.getSubBlocks()[0];
+			if (sb instanceof InstructionBlock) {
+			    Expression instr = ((InstructionBlock)sb)
+				.getInstruction();
+			    if (isMonitorExit(instr, local)) {
+				sb.removeBlock();
+				exitBlock = jumps.destination;
+				continue dest_loop;
+			    }
+			}
+		    }
+		}
+		
+		/* Complain!
                  */
                 DescriptionBlock msg 
                     = new DescriptionBlock("ERROR: NO MONITOREXIT");
@@ -476,11 +510,13 @@ public class TransformExceptionHandlers {
             LocalInfo local = 
                 ((LocalLoadOperator)monexit.getSubExpressions()[0])
 		.getLocalInfo();
-            tryFlow.mergeAddr(catchFlow);
 
             checkAndRemoveMonitorExit
-                (tryFlow, local, catchFlow.getNextAddr(), endHandler);
-            
+                (tryFlow, local, 
+		 tryFlow.getNextAddr(), catchFlow.getAddr(), 
+		 catchFlow.getNextAddr(), endHandler);
+
+            tryFlow.mergeAddr(catchFlow);
             SynchronizedBlock syncBlock = new SynchronizedBlock(local);
             TryBlock tryBlock = (TryBlock) tryFlow.block;
             syncBlock.replace(tryBlock);
@@ -636,12 +672,13 @@ public class TransformExceptionHandlers {
                 
             TryBlock tryBlock = (TryBlock)tryFlow.block;
             if (tryBlock.getSubBlocks()[0] instanceof TryBlock) {
-                /* remove the nested tryBlock */
+                /* remove the surrounding tryBlock */
                 TryBlock innerTry = (TryBlock)tryBlock.getSubBlocks()[0];
                 innerTry.gen = tryBlock.gen;
                 innerTry.replace(tryBlock);
                 tryBlock = innerTry;
-                tryFlow.lastModified = innerTry;
+                tryFlow.lastModified = tryBlock;
+		tryFlow.block = tryBlock;
             }
             FinallyBlock newBlock = new FinallyBlock();
             newBlock.setCatchBlock(finallyBlock);
@@ -784,22 +821,23 @@ public class TransformExceptionHandlers {
 
 		FlowBlock tryFlow = exc.start;
 		tryFlow.checkConsistent();
-		if ((GlobalOptions.debuggingFlags
-		     & GlobalOptions.DEBUG_ANALYZE) != 0)
-		    GlobalOptions.err.println
-			("analyzeTry("
-			 + exc.start.getAddr() + ", " + exc.endAddr+")");
-		while (tryFlow.analyze(tryFlow.getAddr(), exc.endAddr));
 
-		if (last == null
+		if (last == null || exc.type == null
 		    || last.start.getAddr() != exc.start.getAddr()
 		    || last.endAddr != exc.endAddr) {
 		    /* The last handler does catch another range. 
 		     * Create a new try block.
 		     */
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_ANALYZE) != 0)
+			GlobalOptions.err.println
+			    ("analyzeTry("
+			     + exc.start.getAddr() + ", " + exc.endAddr+")");
+		    while (tryFlow.analyze(tryFlow.getAddr(), exc.endAddr));
+		    
 		    TryBlock tryBlock = new TryBlock(tryFlow);
-		} else if (! (tryFlow.block instanceof TryBlock))
-		    throw new AssertError("no TryBlock");
+		} else if (!(tryFlow.block instanceof TryBlock))
+			throw new AssertError("no TryBlock");
 
 		FlowBlock catchFlow = exc.handler;
 		boolean isMultiUsed = catchFlow.predecessors.size() != 0;
@@ -823,8 +861,8 @@ public class TransformExceptionHandlers {
 		    FlowBlock newFlow = new FlowBlock(catchFlow.method,
 						      catchFlow.getAddr(), 0);
 		    newFlow.setBlock(jump);
-		    catchFlow.prevByAddr.setNextByAddr(newFlow);
-		    newFlow.setNextByAddr(catchFlow);
+		    catchFlow.prevByAddr.nextByAddr = newFlow;
+		    newFlow.nextByAddr = catchFlow;
 		    catchFlow = newFlow;
 		} else {
 		    if ((GlobalOptions.debuggingFlags

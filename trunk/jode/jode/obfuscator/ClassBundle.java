@@ -139,8 +139,10 @@ public class ClassBundle {
 	analyze();
     }
 
-    public void analyzeIdentifier(Identifier i) {
-	toAnalyze.add(i);
+    public void analyzeIdentifier(Identifier ident) {
+	if (ident == null)
+	    throw new NullPointerException();
+	toAnalyze.add(ident);
     }
 
     public void analyze() {

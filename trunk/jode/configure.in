@@ -108,21 +108,32 @@ JODE_CHECK_CLASS(javax.swing.JFrame, $CLASSPATH:$CLASSLIB,
 AC_MSG_RESULT($JAVAX_SWING)
 AC_SUBST(JAVAX_SWING)
 if test x"$JAVAX_SWING" != x; then
-  SWING_CLASSES="jode/swingui/Main.class"
+  SWINGUI="swingui"
 else
   AC_MSG_WARN(Swing is not in classpath ... skipping swingui)
-  SWING_CLASSES=""
+  SWINGUI=""
 fi
-AC_SUBST(SWING_CLASSES)
+AC_SUBST(SWINGUI)
 
 AC_SUBST(CLASSPATH)
 AC_SUBST(JAVAC)
 
 AC_OUTPUT(Makefile
 jode/Makefile
-doc/Makefile
-test/Makefile
+jode/bytecode/Makefile
+jode/decompiler/Makefile
+jode/expr/Makefile
+jode/flow/Makefile
+jode/jvm/Makefile
+jode/obfuscator/Makefile
+jode/swingui/Makefile
+jode/type/Makefile
+jode/util/Makefile
 jode/GlobalOptions.java
 jode/swingui/Main.java
-jode/swingui/PackagesTreeModel.java)
+jode/swingui/PackagesTreeModel.java
+bin/Makefile
+bin/jode
+doc/Makefile
+test/Makefile)
 

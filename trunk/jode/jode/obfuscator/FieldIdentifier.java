@@ -111,6 +111,8 @@ public class FieldIdentifier extends Identifier{
     }
     
     public void addFieldListener(Identifier ident) {
+	if (ident == null)
+	    throw new NullPointerException();
 	if (!fieldListeners.contains(ident))
 	    fieldListeners.add(ident);
     }

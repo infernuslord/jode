@@ -448,10 +448,17 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    (clName.substring(1, clName.length()-1)
 		     .replace('/','.'));
 	    }
-	    while (clazz != null
-		   && clazz.findMethod(ref.getName(), 
-				       ref.getType()) == null)
-		clazz = clazz.getSuperclass();
+	    if (instr.opcode >= opc_invokevirtual) {
+		while (clazz != null
+		       && clazz.findMethod(ref.getName(), 
+					   ref.getType()) == null)
+		    clazz = clazz.getSuperclass();
+	    } else {
+		while (clazz != null
+		       && clazz.findField(ref.getName(), 
+					  ref.getType()) == null)
+		    clazz = clazz.getSuperclass();
+	    }
 
 	    if (clazz == null) {
 		GlobalOptions.err.println("WARNING: Can't find reference: "
@@ -1371,6 +1378,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     }
 
     public void analyzeCode(MethodIdentifier listener, BytecodeInfo bytecode) {
+	this.listener = listener;
 	this.bytecode = bytecode;
 	working = true;	
 	if (constInfos == null)

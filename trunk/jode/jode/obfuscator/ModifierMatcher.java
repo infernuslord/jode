@@ -107,7 +107,7 @@ public class ModifierMatcher implements IdentifierMatcher, Cloneable {
 	    if (implies(and, xor, andMasks[i], xorMasks[i]))
 		continue next_i;
 
-	    for (int j=0; j<andMasks.length; j++) {
+	    for (int j=0; j < andMasks.length; j++) {
 		if (j != i
 		    && implies(and | andMasks[j], xor | xorMasks[j],
 			       andMasks[i], xorMasks[i]))
@@ -120,12 +120,21 @@ public class ModifierMatcher implements IdentifierMatcher, Cloneable {
 	int[] ands = new int[newCount];
 	int[] xors = new int[newCount];
 	int index = 0;
+    next_i:
 	for (int i=0; i < newCount; i++) {
-	    int bothAnd = andMasks[i] & and;
-	    if ((xorMasks[i] & bothAnd) == (and & bothAnd)) {
-		ands[index++] = andMasks[i] | and;
-		xors[index++] = xorMasks[i] | xor;
+	    if (implies(and, xor, andMasks[i], xorMasks[i]))
+		continue next_i;
+
+	    for (int j=0; j < andMasks.length; j++) {
+		if (j != i
+		    && implies(and | andMasks[j], xor | xorMasks[j],
+			       andMasks[i], xorMasks[i]))
+		    continue next_i;
 	    }
+
+	    ands[index] = andMasks[i] | and;
+	    xors[index] = xorMasks[i] | xor;
+	    index++;
 	}
 	return new ModifierMatcher(ands, xors);
     }

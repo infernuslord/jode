@@ -18,10 +18,69 @@
  */
 
 package jode.obfuscator;
-import jode.bytecode.*;
+import jode.bytecode.Handler;
+import jode.bytecode.Opcodes;
+import jode.bytecode.ClassInfo;
+import jode.bytecode.BytecodeInfo;
+import jode.bytecode.Instruction;
+import jode.bytecode.Reference;
+import jode.GlobalOptions;
 import jode.type.Type;
 
 public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
+
+    public Identifier canonizeReference(Instruction instr) {
+	Reference ref = (Reference) instr.objData;
+	Identifier ident = Main.getClassBundle().getIdentifier(ref);
+	String clName = ref.getClazz();
+	String realClazzName;
+	if (ident != null) {
+	    ClassIdentifier clazz = (ClassIdentifier)ident.getParent();
+	    realClazzName = "L" + (clazz.getFullName()
+				   .replace('.', '/')) + ";";
+	} else {
+	    /* We have to look at the ClassInfo's instead, to
+	     * point to the right method.
+	     */
+	    ClassInfo clazz;
+	    if (clName.charAt(0) == '[') {
+		/* Arrays don't define new methods (well clone(),
+		 * but that can be ignored).
+		 */
+		clazz = ClassInfo.javaLangObject;
+	    } else {
+		clazz = ClassInfo.forName
+		    (clName.substring(1, clName.length()-1)
+		     .replace('/','.'));
+	    }
+	    if (instr.opcode >= opc_invokevirtual) {
+		while (clazz != null
+		       && clazz.findMethod(ref.getName(), 
+					   ref.getType()) == null)
+		    clazz = clazz.getSuperclass();
+	    } else {
+		while (clazz != null
+		       && clazz.findField(ref.getName(), 
+					  ref.getType()) == null)
+		    clazz = clazz.getSuperclass();
+	    }
+
+	    if (clazz == null) {
+		GlobalOptions.err.println("WARNING: Can't find reference: "
+					  +ref);
+		realClazzName = clName;
+	    } else
+		realClazzName = "L" + clazz.getName().replace('.', '/') + ";";
+	}
+	if (!realClazzName.equals(ref.getClazz())) {
+	    ref = Reference.getReference(realClazzName, 
+					 ref.getName(), ref.getType());
+	    instr.objData = ref;
+	}
+	return ident;
+    }
+
+
     /**
      * Reads the opcodes out of the code info and determine its 
      * references
@@ -54,52 +113,21 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		/* fall through */
 	    case opc_getstatic:
 	    case opc_getfield: {
-		Reference ref = (Reference) instr.objData;
-		Identifier ident = Main.getClassBundle().getIdentifier(ref);
-		String clName = ref.getClazz();
-		String realClazzName;
+		Identifier ident = canonizeReference(instr);
 		if (ident != null) {
-		    ClassIdentifier clazz = (ClassIdentifier)ident.getParent();
-		    realClazzName = "L" + (clazz.getFullName()
-					   .replace('.', '/')) + ";";
 		    if (instr.opcode == opc_putstatic
 			|| instr.opcode == opc_putfield) {
 			FieldIdentifier fi = (FieldIdentifier) ident;
 			if (fi != null && !fi.isNotConstant())
 			    fi.setNotConstant();
+		    } else if (instr.opcode == opc_invokevirtual
+			       || instr.opcode == opc_invokeinterface) {
+			((ClassIdentifier) ident.getParent())
+			    .reachableIdentifier(ident.getName(), 
+						 ident.getType(), true);
 		    } else {
-			clazz.reachableIdentifier
-			    (ref.getName(), ref.getType(),
-			     instr.opcode == opc_invokevirtual 
-			     || instr.opcode == opc_invokeinterface);
+			ident.setReachable();
 		    }
-		} else {
-		    /* We have to look at the ClassInfo's instead, to
-		     * point to the right method.
-		     */
-		    ClassInfo clazz;
-		    if (clName.charAt(0) == '[') {
-			/* Arrays don't define new methods (well clone(),
-			 * but that can be ignored).
-			 */
-			clazz = ClassInfo.javaLangObject;
-		    } else {
-			clazz = ClassInfo.forName
-			    (clName.substring(1, clName.length()-1)
-			     .replace('/','.'));
-		    }
-		    while (clazz != null
-			   && clazz.findMethod(ref.getName(), 
-					       ref.getType()) == null)
-			clazz = clazz.getSuperclass();
-
-		    realClazzName = (clazz != null) ? clName
-			: "L" + clazz.getName().replace('.', '/') + ";";
-		}
-		if (!realClazzName.equals(ref.getClazz())) {
-		    ref = Reference.getReference(realClazzName, 
-						 ref.getName(), ref.getType());
-		    instr.objData = ref;
 		}
 		break;
 	    }
