@@ -1300,17 +1300,17 @@ ificmp:
 	aaload
 	invokevirtual jode/jvm/Value/intValue()I
 	dup2
-	if_icmplt ificmp_greater
+	if_icmplt ificmp_greater ; Note, that operands are swapped
 	if_icmpeq ificmp_equal
 ificmp_less:
-	bipush 0x09
+	bipush 0x19		; ne,lt,le
 	goto ificmp_final
 ificmp_equal:
-	bipush 0x25
+	bipush 0x25		; eq,ge,le
 	goto ificmp_final
 ificmp_greater:
 	pop2
-	bipush 0x06
+	bipush 0x16		; ne,ge,gt
 ificmp_final:
 	swap
 	ishl
