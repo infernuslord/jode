@@ -22,6 +22,8 @@ import java.lang.reflect.Modifier;
 import jode.type.*;
 import jode.bytecode.FieldInfo;
 import jode.expr.Expression;
+import jode.expr.ThisOperator;
+import jode.expr.LocalLoadOperator;
 import jode.expr.ConstOperator;
 
 public class FieldAnalyzer implements Analyzer {
@@ -62,6 +64,10 @@ public class FieldAnalyzer implements Analyzer {
 	return type;
     }
 
+    public Expression getConstant() {
+	return constant;
+    }
+
     public boolean isSynthetic() {
 	return isSynthetic;
     }
@@ -76,6 +82,21 @@ public class FieldAnalyzer implements Analyzer {
             return constant.equals(expr);
         constant = expr;
         return true;
+    }
+    
+    public boolean setSpecial(Expression expr) {
+	if (!isSynthetic || !Modifier.isFinal(modifiers))
+	    return false;
+	if (!fieldName.startsWith("this$")) {
+	    if (!(expr instanceof LocalLoadOperator)
+		|| !fieldName.startsWith("val$"))
+		return false;
+	}
+	if (constant != null)
+	    return constant.equals(expr);
+	analyzedSynthetic();
+	constant = expr;
+	return true;
     }
 
     public void analyze() {
