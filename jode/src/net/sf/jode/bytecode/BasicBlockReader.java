@@ -856,6 +856,13 @@ class BasicBlockReader implements Opcodes {
 	    handlers[i].type = (index == 0) ? null
 		: cp.getClassName(index);
 
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+		GlobalOptions.err.println("Handler "+handlers[i].start
+					  +"-"+handlers[i].end
+					  +" @"+handlers[i].catcher
+					  + ": "+handlers[i].type);
+
 	    if (infos[handlers[i].catcher].instr.getOpcode() == opc_athrow) {
 		/* There is an obfuscator, which inserts bogus
 		 * exception entries jumping directly to a throw
@@ -863,6 +870,35 @@ class BasicBlockReader implements Opcodes {
 		 */
 		handlersLength--;
 		i--;
+	    }
+
+	    if (handlers[i].start <= handlers[i].catcher
+		&& handlers[i].end > handlers[i].catcher)
+	    {
+		/* Javac 1.4 is a bit paranoid with finally and
+		 * synchronize blocks and even breaks the JLS.
+		 * We fix it here.  Hopefully this won't produce
+		 * any other problems.
+		 */
+		if (handlers[i].start == handlers[i].catcher) {
+		    handlersLength--;
+		    i--;
+		} else {
+		    handlers[i].end = handlers[i].catcher;
+		}
+	    }
+
+	    if (infos[handlers[i].end].instr.getOpcode() >= opc_ireturn
+		&& infos[handlers[i].end].instr.getOpcode() <= opc_return) {
+		/* JDK 1.4 sometimes doesn't put return instruction into try
+		 * block, which breaks the decompiler later.  The return
+		 * instruction can't throw exceptions so it doesn't really
+		 * matter.
+		 *
+		 * FIXME: This may break other things if the return
+		 * instruction is reachable from outside the try block.
+		 */
+		handlers[i].end++;
 	    }
 	}
 	if (handlersLength < handlers.length) {

@@ -111,7 +111,8 @@ public class SyntheticAnalyzer implements Opcodes {
 	Block startBlock = bb.getStartBlock();
 	Handler[] excHandlers = bb.getExceptionHandlers();
 	if (startBlock == null
-	    || startBlock.getInstructions().length != 3
+	    || startBlock.getInstructions().length < 2
+	    || startBlock.getInstructions().length > 3
 	    || excHandlers.length != 1
 	    || excHandlers[0].getStart() != startBlock
 	    || excHandlers[0].getEnd() != startBlock
@@ -119,7 +120,7 @@ public class SyntheticAnalyzer implements Opcodes {
 	    .equals(excHandlers[0].getType()))
 	    return false;
 
-        for (int i=0; i< 3; i++) {
+        for (int i=0; i< 2; i++) {
 	    Instruction instr = startBlock.getInstructions()[i];
 	    if (instr.getOpcode() != getClassOpcodes[i])
 		return false;
@@ -130,6 +131,17 @@ public class SyntheticAnalyzer implements Opcodes {
 		    return false;
 	    }
 	    if (i == 0 && instr.getLocalSlot() != 0)
+		return false;
+	}
+	if (startBlock.getInstructions().length == 2) {
+	    /* JDK 1.4: The return is outside of startBlock */
+	    Block nextBlock = startBlock.getSuccs()[0];
+	    Instruction[] instrs = nextBlock.getInstructions();
+	    if (instrs[0].getOpcode() != opc_areturn)
+		return false;
+	} else {
+	    /* JDK 1.3 */
+	    if (startBlock.getInstructions()[2].getOpcode() != opc_areturn)
 		return false;
 	}
 

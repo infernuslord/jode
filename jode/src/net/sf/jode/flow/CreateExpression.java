@@ -35,7 +35,6 @@ public class CreateExpression {
 
     /**
      * This does the transformation.
-     * @param FlowBlock the flow block to transform.
      * @return true if flow block was simplified.
      */
     public static boolean transform(InstructionContainer ic,
