@@ -106,11 +106,15 @@ public class SequentialBlock extends StructuredBlock {
         subBlocks[0].used.unionExact(used);
 	subBlocks[0].makeDeclaration(done);
 
-        /* Now add the variables used in the first block to the done
-         * set of the second block, since the first sub block has
-         * declared them.  */
-	VariableSet doneFirst = (VariableSet) done.clone();
-	doneFirst.unionExact(subBlocks[0].used);
+	VariableSet doneFirst;
+	if (subBlocks[0] instanceof InstructionBlock) {
+	    /* Now add the variables used in the first block to the done
+	     * set of the second block, since the first sub block has
+	     * declared them.  */
+	    doneFirst = (VariableSet) done.clone();
+	    doneFirst.unionExact(subBlocks[0].used);
+	} else
+	    doneFirst = done;
 	subBlocks[1].makeDeclaration(doneFirst);
     }
 
