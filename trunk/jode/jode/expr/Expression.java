@@ -22,7 +22,7 @@ package jode;
 public abstract class Expression {
     protected Type type;
 
-    ComplexExpression parent = null;
+    Expression parent = null;
 
     public Expression(Type type) {
         this.type = type;
@@ -34,6 +34,11 @@ public abstract class Expression {
 
     public void setType(Type newType) {
         this.type = newType;
+    }
+
+    public void updateType() {
+        if (parent != null)
+            parent.updateType();
     }
 
     /**

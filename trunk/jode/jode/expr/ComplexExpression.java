@@ -108,10 +108,13 @@ public class ComplexExpression extends Expression {
 
         StoreInstruction store = (StoreInstruction) e.getOperator();
         if (store.matches(operator)) {
-            ((ComplexExpression) e).operator = 
-                new AssignOperator(store.getOperatorIndex(), store);
+            operator.parent = null;
+            operator = new AssignOperator(store.getOperatorIndex(), store);
+            operator.parent = this;
             this.subExpressions = ((ComplexExpression) e).subExpressions;
-            return e;
+            for (int i=0; i < subExpressions.length; i++)
+                subExpressions[i].parent = this;
+            return this;
         }
         for (int i=0; i < subExpressions.length; i++) {
             Expression combined = subExpressions[i].combine(e);
