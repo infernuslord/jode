@@ -18,8 +18,8 @@
  */
 
 package jode.bytecode;
+import jode.Decompiler;
 import jode.type.Type;
-import jode.type.MethodType;
 import java.io.*;
 import java.util.*;
 ///#ifdef JDK12
@@ -53,12 +53,13 @@ public class ClassInfo extends BinaryInfo {
 
     private int status = 0;
 
-    private ConstantPool constantPool;
     private int modifiers = -1;
     private ClassInfo    superclass;
     private ClassInfo[]  interfaces;
     private FieldInfo[]  fields;
     private MethodInfo[] methods;
+    private InnerClassInfo[] innerClasses;
+    private String sourceFile;
 
     public final static ClassInfo javaLangObject = forName("java.lang.Object");
     
@@ -86,7 +87,7 @@ public class ClassInfo extends BinaryInfo {
 	    ci.fields = null;
 	    ci.interfaces = null;
 	    ci.methods = null;
-	    ci.attributes = null;
+	    ci.unknownAttributes = null;
 	}
     }
 
@@ -194,7 +195,7 @@ public class ClassInfo extends BinaryInfo {
             int count = input.readUnsignedShort();
             fields = new FieldInfo[count];
             for (int i=0; i< count; i++) {
-                fields[i] = new FieldInfo(); 
+                fields[i] = new FieldInfo(this); 
                 fields[i].read(cpool, input, howMuch);
             }
         } else {
@@ -215,7 +216,7 @@ public class ClassInfo extends BinaryInfo {
             int count = input.readUnsignedShort();
             methods = new MethodInfo[count];
             for (int i=0; i< count; i++) {
-                methods[i] = new MethodInfo(); 
+                methods[i] = new MethodInfo(this); 
                 methods[i].read(cpool, input, howMuch);
             }
         } else {
@@ -229,92 +230,274 @@ public class ClassInfo extends BinaryInfo {
         }
     }
 
-    public void loadInfoReflection(Class clazz, int howMuch) {
-	try {
-	    modifiers = clazz.getModifiers();
-	    if ((howMuch & HIERARCHY) != 0) {
-		if (clazz.getSuperclass() == null)
-		    superclass = null;
-		else
-		    superclass = ClassInfo.forName
-			(clazz.getSuperclass().getName());
-		Class[] ifaces = clazz.getInterfaces();
-		interfaces = new ClassInfo[ifaces.length];
-		for (int i=0; i<ifaces.length; i++)
-		    interfaces[i] = ClassInfo.forName(ifaces[i].getName());
-		status |= HIERARCHY;
+    protected void readAttribute(String name, int length,
+				 ConstantPool cp,
+				 DataInputStream input, 
+				 int howMuch) throws IOException {
+	if (name.equals("SourceFile")) {
+	    if (length != 2)
+		throw new ClassFormatException("SourceFile attribute"
+					       + " has wrong length");
+	    sourceFile = cp.getUTF8(input.readUnsignedShort());
+	} else if (name.equals("InnerClasses")) {
+	    int count = input.readUnsignedShort();
+	    innerClasses = new InnerClassInfo[count];
+	    for (int i=0; i< count; i++) {
+		int innerIndex = input.readUnsignedShort();
+		int outerIndex = input.readUnsignedShort();
+		int nameIndex = input.readUnsignedShort();
+		String inner = cp.getClassName(innerIndex);
+		String outer = 
+		    outerIndex != 0 ? cp.getClassName(outerIndex) : null;
+		String innername = 
+		    nameIndex != 0 ? cp.getUTF8(nameIndex) : null;
+		int access = input.readUnsignedShort();
+		innerClasses[i] = new InnerClassInfo
+		    (inner, outer, innername, access);
 	    }
-	    if ((howMuch & FIELDS) != 0) {
-		Field[] fs;
-		try {
-		    fs = clazz.getDeclaredFields();
-		} catch (SecurityException ex) {
-		    fs = clazz.getFields();
-		    jode.Decompiler.err.println
-			("Could only get public fields of class "
-			 + name + ".");
-		}
-		fields = new FieldInfo[fs.length];
-		for (int i = fs.length; --i >= 0; ) {
-		    Type type = Type.tType(fs[i].getType());
-		    fields[i] = new FieldInfo
-			(fs[i].getName(), type, fs[i].getModifiers());
-		}
+	    if (length != 2 + 8 * count)
+		throw new ClassFormatException
+		    ("InnerClasses attribute has wrong length");
+	} else
+	    super.readAttribute(name, length, cp, input, howMuch);
+    }
+
+    public void read(DataInputStream input, int howMuch) throws IOException {
+	/* header */
+	if (input.readInt() != 0xcafebabe)
+	    throw new ClassFormatException("Wrong magic");
+	if (input.readUnsignedShort() > 3) 
+	    throw new ClassFormatException("Wrong minor");
+	if (input.readUnsignedShort() != 45) 
+	    throw new ClassFormatException("Wrong major");
+
+	/* constant pool */
+        ConstantPool cpool = new ConstantPool();
+        cpool.read(input);
+
+	/* always read modifiers, name, super, ifaces */
+	{
+	    status |= HIERARCHY;
+	    modifiers = input.readUnsignedShort();
+	    String className = cpool.getClassName(input.readUnsignedShort());
+	    if (!name.equals(className))
+		throw new ClassFormatException("wrong name " + className);
+	    String superName = cpool.getClassName(input.readUnsignedShort());
+	    superclass = superName != null ? ClassInfo.forName(superName) : null;
+	    int count = input.readUnsignedShort();
+	    interfaces = new ClassInfo[count];
+	    for (int i=0; i< count; i++) {
+		interfaces[i] = ClassInfo.forName
+		    (cpool.getClassName(input.readUnsignedShort()));
 	    }
-	    if ((howMuch & METHODS) != 0) {
-		Method[] ms;
-		try {
-		    ms = clazz.getDeclaredMethods();
-		} catch (SecurityException ex) {
-		    ms = clazz.getMethods();
-		    jode.Decompiler.err.println
-			("Could only get public methods of class "
-			 + name + ".");
-		}
-		methods = new MethodInfo[ms.length];
-		for (int i = ms.length; --i >= 0; ) {
-		    MethodType type = Type.tMethod
-			(ms[i].getParameterTypes(), ms[i].getReturnType());
-		    methods[i] = new MethodInfo
-			(ms[i].getName(), type, ms[i].getModifiers());
-		}
+	}	    
+
+	/* fields */
+        if ((howMuch & FIELDS) != 0) {
+            int count = input.readUnsignedShort();
+            fields = new FieldInfo[count];
+            for (int i=0; i< count; i++) {
+                fields[i] = new FieldInfo(this); 
+                fields[i].read(cpool, input, howMuch);
+            }
+        } else {
+	    byte[] skipBuf = new byte[6];
+            int count = input.readUnsignedShort();
+            for (int i=0; i< count; i++) {
+		input.readFully(skipBuf); // modifier, name, type
+                skipAttributes(input);
+            }
+        }
+
+	/* methods */
+        if ((howMuch & METHODS) != 0) {
+            int count = input.readUnsignedShort();
+            methods = new MethodInfo[count];
+            for (int i=0; i< count; i++) {
+                methods[i] = new MethodInfo(this); 
+                methods[i].read(cpool, input, howMuch);
+            }
+        } else {
+	    byte[] skipBuf = new byte[6];
+            int count = input.readUnsignedShort();
+            for (int i=0; i< count; i++) {
+		input.readFully(skipBuf); // modifier, name, type
+                skipAttributes(input);
+            }
+        }
+
+	/* attributes */
+	readAttributes(cpool, input, howMuch);
+    }
+
+    public void reserveSmallConstants(GrowableConstantPool gcp) {
+	for (int i=0; i < fields.length; i++)
+	    fields[i].reserveSmallConstants(gcp);
+
+	for (int i=0; i < methods.length; i++)
+	    methods[i].reserveSmallConstants(gcp);
+    }
+
+    public void prepareWriting(GrowableConstantPool gcp) {
+	gcp.putClassName(name);
+	gcp.putClassName(superclass.getName());
+	for (int i=0; i < interfaces.length; i++)
+	    gcp.putClassName(interfaces[i].getName());
+
+	for (int i=0; i < fields.length; i++)
+	    fields[i].prepareWriting(gcp);
+
+	for (int i=0; i < methods.length; i++)
+	    methods[i].prepareWriting(gcp);
+
+	if (sourceFile != null) {
+	    gcp.putUTF8("SourceFile");
+	    gcp.putUTF8(sourceFile);
+	}
+	if (innerClasses != null) {
+	    gcp.putUTF8("InnerClasses");
+	    int count = innerClasses.length;
+	    for (int i=0; i< count; i++) {
+		gcp.putClassName(innerClasses[i].inner);
+		if (innerClasses[i].outer != null)
+		    gcp.putClassName(innerClasses[i].outer);
+		if (innerClasses[i].name != null)
+		    gcp.putUTF8(innerClasses[i].name);
 	    }
-            if ((howMuch & ~(FIELDS|METHODS|HIERARCHY)) != 0) {
-                jode.Decompiler.err.println
-		    ("Can't find class " + name
-		     + " in classpath, and couldn't load everything"
-		     + " from reflection.");
-		status |= howMuch;
-	    } 
-	    
-	} catch (SecurityException ex) {
-	    jode.Decompiler.err.println
-		(ex+" while collecting info about class " + name + ".");
-	    jode.Decompiler.err.println("Bad things may happen?");
+	}
+        prepareAttributes(gcp);
+    }
+
+    protected int getKnownAttributeCount() {
+	int count = 0;
+	if (sourceFile != null)
+	    count++;
+	if (innerClasses != null)
+	    count++;
+	return count;
+    }
+
+    public void writeKnownAttributes(GrowableConstantPool gcp,
+				     DataOutputStream output) 
+	throws IOException {
+	if (sourceFile != null) {
+	    output.writeShort(gcp.putUTF8("SourceFile"));
+	    output.writeInt(2);
+	    output.writeShort(gcp.putUTF8(sourceFile));
+	}
+	if (innerClasses != null) {
+	    output.writeShort(gcp.putUTF8("InnerClasses"));
+	    int count = innerClasses.length;
+	    output.writeInt(2 + count * 8);
+	    output.writeShort(count);
+	    for (int i=0; i< count; i++) {
+		output.writeShort(gcp.putClassName(innerClasses[i].inner));
+		output.writeShort(innerClasses[i].outer != null ? 
+				  gcp.putClassName(innerClasses[i].outer) : 0);
+		output.writeShort(innerClasses[i].name != null ?
+				  gcp.putUTF8(innerClasses[i].name) : 0);
+		output.writeShort(innerClasses[i].modifiers);
+	    }
 	}
     }
 
+    public void write(DataOutputStream out) throws IOException {
+	GrowableConstantPool gcp = new GrowableConstantPool();
+	reserveSmallConstants(gcp);
+	prepareWriting(gcp);
+
+	out.writeInt(0xcafebabe);
+	out.writeShort(3);
+	out.writeShort(45);
+	gcp.write(out);
+
+	out.writeShort(modifiers);
+	out.writeShort(gcp.putClassName(name));
+	out.writeShort(gcp.putClassName(superclass.getName()));
+	out.writeShort(interfaces.length);
+	for (int i=0; i < interfaces.length; i++)
+	    out.writeShort(gcp.putClassName(interfaces[i].getName()));
+
+	out.writeShort(fields.length);
+	for (int i=0; i < fields.length; i++)
+	    fields[i].write(gcp, out);
+
+	out.writeShort(methods.length);
+	for (int i=0; i < methods.length; i++)
+	    methods[i].write(gcp, out);
+
+        writeAttributes(gcp, out);
+    }
+
+    public void loadInfoReflection(Class clazz, int howMuch) 
+	throws SecurityException {
+	if ((howMuch & HIERARCHY) != 0) {
+	    modifiers = clazz.getModifiers();
+	    if (clazz.getSuperclass() == null)
+		superclass = null;
+	    else
+		superclass = ClassInfo.forName
+		    (clazz.getSuperclass().getName());
+	    Class[] ifaces = clazz.getInterfaces();
+	    interfaces = new ClassInfo[ifaces.length];
+	    for (int i=0; i<ifaces.length; i++)
+		interfaces[i] = ClassInfo.forName(ifaces[i].getName());
+	    status |= HIERARCHY;
+	}
+	if ((howMuch & FIELDS) != 0 && fields == null) {
+	    Field[] fs;
+	    try {
+		fs = clazz.getDeclaredFields();
+	    } catch (SecurityException ex) {
+		fs = clazz.getFields();
+		Decompiler.err.println
+		    ("Could only get public fields of class "
+		     + name + ".");
+	    }
+	    fields = new FieldInfo[fs.length];
+	    for (int i = fs.length; --i >= 0; ) {
+		String type = Type.getSignature(fs[i].getType());
+		fields[i] = new FieldInfo
+		    (this, fs[i].getName(), type, fs[i].getModifiers());
+	    }
+	}
+	if ((howMuch & METHODS) != 0 && methods == null) {
+	    Method[] ms;
+	    try {
+		ms = clazz.getDeclaredMethods();
+	    } catch (SecurityException ex) {
+		ms = clazz.getMethods();
+		Decompiler.err.println
+		    ("Could only get public methods of class "
+		     + name + ".");
+	    }
+	    methods = new MethodInfo[ms.length];
+	    for (int i = ms.length; --i >= 0; ) {
+		String type = Type.getSignature
+		    (ms[i].getParameterTypes(), ms[i].getReturnType());
+		methods[i] = new MethodInfo
+		    (this, ms[i].getName(), type, ms[i].getModifiers());
+	    }
+	}
+	status |= howMuch;
+    }
+    
     public void loadInfo(int howMuch) {
         try {
             DataInputStream input = 
                 new DataInputStream(classpath.getFile(name.replace('.', '/')
                                                       + ".class"));
-            readHeader(input, howMuch);
-
-            ConstantPool cpool = readConstants(input, howMuch);
-            if ((howMuch & CONSTANTS) != 0)
-                this.constantPool = cpool;
-            readNameAndSuper(cpool, input, howMuch);
-            readInterfaces(cpool, input, howMuch);
-            if ((howMuch & HIERARCHY) != 0)
-                status |= HIERARCHY;
-            readFields(cpool, input, howMuch);
-            readMethods(cpool, input, howMuch);
-            readAttributes(cpool, input, howMuch);
-            
+	    read(input, howMuch);            
             status |= howMuch;
 
         } catch (IOException ex) {
+	    String message = ex.getMessage();
+            if ((howMuch & ~(FIELDS|METHODS|HIERARCHY)) != 0) {
+		Decompiler.err.println
+		    ("Can't read class " + name + ".");
+		ex.printStackTrace(Decompiler.err);
+		throw new NoClassDefFoundError(name);
+	    }
 	    // Try getting the info through the reflection interface
 	    // instead.
 	    Class clazz = null;
@@ -323,31 +506,38 @@ public class ClassInfo extends BinaryInfo {
 	    } catch (ClassNotFoundException ex2) {
 	    } catch (NoClassDefFoundError ex2) {
 	    }
-	    if (clazz != null)
+	    try {
 		loadInfoReflection(clazz, howMuch);
-	    else {
-		// Nothing helped, ``guess'' the hierarchie
-		String message = ex.getMessage();
-		if ((howMuch & ~(METHODS|HIERARCHY)) == 0) {
-		    jode.Decompiler.err.println
-		    ("Can't read class " + name + ", types may be incorrect. ("
-		     + ex.getClass().getName()
-		     + (message != null ? ": " + message : "") + ")");
-		} else
-		    jode.Decompiler.err.println
-			("Can't read class " + name
-			 + " (" + ex.getClass().getName()
-			 + (message != null ? ": " + message : "") + ")");
-		
+		return;
+	    } catch (SecurityException ex2) {
+		Decompiler.err.println
+		    (ex2+" while collecting info about class " + name + ".");
+	    }
+	    
+	    // Give a warning and ``guess'' the hierarchie, methods etc.
+	    Decompiler.err.println
+		("Can't read class " + name + ", types may be incorrect. ("
+		 + ex.getClass().getName()
+		 + (message != null ? ": " + message : "") + ")");
+	    
+	    if ((howMuch & HIERARCHY) != 0) {
+		modifiers = Modifier.PUBLIC;
 		if (name.equals("java.lang.Object"))
 		    superclass = null;
 		else
 		    superclass = ClassInfo.forName("java.lang.Object");
 		interfaces = new ClassInfo[0];
-		modifiers = Modifier.PUBLIC;
-		status = FULLINFO;
 	    }
+	    if ((howMuch & METHODS) != 0)
+		methods = new MethodInfo[0];
+	    if ((howMuch & FIELDS) != 0)
+		fields = new FieldInfo[0];
+	    status |= howMuch;
         }
+    }
+
+    public String getName() {
+        return name;
     }
 
     public ClassInfo getSuperclass() {
@@ -372,12 +562,60 @@ public class ClassInfo extends BinaryInfo {
         return Modifier.isInterface(getModifiers());
     }
 
-    public String toString() {
-        return name;
+    public FieldInfo findField(String name, String typeSig) {
+        if ((status & FIELDS) == 0)
+            loadInfo(FIELDS);
+        for (int i=0; i< methods.length; i++)
+            if (fields[i].getName().equals(name)
+                && fields[i].getType().equals(typeSig))
+                return fields[i];
+        return null;
     }
 
-    public String getName() {
-        return name;
+    public MethodInfo findMethod(String name, String typeSig) {
+        if ((status & METHODS) == 0)
+            loadInfo(METHODS);
+        for (int i=0; i< methods.length; i++)
+            if (methods[i].getName().equals(name)
+                && methods[i].getType().equals(typeSig))
+                return methods[i];
+        return null;
+    }
+
+    public MethodInfo[] getMethods() {
+        if ((status & METHODS) == 0)
+            loadInfo(METHODS);
+        return methods;
+    }
+
+    public FieldInfo[] getFields() {
+        if ((status & FIELDS) == 0)
+            loadInfo(FIELDS);
+        return fields;
+    }
+
+    public void setName(String newName) {
+	name = newName;
+    }
+
+    public void setSuperclass(ClassInfo newSuper) {
+	superclass = newSuper;
+    }
+    
+    public void setInterfaces(ClassInfo[] newIfaces) {
+        interfaces = newIfaces;
+    }
+
+    public void setModifiers(int newModifiers) {
+        modifiers = newModifiers;
+    }
+
+    public void setMethods(MethodInfo[] mi) {
+        methods = mi;
+    }
+
+    public void setFields(FieldInfo[] fi) {
+        fields = fi;
     }
 
     public boolean superClassOf(ClassInfo son) {
@@ -399,31 +637,7 @@ public class ClassInfo extends BinaryInfo {
         return clazz == this;
     }
 
-    public ConstantPool getConstantPool() {
-        if ((status & CONSTANTS) == 0)
-            loadInfo(CONSTANTS);
-        return constantPool;
-    }
-
-    public MethodInfo findMethod(String name, MethodType type) {
-        if ((status & METHODS) == 0)
-            loadInfo(METHODS);
-        for (int i=0; i< methods.length; i++)
-            if (methods[i].getName().equals(name)
-                && methods[i].getType().equals(type))
-                return methods[i];
-        return null;
-    }
-
-    public MethodInfo[] getMethods() {
-        if ((status & METHODS) == 0)
-            loadInfo(METHODS);
-        return methods;
-    }
-
-    public FieldInfo[] getFields() {
-        if ((status & FIELDS) == 0)
-            loadInfo(FIELDS);
-        return fields;
+    public String toString() {
+        return name;
     }
 }
