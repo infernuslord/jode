@@ -25,11 +25,16 @@ import jode.decompiler.LocalInfo;
 import jode.expr.*;
 
 ///#ifdef JDK12
+///import java.util.TreeSet;
+///import java.util.SortedSetSet;
 ///import java.util.Map;
 ///import java.util.Iterator;
 ///#else
+import jode.util.TreeSet;
+import jode.util.SortedSet;
 import jode.util.Map;
 import jode.util.Iterator;
+import jode.util.Comparable;
 ///#endif
 
 /**
@@ -37,14 +42,48 @@ import jode.util.Iterator;
  * @author Jochen Hoenicke
  */
 public class TransformExceptionHandlers {
-    int count;
-    FlowBlock[] trys    = new FlowBlock[4];
-    FlowBlock[] catches = new FlowBlock[4];
-    int[] endPCs = new int[4];
-    Type[] types = new Type[4];
+    SortedSet handlers;
     
+    static class Handler implements Comparable {
+	FlowBlock start;
+	int endAddr;
+	FlowBlock handler;
+	Type type;
+
+	public Handler(FlowBlock tryBlock, int end, 
+		       FlowBlock catchBlock, Type type) {
+	    this.start = tryBlock;
+	    this.endAddr = end;
+	    this.handler = catchBlock;
+	    this.type = type;
+	}
+
+	public int compareTo (Object o) {
+	    Handler second = (Handler) o;
+
+	    /* First sort by start offsets, highest address first...*/
+	    if (start.addr != second.start.addr)
+		/* this subtraction is save since addresses are only 16 bit */
+		return second.start.addr - start.addr;
+
+	    /* ...Second sort by end offsets, lowest address first...
+	     * this will move the innermost blocks to the beginning. */
+	    if (endAddr != second.endAddr)
+		return endAddr - second.endAddr;
+
+	    /* ...Last sort by handler offsets, lowest first */
+	    if (handler.addr != second.handler.addr)
+		return handler.addr - second.handler.addr;
+	    
+	    /* ...Last sort by typecode signature.  Shouldn't happen to often.
+	     */
+	    return type.getTypeSignature()
+		.compareTo(second.type.getTypeSignature());
+	}
+    }
+
     public TransformExceptionHandlers() {
-        count = 0;
+	handlers = new TreeSet();
     }
 
     /**
@@ -56,65 +95,7 @@ public class TransformExceptionHandlers {
      */
     public void addHandler(FlowBlock tryBlock, int end, 
 			   FlowBlock catchBlock, Type type) {
-        int offset = 0;
-	int start = tryBlock.addr;
-	int handler = catchBlock.addr;
-        /* First sort by start offsets, highest address first...*/
-        while (offset < count && start < trys[offset].addr)
-            offset++;
-        /* ...Second sort by end offsets, lowest address first...
-         * this will move the innermost blocks to the beginning. */
-        while (offset < count && start == trys[offset].addr 
-               && end > endPCs[offset])
-            offset++;
-        /* ...Last sort by handler offsets, lowest first */
-        while (offset < count && start == trys[offset].addr
-               && end == endPCs[offset] && handler > catches[offset].addr)
-            offset++;
-
-        if (count++ >= trys.length) {
-            /* We grow the arrays by 50 % */
-            int newSize = trys.length * 3 / 2;
-            FlowBlock[] newTrys = new FlowBlock[newSize];
-            int[] newEndPCs = new int[newSize];
-            FlowBlock[] newCatches = new FlowBlock[newSize];
-            Type[] newTypes = new Type[newSize];
-            System.arraycopy(trys, 0, newTrys, 0, offset);
-            System.arraycopy(endPCs, 0, newEndPCs, 0, offset);
-            System.arraycopy(catches, 0, newCatches, 0, offset);
-            System.arraycopy(types, 0, newTypes, 0, offset);
-
-            if (offset+1 < count) {
-                System.arraycopy(trys, offset, newTrys, offset+1, 
-                                 count-offset-1);
-                System.arraycopy(endPCs, offset, newEndPCs, offset+1, 
-                                 count-offset-1);
-                System.arraycopy(catches, offset, newCatches, offset+1, 
-                                 count-offset-1);
-                System.arraycopy(types, offset, newTypes, offset+1, 
-                                 count-offset-1);
-            }
-            trys = newTrys;
-            endPCs = newEndPCs;
-            catches = newCatches;
-            types = newTypes;
-        } else if (offset+1 < count) {
-            /* Move the tailing data one place below
-             */
-            System.arraycopy(trys, offset, trys, offset+1, 
-                             count-offset-1);
-            System.arraycopy(endPCs, offset, endPCs, offset+1, 
-                             count-offset-1);
-            System.arraycopy(catches, offset, catches, offset+1, 
-                             count-offset-1);
-            System.arraycopy(types, offset, types, offset+1, 
-                             count-offset-1);
-        }
-        /* Insert the new handler */
-        trys[offset] = tryBlock;
-        endPCs[offset] = end;
-        catches[offset] = catchBlock;
-        types[offset] = type;
+	handlers.add(new Handler(tryBlock, end, catchBlock, type));
     }
 
     /** 
@@ -801,68 +782,119 @@ public class TransformExceptionHandlers {
          * for all classes generated by the sun java compiler, but hand
          * optimized classes (or generated by other compilers) will fail.
          */
-        for (int i=0; i<count; i++) {
-            int start = trys[i].addr;
-            int end = endPCs[i];
-            int handler = catches[i].addr;
-            if (start >= end || handler < end)
-                throw new AssertError("ExceptionHandler order failed: not "
-                                      + start + " < " + end + " <= " + 
-                                      handler);
-            if (i == 0 
-                || trys[i-1].addr != start || endPCs[i-1] != end) {
-                /* The last handler does catch another range. */
-                if ( /*handler > end + 1 || */
-                    (i > 0 && end > trys[i-1].addr && end < endPCs[i-1]))
-                    throw new AssertError("ExceptionHandler"
-                                          + " at wrong position: "
-                                          + "end: "+end + " handler: "+handler
-                                          + (i>0 ? " last: ("+trys[i-1].addr
-                                             +", "+endPCs[i-1]+", "
-                                             +catches[i-1].addr+")"
-                                             :""));
-            }
-        }
+	{ 
+	    Handler last = null;
+	    for (Iterator i = handlers.iterator(); i.hasNext(); ) {
+		Handler exc = (Handler) i.next();
+		int start = exc.start.addr;
+		int end = exc.endAddr;
+		int handler = exc.handler.addr;
+		if (start >= end || handler < end)
+		    throw new AssertError
+			("ExceptionHandler order failed: not "
+			 + start + " < " + end + " <= " + handler);
+		if (last != null
+		    && (last.start.addr != start || last.endAddr != end)) {
+		    /* The last handler does catch another range. 
+		     * Due to the order:
+		     *  start < last.start.addr || end > last.end.addr
+		     */
+		    if (end > last.start.addr && end < last.endAddr)
+			throw new AssertError
+			    ("Exception handlers ranges are intersecting: ["
+			 + last.start.addr+", "+last.endAddr+"] and ["
+			     + start+", "+end+"].");
+		}
+		last = exc;
+	    }
+	}
 
-        for (int i=0; i<count; i++) {
-            int endHandler = (i< count-1 && endPCs[i+1] > catches[i].addr) 
-                ? endPCs[i+1]
-                : Integer.MAX_VALUE;
-            if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
-                GlobalOptions.err.println("analyzeCatch(" + trys[i].addr + ", "
-                                   + endPCs[i] + ", " +catches[i].addr + ")");
-            FlowBlock tryFlow = trys[i];
-            tryFlow.checkConsistent();
-            while (tryFlow.analyze(tryFlow.addr, catches[i].addr));
+	{
+	    Iterator i = handlers.iterator();
+	    Handler exc = null;
+	    Handler next = i.hasNext() ? (Handler) i.next() : null;
+	    while(next != null) {
+		Handler last = exc;
+		exc = next;
+		next = i.hasNext() ? (Handler) i.next() : null;
+		int endHandler = Integer.MAX_VALUE;
+		/* If the next exception handler catches a bigger range
+		 * it must surround the handler completely.
+		 */
+		if (next != null && next.endAddr > exc.endAddr)
+		    endHandler = next.endAddr;
 
-            if (i == 0
-                || trys[i-1].addr != trys[i].addr || endPCs[i-1] != endPCs[i]) {
-                /* The last handler does catch another range. 
-                 * Create a new try block.
-                 */
-                TryBlock tryBlock = new TryBlock(tryFlow);
-            } else if (! (tryFlow.block instanceof TryBlock))
-                throw new AssertError("no TryBlock");
+		FlowBlock tryFlow = exc.start;
+		tryFlow.checkConsistent();
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_ANALYZE) != 0)
+		    GlobalOptions.err.println
+			("analyzeTry("
+			 + exc.start.addr + ", " + exc.endAddr+")");
+		while (tryFlow.analyze(tryFlow.addr, exc.endAddr));
 
-            FlowBlock catchFlow = catches[i];
-            while (catchFlow.analyze(catchFlow.addr, endHandler));
+		if (last == null
+		    || last.start.addr != exc.start.addr
+		    || last.endAddr != exc.endAddr) {
+		    /* The last handler does catch another range. 
+		     * Create a new try block.
+		     */
+		    TryBlock tryBlock = new TryBlock(tryFlow);
+		} else if (! (tryFlow.block instanceof TryBlock))
+		    throw new AssertError("no TryBlock");
 
-            updateInOutCatch(tryFlow, catchFlow);
-            if (types[i] != null)
-                analyzeCatchBlock(types[i], tryFlow, catchFlow);
-
-            else if (!analyzeSynchronized(tryFlow, catchFlow, endHandler)
-                     && ! analyzeFinally(tryFlow, catchFlow, endHandler)
-                     && ! analyzeSpecialFinally(tryFlow, catchFlow, 
-                                                endHandler))
-
-                analyzeCatchBlock(Type.tObject, tryFlow, catchFlow);
-
-            tryFlow.checkConsistent();
-            if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
-                GlobalOptions.err.println("analyzeCatch(" + tryFlow.addr + ", "
-				       + (tryFlow.addr + tryFlow.length) + 
-				       ") done.");
-        }
+		FlowBlock catchFlow = exc.handler;
+		boolean isMultiUsed = catchFlow.predecessors.size() != 0;
+		if (!isMultiUsed) {
+		    for (Iterator j = handlers.tailSet(next).iterator(); 
+			 j.hasNext();) {
+			Handler h = (Handler) j.next();
+			if (h.handler == catchFlow) {
+			    isMultiUsed = true;
+			    break;
+			}
+		    }
+		}
+			 
+		if (isMultiUsed) {
+		    /* If this exception is used in other exception handlers,
+		     * create a new flow block, that jumps to the handler.
+		     * This will be our new exception handler.
+		     */
+		    EmptyBlock jump = new EmptyBlock(new Jump(catchFlow));
+		    FlowBlock newFlow = new FlowBlock(catchFlow.method,
+						      catchFlow.addr, 0);
+		    newFlow.setBlock(jump);
+		    catchFlow.prevByAddr.setNextByAddr(newFlow);
+		    newFlow.setNextByAddr(catchFlow);
+		    catchFlow = newFlow;
+		} else {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_ANALYZE) != 0)
+			GlobalOptions.err.println
+			    ("analyzeCatch("
+			     + catchFlow.addr + ", " + endHandler + ")");
+		    while (catchFlow.analyze(catchFlow.addr, endHandler));
+		}
+		    
+		updateInOutCatch(tryFlow, catchFlow);
+		if (exc.type != null)
+		    analyzeCatchBlock(exc.type, tryFlow, catchFlow);
+		
+		else if (!analyzeSynchronized(tryFlow, catchFlow, endHandler)
+			 && ! analyzeFinally(tryFlow, catchFlow, endHandler)
+			 && ! analyzeSpecialFinally(tryFlow, catchFlow, 
+						    endHandler))
+		    
+		    analyzeCatchBlock(Type.tObject, tryFlow, catchFlow);
+		
+		tryFlow.checkConsistent();
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_ANALYZE) != 0)
+		    GlobalOptions.err.println
+			("analyzeCatch(" + tryFlow.addr + ", "
+			 + (tryFlow.addr + tryFlow.length) + ") done.");
+	    }
+	}
     }
 }
