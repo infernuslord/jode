@@ -1,3 +1,22 @@
+/* DeadCodeAnalysis Copyright (C) 1999 Jochen Hoenicke.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ * $Id$
+ */
+
 package jode.decompiler;
 import jode.bytecode.BytecodeInfo;
 import jode.bytecode.Instruction;
@@ -34,10 +53,6 @@ public class DeadCodeAnalysis {
     }
 
     public static void removeDeadCode(BytecodeInfo code) {
-	for (Instruction instr = code.getFirstInstr(); 
-	     instr != null; instr = instr.nextByAddr)
-	    instr.tmpInfo = null;
-	
 	propagateReachability(code.getFirstInstr(), code.getFirstInstr());
 	Handler[] handlers = code.getExceptionHandlers();
 	boolean changed;
@@ -92,6 +107,9 @@ public class DeadCodeAnalysis {
 		    handlers[i].end = handlers[i].end.prevByAddr;
 	    }
 	}
+	/* clean up tmpInfo */
+	for (Instruction instr = code.getFirstInstr(); 
+	     instr != null; instr = instr.nextByAddr)
+	    instr.tmpInfo = null;	
     }
 }
-
