@@ -26,12 +26,13 @@ AC_DEFUN(JODE_CHECK_CLASS,
   if (IFS=":"
     clazz=`echo $1 | sed -e 's/\./\//g' -e 's/\(.*\)/\1.class/'`
     jode_found=0
-    for path in $2; do
+    myclasspath=$2;
+    for path in $myclasspath; do
       if test -d $path; then
         if test -e $path/$clazz; then
 	  exit 0
         fi
-      elif $UNZIP -v -C $path $clazz &>/dev/null ; then
+      elif $UNZIP -v -C `$SUBSTCP $path` $clazz &>/dev/null ; then
 	exit 0
       fi
     done;
