@@ -1,4 +1,4 @@
-/* jode.bytecode.MethodInfo Copyright (C) 1997-1998 Jochen Hoenicke.
+/* MethodInfo Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *
  * $Id$
  */
+
 package jode.bytecode;
 import jode.MethodType;
 import java.io.*;
@@ -31,8 +32,7 @@ public class MethodInfo extends BinaryInfo {
                      DataInputStream input, int howMuch) throws IOException {
 	modifier   = input.readUnsignedShort();
 	name = constantPool.getUTF8(input.readUnsignedShort());
-        type = new MethodType(Modifier.isStatic(modifier), 
-                              constantPool.getUTF8(input.readUnsignedShort()));
+        type = new MethodType(constantPool.getUTF8(input.readUnsignedShort()));
         readAttributes(constantPool, input, howMuch);
     }
 
@@ -44,6 +44,10 @@ public class MethodInfo extends BinaryInfo {
         return type;
     }
 
+    public boolean isStatic() {
+	return Modifier.isStatic(modifier);
+    }
+
     public int getModifiers() {
         return modifier;
     }
@@ -53,3 +57,4 @@ public class MethodInfo extends BinaryInfo {
             type.toString()+" "+name;
     }
 }
+

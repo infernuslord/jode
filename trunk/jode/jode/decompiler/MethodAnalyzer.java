@@ -1,18 +1,18 @@
-/* 
- * MethodAnalyzer (c) 1998 Jochen Hoenicke
+/* MethodAnalyzer Copyright (C) 1998-1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
@@ -30,6 +30,7 @@ public class MethodAnalyzer implements Analyzer {
     CodeAnalyzer code = null;
     ClassAnalyzer classAnalyzer;
     boolean isConstructor;
+    boolean isStatic;
     boolean isSynthetic;
     boolean isDeprecated;
     SyntheticAnalyzer synth;
@@ -45,6 +46,7 @@ public class MethodAnalyzer implements Analyzer {
         this.modifiers = minfo.getModifiers();
         this.methodType = minfo.getType();
         this.methodName = minfo.getName();
+        this.isStatic = minfo.isStatic();
         this.isConstructor = 
             methodName.equals("<init>") || methodName.equals("<clinit>");
 	this.isSynthetic = (minfo.findAttribute("Synthetic") != null);
@@ -91,19 +93,19 @@ public class MethodAnalyzer implements Analyzer {
 	return code;
     }
 
-    public boolean isConstructor() {
+    public final boolean isConstructor() {
         return isConstructor;
     }
 
-    public boolean isStatic() {
-        return methodType.isStatic();
+    public final boolean isStatic() {
+        return isStatic;
     }
 
-    public boolean isSynthetic() {
+    public final boolean isSynthetic() {
 	return isSynthetic;
     }
 
-    public boolean isGetClass() {
+    public final boolean isGetClass() {
 	return synth.type == SyntheticAnalyzer.GETCLASS;
     }
 
@@ -209,7 +211,7 @@ public class MethodAnalyzer implements Analyzer {
 			     + " " + methodName);
             writer.print("(");
             Type[] paramTypes = methodType.getParameterTypes();
-            int offset = methodType.isStatic()?0:1;
+            int offset = isStatic()?0:1;
             for (int i=0; i<paramTypes.length; i++) {
                 if (i>0)
                     writer.print(", ");
