@@ -20,15 +20,20 @@
 package jode.expr;
 import jode.GlobalOptions;
 import jode.type.Type;
+import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 
 public class LocalLoadOperator extends NoArgOperator
     implements LocalVarOperator {
+    CodeAnalyzer codeAnalyzer;
     LocalInfo local;
 
-    public LocalLoadOperator(Type type, LocalInfo local) {
+    public LocalLoadOperator(Type type, CodeAnalyzer codeAnalyzer,
+			     LocalInfo local) {
         super(type);
+	this.codeAnalyzer = codeAnalyzer;
         this.local = local;
         local.setType(type);
         local.setOperator(this);
@@ -85,6 +90,16 @@ public class LocalLoadOperator extends NoArgOperator
     public boolean equals(Object o) {
         return (o instanceof LocalLoadOperator &&
                 ((LocalLoadOperator) o).local.getSlot() == local.getSlot());
+    }
+
+    public Expression simplify() {
+	if (local.getName().equals("this") && codeAnalyzer != null)
+	    return new ThisOperator(codeAnalyzer.getClazz(), true).simplify();
+	if (local.getName().equals("this$-1") && codeAnalyzer != null)
+	    return new ThisOperator
+		(((ClassAnalyzer)codeAnalyzer.getClassAnalyzer().getParent())
+		 .getClazz()).simplify();
+	return super.simplify();
     }
 
     public void dumpExpression(TabbedPrintWriter writer,
