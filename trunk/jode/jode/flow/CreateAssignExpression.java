@@ -122,6 +122,11 @@ public class CreateAssignExpression {
 	    if (!(loadExpr instanceof Operator)
                 || !store.matches((Operator) loadExpr))
                 return false;
+
+	    if (store instanceof LocalStoreOperator)
+		((LocalLoadOperator)loadExpr).getLocalInfo().combineWith
+		    (((LocalStoreOperator)store).getLocalInfo());
+		
             rightHandSide = expr.getSubExpressions()[1];
 	    rhsType = binop.getOperandType(1);
         } else {
@@ -146,6 +151,10 @@ public class CreateAssignExpression {
                 || !store.matches((Operator) simple))
                 return false;
 
+	    if (store instanceof LocalStoreOperator)
+		((LocalLoadOperator)simple).getLocalInfo().combineWith
+		    (((LocalStoreOperator)store).getLocalInfo());
+		
 	    rhsType = Type.tString;
             
             /* ... and remove it. */
