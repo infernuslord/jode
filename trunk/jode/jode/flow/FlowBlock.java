@@ -147,6 +147,10 @@ public class FlowBlock {
         return addr+length;
     }
 
+    public boolean hasNoJumps() {
+	return successors.size() == 0 && predecessors.size() == 0;
+    }
+
     /**
      * This method optimizes the jumps to successor.
      * @param jumps The list of jumps with that successor.  
