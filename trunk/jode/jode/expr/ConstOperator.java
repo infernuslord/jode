@@ -73,6 +73,29 @@ public class ConstOperator extends NoArgOperator {
         return value;
     }
 
+    /**
+     * Return true, if this value is a one of the given type.
+     * This is used for ++ and -- instructions.
+     * @param type the type for which this must be a one.  This may
+     * be different from the type this value actually is.
+     */
+    public boolean isOne(Type type) {
+	if (type instanceof IntegerType) {
+	    return (value instanceof Integer
+		    && ((Integer)value).intValue() == 1);
+	} else if (type == Type.tLong) {
+	    return (value instanceof Long
+		    && ((Integer)value).longValue() == 1L);
+	} else if (type == Type.tFloat) {
+	    return (value instanceof Float
+		    && ((Integer)value).floatValue() == 1.0f);
+	} else if (type == Type.tDouble) {
+	    return (value instanceof Double
+		    && ((Integer)value).doubleValue() == 1.0);
+	}
+	return false;
+    }
+
     public int getPriority() {
         return 1000;
     }

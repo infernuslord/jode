@@ -1,4 +1,4 @@
-/* LocalOperator Copyright (C) 1998-1999 Jochen Hoenicke.
+/* LocalVarOperator Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,8 @@ import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 
+import @COLLECTIONS@.Collection;
+
 public abstract class LocalVarOperator extends Operator {
     LocalInfo local;
 
@@ -45,6 +47,11 @@ public abstract class LocalVarOperator extends Operator {
 
     public void updateType() {
 	updateParentType(local.getType());
+    }
+
+    public void fillDeclarables(Collection used) {
+	used.add(local);
+	super.fillDeclarables(used);
     }
 
     public LocalInfo getLocalInfo() {

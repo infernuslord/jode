@@ -90,8 +90,7 @@ public class StoreInstruction extends Operator
 
             if ((getOperatorIndex() == OPASSIGN_OP+ADD_OP ||
                  getOperatorIndex() == OPASSIGN_OP+SUB_OP)
-		&& one.getValue() instanceof Number
-		&& ((Number)one.getValue()).doubleValue() == 1.0) {
+		&& one.isOne(subExpressions[0].getType())) {
 		
                 int op = (getOperatorIndex() == OPASSIGN_OP+ADD_OP)
                     ? INC_OP : DEC_OP;
