@@ -46,6 +46,18 @@ public class RetBlock extends StructuredBlock {
 	gen.addElement(local);
     }
 
+    /**
+     * This does take the instr into account and modifies stack
+     * accordingly.  It then calls super.mapStackToLocal.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	if (!stack.isEmpty())
+	    throw new IllegalArgumentException("stack is not empty at RET");
+	return null;
+    }
+
     public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 
         throws java.io.IOException 
     {

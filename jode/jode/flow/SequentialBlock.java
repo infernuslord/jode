@@ -53,6 +53,17 @@ public class SequentialBlock extends StructuredBlock {
     }
 
     /**
+     * This does take the instr into account and modifies stack
+     * accordingly.  It then calls super.mapStackToLocal.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	return subBlocks[1].mapStackToLocal
+	    (subBlocks[0].mapStackToLocal(stack));
+    }
+
+    /**
      * Returns the block where the control will normally flow to, when
      * the given sub block is finished (<em>not</em> ignoring the jump
      * after this block). (This is overwritten by SequentialBlock and
