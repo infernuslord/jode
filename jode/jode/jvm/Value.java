@@ -28,6 +28,9 @@ public class Value {
     Object value;
     NewObject newObj;
 
+    public Value() {
+    }
+
     public void setObject(Object obj) {
 	value = obj;
     }
@@ -81,6 +84,10 @@ public class Value {
     public void setValue(Value val) {
 	value = val.value;
 	newObj = val.newObj;
+    }
+
+    public String toString() {
+	return newObj != null ? newObj.toString() : ""+value;
     }
 }
 
