@@ -31,10 +31,10 @@ public class CombineIfGotoExpressions {
             return false;
 
         SequentialBlock sequBlock = (SequentialBlock) cb.outer;
-        Expression[] e = new Expression[2];
+        Expression firstCond, secondCond;
 
-        e[1] = cb.getInstruction();
-        Expression lastCombined = e[1];
+        secondCond = cb.getInstruction();
+        Expression lastCombined = secondCond;
             
         while (sequBlock.subBlocks[0] instanceof InstructionBlock) {
             InstructionBlock ib = 
@@ -44,8 +44,9 @@ public class CombineIfGotoExpressions {
                 return false;
 
             Expression expr = ib.getInstruction();
-            if (!(expr.getOperator() instanceof CombineableOperator)
-		|| lastCombined.canCombine(expr) + e[1].canCombine(expr) <= 0)
+            if (!(expr instanceof CombineableOperator)
+		|| (lastCombined.canCombine((CombineableOperator)expr)
+		    + secondCond.canCombine((CombineableOperator)expr) <= 0))
                 /* Tricky, the above is true, iff one of the two
                  * Expressions conflict, or both fail.  */
                 return false;
@@ -65,12 +66,12 @@ public class CombineIfGotoExpressions {
             int operator;
             if (prevJump.destination == cb.jump.destination) {
                 operator = BinaryOperator.LOG_AND_OP;
-                e[0] = cbprev.getInstruction().negate();
+                firstCond = cbprev.getInstruction().negate();
                 cb.jump.gen.unionExact(prevJump.gen);
                 cb.jump.kill.intersect(prevJump.kill);
             } else if (prevJump.destination == cb.trueBlock.jump.destination) {
                 operator = BinaryOperator.LOG_OR_OP;
-                e[0] = cbprev.getInstruction();
+                firstCond = cbprev.getInstruction();
                 cb.trueBlock.jump.gen.unionExact(prevJump.gen);
                 cb.trueBlock.jump.kill.intersect(prevJump.kill);
             } else
@@ -89,15 +90,14 @@ public class CombineIfGotoExpressions {
 
                 Expression expr = ib.getInstruction();
 
-                e[1] = e[1].combine(expr);
+                secondCond = secondCond.combine((CombineableOperator) expr);
                 sequBlock = (SequentialBlock) sequBlock.outer;
             }
 
             cb.flowBlock.removeSuccessor(prevJump);
             prevJump.prev.removeJump();
-            Expression cond = 
-                new ComplexExpression
-                (new BinaryOperator(Type.tBoolean, operator), e);
+            Expression cond = new BinaryOperator(Type.tBoolean, operator)
+		.addOperand(secondCond).addOperand(firstCond);
             cb.setInstruction(cond);
             cb.moveDefinitions(sequBlock, last);
             last.replace(sequBlock);
