@@ -825,7 +825,7 @@ public final class InvokeOperator extends Operator
 				 ? superClazz : ClassInfo.javaLangObject);
 		    }
 		    outer = getOuterClassInfo(clazz);
-		    if (jikesAnonymousInner
+		    if (jikesAnonymousInner && outer != null
 			&& outer.outer == null && outer.name != null) {
 			Expression thisExpr = subExpressions[--length];
 			if (thisExpr instanceof CheckNullOperator) {

@@ -261,7 +261,7 @@ public class TransformConstructors {
 	/* slot counts from last slot down. */
 
 	int start = 1;
-	if (subExpr.length > 1 && slot > 1) {
+	if (subExpr.length > 2) {
 	    LocalLoadOperator llop = (LocalLoadOperator) subExpr[1];
 
 	    if (llop.getLocalInfo().getSlot() == slot) {
@@ -344,11 +344,11 @@ public class TransformConstructors {
 	} else
 	    outerValues.setCount(minOuter);
 
+	if (jikesAnon)
+	    outerValues.setJikesAnonymousInner(true);
 	if ((GlobalOptions.debuggingFlags
 	     & GlobalOptions.DEBUG_CONSTRS) != 0)
 	    GlobalOptions.err.println("  succeeded: "+outerValues);
-	if (jikesAnon)
-	    outerValues.setJikesAnonymousInner(true);
 	cons[0].setAnonymousConstructor(true);
 	superBlock.removeBlock();
 	type0Count++;
@@ -499,7 +499,9 @@ public class TransformConstructors {
 	    int firstParam = 1;
 	    Expression outer0 = null;
 
-	    if (maxOuterCount > 0 && outerValues.getCount() > 0) {
+	    if (maxOuterCount > 0 
+		&& methodParams.length > 1
+		&& outerValues.getCount() > 0) {
 		/* check if the outerValues[0] param is present. 
 		 * we can't be sure if maxOuterCount equals 1, but
 		 * we assume so.
@@ -658,6 +660,8 @@ public class TransformConstructors {
 
 	    int field = clazzAnalyzer.getFieldIndex(pfo.getFieldName(), 
 						    pfo.getFieldType());
+	    if (field < 0)
+	        break big_loop;
 	    FieldAnalyzer fieldAna = clazzAnalyzer.getField(field);
 
 	    /* Don't check for final.  Jikes sometimes omits this attribute.
@@ -725,10 +729,6 @@ public class TransformConstructors {
 
     public int transformOneField(int lastField, StructuredBlock ib) {
 	
-	if ((GlobalOptions.debuggingFlags
-	     & GlobalOptions.DEBUG_CONSTRS) != 0)
-	    GlobalOptions.err.println("fieldInit: "+ib);
-	
 	if (!(ib instanceof InstructionBlock))
 	    return -1;
 	
@@ -752,7 +752,7 @@ public class TransformConstructors {
 			clazzAnalyzer.getClazz())) {
 		if ((GlobalOptions.debuggingFlags
 		     & GlobalOptions.DEBUG_CONSTRS) != 0)
-		    GlobalOptions.err.println("not this: "+instr);
+		    GlobalOptions.err.println("  not this: "+instr);
 		return -1;
 	    }
 	}
@@ -764,13 +764,14 @@ public class TransformConstructors {
 	
 	if ((GlobalOptions.debuggingFlags
 	     & GlobalOptions.DEBUG_CONSTRS) != 0)
-	    GlobalOptions.err.println("field " + pfo.getFieldName()
+	    GlobalOptions.err.println("  field " + pfo.getFieldName()
 				      + " = " + expr);
 	
 	int field = clazzAnalyzer.getFieldIndex(pfo.getFieldName(), 
 						pfo.getFieldType());
 
-	if (field < lastField
+	// if field does not exists: -1 <= lastField.
+	if (field <= lastField
 	    || !(clazzAnalyzer.getField(field).setInitializer(expr))) {
 	    if ((GlobalOptions.debuggingFlags
 		 & GlobalOptions.DEBUG_CONSTRS) != 0)
