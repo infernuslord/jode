@@ -48,6 +48,7 @@ public class CatchInstructionHeader extends InstructionHeader {
             return false;
 
         this.local = local;
+        local.setType(type);
         successors = next.successors;
         nextInstruction = next.nextInstruction;
         if (nextInstruction != null)

@@ -4,7 +4,7 @@ import sun.tools.java.Identifier;
 
 public class CombineCatchLocal implements Transformation{
 
-    static Identifier idException = Identifier.lookup("exception");
+//     static Identifier idException = Identifier.lookup("exception");
 
     public InstructionHeader transform(InstructionHeader ih) {
         CatchInstructionHeader catchIH;
@@ -17,10 +17,8 @@ public class CombineCatchLocal implements Transformation{
             Instruction instr = ih.getInstruction();
             if (instr instanceof PopOperator) {
                 local = new LocalInfo(99);
-                local.setName(idException);
             } else if (instr instanceof LocalStoreOperator) {
                 local = ((LocalStoreOperator) instr).getLocalInfo();
-                local.setName(idException);
             } else
                 return null;
         } catch (ClassCastException ex) {

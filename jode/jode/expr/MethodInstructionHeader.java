@@ -8,8 +8,6 @@ import sun.tools.java.Type;
  * @author Jochen Hoenicke
  */
 public class MethodInstructionHeader extends InstructionHeader {
-    InstructionHeader first, last;
-
     /**
      * Create a new InstructionHeader.
      * @param addr   The address of this Instruction.
@@ -19,30 +17,21 @@ public class MethodInstructionHeader extends InstructionHeader {
     public MethodInstructionHeader(JodeEnvironment env,
                                    InstructionHeader[] instr,
                                    BinaryExceptionHandler[] handlers) {
-        super(METHOD, 0, instr.length, new InstructionHeader[0], null);
-        first = new InstructionHeader(EMPTY, 0, this);
-        last  = new InstructionHeader(EMPTY, instr.length, this);
+        super(METHOD, 0, instr.length, new InstructionHeader[1], null);
+        successors[0] = instr[0];
+        instr[0].predecessors.addElement(this);
+        endBlock  = new InstructionHeader(EMPTY, instr.length, null);
 
-        first.nextInstruction = instr[0];
-        instr[0].prevInstruction = first;
-
-	for (int addr = 0; ; addr = instr[addr].nextAddr) {
+	for (int addr = 0; addr < instr.length; addr = instr[addr].nextAddr) {
 
             instr[addr].outer = this;
 	    instr[addr].resolveSuccessors(instr);
 
 	    if (instr[addr].flowType == RETURN) {
-                InstructionHeader[] lastArr = { last };
-                instr[addr].successors = lastArr;
-		last.predecessors.addElement(instr[addr]);
+                InstructionHeader[] retSuccs = { endBlock };
+                instr[addr].successors = retSuccs;
+		endBlock.predecessors.addElement(instr[addr]);
             }
-
-            if (instr[addr].nextAddr == instr.length) {
-                instr[addr].nextInstruction = last;
-                last.prevInstruction = instr[addr];
-                break;
-            }
-	    
 	}
         for (int i=0; i<handlers.length; i++) {
             InstructionHeader tryIH   = instr[handlers[i].startPC];
@@ -60,29 +49,27 @@ public class MethodInstructionHeader extends InstructionHeader {
             InstructionHeader catchIH = instr[handlers[i].handlerPC];
             ((TryInstructionHeader)tryIH).addHandler(endIH, catchIH);
         }
-        endBlock = last;
     }
 
     public InstructionHeader getFirst() {
-        return first.nextInstruction;
+        return successors[0];
     }
 
     public Vector getReturns() {
-        return last.predecessors;
+        return endBlock.predecessors;
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-	for (InstructionHeader ih = first.nextInstruction; 
-             ih != last; ih = ih.nextInstruction)
+	for (InstructionHeader ih = successors[0]; ih != null; 
+             ih = ih.nextInstruction)
 	    ih.dumpSource(writer);
     }
 
     public InstructionHeader doTransformations(Transformation[] trafo) {
         InstructionHeader next;
-        for (InstructionHeader ih = first.nextInstruction; 
-             ih != last; ih = next) {
+        for (InstructionHeader ih = successors[0]; ih != null; ih = next) {
             if ((next = ih.doTransformations(trafo)) == null)
                 next = ih.getNextInstruction();
         }

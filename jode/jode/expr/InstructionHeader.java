@@ -25,7 +25,9 @@ public class InstructionHeader {
     public final static int WHILESTATEMENT   = 11;
     public final static int DOWHILESTATEMENT = 12;
     public final static int FORSTATEMENT     = 13;
-    public final static int TRYCATCHBLOCK    = 14;
+    public final static int SWITCHSTATEMENT  = 14;
+    public final static int TRYCATCHBLOCK    = 15;
+    public final static int BREAKSTATEMENT   = 19;
 
     public final static int EMPTY    = 99;
 
@@ -298,6 +300,8 @@ public class InstructionHeader {
      * Returns true if this instruction header needs a label.
      */
     protected boolean needsLabel() {
+        if (label != null)
+            return true;
         /* An instruction my have only one prevInstruction, but
          * may have more then one predecessor that has its
          * nextInstruction pointing to us.
@@ -371,7 +375,7 @@ public class InstructionHeader {
             writer.print(""+predecessors.elementAt(i));
         }
         writer.println("");
-        writer.print("outend: "+outer.endBlock+
+        writer.print("out: "+outer+" end: "+endBlock+
                      " prev: "+prevInstruction+", next: "+ nextInstruction +
                      "  succs: ");
         for (int i=0; i<successors.length; i++) {

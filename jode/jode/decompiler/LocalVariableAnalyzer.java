@@ -120,7 +120,14 @@ public class LocalVariableAnalyzer {
 		    continue;
 	    }
             
-            if (instr.getInstruction() instanceof LocalVarOperator) {
+            if (instr instanceof MethodInstructionHeader) {
+                /* This is the first instruction 
+                 */
+                for (int i=0; i < argLocals.length; i++) {
+                    if (reads[i] != null)
+                        argLocals[i].combineWith(reads[i]);
+                }
+            } else if (instr.getInstruction() instanceof LocalVarOperator) {
 
                 if (Decompiler.isVerbose)
                     System.err.print(".");
@@ -146,23 +153,13 @@ public class LocalVariableAnalyzer {
             }
             
             predec = instr.getPredecessors().elements();
-            if (predec.hasMoreElements()) {
-                while (predec.hasMoreElements()) {
-                    instrStack.push(predec.nextElement());
-                    readsStack.push(reads);
-                }
-            } else {
-                /* This is the first instruction 
-                 */
-                for (int i=0; i < argLocals.length; i++) {
-                    if (reads[i] != null)
-                        argLocals[i].combineWith(reads[i]);
-                }
+            while (predec.hasMoreElements()) {
+                instrStack.push(predec.nextElement());
+                readsStack.push(reads);
             }
 	}
         if (!mdef.isStatic())
             argLocals[0].setName(Constants.idThis);
-//         System.err.println("done!");
     }
 
     public void createLocalInfo(CodeAnalyzer code) {

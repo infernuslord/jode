@@ -43,8 +43,10 @@ public class LocalInfo {
         if (shadow != null)
             shadow.combineWith(li);
         li = li.getLocalInfo();
-        if (this != li)
+        if (this != li) {
             shadow = li;
+            li.setType(type);
+        }
     }
 
     /**
@@ -98,7 +100,7 @@ public class LocalInfo {
             return shadow.setType(newType);
         this.type = MyType.intersection(this.type, newType);
         if (this.type == MyType.tError)
-            System.err.println("Type error in "+name.toString());
+            System.err.println("Type error in "+getName());
         return this.type;
     }
 

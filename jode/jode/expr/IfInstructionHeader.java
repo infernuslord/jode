@@ -71,7 +71,6 @@ public class IfInstructionHeader extends InstructionHeader {
         this.instr = ((Expression)ifHeader.getInstruction()).negate();
 
         this.movePredecessors(ifHeader);
-        this.outer    = ifHeader.outer;
         this.endBlock = endBlock;
         successors[0].predecessors.removeElement(ifHeader);
         successors[1].predecessors.removeElement(ifHeader);
