@@ -207,8 +207,9 @@ public class CodeVerifier implements Opcodes {
 		return t2.equals("Ljava/lang/Object;");
 	}
 	if (c1 == 'L' && c2 == 'L') {
-	    return TypeSignature.getClassInfo(t2)
-		.superClassOf(TypeSignature.getClassInfo(t1));
+	    ClassInfo wantedType = TypeSignature.getClassInfo(t2);
+	    return wantedType.isInterface()
+		|| wantedType.superClassOf(TypeSignature.getClassInfo(t1));
 	}
 	return false;
     }
