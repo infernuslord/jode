@@ -83,7 +83,7 @@ public class Jump {
     public void dumpSource(jode.TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        if (jode.Decompiler.isDebugging) {
+        if (jode.Decompiler.debugInOut) {
             writer.println("gen : "+ gen.toString());
             writer.println("kill: "+ kill.toString());
         }
