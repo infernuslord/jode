@@ -154,7 +154,9 @@ public class CodeAnalyzer implements Analyzer {
                 addr = instr[addr].getNextAddr();
             }
             
-            excHandlers = new TransformExceptionHandlers(instr);
+	    methodHeader = instr[0];
+	    methodHeader.markReachable();
+            excHandlers = new TransformExceptionHandlers();
             for (int i=0; i<handlers.length; i += 4) {
                 Type type = null;
                 int start   = handlers[i + 0];
@@ -166,18 +168,21 @@ public class CodeAnalyzer implements Analyzer {
                 if (handlers[i + 3 ] != 0)
                     type = Type.tClass(cpool.getClassName(handlers[i + 3]));
                 
-                excHandlers.addHandler(start, end, handler, type);
+                excHandlers.addHandler(instr[start], end, 
+				       instr[handler], type);
+		instr[handler].markReachable();
             }
         } catch (IOException ex) {
             ex.printStackTrace();
             throw new ClassFormatError(ex.getMessage());
         }
 
+	FlowBlock.removeDeadCode(methodHeader);
+
         if (Decompiler.isVerbose)
             Decompiler.err.print('-');
             
         excHandlers.analyze();
-	methodHeader = instr[0];
         methodHeader.analyze();
     } 
 
