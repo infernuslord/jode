@@ -179,14 +179,13 @@ public abstract class Identifier {
 	    if (GlobalOptions.verboseLevel > 4)
 		GlobalOptions.err.println(toString() + " is preserved");
 	} else {
-
 	    Identifier rep = getRepresentative();
 	    if (rep.wasAliased)
 		return;
 	    rep.wasAliased = true;
 
 	    // set alias to empty string, so it won't conflict!
-	    alias = "";
+	    rep.alias = "";
 	    String newAlias = null;
 	next_alias:
 	    for (;;) {
@@ -198,7 +197,7 @@ public abstract class Identifier {
 		    ptr = ptr.right;
 		}
 		setAlias(newAlias.toString());
-		return;
+		break;
 	    }
 	}
 	for (Iterator i = getChilds(); i.hasNext(); )

@@ -1,5 +1,4 @@
 ## Input file for automake to generate the Makefile.in used by configure
 
-SUBDIRS = jode bin doc test
+bin_SCRIPTS = jode
 
-EXTRA_DIST = TODO

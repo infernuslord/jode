@@ -184,7 +184,7 @@ public class Main {
     }
 
     public static CodeAnalyzer createCodeAnalyzer() {
-	return new ConstantAnalyzer() /*XXX*/;
+	return new SimpleAnalyzer() /*XXX*/;
     }
 
     static CodeTransformer[] codeTransformers = {

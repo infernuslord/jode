@@ -231,6 +231,11 @@ public class ClassInfo extends BinaryInfo {
     }
 
     public void read(DataInputStream input, int howMuch) throws IOException {
+	/* Since we have to read the whole class anyway, we load all
+	 * info, that we may need later and that does not take much memory. 
+	 */
+	howMuch |= FIELDS | METHODS | HIERARCHY | INNERCLASSES | OUTERCLASSES;
+	howMuch &= ~status;
 	/* header */
 	if (input.readInt() != 0xcafebabe)
 	    throw new ClassFormatException("Wrong magic");
@@ -261,11 +266,13 @@ public class ClassInfo extends BinaryInfo {
 	}	    
 
 	/* fields */
-        if ((howMuch & FIELDS) != 0) {
+        if ((howMuch & (FIELDS | ALL_ATTRIBUTES)) != 0) {
             int count = input.readUnsignedShort();
-            fields = new FieldInfo[count];
+	    if ((howMuch & FIELDS) != 0)
+		fields = new FieldInfo[count];
             for (int i=0; i< count; i++) {
-                fields[i] = new FieldInfo(this); 
+		if ((howMuch & FIELDS) != 0)
+		    fields[i] = new FieldInfo(this); 
                 fields[i].read(cpool, input, howMuch);
             }
         } else {
@@ -278,11 +285,13 @@ public class ClassInfo extends BinaryInfo {
         }
 
 	/* methods */
-        if ((howMuch & METHODS) != 0) {
+        if ((howMuch & (METHODS | ALL_ATTRIBUTES)) != 0) {
             int count = input.readUnsignedShort();
-            methods = new MethodInfo[count];
+	    if ((howMuch & METHODS) != 0)
+		methods = new MethodInfo[count];
             for (int i=0; i< count; i++) {
-                methods[i] = new MethodInfo(this); 
+		if ((howMuch & METHODS) != 0)
+		    methods[i] = new MethodInfo(this); 
                 methods[i].read(cpool, input, howMuch);
             }
         } else {
@@ -296,6 +305,7 @@ public class ClassInfo extends BinaryInfo {
 
 	/* attributes */
 	readAttributes(cpool, input, howMuch);
+	status |= howMuch;
     }
 
     public void reserveSmallConstants(GrowableConstantPool gcp) {
@@ -546,7 +556,6 @@ public class ClassInfo extends BinaryInfo {
                 new DataInputStream(classpath.getFile(name.replace('.', '/')
                                                       + ".class"));
 	    read(input, howMuch);            
-            status |= howMuch;
 
         } catch (IOException ex) {
 	    String message = ex.getMessage();
@@ -645,7 +654,7 @@ public class ClassInfo extends BinaryInfo {
     public FieldInfo findField(String name, String typeSig) {
         if ((status & FIELDS) == 0)
             loadInfo(FIELDS);
-        for (int i=0; i< methods.length; i++)
+        for (int i=0; i< fields.length; i++)
             if (fields[i].getName().equals(name)
                 && fields[i].getType().equals(typeSig))
                 return fields[i];

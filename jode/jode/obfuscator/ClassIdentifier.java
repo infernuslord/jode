@@ -40,6 +40,7 @@ import jode.util.Iterator;
 import jode.util.List;
 import jode.util.LinkedList;
 import jode.util.Map;
+import jode.util.UnsupportedOperationException;
 ///#endif
 
 import java.lang.reflect.Modifier;
@@ -57,7 +58,6 @@ public class ClassIdentifier extends Identifier {
     String superName;
     String[] ifaceNames;
 
-    List identifiers;
     List fieldIdents, methodIdents;
     List knownSubClasses = new LinkedList();
     List virtualReachables = new LinkedList();
@@ -82,6 +82,7 @@ public class ClassIdentifier extends Identifier {
 	String fullName = getFullName() + ".";
 	for (Iterator i = getChilds(); i.hasNext(); ) {
 	    Identifier ident = (Identifier) i.next();
+	    System.err.println("checking "+ident);
 	    if (wildcard.matches(fullName + ident.getName())
 		|| wildcard.matches(fullName + ident.getName()
 				    + "." +ident.getType())) {
@@ -94,8 +95,24 @@ public class ClassIdentifier extends Identifier {
 	}
     }
 
-    public void preserveIdentifier(String name, String typeSig) {
-	preserveMatchingIdentifier(new WildCard(name+"."+typeSig));
+    private FieldIdentifier findField(String name, String typeSig) {
+	for (Iterator i = fieldIdents.iterator(); i.hasNext(); ) {
+	    FieldIdentifier ident = (FieldIdentifier) i.next();
+	    if (ident.getName().equals(name)
+		&& ident.getType().equals(typeSig))
+		return ident;
+	}
+	return null;
+    }
+
+    private MethodIdentifier findMethod(String name, String typeSig) {
+	for (Iterator i = methodIdents.iterator(); i.hasNext(); ) {
+	    MethodIdentifier ident = (MethodIdentifier) i.next();
+	    if (ident.getName().equals(name)
+		&& ident.getType().equals(typeSig))
+		return ident;
+	}
+	return null;
     }
 
     public void reachableIdentifier(String name, String typeSig,
@@ -109,6 +126,20 @@ public class ClassIdentifier extends Identifier {
 		found = true;
 	    }
 	}
+	if (!found) {
+	    // This means that the method is inherited from parent and 
+	    // must be marked as reachable there, (but not virtual).
+	    // Consider following:
+	    // A method in Collection and AbstractCollection is not reachable
+	    // but it is reachable in Set and not implemented in AbstractSet
+	    // In that case the method must be marked reachable in 
+	    // AbstractCollection.
+	    ClassIdentifier superIdent = Main.getClassBundle()
+		.getClassIdentifier(info.getSuperclass().getName());
+	    if (superIdent != null)
+		superIdent.reachableIdentifier(name, typeSig, false);
+	}
+	    
 	if (isVirtual) {
 	    for (Iterator i = knownSubClasses.iterator(); i.hasNext(); )
 		((ClassIdentifier)i.next())
@@ -117,13 +148,13 @@ public class ClassIdentifier extends Identifier {
 	}
     }
 
-    public void chainIdentifier(Identifier chainIdent) {
+    public void chainMethodIdentifier(Identifier chainIdent) {
 	String name = chainIdent.getName();
 	String typeSig = chainIdent.getType();
-	for (Iterator i = getChilds(); i.hasNext(); ) {
+	for (Iterator i = methodIdents.iterator(); i.hasNext(); ) {
 	    Identifier ident = (Identifier) i.next();
-	    if (ident.getName().equals(ident.getName())
-		&& (ident.getType().equals(typeSig)))
+	    if (ident.getName().equals(name)
+		&& ident.getType().equals(typeSig))
 		chainIdent.addShadow(ident);
 	}
     }
@@ -246,33 +277,28 @@ public class ClassIdentifier extends Identifier {
      * a compatible class.
      */
     public void preserveSerializable() {
-	preserveIdentifier("writeObject", "(Ljava.io.ObjectOutputStream)V");
-	preserveIdentifier("readObject", "(Ljava.io.ObjectOutputStream)V");
+	Identifier method 
+	    = findMethod("writeObject", "(Ljava.io.ObjectOutputStream)V");
+	if (method != null)
+	    method.setPreserved();
+	method = findMethod("readObject", "(Ljava.io.ObjectInputStream)V");
+	if (method != null)
+	    method.setPreserved();
 	if ((Main.options & Main.OPTION_PRESERVESERIAL) != 0) {
 	    setPreserved();
-	    boolean hasSerialUID = false;
-	    for (Iterator i = getFieldIdents().iterator(); i.hasNext(); ) {
-		Identifier ident = (Identifier) i.next();
-		if ("serialVersionUID".equals(ident.getName())
-		    && "J".equals(ident.getType())) {
-		    ident.setReachable();
-		    ident.setPreserved();
-		    hasSerialUID = true;
-		    break;
-		}
-	    }
-	    if (!hasSerialUID) {
+	    Identifier UIDident = findField("serialVersionUID", "J");
+	    if (UIDident == null) {
 		/* add a field serializableVersionUID if not existent */
 		long serialVersion = calcSerialVersionUID();
 		FieldInfo UIDField = new FieldInfo
 		    (info, "serialVersionUID", "J", 
 		     Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
 		UIDField.setConstant(new Long(serialVersion));
-		FieldIdentifier fident = new FieldIdentifier(this, UIDField);
-		fident.setPreserved();
-		fident.setReachable();
-		fieldIdents.add(fident);
+		UIDident = new FieldIdentifier(this, UIDField);
+		fieldIdents.add(UIDident);
 	    }
+	    UIDident.setReachable();
+	    UIDident.setPreserved();
 	    for (Iterator i=getFieldIdents().iterator(); i.hasNext(); ) {
 		FieldIdentifier ident = (FieldIdentifier) i.next();
 		if ((ident.info.getModifiers() 
@@ -358,7 +384,7 @@ public class ClassIdentifier extends Identifier {
 			  | Modifier.FINAL) & modif) == 0
 			&& !(mid.getName().equals("<init>"))) {
 			// chain the preserved/same name lists.
-			chainIdentifier(mid);
+			chainMethodIdentifier(mid);
 		    }
 		}
 	    } else {
@@ -371,8 +397,10 @@ public class ClassIdentifier extends Identifier {
 		    if (((Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL)
 			 & modif) == 0
 			&& !topmethods[i].getName().equals("<init>")) {
-			preserveIdentifier
+			Identifier method = findMethod
 			    (topmethods[i].getName(), topmethods[i].getType());
+			if (method != null)
+			    method.setPreserved();
 		    }
 		}
 	    }
@@ -393,10 +421,8 @@ public class ClassIdentifier extends Identifier {
 	    Collections.shuffle(Arrays.asList(finfos), rand);
 	    Collections.shuffle(Arrays.asList(minfos), rand);
 	}
-	identifiers = new ArrayList(finfos.length + minfos.length);
-	fieldIdents = identifiers.subList(0, 0);
-	methodIdents = identifiers.subList(0, 0);
-	identifiers = Collections.unmodifiableList(identifiers);
+	fieldIdents = new ArrayList(finfos.length);
+	methodIdents = new ArrayList(minfos.length);
 	for (int i=0; i< finfos.length; i++)
 	    fieldIdents.add(new FieldIdentifier(this, finfos[i]));
 
@@ -665,36 +691,30 @@ public class ClassIdentifier extends Identifier {
 	transformSuperIfaces();
 	transformInnerClasses();
 
-	int newFieldCount = 0, newMethodCount = 0;
-	if ((Main.stripping & Main.STRIP_UNREACH) != 0) {
-	    for (Iterator i = fieldIdents.iterator(); i.hasNext(); ) {
-		Identifier ident = (Identifier) i.next();
-		if (!ident.isReachable())
-		    i.remove();
-	    }
-	    for (Iterator i = methodIdents.iterator(); i.hasNext(); ) {
-		Identifier ident = (Identifier) i.next();
-		if (!ident.isReachable())
-		    i.remove();
-	    }
-	}
-	FieldInfo[] newFields = new FieldInfo[fieldIdents.size()];
-	MethodInfo[] newMethods = new MethodInfo[methodIdents.size()];
-	newFieldCount = newMethodCount = 0;
+	Collection newFields = new ArrayList(fieldIdents.size());
+	Collection newMethods = new ArrayList(methodIdents.size());
 
 	for (Iterator i = fieldIdents.iterator(); i.hasNext(); ) {
 	    FieldIdentifier ident = (FieldIdentifier)i.next();
-	    ident.doTransformations();
-	    newFields[newFieldCount++] = ident.info;
+	    if ((Main.stripping & Main.STRIP_UNREACH) == 0
+		|| ident.isReachable()) {
+		ident.doTransformations();
+		newFields.add(ident.info);
+	    }
 	}
 	for (Iterator i = methodIdents.iterator(); i.hasNext(); ) {
 	    MethodIdentifier ident = (MethodIdentifier)i.next();
-	    ident.doTransformations();
-	    newMethods[newMethodCount++] = ident.info;
+	    if ((Main.stripping & Main.STRIP_UNREACH) == 0
+		|| ident.isReachable()) {
+		ident.doTransformations();
+		newMethods.add(ident.info);
+	    }
 	}
 
-	info.setFields(newFields);
-	info.setMethods(newMethods);
+	info.setFields((FieldInfo[]) newFields.toArray
+		       (new FieldInfo[newFields.size()]));
+	info.setMethods((MethodInfo[]) newMethods.toArray
+			(new MethodInfo[newMethods.size()]));
     }
     
     public void storeClass(DataOutputStream out) throws IOException {
@@ -702,7 +722,7 @@ public class ClassIdentifier extends Identifier {
 	    GlobalOptions.err.println("Writing "+this);
 	info.write(out);
 	info = null;
-	identifiers = null;
+	fieldIdents = methodIdents = null;
     }
 
     public Identifier getParent() {
@@ -746,7 +766,28 @@ public class ClassIdentifier extends Identifier {
     }	
 
     public Iterator getChilds() {
-	return identifiers.iterator();
+	final Iterator fieldIter = fieldIdents.iterator();
+	final Iterator methodIter = methodIdents.iterator();
+	    
+	return new Iterator() {
+	    boolean fieldsNext = fieldIter.hasNext();
+	    public boolean hasNext() {
+		return fieldsNext ? true : methodIter.hasNext();
+	    }
+
+	    public Object next() {
+		if (fieldsNext) {
+		    Object result = fieldIter.next();
+		    fieldsNext = fieldIter.hasNext();
+		    return result;
+		}
+		return methodIter.next();
+	    }
+
+	    public void remove() {
+		throw new UnsupportedOperationException();
+	    }
+	};
     }
 
     public String toString() {
@@ -754,24 +795,13 @@ public class ClassIdentifier extends Identifier {
     }
 
     public Identifier getIdentifier(String fieldName, String typeSig) {
-	for (Iterator i = identifiers.iterator(); i.hasNext(); ) {
+	for (Iterator i = getChilds(); i.hasNext(); ) {
 	    Identifier ident = (Identifier) i.next();
 	    if (ident.getName().equals(fieldName)
 		&& ident.getType().startsWith(typeSig))
 		return ident;
 	}
 	
-	for (int i=0; i < ifaceNames.length; i++) {
-	    ClassIdentifier ifaceident = Main.getClassBundle()
-		.getClassIdentifier(ifaceNames[i]);
-	    if (ifaceident != null) {
-		Identifier ident
-		    = ifaceident.getIdentifier(fieldName, typeSig);
-		if (ident != null)
-		    return ident;
-	    }
-	}
-
 	if (superName != null) {
 	    ClassIdentifier superident = Main.getClassBundle()
 		.getClassIdentifier(superName);

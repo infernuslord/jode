@@ -159,6 +159,7 @@ public class FieldInfo extends BinaryInfo {
     }
 
     public Object getConstant() {
+	clazzInfo.loadInfo(ALL_ATTRIBUTES);
 	return constant;
     }
 

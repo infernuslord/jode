@@ -6,8 +6,9 @@ dnl
 dnl JODE_CHECK_JAVA(path)
 AC_DEFUN(JODE_CHECK_JAVA,
 [
-  AC_PATH_PROG(JAVAC, javac, "", $PATH:$1/bin)
-  AC_PATH_PROG(JAR, jar, "", $PATH:$1/bin)
+  AC_PATH_PROG(JAVA, java, "", $1/bin:$1/jre/bin:$PATH)
+  AC_PATH_PROG(JAVAC, javac, "", $1/bin:$PATH)
+  AC_PATH_PROG(JAR, jar, "", $1/bin:$PATH)
   for path in $1/lib $1/jre/lib $1/shared; do
     for classlib in classes.zip rt.jar; do
        AC_CHECK_FILES($path/$classlib, 
