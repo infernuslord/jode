@@ -18,7 +18,7 @@
  */
 
 package jode.decompiler;
-import jode.*;
+import jode.type.*;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.MethodInfo;
@@ -30,7 +30,7 @@ import java.util.NoSuchElementException;
 import java.lang.reflect.Modifier;
 
 public class ClassAnalyzer implements Analyzer {
-    JodeEnvironment env;
+    ImportHandler imports;
     FieldAnalyzer[] fields;
     MethodAnalyzer[] methods;
     MethodAnalyzer staticConstructor;
@@ -40,12 +40,12 @@ public class ClassAnalyzer implements Analyzer {
     ClassAnalyzer parent;
     
     public ClassAnalyzer(ClassAnalyzer parent, ClassInfo clazz, 
-                         JodeEnvironment env)
+                         ImportHandler imports)
     {
         clazz.loadInfo(clazz.FULLINFO);
         this.parent = parent;
         this.clazz = clazz;
-        this.env  = env;
+        this.imports = imports;
     }
 
     public FieldAnalyzer getField(String fieldName, Type fieldType) {
@@ -88,14 +88,14 @@ public class ClassAnalyzer implements Analyzer {
 	fields = new FieldAnalyzer[finfos.length];
 	methods = new MethodAnalyzer[minfos.length];
         for (int j=0; j < finfos.length; j++) {
-            fields[j] = new FieldAnalyzer(this, finfos[j], env);
+            fields[j] = new FieldAnalyzer(this, finfos[j], imports);
             fields[j].analyze();
         }
 
         staticConstructor = null;
         java.util.Vector constrVector = new java.util.Vector();
         for (int j=0; j < methods.length; j++) {
-            methods[j] = new MethodAnalyzer(this, minfos[j], env);
+            methods[j] = new MethodAnalyzer(this, minfos[j], imports);
 
             if (methods[j].isConstructor()) {
                 if (methods[j].isStatic())
@@ -121,12 +121,12 @@ public class ClassAnalyzer implements Analyzer {
             TransformConstructors.transform(this, true, new MethodAnalyzer[] 
                                             { staticConstructor });
 
-	env.useClass(clazz.getName());
+	imports.useClass(clazz);
         if (clazz.getSuperclass() != null)
-            env.useClass(clazz.getSuperclass().getName());
+            imports.useClass(clazz.getSuperclass());
         ClassInfo[] interfaces = clazz.getInterfaces();
         for (int j=0; j< interfaces.length; j++)
-            env.useClass(interfaces[j].getName());
+            imports.useClass(interfaces[j]);
     }
 
     public void dumpSource(TabbedPrintWriter writer) throws java.io.IOException
@@ -143,12 +143,12 @@ public class ClassAnalyzer implements Analyzer {
             writer.print(modif + " ");
         writer.print(clazz.isInterface() 
                      ? ""/*interface is in modif*/ : "class ");
-	writer.println(env.classString(clazz.getName()));
+	writer.println(imports.getClassString(clazz));
 	writer.tab();
         ClassInfo superClazz = clazz.getSuperclass();
 	if (superClazz != null && 
             superClazz != ClassInfo.javaLangObject) {
-	    writer.println("extends "+env.classString(superClazz.getName()));
+	    writer.println("extends "+imports.getClassString(superClazz));
         }
         ClassInfo[] interfaces = clazz.getInterfaces();
 	if (interfaces.length > 0) {
@@ -156,7 +156,7 @@ public class ClassAnalyzer implements Analyzer {
 	    for (int i=0; i < interfaces.length; i++) {
 		if (i > 0)
 		    writer.print(", ");
-		writer.print(env.classString(interfaces[i].getName()));
+		writer.print(imports.getClassString(interfaces[i]));
 	    }
             writer.println("");
 	}
