@@ -65,7 +65,7 @@ public abstract class StructuredBlock {
      * path from the start of the current flow block, on which the
      * local variable is never assigned
      */
-    Vector in; 
+    VariableSet in; 
 
     /**
      * The out locals.  This are the locals, which must be overwritten
@@ -74,12 +74,18 @@ public abstract class StructuredBlock {
      * structured block contain a (unconditional) assignment to this
      * local
      */
-    Vector out;
+    VariableSet out;
+
+    /**
+     * The variable set containing all variables that must be defined
+     * in this block (or maybe an outer block, this changes as the
+     * blocks are put together).
+     */
+    VariableSet defineHere;
 
     /**
      * The surrounding structured block.  If this is the outermost
-     * block in a flow block, outer is null.  
-     */
+     * block in a flow block, outer is null.  */
     StructuredBlock outer;
 
     /**
@@ -96,9 +102,11 @@ public abstract class StructuredBlock {
 
     /**
      * Returns the block where the control will normally flow to, when
-     * this block is finished (ignoring the jump after this block).
+     * this block is finished (not ignoring the jump after this block).
      */
     StructuredBlock getNextBlock() {
+        if (jump != null)
+            return null;
         if (outer != null)
             outer.getNextBlock(this);
         else 
@@ -107,12 +115,14 @@ public abstract class StructuredBlock {
 
     /**
      * Returns the flow block where the control will normally flow to,
-     * when this block is finished (ignoring the jump after this
+     * when this block is finished (not ignoring the jump after this
      * block).  
      * @return null, if the control flows into a non empty structured
      * block or if this is the outermost block.
      */
     FlowBlock getNextFlowBlock() {
+        if (jump != null)
+            return jump.destination;
         if (outer != null)
             outer.getNextFlowBlock(this);
         else 
@@ -142,14 +152,10 @@ public abstract class StructuredBlock {
      * the behaviour is undefined, so take care.  
      * @return null, if the control flows to another FlowBlock.  */
     StructuredBlock getNextBlock(StructuredBlock subBlock) {
-        if (jump != null)
-            return null;
         return getNextBlock();
     }
 
     FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
-        if (jump != null)
-            return jump.destination;
         return getNextFlowBlock();
     }
 
@@ -165,6 +171,13 @@ public abstract class StructuredBlock {
     }
 
     /**
+     * Returns all sub block of this structured block.
+     */
+    StructuredBlock[] getSubBlocks() {
+        return new StructuredBlock[0];
+    }
+
+    /**
      * Returns if this block contains the given block.
      * @param child the block which should be contained by this block.
      * @return false, if child is null, or is not contained in this block.
@@ -175,11 +188,58 @@ public abstract class StructuredBlock {
         return (child == this);
     }
 
+
+    /**
+     * Removes the jump after this structured block.  This does also update
+     * the successors vector of the flow block.
+     */
+    public void removeJump() {
+        if (jump != null) {
+            flowBlock.removeSuccessor(jump);
+            jump = null;
+        }
+    }
+
+    /**
+     * This function replaces sb with this block.  It copies outer and
+     * the following jump from sb, and updates them, so they know that
+     * sb was replaced. 
+     * The jump field of sb is removed afterwards.  You have to replace
+     * sb.outer or mustn't use sb anymore.
+     * @param sb  The structured block that should be replaced.
+     */
+    public void replace(StructuredBlock sb) {
+        in = sb.in;
+        out = sb.out;
+        defineHere = sb.defineHere;
+        outer = sb.outer;
+        flowBlock = sb.flowBlock;
+        jump = sb.jump;
+
+        if (jump != null) {
+            jump.parent = this;
+            sb.jump = null;
+        }
+        if (outer != null) {
+            outer.replaceSubBlock(sb, this);
+        } else {
+            flowBlock.block = this;
+        }
+    }
+
+    /**
+     * Determines if there is a sub block, that flows through to the end
+     * of this block.  If this returns true, you know that jump is null.
+     * @return true, if the jump may be safely changed.
+     */
+    public boolean jumpMayBeChanged() {
+        return false;
+    }
+
     /**
      * Print the source code for this structured block.  This may be
      * called only once, because it remembers which local variables
-     * were declared.
-     */
+     * were declared.  */
     public abstract void dumpSource(TabbedPrintWriter writer)
         throws java.io.IOException;
 }

@@ -39,21 +39,31 @@ public class IfThenElseBlock extends StructuredBlock {
     StructuredBlock elseBlock;
 
     /**
-     * Creates a new if then else block.
-     * @param thenBlock the then block, must be non null.
-     * @param elseBlock the else block, may be null.
+     * Creates a new if then else block.  The method setThenBlock must
+     * be called shortly after the creation.
      */
-    public IfThenElseBlock(Instruction cond,
-                           StructuredBlock thenBlock, 
-                           StructuredBlock elseBlock) {
+    public IfThenElseBlock(Instruction cond) {
         this.cond = cond;
-        this.thenBlock = thenBlock;
-        this.elseBlock = elseBlock;
-        thenBlock.outer = this;
-        if (elseBlock != null)
-            elseBlock.outer = this;
     }
 
+    /** 
+     * Sets the then block.
+     * @param thenBlock the then block, must be non null.
+     */
+    public void setThenBlock(StructuredBlock thenBlock) {
+        this.thenBlock = thenBlock;
+        thenBlock.outer = this;
+    }
+
+    /** 
+     * Sets the else block.
+     * @param elseBlock the else block
+     */
+    public void setElseBlock(StructuredBlock elseBlock) {
+        this.elseBlock = elseBlock;
+        elseBlock.outer = this;
+    }
+    
     /* The implementation of getNext[Flow]Block is the standard
      * implementation */
 
@@ -97,5 +107,33 @@ public class IfThenElseBlock extends StructuredBlock {
         }
         if (needBrace)
             writer.println("}");
+    }
+
+    /**
+     * Returns all sub block of this structured block.
+     */
+    StructuredBlock[] getSubBlocks() {
+        if (elseBlock == null) {
+            StructuredBlock result = { thenBlock };
+            return result;
+        } else {
+            StructuredBlock result = { thenBlock, elseBlock };
+            return result;
+        }
+    }
+
+    /**
+     * Determines if there is a sub block, that flows through to the end
+     * of this block.  If this returns true, you know that jump is null.
+     * @return true, if the jump may be safely changed.
+     */
+    public boolean jumpMayBeChanged() {
+        if (thenBlock.jump == null && !thenBlock.jumpMayBeChanged())
+            return false;
+
+        if (elseBlock != null && elseBlock.jump == null &&
+            !elseBlock.jumpMayBeChanged)
+            return false;
+        return true;
     }
 }
