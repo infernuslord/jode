@@ -60,14 +60,16 @@ import jode.util.SimpleSet;
  */
 public class FlowBlock {
 
-    public static FlowBlock END_OF_METHOD = 
-        new FlowBlock(null, Integer.MAX_VALUE, 0, new EmptyBlock());
-
-    public static FlowBlock NEXT_BY_ADDR = 
-        new FlowBlock(null, -1, 0, new DescriptionBlock("FALL THROUGH"));
+    public static FlowBlock END_OF_METHOD;
+    public static FlowBlock NEXT_BY_ADDR;
 
     static {
+	END_OF_METHOD = new FlowBlock(null, Integer.MAX_VALUE);
+	END_OF_METHOD.appendBlock(new EmptyBlock(), 0);
         END_OF_METHOD.label = "END_OF_METHOD";
+
+	NEXT_BY_ADDR = new FlowBlock(null, -1);
+        NEXT_BY_ADDR.appendBlock(new DescriptionBlock("FALL THROUGH"), 0);
 	NEXT_BY_ADDR.label  = "NEXT_BY_ADDR";
     }
 
@@ -182,33 +184,9 @@ public class FlowBlock {
     /**
      * The default constructor.  Creates a new empty flowblock.
      */
-    public FlowBlock(MethodAnalyzer method, int addr, int length) {
+    public FlowBlock(MethodAnalyzer method, int addr) {
 	this.method = method;
         this.addr = addr;
-        this.length = length;
-    }
-
-    /**
-     * The default constructor.  Creates a new flowblock containing
-     * only the given structured block.
-     */
-    public FlowBlock(MethodAnalyzer method, int addr, int length, 
-		     StructuredBlock block) {
-	this.method = method;
-        this.addr = addr;
-        this.length = length;
-	setBlock(block);
-    }
-
-    public void setBlock(StructuredBlock block) {
-	if (this.block != null)
-	    throw new jode.AssertError("FlowBlock.setBlock called twice");
-        this.block = block;
-        lastModified = block;
-        block.setFlowBlock(this);
-        block.fillInGenSet(in, gen);
-        block.fillSuccessors();
-        checkConsistent();
     }
 
     public final int getNextAddr() {
@@ -692,7 +670,7 @@ public class FlowBlock {
 	    SuccessorInfo succSuccInfo = (SuccessorInfo) i.next();
 	    succSuccInfo.gen.mergeGenKill(gens, succSuccInfo.kill);
 	    if (successor != this)
-		succSuccInfo.kill.addAll(kills);
+		succSuccInfo.kill.mergeKill(kills);
         }
         this.in.addAll(newIn);
         this.gen.addAll(successor.gen);
@@ -829,47 +807,58 @@ public class FlowBlock {
 	}
     }
 
-
-    /**
-     * This is a special T2 transformation, that does also succeed, if
-     * the jumps in the flow block are not yet resolved.  But it has
-     * a special precondition:  The succ must be a simple instruction block,
-     * mustn't have another predecessor and all structured blocks in this
-     * flow block must be simple instruction blocks.
-     * @param succ The successing structured block that should be merged.
-     * @param length the length of the structured block.
-     */
-    public void doSequentialT2(StructuredBlock succ, int length) {
-        checkConsistent();
-	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0) {
-	    GlobalOptions.err.println("merging sequentialBlock: "+this);
-	    GlobalOptions.err.println("and: "+succ);
-	}
-        SlotSet succIn = new SlotSet();
+    public void appendBlock(StructuredBlock block, int length) {
+	SlotSet succIn = new SlotSet();
 	SlotSet succKill = new SlotSet();
 	VariableSet succGen = new VariableSet();
-        succ.fillInGenSet(succIn, succKill);
+	block.fillInGenSet(succIn, succKill);
 	succGen.addAll(succKill);
+
+	if (this.block == null) {
+	    this.block = block;
+	    lastModified = block;
+	    block.setFlowBlock(this);
+	    block.fillSuccessors();
+	    this.length = length;
+	    
+	    in = succIn;
+	    gen = succGen;
+	    for (Iterator i = successors.values().iterator(); i.hasNext();) {
+		SuccessorInfo info = (SuccessorInfo) i.next();
+		info.gen = new VariableSet();
+		info.kill = new SlotSet();
+		info.gen.addAll(succGen);
+		info.kill.addAll(succKill);
+	    }
+	} else {
+	    checkConsistent();
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_FLOW) != 0) {
+		GlobalOptions.err.println("appending Block: "+block);
+	    }
 	
-	SuccessorInfo succInfo = (SuccessorInfo) successors.get(NEXT_BY_ADDR);
-        succIn.merge(succInfo.gen);
-        succIn.removeAll(succInfo.kill);
-
-        succGen.mergeGenKill(succInfo.gen, succKill);
-        succKill.addAll(succInfo.kill);
-        this.in.addAll(succIn);
-	this.gen.addAll(succKill);
-
-	removeSuccessor(lastModified.jump);
-        lastModified.removeJump();
-        lastModified = lastModified.appendBlock(succ);
-	succ.fillSuccessors();
-	succInfo = (SuccessorInfo) successors.get(NEXT_BY_ADDR);
-	succInfo.gen = succGen;
-	succInfo.kill = succKill;
-        this.length += length;
-        checkConsistent();
-        doTransformations();
+	    SuccessorInfo succInfo
+		= (SuccessorInfo) successors.get(NEXT_BY_ADDR);
+	    succIn.merge(succInfo.gen);
+	    succIn.removeAll(succInfo.kill);
+	    
+	    succGen.mergeGenKill(succInfo.gen, succKill);
+	    succKill.mergeKill(succInfo.kill);
+	    this.in.addAll(succIn);
+	    this.gen.addAll(succKill);
+	    
+	    removeSuccessor(lastModified.jump);
+	    lastModified.removeJump();
+	    lastModified = lastModified.appendBlock(block);
+	    block.fillSuccessors();
+	    succInfo = (SuccessorInfo) successors.get(NEXT_BY_ADDR);
+	    succInfo.gen = succGen;
+	    succInfo.kill = succKill;
+	    this.length += length;
+	    checkConsistent();
+	    doTransformations();
+	}
+	checkConsistent();
     }
 
     /**
@@ -924,6 +913,12 @@ public class FlowBlock {
 
         checkConsistent();
         succ.checkConsistent();
+
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_ANALYZE) != 0)
+	    GlobalOptions.err.println
+		("T2(["+addr+","+getNextAddr()+"],["
+		 +succ.addr+","+succ.getNextAddr()+"])");
 
         SuccessorInfo succInfo = (SuccessorInfo) successors.remove(succ);
 
@@ -1051,6 +1046,8 @@ public class FlowBlock {
 
         checkConsistent();
 
+	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+	    GlobalOptions.err.println("T1(["+addr+","+getNextAddr()+"])");
         SuccessorInfo succInfo = (SuccessorInfo) successors.remove(this);
 
         /* Update the in/out-Vectors now */
@@ -1203,11 +1200,12 @@ public class FlowBlock {
             GlobalOptions.err.println("before Transformation: "+this);
 
         while (lastModified instanceof SequentialBlock) {
-            if (!lastModified.getSubBlocks()[0].doTransformations())
-                lastModified = lastModified.getSubBlocks()[1];
+            if (lastModified.getSubBlocks()[0].doTransformations())
+		continue;
+	    lastModified = lastModified.getSubBlocks()[1];
         }
         while (lastModified.doTransformations())
-            /* empty */;
+	    { /* empty */ }
 
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
             GlobalOptions.err.println("after Transformation: "+this);
@@ -1261,7 +1259,7 @@ public class FlowBlock {
         boolean changed = false;
 
         while (true) {
-                
+
             if (lastModified instanceof SwitchBlock) {
                 /* analyze the switch first.
                  */
@@ -1274,9 +1272,6 @@ public class FlowBlock {
                 if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
                     GlobalOptions.err.println("after T1: "+this);
 
-                if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
-                    GlobalOptions.err.println("T1("+addr+","+getNextAddr()
-					   +") succeeded");
                 /* T1 transformation succeeded.  This may
                  * make another T2 analysis in the previous
                  * block possible.  
@@ -1301,20 +1296,17 @@ public class FlowBlock {
                 } else {
                     if ((nextByAddr == succ || succ.nextByAddr == this)
                         /* Only do T2 transformation if the blocks are
-                         * adjacent.  */
+                         * adjacent.  
+			 */
                         && doT2(succ)) {
-                        /* T2 transformation succeeded. */
-                        changed = true;
-                            
-                        if ((GlobalOptions.debuggingFlags
-			     & GlobalOptions.DEBUG_FLOW) != 0)
-                            GlobalOptions.err.println("after T2: "+this);
+			/* T2 transformation succeeded. */
+			changed = true;
+			
 			if ((GlobalOptions.debuggingFlags
-			     & GlobalOptions.DEBUG_ANALYZE) != 0)
-			    GlobalOptions.err.println
-				("T2("+addr+","+getNextAddr()+") succeeded");
-                        break;
-                    } 
+			     & GlobalOptions.DEBUG_FLOW) != 0)
+			    GlobalOptions.err.println("after T2: "+this);
+			break;
+		    }
 
                     /* Check if all predecessors of succ
                      * lie in range [start,end).  Otherwise
@@ -1363,6 +1355,9 @@ public class FlowBlock {
      * @param end the end of the address range.
      */
     public boolean analyzeSwitch(int start, int end) {
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+            GlobalOptions.err.println("analyzeSwitch("+start+", "+end+")");
+
         SwitchBlock switchBlock = (SwitchBlock) lastModified;
         boolean changed = false;
 
@@ -1453,6 +1448,11 @@ public class FlowBlock {
 	
 	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
 	    GlobalOptions.err.println("after analyzeSwitch: "+this);
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_ANALYZE) != 0)
+	    GlobalOptions.err.println
+		("analyzeSwitch done: " + start + " - " + end + "; "
+		 + addr + " - " + getNextAddr());
         checkConsistent();
         return changed;
     }
@@ -1504,10 +1504,6 @@ public class FlowBlock {
 	SuccessorInfo info = (SuccessorInfo) successors.get(jump.destination);
 	if (info == null) {
 	    info = new SuccessorInfo();
-	    info.gen = new VariableSet();
-	    info.kill = new SlotSet();
-	    block.fillInGenSet(null, info.kill);
-	    info.gen.addAll(info.kill);
 	    info.jumps = jump;
 	    if (jump.destination != END_OF_METHOD)
 		jump.destination.predecessors.add(this);
