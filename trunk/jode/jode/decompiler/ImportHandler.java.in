@@ -132,7 +132,8 @@ public class ImportHandler {
                     }
                 } else {
 		    /* Is this a class import with same name? */
-		    if (importName.endsWith(name))
+		    if (importName.endsWith(name)
+			|| importName.equals(name.substring(1)))
 			return true;
 		}
             }
@@ -153,18 +154,25 @@ public class ImportHandler {
                     continue;
                 int delim = importName.lastIndexOf(".");
 
-		/* Since the imports are sorted, newImports already
-		 * contains the package if it should be imported.
-		 */
-		if (newImports.containsKey
-		    (importName.substring(0, delim)+".*"))
-                    continue;
-
-                /* This is a single Class import, that is not
-                 * superseeded by a package import.  Mark it for
-                 * importation, but don't put it in newImports, yet.  
-                 */
-                classImports.add(importName);
+		if (delim != -1) {
+		    /* Since the imports are sorted, newImports already
+		     * contains the package if it should be imported.
+		     */
+		    if (newImports.containsKey
+			(importName.substring(0, delim)+".*"))
+			continue;
+		    
+		    /* This is a single Class import, that is not
+		     * superseeded by a package import.  Mark it for
+		     * importation, but don't put it in newImports, yet.  
+		     */
+		    classImports.add(importName);
+		} else if (pkg.length() != 0) {
+		    /* This is a Class import from the unnamed
+		     * package.  It must always be imported.
+		     */
+		    newImports.put(importName, dummyVote);
+		}
             } else {
                 if (vote.intValue() < importPackageLimit)
                     continue;
@@ -181,7 +189,8 @@ public class ImportHandler {
         while (iter.hasNext()) {
             /* If there are more than one single class imports with
              * the same name, exactly the first (in sorted order) will
-             * be imported. */
+             * be imported. 
+	     */
             String classFQName = (String) iter.next();
             if (!conflictsImport(classFQName)) {
                 imports.put(classFQName, dummyVote);
@@ -257,34 +266,34 @@ public class ImportHandler {
 	}
 		
 	String name = clazz.getName();
-        int pkgdelim = name.lastIndexOf('.');
-        if (pkgdelim != -1) {
-            String pkgName = name.substring(0, pkgdelim);
-            if (pkgName.equals(pkg))
-                return;
+	
+	Integer i = (Integer) imports.get(name);
+	if (i == null) {
+	    /* This class wasn't imported before.  Mark the whole package
+	     * as used once more. */
+	    
+	    int pkgdelim = name.lastIndexOf('.');
+	    if (pkgdelim != -1) {
+		String pkgName = name.substring(0, pkgdelim);
+		if (pkgName.equals(pkg))
+		    return;
+		
+		Integer pkgVote = (Integer) imports.get(pkgName+".*");
+		if (pkgVote != null 
+		    && pkgVote.intValue() >= importPackageLimit)
+		    return;
 
-            Integer pkgVote = (Integer) imports.get(pkgName+".*");
-            if (pkgVote != null 
-                && pkgVote.intValue() >= importPackageLimit)
-                return;
-
-            Integer i = (Integer) imports.get(name);
-            if (i == null) {
-                /* This class wasn't imported before.  Mark the whole package
-                 * as used once more. */
-
-                pkgVote = (pkgVote == null)
-                    ? new Integer(1): new Integer(pkgVote.intValue()+1);
-                imports.put(pkgName+".*", pkgVote);
-                i = new Integer(1);
-
-            } else {
-                if (i.intValue() >= importClassLimit)
-                    return;
-                i = new Integer(i.intValue()+1);
-            }
-            imports.put(name, i);
-        }
+		pkgVote = (pkgVote == null)
+		    ? new Integer(1): new Integer(pkgVote.intValue()+1);
+		imports.put(pkgName+".*", pkgVote);
+	    }
+	    i = new Integer(1);
+	} else {
+	    if (i.intValue() >= importClassLimit)
+		return;
+	    i = new Integer(i.intValue()+1);
+	}
+	imports.put(name, i);
     }
 
     public final void useType(Type type) {
