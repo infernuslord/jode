@@ -26,6 +26,7 @@ public class JodeApplet extends Applet {
 	String cls = getParameter("class");
 	if (cls != null)
 	    jodeWin.setClass(cls);
+	setFont(new Font("dialog", Font.PLAIN, 10));
     }
 }
 
