@@ -125,25 +125,24 @@ public final class InvokeOperator extends Operator
      */
     public boolean isOuter() {
 	if (classType instanceof ClassInterfacesType) {
+	    ClassInfo clazz = ((ClassInterfacesType) classType).getClassInfo();
 	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
 	    while (true) {
-		if (((ClassInterfacesType) classType).getClassInfo() 
-		    == ana.getClazz())
+		if (clazz == ana.getClazz())
 		    return true;
+		if (ana.getParent() == null)
+		    break;
 		if (ana.getParent() instanceof CodeAnalyzer
 		    && (Decompiler.options & Decompiler.OPTION_ANON) != 0)
 		    ana = ((CodeAnalyzer) ana.getParent())
 			.getClassAnalyzer();
-		else if (ana.getParent() instanceof ConstructorOperator
-			 && (Decompiler.options & Decompiler.OPTION_ANON) != 0)
-		    ana = ((ConstructorOperator) ana.getParent())
-			.getCodeAnalyzer().getClassAnalyzer();
 		else if (ana.getParent() instanceof ClassAnalyzer
 			 && (Decompiler.options 
 			     & Decompiler.OPTION_INNER) != 0)
 		    ana = (ClassAnalyzer) ana.getParent();
-		else
-		    return false;
+		else 
+		    throw new jode.AssertError
+			("Unknown parent: "+ana+": "+ana.getParent());
 	    }
 	}
 	return false;
@@ -157,13 +156,15 @@ public final class InvokeOperator extends Operator
 		    == ana.getClazz()) {
 		    return ana.getMethod(methodName, methodType);
 		}
-		if (ana.getParent() instanceof MethodAnalyzer)
-		    ana = ((MethodAnalyzer) ana.getParent())
+		if (ana.getParent() == null)
+		    return null;
+		if (ana.getParent() instanceof CodeAnalyzer)
+		    ana = ((CodeAnalyzer) ana.getParent())
 			.getClassAnalyzer();
 		else if (ana.getParent() instanceof ClassAnalyzer)
 		    ana = (ClassAnalyzer) ana.getParent();
-		else
-		    return null;
+		else 
+		    throw new jode.AssertError("Unknown parent");
 	    }
 	}
 	return null;
@@ -340,7 +341,7 @@ public final class InvokeOperator extends Operator
     }
 
     public Expression simplifyAccess() {
-	if (isOuter() && getMethodAnalyzer() != null) {
+	if (getMethodAnalyzer() != null) {
 	    SyntheticAnalyzer synth = getMethodAnalyzer().getSynthetic();
 	    if (synth != null) {
 		Operator op = null;
@@ -408,7 +409,7 @@ public final class InvokeOperator extends Operator
 
 	if (isConstructor()) {
 	    InnerClassInfo outer = getOuterClassInfo();
-	    if (outer != null && outer.outer != null
+	    if (outer != null && outer.outer != null && outer.name != null
 		&& !Modifier.isStatic(outer.modifiers)
 		&& (Decompiler.options & Decompiler.OPTION_INNER) != 0) {
 		Expression outerInstance = subExpressions[arg++];
