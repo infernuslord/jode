@@ -437,8 +437,10 @@ public class ClassAnalyzer
             return;
         }
 
+	/* Clear the SUPER bit, which is also used as SYNCHRONIZED bit. */
 	int modifiedModifiers = modifiers & ~Modifier.SYNCHRONIZED;
 	if (clazz.isInterface())
+	    /* interfaces are implicitily abstract */
 	    modifiedModifiers &= ~Modifier.ABSTRACT;
 	if (parent instanceof MethodAnalyzer) {
 	    /* method scope classes are implicitly private */
@@ -450,7 +452,7 @@ public class ClassAnalyzer
         String modif = Modifier.toString(modifiedModifiers);
         if (modif.length() > 0)
             writer.print(modif + " ");
-	/*interface is in modif*/
+	/* interface is in modif */
 	if (!clazz.isInterface())
 	    writer.print("class ");
 	writer.println(name);
