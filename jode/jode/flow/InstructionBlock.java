@@ -51,7 +51,8 @@ public class InstructionBlock extends InstructionContainer {
     public void dumpDeclaration(TabbedPrintWriter writer, LocalInfo local)
 	throws java.io.IOException
     {
-        if (instr.getOperator() instanceof LocalStoreOperator
+        if (instr instanceof ComplexExpression
+            && instr.getOperator() instanceof LocalStoreOperator
             && ((LocalStoreOperator) instr.getOperator()).getLocalInfo() 
             == local.getLocalInfo()) {
             isDeclaration = true;

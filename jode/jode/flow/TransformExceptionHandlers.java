@@ -256,7 +256,10 @@ public class TransformExceptionHandlers {
                 if (prev.outer.outer instanceof SequentialBlock
                     && prev.outer.outer.getSubBlocks()[0] == prev.outer) {
                     SequentialBlock seq = (SequentialBlock) prev.outer.outer;
-                    if (seq.subBlocks[1] instanceof JsrBlock) {
+                    if (seq.subBlocks[1] instanceof JsrBlock
+                        || (seq.subBlocks[1] instanceof SequentialBlock
+                            && seq.subBlocks[1].getSubBlocks()[0] 
+                            instanceof JsrBlock)) {
                         /* The jsr is followed by a jsr, okay. */
                         prev.outer.removeBlock();
                         continue;
@@ -386,24 +389,6 @@ public class TransformExceptionHandlers {
                  jumps != null; jumps = jumps.next) {
 
                 StructuredBlock prev = jumps.prev;
-                if (prev instanceof EmptyBlock
-                    && prev.outer instanceof JsrBlock
-                    && subRoutine == null) {
-                    
-                    subRoutine = jumps.destination;
-                    subRoutine.analyze(startMonExit, endMonExit);
-                    transformSubRoutine(subRoutine.block);
-                
-                    if (subRoutine.block instanceof InstructionBlock) {
-                        Expression instr = 
-                            ((InstructionBlock)subRoutine.block)
-                            .getInstruction();
-                        if (isMonitorExit(instr, local)) {
-                            tryFlow.length += subRoutine.length;
-                            continue dest_loop;
-                        }
-                    }
-                }
 
                 if (prev instanceof ThrowBlock) {
                     /* The jump is a throw.  We have a catch all block
@@ -424,6 +409,9 @@ public class TransformExceptionHandlers {
                     prev = prev.outer;
                 }
 
+                /* If the block is a jsr or a return block, check if
+                 * it is preceeded by another jsr.
+                 */
                 if ((prev instanceof JsrBlock
                      || prev instanceof ReturnBlock)
                     && prev.outer instanceof SequentialBlock) {
@@ -435,9 +423,8 @@ public class TransformExceptionHandlers {
                         pred = seq.outer.getSubBlocks()[0];
                     
                     if (pred != null) {
-                        if (pred instanceof JsrBlock  || pred.jump != null)
-                            /* The jump is preceeded by another jump
-                             * or jsr and last in its block, okay.
+                        if (pred instanceof JsrBlock)
+                            /* The jump is preceeded by another jsr, okay.
                              */
                             continue;
                         
@@ -467,6 +454,26 @@ public class TransformExceptionHandlers {
                      */
                     prev.removeBlock();
                     continue;
+                }
+
+                /* The block is a jsr that is not preceeded by another jsr.
+                 * This must be the monitorexit subroutine.
+                 */
+                if (prev instanceof JsrBlock && subRoutine == null) {
+                    
+                    subRoutine = jumps.destination;
+                    subRoutine.analyze(startMonExit, endMonExit);
+                    transformSubRoutine(subRoutine.block);
+                
+                    if (subRoutine.block instanceof InstructionBlock) {
+                        Expression instr = 
+                            ((InstructionBlock)subRoutine.block)
+                            .getInstruction();
+                        if (isMonitorExit(instr, local)) {
+                            tryFlow.length += subRoutine.length;
+                            continue dest_loop;
+                        }
+                    }
                 }
 
                 /* Now we have a jump that is not preceded by a monitorexit.
@@ -509,7 +516,7 @@ public class TransformExceptionHandlers {
              *  local_x = monitor object;  // later
              *  monitorenter local_x       // later
              *  tryFlow:
-             *   |- syncronized block
+             *   |- synchronized block
              *   |  ...
              *   |   every jump to outside is preceded by jsr subroutine-,
              *   |  ...                                                  |
