@@ -18,14 +18,14 @@ This chapter contains information, how the decompiler works.
 The class jode.Type is the base class of all types (except MethodType).
 A type under jode is really a set of types, since it sometimes cannot
 know the exact type.  A special type is Type.tError which represents the
-empty set.
+empty set and means, that something has gone wrong.
 
 A type has the following operators:
 
 @table @asis
 @item getSubType
-Get the set of types, that are implicitly (in bytecode) castable to one
-of the types in this type set.
+Get the set of types, that are implicitly castable to one of the types
+in this type set.  
 
 @item getSuperType
 Get the set of types, to which the types in this type set can be casted
