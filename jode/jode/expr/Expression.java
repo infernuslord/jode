@@ -316,14 +316,15 @@ public abstract class Expression {
     }
 
     public String toString() {
-        try {
-            java.io.StringWriter strw = new java.io.StringWriter();
-            TabbedPrintWriter writer = new TabbedPrintWriter(strw);
-            dumpExpression(writer);
-            return strw.toString();
-        } catch (java.io.IOException ex) {
-            return "/*IOException*/"+super.toString();
-        } catch (RuntimeException ex) {
+	try {
+	    java.io.StringWriter strw = new java.io.StringWriter();
+	    TabbedPrintWriter writer = new TabbedPrintWriter(strw);
+	    dumpExpression(writer);
+	    writer.close();
+	    return strw.toString();
+	} catch (java.io.IOException ex) {
+	    return "/*IOException*/"+super.toString();
+	} catch (RuntimeException ex) {
 	    return "/*RuntimeException*/"+super.toString();
 	}
     }	
