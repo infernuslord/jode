@@ -207,6 +207,8 @@ public class Decompiler {
 		    destZip.closeEntry();
 		} else if (destDir != null)
 		    writer.close();
+		/* Now is a good time to clean up */
+		System.gc();
 	    } catch (IOException ex) {
 		err.println("Can't write source of "+params[i]+".");
 		err.println("Check the permissions.");
