@@ -231,7 +231,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    start >= 0 && start < instrs.length ? instrs[start] : null;
 		Instruction endInstr;
 		if (end >=0 && end < instrs.length)
-		    endInstr = instrs[end].getPrevByAddr();
+		    endInstr = instrs[end] == null ? null
+			: instrs[end].getPrevByAddr();
 		else {
 		    endInstr = null;
 		    for (int nr = instrs.length - 1; nr >= 0; nr--) {
