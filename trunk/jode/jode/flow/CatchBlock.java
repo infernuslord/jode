@@ -104,8 +104,10 @@ public class CatchBlock extends StructuredBlock {
 
     public void dumpInstruction(jode.TabbedPrintWriter writer) 
         throws java.io.IOException {
-        writer.println("} catch ("+exceptionType.toString() + " "
-                       + exceptionLocal.getName().toString()+ ") {");
+	writer.closeBraceContinue();
+        writer.print("catch ("+exceptionType.toString() + " "
+		     + exceptionLocal.getName().toString()+ ")");
+	writer.openBrace();
         writer.tab();
         catchBlock.dumpSource(writer);
         writer.untab();
