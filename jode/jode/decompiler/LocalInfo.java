@@ -39,7 +39,7 @@ public class LocalInfo {
     private static int serialnr = 0;
     private static int nextAnonymousSlot = -1;
     private int slot;
-    private boolean nameIsGenerated;
+    private boolean nameIsGenerated = false;
     private boolean isUnique;
     private String name;
     private Type type;
@@ -93,6 +93,8 @@ public class LocalInfo {
         } else {
             if (this != li) {
                 shadow = li;
+		if (!nameIsGenerated)
+		    shadow.name = li.name;
 //  		GlobalOptions.err.println("combining "+name+"("+type+") and "
 //  				       +li.name+"("+li.type+")");
                 li.setType(type);
@@ -149,23 +151,20 @@ public class LocalInfo {
 	return getLocalInfo().name != null;
     }
 
-    /**
-     * Get the name of this local.
-     */
-    public String getName() {
+    public String guessName() {
         if (shadow != null) {
             while (shadow.shadow != null) {
                 shadow = shadow.shadow;
             }
-            return shadow.getName();
+            return shadow.guessName();
         }
-        if (name == null) {
+	if (name == null) {
 	    Enumeration enum = hints.elements();
 	    while (enum.hasMoreElements()) {
 		LocalVarEntry entry = (LocalVarEntry) enum.nextElement();
 		if (type.isOfType(entry.getType())) {
 		    name = entry.getName();
-		    type = entry.getType();
+		    setType(entry.getType());
 		    return name;
 		}
 	    }
@@ -177,7 +176,23 @@ public class LocalInfo {
 		    + (slot >= 0 ? "_" + slot : "") + "_" + serialnr++ + "_";
                 isUnique = true;
             }
+	}
+	return name;
+    }
+
+    /**
+     * Get the name of this local.
+     */
+    public String getName() {
+        if (shadow != null) {
+            while (shadow.shadow != null) {
+                shadow = shadow.shadow;
+            }
+            return shadow.getName();
         }
+        if (name == null) {
+	    return "local_" + slot + "_"+ Integer.toHexString(hashCode());
+	}
         return name;
     }
 
