@@ -78,24 +78,45 @@ public class ComplexExpression extends Expression {
      */
     public int canCombine(Expression e) {
 	if (e instanceof ComplexExpression
-            && e.getOperator() instanceof StoreInstruction) {
+            && e.getOperator() instanceof StoreInstruction
+            && ((StoreInstruction) e.getOperator()).matches(operator)) {
+
             ComplexExpression ce = (ComplexExpression) e;
-	    StoreInstruction store = (StoreInstruction) e.getOperator();
-	    if (store.matches(operator)) {
-		for (int i=0; i < ce.subExpressions.length-1; i++) {
-		    if (!ce.subExpressions[i].equals(subExpressions[i]))
-			return -1;
-		}
-                return 1;
-	    }
-            return subExpressions[0].canCombine(e);
-// 	    for (int i=0; i < subExpressions.length; i++) {
-// 		int can = subExpressions[i].canCombine(e);
-// 		if (can != 0)
-//                     return can;
-// 	    }
-	}
-	return 0;
+            for (int i=0; i < ce.subExpressions.length-1; i++) {
+                if (!ce.subExpressions[i].equals(subExpressions[i]))
+                    return -1;
+            }
+            return 1;
+        }
+        return subExpressions[0].canCombine(e);
+    }
+
+    /**
+     * Checks if this expression contains a load, that matches the
+     * given Expression (which should be a
+     * StoreInstruction/IIncOperator).
+     * @param e The store expression.
+     * @return if this expression contains a matching load.
+     */
+    public boolean containsMatchingLoad(Expression e) {
+	if (e instanceof ComplexExpression
+            && e.getOperator() instanceof StoreInstruction
+            && ((StoreInstruction) e.getOperator()).matches(operator)) {
+
+            ComplexExpression ce = (ComplexExpression) e;
+            int i;
+            for (i=0; i < ce.subExpressions.length-1; i++) {
+                if (!ce.subExpressions[i].equals(subExpressions[i]))
+                    break;
+            }
+            if (i == ce.subExpressions.length-1)
+                return true;
+        }
+        for (int i=0; i < subExpressions.length; i++) {
+            if (subExpressions[i].containsMatchingLoad(e))
+                return true;
+        }
+	return false;
     }
     
     /**

@@ -65,17 +65,26 @@ public abstract class Expression {
      * conflict was found.  You may wish to check for >0.
      */
     public int canCombine(Expression e) {
-        if (!e.isVoid())
-            return 0;
+        return containsMatchingLoad(e)? 1 : 0;
+    }
+
+    /**
+     * Checks if this expression contains a load, that matches the
+     * given Expression (which should be a
+     * StoreInstruction/IIncOperator).
+     * @param e The store expression.
+     * @return if this expression contains a matching load.
+     */
+    public boolean containsMatchingLoad(Expression e) {
         if (e instanceof IIncOperator
             && ((IIncOperator)e.getOperator()).matches(getOperator()))
-            return 1;
+            return true;
         else if (e instanceof ComplexExpression
                  && e.getOperator() instanceof StoreInstruction
                  && ((StoreInstruction) e.getOperator())
                  .matches(getOperator()))
-            return 1;
-	return 0;
+            return true;
+	return false;
     }
 
     /**
