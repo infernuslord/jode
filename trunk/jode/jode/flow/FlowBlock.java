@@ -36,6 +36,9 @@ import jode.util.SimpleDictionary;
  * We do a T1/T2 analysis to combine all flow blocks to a single.  If
  * the graph isn't reducible that doesn't work, but java can only
  * produce reducible flow graphs.
+ *
+ * We don't use the notion of basic flow graphs.  A flow block may be
+ * anything from a single bytecode opcode, to the whole method.
  */
 public class FlowBlock {
 
@@ -609,7 +612,7 @@ public class FlowBlock {
 
     /** 
      * Updates the in/out-Vectors of the structured block of the
-     * successing flow block simultanous to a T1 transformation.
+     * successing flow block simultanous to a T2 transformation.
      * @param successor The flow block which is unified with this flow
      * block.  
      * @param jumps The list of jumps to successor in this block.
@@ -743,7 +746,7 @@ public class FlowBlock {
 
 
     /**
-     * This is a special T1 transformation, that does also succeed, if
+     * This is a special T2 transformation, that does also succeed, if
      * the jumps in the flow block are not yet resolved.  But it has
      * a special precondition:  The succ must be a simple instruction block,
      * mustn't have another predecessor and all structured blocks in this
@@ -751,7 +754,7 @@ public class FlowBlock {
      * @param succ The successing structured block that should be merged.
      * @param length the length of the structured block.
      */
-    public void doSequentialT1(StructuredBlock succ, int length) {
+    public void doSequentialT2(StructuredBlock succ, int length) {
         checkConsistent();
 	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0) {
 	    GlobalOptions.err.println("merging sequentialBlock: "+this);
@@ -804,12 +807,12 @@ public class FlowBlock {
     }
 
     /**
-     * Do a T1 transformation with succ if possible.  It is possible,
+     * Do a T2 transformation with succ if possible.  It is possible,
      * iff succ has exactly this block as predecessor.
      * @param succ the successor block, must be a valid successor of this
      * block, i.e. not null
      */
-    public boolean doT1(FlowBlock succ) {
+    public boolean doT2(FlowBlock succ) {
         /* check if this successor has only this block as predecessor. 
          * if the predecessor is not unique, return false. */
         if (succ.predecessors.size() != 1 ||
@@ -846,7 +849,7 @@ public class FlowBlock {
         /* Set addr and length to correct value and update nextByAddr */
 	mergeAddr(succ);
 
-        /* T1 transformation succeeded */
+        /* T2 transformation succeeded */
         checkConsistent();
         return true;
     }
@@ -890,7 +893,7 @@ public class FlowBlock {
 //         }
 //     }
 
-    public boolean doT2(int start, int end) {
+    public boolean doT1(int start, int end) {
         /* If there are no jumps to the beginning of this flow block
          * or if this block has other predecessors with a not yet
          * considered address, return false.  The second condition
@@ -1049,7 +1052,7 @@ public class FlowBlock {
         doTransformations();
 //         mergeCondition();
 
-        /* T2 analysis succeeded */
+        /* T1 analysis succeeded */
         checkConsistent();
 
         return true;
@@ -1057,7 +1060,7 @@ public class FlowBlock {
 
 
     /**
-     * Do a T1 transformation with the end_of_method block.
+     * Do a T2 transformation with the end_of_method block.
      */
     public void mergeEndBlock() {
         checkConsistent();
@@ -1201,16 +1204,16 @@ public class FlowBlock {
             } 
 
 
-            if (doT2(start, end)) {
+            if (doT1(start, end)) {
 
                 if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
-                    GlobalOptions.err.println("after T2: "+this);
+                    GlobalOptions.err.println("after T1: "+this);
 
                 if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
-                    GlobalOptions.err.println("T2("+addr+","+getNextAddr()
+                    GlobalOptions.err.println("T1("+addr+","+getNextAddr()
 					   +") succeeded");
-                /* T2 transformation succeeded.  This may
-                 * make another T1 analysis in the previous
+                /* T1 transformation succeeded.  This may
+                 * make another T2 analysis in the previous
                  * block possible.  
                  */
                 if (addr != 0)
@@ -1220,7 +1223,7 @@ public class FlowBlock {
             FlowBlock succ = getSuccessor(start, end);
             while (true) {
                 if (succ == null) {
-                    /* the Block has no successor where t1 is applicable.
+                    /* the Block has no successor where T2 is applicable.
                      * Finish this analyzation.
                      */
                     if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
@@ -1231,14 +1234,14 @@ public class FlowBlock {
                     return changed;
                 } else {
                     if ((nextByAddr == succ || succ.nextByAddr == this)
-                        /* Only do T1 transformation if the blocks are
+                        /* Only do T2 transformation if the blocks are
                          * adjacent.  */
-                        && doT1(succ)) {
-                        /* T1 transformation succeeded. */
+                        && doT2(succ)) {
+                        /* T2 transformation succeeded. */
                         changed = true;
                             
                         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
-                            GlobalOptions.err.println("after T1: "+this);
+                            GlobalOptions.err.println("after T2: "+this);
                         break;
                     } 
 
@@ -1280,7 +1283,7 @@ public class FlowBlock {
     }
     
     /**
-     * The switch analyzation.  This calls doSwitchT1 and doT2 on apropriate
+     * The switch analyzation.  This calls doSwitchT2 and doT1 on apropriate
      * regions.  Only blocks whose address lies in the given address
      * range are considered and it is taken care of, that the switch
      * is never leaved. <p>
@@ -1295,7 +1298,7 @@ public class FlowBlock {
         int last = -1;
         FlowBlock lastFlow = null;
         for (int i=0; i < switchBlock.caseBlocks.length; i++) {
-            if (switchBlock.caseBlocks[i].subBlock != null
+            if (switchBlock.caseBlocks[i].subBlock instanceof EmptyBlock
                 && switchBlock.caseBlocks[i].subBlock.jump != null) {
                 FlowBlock nextFlow = switchBlock.caseBlocks[i].
                     subBlock.jump.destination;
@@ -1304,7 +1307,7 @@ public class FlowBlock {
                 else if (nextFlow.addr >= start) {
                     
 		    /* First analyze the nextFlow block.  It may
-                     * return early after a T2 trafo so call it
+                     * return early after a T1 trafo so call it
                      * until nothing more is possible.  
                      */
                     while (nextFlow.analyze(getNextAddr(), end))
