@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<!--
+ Copyright (C) 1998-1999 Jochen Hoenicke.
+
+ This documentation is free; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2, or (at your option)
+ any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program; see the file COPYING.  If not, write to
+ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+-->
+  <title>JODE Bytecode Package</title>
+</head>
+
+<body>
+Provides easy access to class files and their contents.  To use it you
+create a <code>ClassPath</code> object giving it the locations where
+it should search for classes.  Then you can ask this object for a
+class and get a ClassInfo object.  As third step you can actually load
+the class.<br><br>
+
+Please notify me if you want to use this package.  I will inform you
+about updates, help you with problems, etc.  <b> WARNING: </b> This
+package may change in the future in incompatible ways.  Ask me for
+more information. <br><br>
+
+<b>BIG FAT WARNING:</b> Some of the things documented here aren't even
+implemented.  Some of this is only vapor ware.  But feel free to
+comment on this and point me to design errors!<br><br>
+
+Here is a short example, how you can use this package, see the
+documentation of the classes for more details.
+<pre>
+ ...
+ ClassPath path = new ClassPath("/usr/lib/java/lib/classes.zip");
+ ClassInfo clazz = path.getClassInfo("java.util.Hashtable");
+
+ try {
+   clazz.load(ClassInfo.DECLARATIONS);
+ } catch (ClassFormatException ex) {
+   System.err.println("Something is wrong with HashTable, giving up!");
+   return;
+ } catch (IOException ex) {
+   System.err.println("Can't load HashTable, giving up!");
+   return;
+ }
+
+ MethodInfo[] methods = clazz.getMethods();
+ for (int i=0; i< methods.length; i++) {
+     String type = methods[i].getType();
+     if (TypeSignature.getReturnType(type) == TypeSignature.INT_TYPE)
+         System.out.println("Found integer method: "+method.getName());
+ }
+ ...
+</pre>
+
+You can also use this package to create and write new classes:
+<pre>
+ ...
+ ClassPath path = new ClassPath("/usr/lib/java/lib/classes.zip");
+ ClassInfo clazz = path.getClassInfo("my.new.Class");
+ clazz.setModifiers(Modifiers.PUBLIC);
+ clazz.setSourceFile("Class.pl");
+ clazz.set...
+ clazz.write(zipOutputStream);
+ ...
+</pre>
+
+<hr>
+<address><a href="mailto:jochen@gnu.org">Jochen Hoenicke</a></address>
+<!-- Created: Thu Jun 22 16:56:39 MET DST 2000 -->
+<!-- hhmts start -->
+Last modified: Mon Jun 26 09:46:24 MET DST 2000
+<!-- hhmts end -->
+  </body>
+</html>
