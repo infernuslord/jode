@@ -84,51 +84,56 @@ public class StrongRenamer implements Renamer, OptionHandler {
     }
 
     public Iterator generateNames(Identifier ident) {
-	final String[] currCharset;
+	int identType;
 	if (ident instanceof PackageIdentifier)
-	    currCharset = charsets[0];
+	    identType = 0;
 	else if (ident instanceof PackageIdentifier)
-	    currCharset = charsets[1];
+	    identType = 1;
 	else if (ident instanceof ClassIdentifier)
-	    currCharset = charsets[2];
+	    identType = 2;
 	else if (ident instanceof FieldIdentifier)
-	    currCharset = charsets[3];
+	    identType = 3;
 	else if (ident instanceof MethodIdentifier)
-	    currCharset = charsets[4];
+	    identType = 4;
 	else if (ident instanceof LocalIdentifier)
-	    currCharset = charsets[5];
+	    identType = 5;
 	else
 	    throw new IllegalArgumentException(ident.getClass().getName());
+	final String[] theCharset = charsets[identType];
 
 	return new Iterator() {
 	    char[] name = null;
+	    int headIndex;
 
 	    public boolean hasNext() {
 		return true;
 	    }
 	    public Object next() {
 		if (name == null) {
-		    name = new char[] { currCharset[0].charAt(0) };
+		    name = new char[] { theCharset[0].charAt(0) };
+		    headIndex = 0;
 		    return new String(name);
 		}
+		if (++headIndex < theCharset[0].length()) {
+		    name[0] = theCharset[0].charAt(headIndex);
+		    return new String(name);
+		}
+		headIndex = 0;
+		name[0] = theCharset[0].charAt(0);
 
-		int pos = name.length - 1;
-		String charset = currCharset[1];
-		while (pos >= 0) {
-		    if (pos == 0)
-			charset = currCharset[0];
-
+		String charset = theCharset[1];
+		for (int pos = 1; pos < name.length; pos++) {
 		    int index = charset.indexOf(name[pos]) + 1;
 		    if (index < charset.length()) {
 			name[pos] = charset.charAt(index);
 			return new String(name);
 		    }
-		    name[pos--] = charset.charAt(0);
+		    name[pos] = charset.charAt(0);
 		}
 		
 		name = new char[name.length+1];
-		name[0] = currCharset[0].charAt(0);
-		char firstCont = currCharset[1].charAt(0);
+		name[0] = theCharset[0].charAt(0);
+		char firstCont = theCharset[1].charAt(0);
 		for (int i=1; i <name.length; i++)
 		    name[i] = firstCont;
 		return new String(name);
@@ -140,3 +145,4 @@ public class StrongRenamer implements Renamer, OptionHandler {
 	};
     }
 }
+
