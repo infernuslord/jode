@@ -22,7 +22,7 @@ import java.util.*;
 import jode.bytecode.*;
 import jode.type.Type;
 import jode.AssertError;
-import jode.Obfuscator;
+import jode.GlobalOptions;
 
 /**
  * This class takes some bytecode and tries to minimize the number
@@ -119,6 +119,17 @@ public class LocalOptimizer implements Opcodes {
 		instr.local = l;
 		l.usingInstrs.addElement(instr);
 	    }
+	}
+
+	public int getFirstAddr() {
+	    int addr = Integer.MAX_VALUE;
+	    Enumeration enum = usingInstrs.elements();
+	    while (enum.hasMoreElements()) {
+		InstrInfo instr = (InstrInfo) enum.nextElement();
+		if (instr.instr.addr < addr)
+		    addr = instr.instr.addr;
+	    }
+	    return addr;
 	}
     }
 
@@ -419,7 +430,7 @@ public class LocalOptimizer implements Opcodes {
 			    throw new AssertError("Non standard jsr");
 			}
 			InstrInfo retInfo 
-			    = info.nextReads[info.instr.localSlot];
+			    = info.nextInfo.nextReads[info.instr.localSlot];
 
 			if (retInfo != null) {
 			    if (retInfo.instr.opcode != opc_ret)
@@ -444,8 +455,8 @@ public class LocalOptimizer implements Opcodes {
 			    promoteReads(nextInfo, predInstr, 
 					 retInfo.usedBySub, true);
 			}
-		    } else
-			promoteReads(info, instr.preds[i]);
+		    }
+		    promoteReads(info, instr.preds[i]);
 		}
 	    }
 
@@ -569,11 +580,31 @@ public class LocalOptimizer implements Opcodes {
 		&& info.instr.opcode <= BytecodeInfo.opc_astore) {
 		/* This is a store.  It conflicts with every local, whose
 		 * value will be read without write.
+		 *
+		 * If this is inside a ret, it also conflicts with
+		 * locals, that are not used inside, and where any jsr
+		 * would conflict with.  
 		 */
 		for (int i=0; i < maxlocals; i++) {
 		    if (i != info.instr.localSlot
 			&& info.nextReads[i] != null)
 			info.local.conflictsWith(info.nextReads[i].local);
+		    if (info.nextInfo.nextReads[i] != null
+			&& info.nextInfo.nextReads[i].jsrTargetInfo != null) {
+			Instruction[] jsrs = info.nextInfo.nextReads[i]
+			    .jsrTargetInfo.instr.preds;
+			for (int j=0; j< jsrs.length; j++) {
+			    InstrInfo jsrInfo 
+				= (InstrInfo) instrInfos.get(jsrs[j]);
+			    for (int k=0; k < maxlocals; k++) {
+				if (!info.nextInfo.nextReads[i].usedBySub
+				    .get(k)
+				    && jsrInfo.nextReads[k] != null)
+				    info.local.conflictsWith
+					(jsrInfo.nextReads[k].local);
+			    }
+			}
+		    }
 		}
 	    }
 	}
@@ -783,15 +814,23 @@ public class LocalOptimizer implements Opcodes {
     public void dumpLocals() {
 	Vector locals = new Vector();
 	for (InstrInfo info = firstInfo; info != null; info = info.nextInfo) {
-//  	    System.err.print("addr: "+info.instr.addr+ "  locals: ");
-//  	    for (int i=0; i<maxlocals; i++)
-//  		if (info.nextReads[i] == null)
-//  		    System.err.print("-,");
-//  		else
-//  		    System.err.print(((InstrInfo)info.nextReads[i]
-//  				      .usingInstrs.elementAt(0)).instr.addr
-//  				     +",");
-//  	    System.err.println();
+	    GlobalOptions.err.println(info.instr.getDescription());
+	    GlobalOptions.err.print("nextReads: ");
+	    for (int i=0; i<maxlocals; i++)
+		if (info.nextReads[i] == null)
+		    GlobalOptions.err.print("-,");
+		else
+		    GlobalOptions.err.print(info.nextReads[i].instr.addr+",");
+	    if (info.usedBySub != null)
+		GlobalOptions.err.print("  usedBySub: "+info.usedBySub);
+	    if (info.retInfo != null)
+		GlobalOptions.err.print("  ret info: "
+					+info.retInfo.instr.addr);
+	    if (info.jsrTargetInfo != null)
+		GlobalOptions.err.print("  jsr info: "
+					+info.jsrTargetInfo.instr.addr);
+
+	    GlobalOptions.err.println();
 	    if (info.local != null && !locals.contains(info.local))
 		locals.addElement(info.local);
 	}
@@ -800,22 +839,21 @@ public class LocalOptimizer implements Opcodes {
 	    LocalInfo li = (LocalInfo) enum.nextElement();
 	    int slot = ((InstrInfo)li.usingInstrs.elementAt(0))
 		.instr.localSlot;
-	    System.err.print("Slot: "+slot+" conflicts:");
+	    GlobalOptions.err.print("Slot: "+slot+" conflicts:");
 	    Enumeration enum1 = li.conflictingLocals.elements();
 	    while (enum1.hasMoreElements()) {
 		LocalInfo cfl = (LocalInfo)enum1.nextElement();
-		System.err.print(((InstrInfo)cfl.usingInstrs.elementAt(0))
-				 .instr.addr+", ");
+		GlobalOptions.err.print(cfl.getFirstAddr()+", ");
 	    }
-	    System.err.println();
-	    System.err.print(((InstrInfo)li.usingInstrs.elementAt(0))
-			     .instr.addr);
-	    System.err.print("     instrs: ");
+	    GlobalOptions.err.println();
+	    GlobalOptions.err.print(li.getFirstAddr());
+	    GlobalOptions.err.print("     instrs: ");
 	    Enumeration enum2 = li.usingInstrs.elements();
 	    while (enum2.hasMoreElements())
-		System.err.print(((InstrInfo)enum2.nextElement()).instr.addr+", ");
-	    System.err.println();
+		GlobalOptions.err.print(((InstrInfo)enum2.nextElement())
+					.instr.addr+", ");
+	    GlobalOptions.err.println();
 	}
-	System.err.println("-----------");
+	GlobalOptions.err.println("-----------");
     }
 }
