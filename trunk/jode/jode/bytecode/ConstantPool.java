@@ -144,46 +144,6 @@ public class ConstantPool {
         }
     }
 
-    private static String quoted(String str) {
-        StringBuffer result = new StringBuffer("\"");
-        for (int i=0; i< str.length(); i++) {
-            char c;
-            switch (c = str.charAt(i)) {
-            case '\0':
-                result.append("\\0");
-                break;
-            case '\t':
-                result.append("\\t");
-                break;
-            case '\n':
-                result.append("\\n");
-                break;
-            case '\r':
-                result.append("\\r");
-                break;
-            case '\\':
-                result.append("\\\\");
-                break;
-            case '\"':
-                result.append("\\\"");
-                break;
-            default:
-                if (c < 32) {
-                    String oct = Integer.toOctalString(c);
-                    result.append("\\000".substring(0, 4-oct.length()))
-                        .append(oct);
-                } else if (c >= 32 && c < 127)
-                    result.append(str.charAt(i));
-                else {
-                    String hex = Integer.toHexString(c);
-                    result.append("\\u0000".substring(0, 6-hex.length()))
-                        .append(hex);
-                }
-            }
-        }
-        return result.append("\"").toString();
-    }
-
     public int getConstantInt(int i) throws ClassFormatException {
 	if (i == 0 || tags[i] != ConstantPool.INTEGER)
             throw new ClassFormatException("not an integer "+tags[i]);
