@@ -25,6 +25,12 @@ public class Decompiler {
     public final static String email = "jochen@gnu.org";
     public final static String copyright = 
 	"Jode (c) 1998,1999 Jochen Hoenicke <"+email+">";
+    
+    public final static int TAB_SIZE_MASK = 0x0f;
+    public final static int BRACE_AT_EOL  = 0x10;
+    public final static int SUN_STYLE = 0x14;
+    public final static int GNU_STYLE = 0x02;
+
     public static PrintStream err = System.err;
     public static boolean isVerbose = false;
     public static boolean isDebugging = false;
@@ -36,6 +42,7 @@ public class Decompiler {
     public static boolean doChecks = false;
     public static boolean prettyLocals = false;
     public static boolean immediateOutput = false;
+    public static int outputStyle = SUN_STYLE;
     public static int importPackageLimit = 3;
     public static int importClassLimit = 3;
 
@@ -58,6 +65,8 @@ public class Decompiler {
 		    "use `pretty' names for local variables.");
 	err.println("\t--cp <classpath> "+
 		    "search for classes in specified classpath.");
+	err.println("\t--style {sun|gnu}"+
+		    " specifies indentation style");
 	err.println("\t--import <pkglimit> <clslimit>");
 	err.println("\t                 "+
 	    "import classes used more than clslimit times");
@@ -108,7 +117,18 @@ public class Decompiler {
                 doChecks = true;
             else if (params[i].equals("--pretty"))
                 prettyLocals = true;
-            else if (params[i].equals("--import")) {
+            else if (params[i].equals("--style")) {
+		String style = params[++i];
+		if (style.equals("sun"))
+		    outputStyle = SUN_STYLE;
+		else if (style.equals("gnu"))
+		    outputStyle = GNU_STYLE;
+		else {
+		    err.println("Unknown style: "+style);
+		    usage();
+		    return;
+		}
+            } else if (params[i].equals("--import")) {
                 importPackageLimit = Integer.parseInt(params[++i]);
                 importClassLimit = Integer.parseInt(params[++i]);
             } else if (params[i].equals("--cp")) {
@@ -131,7 +151,7 @@ public class Decompiler {
         JodeEnvironment env = new JodeEnvironment(classPath);
 	TabbedPrintWriter writer = null;
 	if (destDir == null)
-	    writer = new TabbedPrintWriter(System.out, "    ");
+	    writer = new TabbedPrintWriter(System.out);
         for (; i< params.length; i++) {
 	    try {
 		if (destDir != null) {
@@ -140,11 +160,11 @@ public class Decompiler {
 			 params[i].replace('.', File.separatorChar)+".java");
 		    File directory = new File(file.getParent());
 		    if (!directory.exists() && !directory.mkdirs()) {
-			err.println("Could not create directory "+directory.getPath()+", "
+			err.println("Could not create directory "
+				    +directory.getPath()+", "
 				    +"check permissions.");
 		    }
-		    writer = new TabbedPrintWriter
-			(new FileOutputStream(file), "    ");
+		    writer = new TabbedPrintWriter(new FileOutputStream(file));
 		}
 		env.doClass(params[i], writer);
 	    } catch (IOException ex) {
