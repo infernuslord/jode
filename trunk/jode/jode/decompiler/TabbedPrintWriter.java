@@ -53,11 +53,12 @@ public class TabbedPrintWriter {
 	    /* the slow way */
 	    StringBuffer sb = new StringBuffer(tabs+7);
 	    while (tabs > 20) {
-		sb.append("\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t");
+		sb.append("\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t       "
+			  .substring(0,20));
 		tabs -= 20;
 	    }
 	    sb.append("\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t       "
-		      .substring(20 - tabs, tabs + (currentIndent&7)));
+		      .substring(20 - tabs, 20 + (currentIndent&7)));
 	    indentStr = sb.toString();
 	} 
     }
