@@ -26,7 +26,7 @@ import jode.flow.VariableSet;
 ///#ifdef JDK12
 ///import java.util.Set;
 ///#else
-import jode.util.SimpleSet;
+import jode.util.Set;
 ///#endif
 
 /**
@@ -81,11 +81,7 @@ public class CheckNullOperator extends Operator {
 	super.fillInGenSet(in, gen);
     }
 
-///#ifdef JDK12
-///    public void fillDeclarables(Set used) {
-///#else
-    public void fillDeclarables(SimpleSet used) {
-///#endif
+    public void fillDeclarables(Set used) {
 	used.add(local);
 	super.fillDeclarables(used);
     }

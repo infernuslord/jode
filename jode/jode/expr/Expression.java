@@ -26,7 +26,7 @@ import jode.flow.VariableSet;
 ///#ifdef JDK12
 ///import java.util.Set;
 ///#else
-import jode.util.SimpleSet;
+import jode.util.Set;
 ///#endif
 
 public abstract class Expression {
@@ -232,11 +232,7 @@ public abstract class Expression {
     public void fillInGenSet(VariableSet in, VariableSet gen) {
     }
 
-///#ifdef JDK12
-///    public void fillDeclarables(Set used) {
-///#else
-    public void fillDeclarables(SimpleSet used) {
-///#endif
+    public void fillDeclarables(Set used) {
     }
 
     public abstract void dumpExpression(TabbedPrintWriter writer) 

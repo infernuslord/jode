@@ -26,7 +26,7 @@ import jode.flow.VariableSet;
 ///#ifdef JDK12
 ///import java.util.Set;
 ///#else
-import jode.util.SimpleSet;
+import jode.util.Set;
 ///#endif
 
 public abstract class Operator extends Expression {
@@ -176,11 +176,7 @@ public abstract class Operator extends Expression {
 	    subExpressions[i].fillInGenSet(in,gen);
     }
 
-///#ifdef JDK12
-///    public void fillDeclarables(Set used) {
-///#else
-    public void fillDeclarables(SimpleSet used) {
-///#endif
+    public void fillDeclarables(Set used) {
 	if (this instanceof LocalVarOperator) {
 	    used.add(((LocalVarOperator) this).getLocalInfo());
 	}
