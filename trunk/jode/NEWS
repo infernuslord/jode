@@ -1,9 +1,24 @@
-1.0.90 is a prerelease..
-* First version using configure.  Jode can now be almost automatically
+New in 1.0.93
+* anonymous and inner class decompilation reworked.
+* replaced a bash specific construct in acinclude.m4
+- better memory usage in decompiler
+- fixed a bug in ConstantAnalyzer (produced wrong code)
+- swingui also uses getopt.
+- web pages updated.
+- javadoc api added.
+
+New in 1.0.92
+* option --pretty works again
+* web pages updated
+* swingui can show class hierarchie
+* KeywordRenamer added to obfuscator.
+
+New in 1.0.91:
+* first version using configure.  Jode can now be almost automatically
   build, see INSTALL for instructions.
-* The decompiler can handler inner and anoymous classes.
-* You now need the gnu getopt package.
-* You need JDK 1.2 or alternatively the swing and collection packages
+* the decompiler can handler inner and anoymous classes.
+* you now need the gnu getopt package.
+* you need JDK 1.2 or alternatively the swing and collection packages
   for 1.1
 
 
