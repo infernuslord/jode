@@ -73,10 +73,10 @@ public class Instruction implements Opcodes{
      */
     public Instruction[] succs;
     /**
-     * The predecessors of this opcode, including the prevByAddr, if
-     * that does not alwaysJump.
+     * The predecessors of this opcode, orthogonal to the succs array.
+     * This must be null or a non empty array.
      */
-    public Vector preds = new Vector();
+    public Instruction[] preds;
     /**
      * The next instruction in code order.
      */
@@ -97,6 +97,36 @@ public class Instruction implements Opcodes{
 	this.codeinfo = ci;
     }
 
+    public void addPredecessor(Instruction pred) {
+	if (preds == null) {
+	    preds = new Instruction[] { pred };
+	    return;
+	}
+	int predsLength = preds.length;
+	Instruction[] newPreds = new Instruction[predsLength+1];
+	System.arraycopy(preds, 0, newPreds, 0, predsLength);
+	newPreds[predsLength] = pred;
+	preds = newPreds;
+    }
+
+    public void removePredecessor(Instruction pred) {
+	/* Hopefully it doesn't matter if this is slow */
+	int predLength = preds.length;
+	if (predLength == 1) {
+	    if (preds[0] != pred)
+		throw new jode.AssertError
+		    ("removing not existing predecessor");
+	    preds = null;
+	} else {
+	    Instruction[] newPreds = new Instruction[predLength-1];
+	    int j;
+	    for (j = 0; preds[j] != pred; j++)
+		newPreds[j] = preds[j];
+	    System.arraycopy(preds, j+1, newPreds, j, predLength - j - 1);
+	    preds = newPreds;
+	}
+    }
+
     public Instruction insertInstruction() {
 	Instruction newInstr = new Instruction(codeinfo);
 	newInstr.addr = addr;
@@ -110,40 +140,26 @@ public class Instruction implements Opcodes{
 	prevByAddr = newInstr;
 
 	/* promote the predecessors to newInstr */
-	Enumeration enum = preds.elements();
-	while (enum.hasMoreElements()) {
-	    Instruction pred = (Instruction) enum.nextElement();
-	    if (pred.succs != null)
-		for (int i=0; i < pred.succs.length; i++)
-		    if (pred.succs[i] == this)
-			pred.succs[i] = newInstr;
+	if (preds != null) {
+	    for (int j=0; j < preds.length; j++)
+		for (int i=0; i < preds[j].succs.length; i++)
+		    if (preds[j].succs[i] == this)
+			preds[j].succs[i] = newInstr;
+	    newInstr.preds = preds;
+	    preds = null;
 	}
-	newInstr.preds = preds;
-	preds = new Vector();
-	preds.addElement(newInstr);
-
 	return newInstr;
     }
 
-    public Instruction appendInstruction(boolean nextAlwaysJumps) {
+    public Instruction appendInstruction() {
 	Instruction newInstr = new Instruction(codeinfo);
 	newInstr.addr = addr;
 	newInstr.nextByAddr = nextByAddr;
 	if (nextByAddr != null)
 	    nextByAddr.prevByAddr = newInstr;
 	newInstr.prevByAddr = this;
-	newInstr.alwaysJumps = nextAlwaysJumps;
-
-	if (nextByAddr != null) {
-	    if (!this.alwaysJumps)
-		nextByAddr.preds.removeElement(this);
-	    if (!nextAlwaysJumps)
-		nextByAddr.preds.addElement(newInstr);
-	}
 
 	nextByAddr = newInstr;
-	if (!this.alwaysJumps)
-	    newInstr.preds.addElement(this);
 	return newInstr;
     }
 
@@ -151,6 +167,7 @@ public class Instruction implements Opcodes{
      * Removes this instruction (as if it would be replaced by a nop).
      */
     public void removeInstruction() {
+	try{
 	/* remove from chained list */
 	if (prevByAddr != null)
 	    prevByAddr.nextByAddr = nextByAddr;
@@ -161,23 +178,30 @@ public class Instruction implements Opcodes{
 	    nextByAddr.prevByAddr = prevByAddr;
 
 	/* remove predecessors of successors */
-	if (!alwaysJumps && nextByAddr != null)
-	    nextByAddr.preds.removeElement(this);
 	if (succs != null) {
 	    for (int i=0; i < succs.length; i++)
-		succs[i].preds.removeElement(this);
+		succs[i].removePredecessor(this);
+	    succs = null;
 	}
 
-	/* promote the predecessors to nextByAddr */
-	Enumeration enum = preds.elements();
-	while (enum.hasMoreElements()) {
-	    Instruction pred = (Instruction) enum.nextElement();
-	    if (pred.succs != null)
-		for (int i=0; i < pred.succs.length; i++)
-		    if (pred.succs[i] == this)
-			pred.succs[i] = nextByAddr;
-	    if (nextByAddr != null)
-		nextByAddr.preds.addElement(pred);
+	Instruction alternative = nextByAddr != null ? nextByAddr : prevByAddr;
+	/* remove the predecessors to alternative */
+	if (preds != null) {
+	    for (int j=0; j < preds.length; j++)
+		for (int i=0; i < preds[j].succs.length; i++)
+		    if (preds[j].succs[i] == this)
+			preds[j].succs[i] = alternative;
+	    if (alternative.preds == null)
+		alternative.preds = preds;
+	    else {
+		Instruction[] newPreds
+		    = new Instruction[alternative.preds.length + preds.length];
+		System.arraycopy(preds, 0, newPreds, 0, preds.length);
+		System.arraycopy(alternative.preds, 0, newPreds, preds.length, 
+				 alternative.preds.length);
+		alternative.preds = newPreds;
+	    }
+	    preds = null;
 	}
 
 	/* adjust exception handlers */
@@ -204,16 +228,76 @@ public class Instruction implements Opcodes{
 		i--;
 	    }
 	}
+	} catch (Exception ex) {
+	    ex.printStackTrace();
+	    System.err.println(getDescription()+ " "
+			       + Integer.toHexString(hashCode()));
+	    if (succs != null) {
+		System.err.print("\tsuccs: "+succs[0]);
+		for (int i = 1; i < succs.length; i++)
+		    System.err.print(", "+succs[i]);
+		System.err.println();
+	    }
+	    if (preds != null) {
+		System.err.print("\tpreds: " + preds[0]);
+		for (int i=1; i < preds.length; i++)
+		    System.err.print(", " + preds[i]);
+		System.err.println();
+	    }
+	    codeinfo.dumpCode(System.err);
+	}
+    }
+
+    public String getDescription() {
+	StringBuffer result = new StringBuffer(String.valueOf(addr))
+	    .append('_').append(Integer.toHexString(hashCode()))
+	    .append(": ").append(opcodeString[opcode]);
+	switch (opcode) {
+	case opc_iload: case opc_lload: 
+	case opc_fload: case opc_dload: case opc_aload:
+	case opc_istore: case opc_lstore: 
+	case opc_fstore: case opc_dstore: case opc_astore:
+	case opc_ret:
+	    result.append(" ").append(localSlot);
+	    break;
+	case opc_iinc:
+	    result.append(" ").append(localSlot).append(" ").append(intData);
+	    break;
+	case opc_ldc: case opc_ldc2_w:    
+	case opc_getstatic: case opc_getfield:
+	case opc_putstatic: case opc_putfield:
+	case opc_invokespecial:	case opc_invokestatic: case opc_invokevirtual:
+	case opc_new: 
+	case opc_checkcast: 
+	case opc_instanceof:
+	    result.append(" ").append(objData);
+	    break;
+	case opc_anewarray: 
+	case opc_newarray:
+	    result.append(" ").append(((String)objData).substring(1));
+	    break;
+	case opc_multianewarray:
+	case opc_invokeinterface:
+	    result.append(" ").append(objData).append(" ").append(intData);
+	    break;
+	case opc_ifeq: case opc_ifne: 
+	case opc_iflt: case opc_ifge: 
+	case opc_ifgt: case opc_ifle:
+	case opc_if_icmpeq: case opc_if_icmpne:
+	case opc_if_icmplt: case opc_if_icmpge: 
+	case opc_if_icmpgt: case opc_if_icmple: 
+	case opc_if_acmpeq: case opc_if_acmpne:
+	case opc_ifnull: case opc_ifnonnull:
+	case opc_goto:
+	case opc_jsr:
+	    result.append(" ").append(succs[0].addr);
+	    break;
+	}
+	return result.toString();
     }
 
     public String toString() {
-	String result =  ""+addr+"_"+Integer.toHexString(hashCode());
-	for (Instruction instr = codeinfo.firstInstr;
-	     instr != null; instr = instr.nextByAddr) {
-	    if (instr == this)
-		return result;
-	}
-	return result+"*";
+	return ""+addr+"_"+Integer.toHexString(hashCode());
     }
 }
 
