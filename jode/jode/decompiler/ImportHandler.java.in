@@ -197,9 +197,7 @@ public class ImportHandler {
     {
         writer.println("/* "+ className 
 		       + " - Decompiled by JODE");
-	writer.println(" * "+GlobalOptions.URL);
-	writer.println(" * Send comments or bug reports to "
-		       + GlobalOptions.email);
+	writer.println(" * Visit "+GlobalOptions.URL);
 	writer.println(" */");
         if (pkg.length() != 0)
             writer.println("package "+pkg+";");
