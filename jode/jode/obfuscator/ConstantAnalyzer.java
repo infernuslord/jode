@@ -98,10 +98,15 @@ class ConstantAnalyzerValue implements ConstantListener {
      * @return true, if the value changed.
      */
     public void merge(ConstantAnalyzerValue other) {
-	if (value == other.value)
+	if (this == other
+	    || (value == VOLATILE && other.value == VOLATILE))
 	    return;
-	if (value != null && value.equals(other.value))
+
+	if (value == other.value
+	    || (value != null && value.equals(other.value))) {
+	    other.addConstantListener(this);
 	    return;
+	}
 
 	if (value != VOLATILE)
 	    fireChanged();
@@ -109,7 +114,6 @@ class ConstantAnalyzerValue implements ConstantListener {
 	    other.fireChanged();
     }
 }
-
 
 /**
  * Analyze the code, assuming every field that is not yet written to
@@ -230,8 +234,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			if (!instrStack.contains(instr))
 			    instrStack.push(instr);
 			locals[i] = null;
-		    } else 
+		    } else {
 			locals[i].merge(other.locals[i]);
+		    }
 		}
 	    }
 	    if (stack.length != other.stack.length)
@@ -280,24 +285,23 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     }
 
     public void handleReference(Reference ref, boolean isVirtual) {
-	m.clazz.bundle.reachableIdentifier
-	    (ref.getClazz()+"."+ref.getName()+"."+ref.getType(), isVirtual);
+	String clName = ref.getClazz();
+	/* Don't have to reach array methods */
+	if (clName.charAt(0) != '[') {
+	    clName = clName.substring(1, clName.length()-1).replace('/', '.');
+	    m.clazz.bundle.reachableIdentifier
+		(clName+"."+ref.getName()+"."+ref.getType(), isVirtual);
+	}
     }
 
     public void handleClass(String clName) {
-	if (clName.charAt(0) == '[') {
-	    int i;
-	    for (i=0; i< clName.length(); i++)
-		if (clName.charAt(i) != '[')
-		    break;
-	    if (i >= clName.length() || clName.charAt(i) != 'L')
-		return;
-	    int index = clName.indexOf(';', i);
-	    if (index != clName.length()-1)
-		return;
-	    clName = clName.substring(i+1, index);
+	int i = 0;
+	while (i < clName.length() && clName.charAt(i) == '[')
+	    i++;
+	if (i < clName.length() && clName.charAt(i) == 'L') {
+	    clName = clName.substring(i+1, clName.length()-1);
+	    m.clazz.bundle.reachableIdentifier(clName, false);
 	}
-	m.clazz.bundle.reachableIdentifier(clName, false);
     }
 
     public void handleOpcode(Instruction instr) {
@@ -926,15 +930,11 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	case opc_putfield: {
 	    int size = (opcode == opc_putstatic) ? 0 : 1;
 	    Reference ref = (Reference) instr.objData;
-	    ClassIdentifier ci = (ClassIdentifier)
-		m.clazz.bundle.getIdentifier(ref.getClazz());
-	    if (ci != null) {
-		FieldIdentifier fi = (FieldIdentifier) 
-		    ci.getIdentifier(ref.getName(), ref.getType());
-		if (!fi.isNotConstant()) {
+	    FieldIdentifier fi = (FieldIdentifier) 
+		m.clazz.bundle.getIdentifier(ref);
+	    if (fi != null && !fi.isNotConstant()) {
 		    fi.setNotConstant();
 		    fieldNotConstant(fi);
-		}
 	    }
 	    Type type = Type.tType(ref.getType());
 	    mergeInfo(instr.nextByAddr, info.pop(size + type.stackSize()));
@@ -945,12 +945,13 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    int size = (opcode == opc_getstatic) ? 0 : 1;
 	    Reference ref = (Reference) instr.objData;
 	    Type type = Type.tType(ref.getType());
-	    ClassIdentifier ci = (ClassIdentifier)
-		m.clazz.bundle.getIdentifier(ref.getClazz());
-	    if (ci != null) {
-		FieldIdentifier fi = (FieldIdentifier) 
-		    ci.getIdentifier(ref.getName(), ref.getType());
-		if (!fi.isNotConstant()) {
+	    FieldIdentifier fi = (FieldIdentifier) 
+		m.clazz.bundle.getIdentifier(ref);
+	    if (fi != null) {
+		if (fi.isNotConstant()) {
+		    fi.setReachable();
+		    result = unknownValue[type.stackSize()-1];
+		} else {
 		    Object obj = fi.getConstant();
 		    if (obj == null)
 			obj = type.getDefaultValue();
@@ -959,9 +960,6 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    result = new ConstantAnalyzerValue(obj);
 		    result.addConstantListener(shortInfo);
 		    fi.addFieldListener(m);
-		} else {
-		    fi.setReachable();
-		    result = unknownValue[type.stackSize()-1];
 		}
 	    } else
 		result = unknownValue[type.stackSize()-1];
@@ -1012,17 +1010,18 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			(ref, opcode != opc_invokespecial, cls, args);
 		} catch (InterpreterException ex) {
 		    constant = false;
-		    Obfuscator.err.println("Can't interpret "+ref+": "
-				       + ex.getMessage());
+		    if (jode.Obfuscator.verboseLevel > 3)
+			Obfuscator.err.println("Can't interpret "+ref+": "
+					       + ex.getMessage());
 		    /* result is not constant */
 		} catch (InvocationTargetException ex) {
 		    constant = false;
-		    Obfuscator.err.println("Method "+ref+" throwed exception: "
-				       + ex.getTargetException().getMessage());
+		    if (jode.Obfuscator.verboseLevel > 3)
+			Obfuscator.err.println("Method "+ref
+					       +" throwed exception: "
+					       + ex.getTargetException()
+					       .getMessage());
 		    /* method always throws exception ? */
-		} catch (Exception ex) {
-		    Obfuscator.err.println("Unexpected exception in method: "+ref+" while analyzing "+m);
-		    ex.printStackTrace(Obfuscator.err);
 		}
 	    }
 	    ConstantAnalyzerValue returnVal;
@@ -1048,15 +1047,6 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
         case opc_new: {
 	    handleClass((String) instr.objData);
 	    mergeInfo(instr.nextByAddr, info.poppush(0, unknownValue[0]));
-	    break;
-        }
-        case opc_newarray: {
-	    mergeInfo(instr.nextByAddr, info.poppush(1, unknownValue[0]));
-	    break;
-        }
-        case opc_anewarray: {
-	    handleClass((String) instr.objData);
-	    mergeInfo(instr.nextByAddr, info.poppush(1, unknownValue[0]));
 	    break;
         }
         case opc_arraylength: {
@@ -1249,9 +1239,10 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    instr.localSlot = -1;
 		    instr.length = 2;
 		    instr.objData = info.constant;
-//  		    Obfuscator.err.println(m+": Replacing "
-//  					   +opcodeString[instr.opcode]
-//  					   +" with constant "+info.constant);
+		    if (Obfuscator.verboseLevel > 2)
+			Obfuscator.err.println
+			    (m + ": Replacing " + instr
+			     + " with constant " + info.constant);
 		}
 		instr.tmpInfo = null;
 	    } else if ((info.flags & CONSTANTFLOW) != 0) {
@@ -1312,15 +1303,12 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		case opc_putstatic:
 		case opc_putfield: {
 		    Reference ref = (Reference) instr.objData;
-		    ClassIdentifier ci = (ClassIdentifier)
-			m.clazz.bundle.getIdentifier(ref.getClazz());
-		    if (ci != null) {
-			FieldIdentifier fi = (FieldIdentifier) 
-			    ci.getIdentifier(ref.getName(), ref.getType());
-			if (jode.Obfuscator.shouldStrip && !fi.isReachable()) {
-			    insertPop(instr);
-			    instr.removeInstruction();
-			}
+		    FieldIdentifier fi = (FieldIdentifier) 
+			m.clazz.bundle.getIdentifier(ref);
+		    if (fi != null
+			&& jode.Obfuscator.shouldStrip && !fi.isReachable()) {
+			insertPop(instr);
+			instr.removeInstruction();
 		    } 
 		    break;
 		}
