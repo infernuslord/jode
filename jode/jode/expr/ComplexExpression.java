@@ -113,12 +113,19 @@ public class ComplexExpression extends Expression {
      * is not a CombineableOperator.
      */
     public int canCombine(Expression e) {
-// 	Decompiler.err.println("Try to combine "+e+" into "+this);
+//  	Decompiler.err.println("Try to combine "+e+" into "+this);
 	if (e.getOperator() instanceof LocalStoreOperator
 	    && e.getOperandCount() == 0) {
 	    // Special case for locals created on inlining methods, which may
-	    // combine everywhere
-	    return containsMatchingLoad(e) ? 1 : 0;
+	    // combine everywhere, as long as there are no side effects.
+
+	    for (int i=0; i < subExpressions.length; i++) {
+		int result = subExpressions[i].canCombine(e);
+		if (result != 0)
+		    return result;
+		if (subExpressions[i].hasSideEffects(e))
+		    return -1;
+	    }
 	}
 
 	if (e instanceof ComplexExpression) {
@@ -216,18 +223,17 @@ public class ComplexExpression extends Expression {
         return subExpressions;
     }
 
-//      public void setSubExpressions(int i, Expression expr) {
-//  	int diff = expr.getOperandCount()
-//  	    - subExpressions[i].getOperandCount();
-//          subExpressions[i] = expr;
-//  	for (ComplexExpression ce = this; ce != null; 
-//  	     ce = (ComplexExpression) ce.parent)
-//  	    ce.operandcount += diff;
-//          updateType();
-//      }
+    public void setSubExpressions(int i, Expression expr) {
+	int diff = expr.getOperandCount()
+	    - subExpressions[i].getOperandCount();
+        subExpressions[i] = expr;
+	for (ComplexExpression ce = this; ce != null; 
+	     ce = (ComplexExpression) ce.parent)
+	    ce.operandcount += diff;
+        updateType();
+    }
 
     void updateSubTypes() {
-        boolean changed = false;
         for (int i=0; i < subExpressions.length; i++) {
             Type opType;
             if (operator instanceof CheckNullOperator
@@ -240,53 +246,61 @@ public class ComplexExpression extends Expression {
                 opType = operator.getOperandType(i);
             } else
                 opType = Type.tSubType(operator.getOperandType(i));
-            Type exprType = subExpressions[i].getType();
-            opType = opType.intersection(exprType);
-            if (!opType.equals(exprType) && opType != Type.tError) {
-                if (Decompiler.isTypeDebugging)
-                    Decompiler.err.println("change in "+this+": "
-					   +exprType
-					   +"->"+opType);
-                subExpressions[i].setType(opType);
-                changed = true;
+	    if (opType != Type.tError) {
+		Type exprType = subExpressions[i].getType();
+		opType = opType.intersection(exprType);
+		if (!opType.equals(exprType)) {
+		    if (Decompiler.isTypeDebugging)
+			Decompiler.err.println("change in "+this+": "
+					       +exprType+"->"+opType);
+		    if (opType == Type.tError)
+			Decompiler.err.println("Type error in "+this+": "
+					       +exprType+"->"
+					       +operator.getOperandType(i));
+		    subExpressions[i].setType(opType);
+		}
             }
         }
     }
 
     public void updateType() {
-        if (subExpressions.length > 0) {
-            while (true) {
-                updateSubTypes();
-                Type types[] = new Type[subExpressions.length];
-                boolean changed = false;
-                for (int i=0; i < types.length; i++) {
-                    if (operator instanceof CheckNullOperator
-			|| i == 0 && operator instanceof ArrayStoreOperator) {
-                        /* No rule without exception:
-			 * We can always use tSuperType, except for the
-			 * array operand of an array store instruction.
-			 */
-                        types[i] = subExpressions[i].getType();
-                    } else
-                        types[i] = Type.tSuperType
-                            (subExpressions[i].getType());
-                    Type opType = operator.getOperandType(i);
-                    types[i] = types[i].intersection(opType);
-                    if (!types[i].equals(opType)
-                        && types[i] != Type.tError) {
-                        if (Decompiler.isTypeDebugging)
-                            Decompiler.err.println("change in "+this+": "
-                                               +operator.getOperandType(i)
-                                               +"->"+types[i]);
-                        changed = true;
-                    }
-                }
-                if (!changed)
-                    break;
-                operator.setOperandType(types);
-            }
-        }
-        Type newType = type.intersection(operator.getType());
+	while (true) {
+	    updateSubTypes();
+	    Type types[] = new Type[subExpressions.length];
+	    boolean changed = false;
+	    for (int i=0; i < types.length; i++) {
+		if (operator instanceof CheckNullOperator
+		    || i == 0 && operator instanceof ArrayStoreOperator) {
+		    /* No rule without exception:
+		     * We can always use tSuperType, except for the
+		     * array operand of an array store instruction.
+		     */
+		    types[i] = subExpressions[i].getType();
+		} else
+		    types[i] = Type.tSuperType
+			(subExpressions[i].getType());
+		Type opType = operator.getOperandType(i);
+		if (types[i] == Type.tError)
+		    continue;
+		types[i] = types[i].intersection(opType);
+		if (types[i].equals(opType))
+		    continue;
+		
+		if (Decompiler.isTypeDebugging)
+		    Decompiler.err.println("change in "+this+" at "+i+": "
+					   +opType+"->"+types[i]);
+		if (types[i] == Type.tError)
+		    Decompiler.err.println("Type error in "+this+" at "+i+": "
+					   +subExpressions[i].getType()
+					   +"->"+opType);
+		else
+		    changed = true;
+	    }
+	    if (!changed)
+		break;
+	    operator.setOperandType(types);
+	}
+	Type newType = type.intersection(operator.getType());
         if (!newType.equals(type)) {
             type = newType;
             if (parent != null)
@@ -342,6 +356,32 @@ public class ComplexExpression extends Expression {
                 return false;
         }
         return true;
+    }
+
+    /** 
+     * This method should remove local variables that are only written
+     * and read one time directly after another.  <br>
+     *
+     * In this case this is a non void LocalStoreOperator, whose local
+     * isn't used in other places.
+     * @return an expression where the locals are removed.
+     */
+    public Expression removeOnetimeLocals() {
+//  	System.err.println("removeOneTimeLocals: "+this);
+	if (operator instanceof LocalStoreOperator
+	    && operator.getType() != Type.tVoid) {
+	    jode.decompiler.LocalInfo local = ((LocalStoreOperator)operator).getLocalInfo();
+	    if ((local.getUseCount() == 2 /*XXX*/)) {
+		/* remove LocalInfo somehow XXX */
+		return subExpressions[0].removeOnetimeLocals();
+	    } //  else
+//  		System.err.println("Can't remove local "+local);
+	}
+        for (int i=0; i< subExpressions.length; i++) {
+	    subExpressions[i] = subExpressions[i].removeOnetimeLocals();
+	    subExpressions[i].parent = this;
+        }
+	return this;
     }
 
     public Expression simplifyStringBuffer() {
@@ -459,7 +499,8 @@ public class ComplexExpression extends Expression {
                  operator.OPASSIGN_OP+operator.ADD_OP ||
                  operator.getOperatorIndex() == 
                  operator.OPASSIGN_OP+operator.NEG_OP) &&
-                (one.getValue().equals("1"))) {
+                (one.getValue().equals("1")
+		 || one.getValue().equals("1.0"))) {
 
                 int op = (operator.getOperatorIndex() == 
                           operator.OPASSIGN_OP+operator.ADD_OP)
