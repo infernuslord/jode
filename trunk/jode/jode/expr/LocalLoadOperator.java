@@ -59,6 +59,15 @@ public class LocalLoadOperator extends Operator
 	return local.getLocalInfo();
     }
 
+    public void setCodeAnalyzer(CodeAnalyzer ca) {
+	codeAnalyzer = ca;
+    }
+
+    public void setLocalInfo(LocalInfo newLocal) {
+	local = newLocal;
+	updateType();
+    }
+
     public void updateSubTypes() {
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
 	    GlobalOptions.err.println("setType of "+local.getName()+": "
@@ -80,12 +89,8 @@ public class LocalLoadOperator extends Operator
     }
 
     public Expression simplify() {
-	if (local.getName().equals("this") && codeAnalyzer != null)
-	    return new ThisOperator(codeAnalyzer.getClazz(), true).simplify();
-	if (local.getName().equals("this$-1") && codeAnalyzer != null)
-	    return new ThisOperator
-		(((ClassAnalyzer)codeAnalyzer.getClassAnalyzer().getParent())
-		 .getClazz()).simplify();
+	if (local.getExpression() != null)
+	    return local.getExpression().simplify();
 	return super.simplify();
     }
 
