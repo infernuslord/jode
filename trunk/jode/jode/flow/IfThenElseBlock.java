@@ -140,7 +140,9 @@ public class IfThenElseBlock extends StructuredBlock {
         throws java.io.IOException
     {
         boolean needBrace = thenBlock.needsBraces();
-        writer.print("if ("+cond.toString()+")");
+        writer.print("if (");
+	cond.dumpExpression(writer);
+	writer.print(")");
 	if (needBrace)
 	    writer.openBrace();
 	else

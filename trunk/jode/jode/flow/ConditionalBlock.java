@@ -122,7 +122,9 @@ public class ConditionalBlock extends InstructionContainer {
     public void dumpInstruction(TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        writer.println("IF ("+instr.toString()+")");
+        writer.print("IF (");
+	instr.dumpExpression(writer);
+	writer.println(")");
         writer.tab();
         trueBlock.dumpSource(writer);
         writer.untab();
