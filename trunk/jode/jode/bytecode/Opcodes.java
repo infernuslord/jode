@@ -17,14 +17,15 @@
  * $Id$
  */
 
-package jode.decompiler;
+package jode.bytecode;
 import jode.CodeAnalyzer;
 import jode.LocalInfo;
 import jode.Type;
 import jode.MethodType;
-import jode.bytecode.ConstantPool;
 import jode.flow.*;
+import jode.decompiler.*;
 import java.io.*;
+import java.util.Vector;
 
 /**
  * This is an abstract class which creates flow blocks for the
@@ -317,6 +318,119 @@ public abstract class Opcodes {
 	return new RetBlock(local);
     }
 
+
+    /**
+     * Reads the opcodes out of a data input stream and determine its 
+     * References
+     * @param stream  The stream containing the java byte code.
+     * @param references A vector where the references should be added to.
+     */
+    public static void getReferences(DataInputStream stream, 
+				     Vector references) throws IOException
+    {
+	int addr = 0;
+	while (stream.available() > 0) {
+	    int opcode = stream.readUnsignedByte();
+	    switch (opcode) {
+	    case opc_wide: {
+		switch (opcode = stream.readUnsignedByte()) {
+		case opc_iload: case opc_lload: 
+		case opc_fload: case opc_dload: case opc_aload:
+		case opc_istore: case opc_lstore: 
+		case opc_fstore: case opc_dstore: case opc_astore:
+		case opc_ret:
+		    stream.skip(2);
+		    addr+=4;
+		    break;
+		    
+		case opc_iinc:
+		    stream.skip(4);
+		    addr+=6;
+		    break;
+		default:
+		    throw new ClassFormatError("Invalid wide opcode "+opcode);
+		}
+	    }
+	    case opc_ret:
+		stream.skip(1);
+		addr+=2;
+		break;
+	    case opc_sipush:
+	    case opc_ldc_w:
+	    case opc_ldc2_w:
+	    case opc_iinc:
+	    case opc_goto:
+	    case opc_ifnull: case opc_ifnonnull:
+	    case opc_jsr:
+		stream.skip(2);
+		addr+=3;
+		break;
+	    case opc_jsr_w:
+	    case opc_goto_w:
+		stream.skip(4);
+		addr+=5;
+		break;
+	    case opc_tableswitch: {
+		int length = 7-(addr % 4);
+		stream.skip(length);
+		int low  = stream.readInt();
+		int high = stream.readInt();
+		stream.skip(4*(high-low+1));
+		addr += 9 + length + 4*(high-low+1);
+		break;
+	    }
+	    case opc_lookupswitch: {
+		int length = 7-(addr % 4);
+		stream.skip(length);
+		int npairs = stream.readInt();
+		stream.skip(8*npairs);
+		addr += 5 + length + 8*npairs;
+		break;
+	    }
+
+	    case opc_getstatic:
+	    case opc_getfield:
+	    case opc_putstatic:
+	    case opc_putfield:
+	    case opc_invokevirtual:
+	    case opc_invokespecial:
+	    case opc_invokestatic :
+	    case opc_new:
+	    case opc_anewarray:
+	    case opc_checkcast:
+	    case opc_instanceof:
+		references.addElement(new Integer(stream.readUnsignedShort()));
+		addr += 3;
+		break;
+
+	    case opc_invokeinterface:
+		references.addElement(new Integer(stream.readUnsignedShort()));
+		stream.skip(2);
+		addr += 5;
+		break;
+	    case opc_multianewarray:
+		references.addElement(new Integer(stream.readUnsignedShort()));
+		stream.skip(1);
+		addr += 4;
+		break;
+	    
+	    default:
+		if (opcode == opc_newarray
+		    || (opcode >= opc_bipush && opcode <= opc_aload)
+		    || (opcode >= opc_istore && opcode <= opc_astore)) {
+		    stream.skip(1);
+		    addr += 2;
+		} else if (opcode >= opc_ifeq && opcode <= opc_if_acmpne) {
+		    stream.skip(2);
+		    addr += 3;
+		} else if (opcode == opc_xxxunusedxxx
+			   || opcode >= opc_breakpoint)
+		    throw new ClassFormatError("Invalid opcode "+opcode);
+		else
+		    addr++;
+	    }
+	}
+    }
 
     /**
      * Read an opcode out of a data input stream and determine its size
@@ -875,4 +989,5 @@ public abstract class Opcodes {
             throw new ClassFormatError("Invalid opcode "+opcode);
         }
     }
+
 }
