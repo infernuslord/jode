@@ -1,8 +1,14 @@
 package jode.swingui;
 import jode.bytecode.ClassInfo;
+///#ifdef JDK12
+///import javax.swing.tree.TreeModel;
+///import javax.swing.tree.TreePath;
+///import javax.swing.event.TreeModelListener;
+///#else
 import com.sun.java.swing.tree.TreeModel;
 import com.sun.java.swing.tree.TreePath;
 import com.sun.java.swing.event.TreeModelListener;
+///#endif
 import java.util.*;
 
 public class PackagesTreeModel implements TreeModel {
