@@ -25,8 +25,8 @@ import jode.decompiler.Expression;
  * This is the structured block for an Throw block.
  */
 public class ThrowBlock extends ReturnBlock {
-    public ThrowBlock(Expression instr, Jump jump) {
-        super(instr, jump);
+    public ThrowBlock(Expression instr) {
+        super(instr);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 
