@@ -453,7 +453,7 @@ public class ClassBundle implements OptionHandler {
 	System.err.println("Time used: "+(System.currentTimeMillis() - time));
 
 
-	GlobalOptions.err.println("Computing reachable settings");
+	GlobalOptions.err.println("Computing reachability");
 	time = System.currentTimeMillis();
 	analyze();
 	System.err.println("Time used: "+(System.currentTimeMillis() - time));
@@ -498,6 +498,3 @@ public class ClassBundle implements OptionHandler {
 	System.err.println("Time used: "+(System.currentTimeMillis() - time));
     }
 }
-
-
-
