@@ -30,8 +30,8 @@ public class ReturnBlock extends InstructionContainer {
         super(null);
     }
 
-    public ReturnBlock(Instruction instr) {
-        super(instr);
+    public ReturnBlock(Instruction instr, Jump jump) {
+        super(instr, jump);
     }
 
     /**
