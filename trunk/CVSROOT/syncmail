@@ -124,16 +124,10 @@ def calculate_url(dir, filespec):
         # No diff to report
         return '***** Bogus filespec: %s' % filespec
     if oldrev == 'NONE':
-        try:
-	    lines = [ 'http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s?cvsroot=jode&rev=%s' % (dir, file, newrev) ]
-        except IOError, e:
-            lines = ['***** Error reading new file: ',
-                     str(e), '\n***** file: ', file, ' cwd: ', os.getcwd()]
+	lines = [ 'http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s?cvsroot=jode&rev=%s' % (dir, file, newrev) ]
     elif newrev == 'NONE':
 	lines = [ 'DELETED: http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s?cvsroot=jode&rev=%s' % (dir, file, oldrev) ]
     else:
-        # This /has/ to happen in the background, otherwise we'll run into CVS
-        # lock contention.  What a crock.
 	lines = [ 'http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s.diff?cvsroot=jode&r1=%s&r2=%s&f=u' % (dir, file, oldrev, newrev) ]
     return string.join(lines, '')
 
@@ -150,14 +144,14 @@ def blast_mail(mailcmd, dir, filestodiff):
         fp.write(sys.stdin.read())
         fp.write('\n')
         # append the cvsweb urls if available
-	fp.write('CVSWeb URLs:');
+	fp.write('CVSWeb URLs:\n');
         for file in filestodiff:
 	    # fp.write(calculate_diff(file))
 	    fp.write(calculate_url(dir, file))
             fp.write('\n')
         fp.close()
-        # doesn't matter what code we return, it isn't waited on
-        os._exit(0)
+        ## doesn't matter what code we return, it isn't waited on
+        # os._exit(0)
 
 
 
@@ -200,15 +194,11 @@ def main():
     PEOPLE = string.join(args)
     mailcmd = MAILCMD % vars()
 
-    print 'Mailing %s...' % PEOPLE
     if specs == ['-', 'Imported', 'sources']:
         return
     if specs[-3:] == ['-', 'New', 'directory']:
         del specs[-3:]
-    print 'Generating notification message...'
     blast_mail(mailcmd, specs[0], specs[1:])
-    print 'Generating notification message... done.'
-
 
 
 if __name__ == '__main__':
