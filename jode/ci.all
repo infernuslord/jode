@@ -1,5 +1,5 @@
 #!/bin/sh
-for i in ci.all jcpp make* COPYING *.html doc/*.texi *.java */*.java test/*.j
+for i in ci.all jcpp make* COPYING TODO *.html doc/*.texi *.java */*.java test/*.j
 do 
     if test -w $i; then
 	if [ $i != ${i%.java} ]; then
