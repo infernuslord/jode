@@ -1,7 +1,7 @@
 <?php require("header.inc"); ?>
 <h1>The <i>JODE</i> Applet</h1>
 
-Please be patience, loading the applet may take some time.<br><br>
+<p>Please be patience, loading the applet may take some time.</p>
 
 <center>
 <applet code="jode/Applet.class" archive="jode-applet.jar" width=540 height=400>
@@ -13,10 +13,10 @@ Please be patience, loading the applet may take some time.<br><br>
 </applet>
 </center><br>
 
-Press the start button to decompile <a
+<p> Press the start button to decompile <a
 href="http://www.informatik.uni-oldenburg.de/~mw/plasma.html">Michael's
 Plasma applet</a> (and give the decompiler some time to download the
-jar file).  <br><br>
+jar file).  </p>
 
 You may change the classpath to point to a zip or jar file of your
 choice, using a similar syntax.  Use <code>%3a</code> instead of a
