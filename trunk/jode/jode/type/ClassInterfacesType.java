@@ -21,6 +21,7 @@ package jode.type;
 import jode.bytecode.ClassInfo;
 import java.util.Vector;
 import java.util.Stack;
+import java.util.Hashtable;
 
 /**
  * This class represents a type aproximation, consisting of multiple
@@ -506,6 +507,38 @@ public class ClassInterfacesType extends ReferenceType {
         return true;
     }
 
+    private final static Hashtable keywords = new Hashtable();
+    static {
+	keywords.put("if", Boolean.TRUE);
+	keywords.put("else", Boolean.TRUE);
+	keywords.put("for", Boolean.TRUE);
+	keywords.put("while", Boolean.TRUE);
+	keywords.put("throw", Boolean.TRUE);
+	keywords.put("return", Boolean.TRUE);
+	keywords.put("class", Boolean.TRUE);
+	keywords.put("interface", Boolean.TRUE);
+	keywords.put("implements", Boolean.TRUE);
+	keywords.put("extends", Boolean.TRUE);
+	keywords.put("instanceof", Boolean.TRUE);
+	keywords.put("new", Boolean.TRUE);
+	keywords.put("int", Boolean.TRUE);
+	keywords.put("boolean", Boolean.TRUE);
+	keywords.put("long", Boolean.TRUE);
+	keywords.put("float", Boolean.TRUE);
+	keywords.put("double", Boolean.TRUE);
+	keywords.put("short", Boolean.TRUE);
+	keywords.put("public", Boolean.TRUE);
+	keywords.put("protected", Boolean.TRUE);
+	keywords.put("private", Boolean.TRUE);
+	keywords.put("static", Boolean.TRUE);
+	keywords.put("synchronized", Boolean.TRUE);
+	keywords.put("strict", Boolean.TRUE);
+	keywords.put("transient", Boolean.TRUE);
+	keywords.put("abstract", Boolean.TRUE);
+	keywords.put("volatile", Boolean.TRUE);
+	keywords.put("final", Boolean.TRUE);
+    }
+
     /**
      * Generates the default name, that is the `natural' choice for
      * local of this type.
@@ -523,10 +556,13 @@ public class ClassInterfacesType extends ReferenceType {
         int dot = Math.max(name.lastIndexOf('.'), name.lastIndexOf('$'));
         if (dot >= 0)
             name = name.substring(dot+1);
-        if (Character.isUpperCase(name.charAt(0)))
-            return name.toLowerCase();
-        else
-            return name+"_var";
+        if (Character.isUpperCase(name.charAt(0))) {
+	    name = name.toLowerCase();
+	    if (keywords.get(name) != null)
+		return "var_" + name;
+            return name;
+        } else
+            return "var_" + name;
     }
     
     public int hashCode() {
