@@ -72,23 +72,19 @@ public class CreateCheckNull {
 	    || ifBlock.elseBlock != null
 	    || !(ifBlock.thenBlock instanceof ThrowBlock))
             return false;
-	System.err.println("last.outer: "+last.outer);
 
 	SpecialBlock dup = (SpecialBlock) last.outer.getSubBlocks()[0];
 	if (dup.type != SpecialBlock.DUP
 	    || dup.count != 1 || dup.depth != 0)
 	    return false;
 	   
-	System.err.println("tick1");
 	/* negate the instruction back to its original state */
 	Expression expr = ifBlock.cond.negate();
-	System.err.println(expr);
 	if (!(expr instanceof CompareUnaryOperator)
 	    || expr.getOperator().getOperatorIndex() != Operator.NOTEQUALS_OP
 	    || !(expr.getOperator().getOperandType(0).isOfType(Type.tUObject)))
 	    return false;
 
-	System.err.println("tick2");
 	InstructionContainer ic = 
 	    new InstructionBlock(new CheckNullOperator(Type.tUObject));
 	ifBlock.flowBlock.removeSuccessor(ifBlock.thenBlock.jump);
