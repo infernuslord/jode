@@ -24,6 +24,7 @@ import jode.expr.Expression;
 import jode.expr.LocalLoadOperator;
 import jode.expr.LocalStoreOperator;
 import jode.expr.StoreInstruction;
+import jode.util.SimpleSet;
 
 /**
  * 
@@ -120,10 +121,10 @@ public class CatchBlock extends StructuredBlock {
 	super.removePush();
     }
 
-    public VariableSet getUsed() {
-	used = new VariableSet();
+    public SimpleSet getDeclarables() {
+	SimpleSet used = new SimpleSet();
 	if (exceptionLocal != null)
-	    used.addElement(exceptionLocal);
+	    used.add(exceptionLocal);
 	return used;
     }
     
@@ -133,7 +134,7 @@ public class CatchBlock extends StructuredBlock {
      * is marked as used, but not done.
      * @param done The set of the already declare variables.
      */
-    public void makeDeclaration(VariableSet done) {
+    public void makeDeclaration(SimpleSet done) {
 	super.makeDeclaration(done);
 	/* Normally we have to declare our exceptionLocal.  This
 	 * is automatically done in dumpSource.
@@ -142,7 +143,7 @@ public class CatchBlock extends StructuredBlock {
 	 * this block.  In that case we do a transformation.
 	 */
 	if (declare.contains(exceptionLocal))
-	    declare.removeElement(exceptionLocal);
+	    declare.remove(exceptionLocal);
 	else {
 	    LocalInfo dummyLocal = new LocalInfo();
 	    Expression store = new StoreInstruction

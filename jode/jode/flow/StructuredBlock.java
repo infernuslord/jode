@@ -22,6 +22,10 @@ import jode.AssertError;
 import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.LocalInfo;
+import jode.decompiler.Declarable;
+import jode.util.SimpleSet;
+
+import java.util.Enumeration;
 
 /**
  * A structured block is the building block of the source programm.
@@ -63,17 +67,17 @@ public abstract class StructuredBlock {
      */
 
     /**
-     * The variable set containing all variables that are used in
-     * this block.  You must set this, before calling super.propagateUsage.
+     * The SimpleSet containing all Declarables that are used in this
+     * block. 
      */
-    VariableSet used;
+    SimpleSet used;
 
     /**
-     * The variable set containing all variables we must declare.
+     * The SimpleSet containing all Declarables we must declare.
      * The analyzation is done in makeDeclaration
      */
-    VariableSet declare;
-    VariableSet done;
+    SimpleSet declare;
+    SimpleSet done;
 
     /**
      * The surrounding structured block.  If this is the outermost
@@ -339,8 +343,8 @@ public abstract class StructuredBlock {
 	return false;
     }
 
-    public VariableSet getUsed() {
-	return new VariableSet();
+    public SimpleSet getDeclarables() {
+	return new SimpleSet();
     }
 
     /**
@@ -351,17 +355,21 @@ public abstract class StructuredBlock {
      *
      * @return all locals that are used in this block or in some sub
      * block (this is <i>not</i> the used set).  */
-    public VariableSet propagateUsage() {
-	used = getUsed();
+    public SimpleSet propagateUsage() {
+	used = getDeclarables();
         StructuredBlock[] subs = getSubBlocks();
-        VariableSet allUse = (VariableSet) used.clone();
+        SimpleSet allUse = (SimpleSet) used.clone();
         for (int i=0; i<subs.length; i++) {
-            VariableSet childUse = subs[i].propagateUsage();
+            SimpleSet childUse = subs[i].propagateUsage();
             /* All variables used in more than one sub blocks, are
              * used in this block, too.  
              */
-            used.unionExact(allUse.intersectExact(childUse));
-            allUse.unionExact(childUse);
+	    Enumeration enum = childUse.elements();
+	    SimpleSet intersection = new SimpleSet();
+	    intersection.addAll(childUse);
+	    intersection.retainAll(allUse);
+	    used.addAll(intersection);
+	    allUse.addAll(childUse);
         }
         return allUse;
     }
@@ -432,72 +440,84 @@ public abstract class StructuredBlock {
      *
      * @param done The set of the already declare variables.
      */
-    public void makeDeclaration(VariableSet done) {
-	this.done = (VariableSet) done.clone();
-	declare = new VariableSet();
+    public void makeDeclaration(SimpleSet done) {
+//  	System.err.println("makeDeclaration: done = "+done);
+	this.done = (SimpleSet) done.clone();
+	declare = new SimpleSet();
 	java.util.Enumeration enum = used.elements();
+//  	System.err.println("makeDeclaration: used = "+used);
     next_used:
 	while (enum.hasMoreElements()) {
-	    LocalInfo local = (LocalInfo) enum.nextElement();
+	    Declarable declarable = (Declarable) enum.nextElement();
 
-	    /* First generate the names for the locals, since this may
-	     * also change their types, if they are in the local
-	     * variable table.
-	     */
-	    String localName = local.guessName();
+	    // Check if this is already declared.
+	    if (done.contains(declarable))
+		continue next_used;
 
-	    int size = done.size();
-	    // Check if this local is already declared.
-	    for (int i=0; i< size; i++) {
-		LocalInfo prevLocal = done.elementAt(i);
-		if (prevLocal.equals(local))
-		    continue next_used;
-	    }
+	    if (declarable instanceof LocalInfo) {
+		LocalInfo local = (LocalInfo) declarable;
 
-	    // Merge with all locals in this block, that use the same 
-	    // slot and have compatible types and names.
-	    for (int i=0; i< size; i++) {
-		LocalInfo prevLocal = done.elementAt(i);
-		if (prevLocal.getSlot() == local.getSlot()) {
+		/* First generate the names for the locals, since this may
+		 * also change their types, if they are in the local
+		 * variable table.
+		 */
+		String localName = local.guessName();
+		
+		// Merge with all locals in this block, that use the same 
+		// slot and have compatible types and names.
+		Enumeration doneEnum = done.elements();
+		while (doneEnum.hasMoreElements()) {
+		    Declarable previous = (Declarable) doneEnum.nextElement();
+		    if (!(previous instanceof LocalInfo))
+			continue;
+		    LocalInfo prevLocal = (LocalInfo) previous;
+		    if (prevLocal.getSlot() == local.getSlot()) {
 
-		    /* XXX - I have to think about this...
-		     * there may be a case where this leads to type errors.
-		     * TODO: Give a formal proof ;-)
-		     * One bad thing that may happen is that the name
-		     * of prevLocal (it has already a name) doesn't match
-		     * the intersected type.
-		     *
-		     * We don't want to merge variables, whose names are
-		     * not generated by us and differ.  
-		     * 
-		     * And don't merge "this" with any other variable 
-		     * since it mustn't be written to.
-		     */
-		    if (prevLocal.getType().isOfType(local.getType())
-			&& prevLocal.getName() != "this"
-			&& (prevLocal.isNameGenerated() 
-			    || local.isNameGenerated()
-			    || localName.equals(prevLocal.getName()))) {
-			local.combineWith(prevLocal);
-			continue next_used;
+			/* XXX - I have to think about this...
+			 * there may be a case where this leads to type errors.
+			 * TODO: Give a formal proof ;-)
+			 * One bad thing that may happen is that the name
+			 * of prevLocal (it has already a name) doesn't match
+			 * the intersected type.
+			 *
+			 * We don't want to merge variables, whose names
+			 * are not generated by us and differ.  And we
+			 * don't want to merge special locals that have a
+			 * constant expression, e.g. this.
+			 */
+			if (prevLocal.getType().isOfType(local.getType())
+			    && (prevLocal.isNameGenerated() 
+				|| local.isNameGenerated()
+				|| localName.equals(prevLocal.getName()))
+			    && prevLocal.getExpression() == null
+			    && local.getExpression() == null) {
+			    local.combineWith(prevLocal);
+			    continue next_used;
+			}
 		    }
 		}
 	    }
-
-	    LocalInfo previous = done.findLocal(localName);
-	    if (previous != null) {
-		/* A name conflict happened. */
-		local.makeNameUnique();
+	    
+	    if (declarable.getName() != null) {
+		Enumeration doneEnum = done.elements();
+		while (doneEnum.hasMoreElements()) {
+		    Declarable previous = (Declarable) doneEnum.nextElement();
+		    if (declarable.getName().equals(previous.getName())) {
+			/* A name conflict happened. */
+			declarable.makeNameUnique();
+		    }
+		}
 	    }
-	    done.addElement(local);
-	    declare.addElement(local);
+	    done.add(declarable);
+	    declare.add(declarable);
 	}
+//  	System.err.println("makeDeclaration: declare = "+declare);
         StructuredBlock[] subs = getSubBlocks();
 	for (int i=0; i<subs.length; i++)
 	    subs[i].makeDeclaration(done);
         /* remove the variables again, since we leave the scope.
          */
-        done.subtractExact(declare);
+        done.removeAll(declare);
     }
 
     public void checkConsistent() {
@@ -569,7 +589,7 @@ public abstract class StructuredBlock {
      * dumpInstruction afterwards.
      * @param writer The tabbed print writer, where we print to.
      */
-    public void dumpSource(jode.decompiler.TabbedPrintWriter writer)
+    public void dumpSource(TabbedPrintWriter writer)
         throws java.io.IOException
     {
 	if ((GlobalOptions.debuggingFlags
@@ -584,28 +604,15 @@ public abstract class StructuredBlock {
 	if (declare != null) {
 	    java.util.Enumeration enum = declare.elements();
 	    while (enum.hasMoreElements()) {
-		LocalInfo local = (LocalInfo) enum.nextElement();
-		dumpDeclaration(writer, local);
+		Declarable decl = (Declarable) enum.nextElement();
+		decl.dumpDeclaration(writer);
+		writer.println(";");
 	    }
 	}
         dumpInstruction(writer);
 
         if (jump != null)
             jump.dumpSource(writer);
-    }
-
-    /**
-     * Print the code for the declaration of a local variable.
-     * @param writer The tabbed print writer, where we print to.
-     * @param local  The local that should be declared.
-     */
-    public void dumpDeclaration(jode.decompiler.TabbedPrintWriter writer, LocalInfo local)
-        throws java.io.IOException
-    {
-	if (!local.isRemoved()) {
-	    writer.printType(local.getType().getHint());
-	    writer.println(" " + local.getName().toString() + ";");
-	}
     }
 
     /**

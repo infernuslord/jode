@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.decompiler.LocalInfo;
+import jode.util.SimpleSet;
 
 /** 
  * This block represents a ret instruction.  A ret instruction is
@@ -58,9 +59,9 @@ public class RetBlock extends StructuredBlock {
 	return null;
     }
 
-    public VariableSet getUsed() {
-	used = new VariableSet();
-	used.addElement(local);
+    public SimpleSet getDeclarables() {
+	SimpleSet used = new SimpleSet();
+	used.add(local);
 	return used;
     }
 
