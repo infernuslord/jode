@@ -132,10 +132,10 @@ public class MethodAnalyzer implements Analyzer {
 
 	if (!Decompiler.immediateOutput) {
 	    if (Decompiler.isVerbose)
-		System.err.print(methodName+": ");
+		Decompiler.err.print(methodName+": ");
 	    code.analyze();
 	    if (Decompiler.isVerbose)
-		System.err.println("");
+		Decompiler.err.println("");
 	}
     }
     
@@ -147,10 +147,10 @@ public class MethodAnalyzer implements Analyzer {
             // immediate output.
 
 	    if (Decompiler.isVerbose)
-		System.err.print(methodName+": ");
+		Decompiler.err.print(methodName+": ");
 	    code.analyze();
 	    if (Decompiler.isVerbose)
-		System.err.println("");
+		Decompiler.err.println("");
 	}
 
         if (isConstructor() && isStatic() 

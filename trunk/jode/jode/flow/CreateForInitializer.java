@@ -18,6 +18,7 @@
  */
 
 package jode.flow;
+import jode.Decompiler;
 import jode.decompiler.*;
 
 public class CreateForInitializer {
@@ -43,8 +44,8 @@ public class CreateForInitializer {
             || !forBlock.conditionMatches(init))
             return false;
 
-        if (jode.Decompiler.isVerbose)
-            System.err.print('f');
+        if (Decompiler.isVerbose)
+            Decompiler.err.print('f');
 
         forBlock.setInit((InstructionBlock) sequBlock.subBlocks[0]);
         return true;

@@ -36,7 +36,7 @@ public class TransformConstructors {
         StructuredBlock[] sb = new StructuredBlock[constrCount];
         for (int i=0; i< constrCount; ) {
             sb[i] = cons[i].getMethodHeader().block;
-//             System.err.println("constr "+i+": "+sb[i]);
+//             Decompiler.err.println("constr "+i+": "+sb[i]);
             if (!isStatic) {
                 InstructionBlock ib;
                 if (sb[i] instanceof InstructionBlock)
@@ -64,7 +64,7 @@ public class TransformConstructors {
                     /* This constructor calls another constructor, so we
                      * can skip it.
                      */
-//                     System.err.println("skipping this()");
+//                     Decompiler.err.println("skipping this()");
                     cons[i] = cons[--constrCount];
                     continue;
                 }
@@ -78,7 +78,7 @@ public class TransformConstructors {
                     sb[i] = sb[i].getSubBlocks()[1];
                 else
                     sb[i] = null;
-//                 System.err.println("normal constructor");
+//                 Decompiler.err.println("normal constructor");
             }
             i++;
         }
@@ -107,16 +107,16 @@ public class TransformConstructors {
 
 
             if (!expr.isConstant()) {
-//                 System.err.println("not constant: "+expr);
+//                 Decompiler.err.println("not constant: "+expr);
                 break big_loop;
             }
 
-//             System.err.println("field "+pfo.getFieldName()+ " = "+expr);
+//             Decompiler.err.println("field "+pfo.getFieldName()+ " = "+expr);
 
             if (!isStatic
                 && !(((ComplexExpression)instr).getSubExpressions()[0]
                      .toString().equals("this"))) {
-//                 System.err.println("not this: "+instr);
+//                 Decompiler.err.println("not this: "+instr);
                 break big_loop;
             }
 
@@ -126,14 +126,14 @@ public class TransformConstructors {
                     : sb[i];
                 if (!(ib instanceof InstructionBlock)
                     || !((InstructionBlock)ib).getInstruction().equals(instr)) {
-//                     System.err.println("constr "+i+" differs: "+ib);
+//                     Decompiler.err.println("constr "+i+" differs: "+ib);
                     break big_loop;
                 }
             }
 
 
             if (!clazzAnalyzer.setFieldInitializer(pfo.getFieldName(), expr)) {
-//                 System.err.println("setField failed");
+//                 Decompiler.err.println("setField failed");
                 break big_loop;
             }
                                                    
@@ -146,7 +146,7 @@ public class TransformConstructors {
             }
             for (int i=0; i< constrCount; i++)
                 if (sb[i] == null) {
-//                     System.err.println("constr "+i+" is over");
+//                     Decompiler.err.println("constr "+i+" is over");
                     break big_loop;
                 }
         }

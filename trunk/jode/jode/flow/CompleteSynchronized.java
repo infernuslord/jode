@@ -18,6 +18,7 @@
  */
 
 package jode.flow;
+import jode.Decompiler;
 import jode.decompiler.*;
 
 public class CompleteSynchronized {
@@ -48,8 +49,8 @@ public class CompleteSynchronized {
             return false;
         }
         
-        if (jode.Decompiler.isVerbose)
-            System.err.print('s');
+        if (Decompiler.isVerbose)
+            Decompiler.err.print('s');
         
         synBlock.isEntered = true;
         synBlock.moveDefinitions(last.outer,last);

@@ -18,6 +18,7 @@
  */
 
 package jode.flow;
+import jode.Decompiler;
 import jode.decompiler.*;
 
 /**
@@ -110,8 +111,8 @@ public class CreateExpression {
             sequBlock = (SequentialBlock)sequBlock.outer;
         }
 
-        if(jode.Decompiler.isVerbose)
-            System.err.print('x');
+        if(Decompiler.isVerbose)
+            Decompiler.err.print('x');
 
         Expression newExpr;
         if (params == 1 && op instanceof NopOperator) {

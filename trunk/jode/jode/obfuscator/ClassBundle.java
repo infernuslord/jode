@@ -31,7 +31,7 @@ public class ClassBundle {
 
     public void loadClass(ClassInfo clazz) {
 	if (loadedClasses.get(clazz.getName()) != null) {
-	    System.err.println("warning: ignoring double class: "
+	    Decompiler.err.println("warning: ignoring double class: "
 			       + clazz.getName());
 	    return;
 	}

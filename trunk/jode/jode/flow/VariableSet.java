@@ -54,7 +54,7 @@ public class VariableSet implements Cloneable {
             size += count;
             if (size > locals.length) {
                 int nextSize = locals.length * 2;
-//                 System.err.println("wanted: "+size+" next: "+nextSize);
+//                 Decompiler.err.println("wanted: "+size+" next: "+nextSize);
                 LocalInfo[] newLocals
                     = new LocalInfo[nextSize > size ? nextSize : size];
                 System.arraycopy(locals, 0, newLocals, 0, count);

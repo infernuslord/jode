@@ -175,7 +175,7 @@ public class ComplexExpression extends Expression {
             opType = opType.intersection(exprType);
             if (!opType.equals(exprType) && opType != Type.tError) {
                 if (Decompiler.isTypeDebugging)
-                    System.err.println("change in "+this+": "
+                    Decompiler.err.println("change in "+this+": "
                                        +exprType
                                        +"->"+opType);
                 subExpressions[i].setType(opType);
@@ -205,7 +205,7 @@ public class ComplexExpression extends Expression {
                     if (!types[i].equals(opType)
                         && types[i] != Type.tError) {
                         if (Decompiler.isTypeDebugging)
-                            System.err.println("change in "+this+": "
+                            Decompiler.err.println("change in "+this+": "
                                                +operator.getOperandType(i)
                                                +"->"+types[i]);
                         changed = true;

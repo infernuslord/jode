@@ -75,7 +75,7 @@ public class LocalInfo {
         } else {
             if (this != li) {
                 shadow = li;
-//                 System.err.println("combining "+name+"("+type+") and "
+//                 Decompiler.err.println("combining "+name+"("+type+") and "
 //                                    +li.name+"("+li.type+")");
                 li.setType(type);
 
@@ -88,7 +88,7 @@ public class LocalInfo {
                         (LocalVarOperator) enum.nextElement();
                     if (needTypeUpdate) {
                         if (Decompiler.isTypeDebugging)
-                            System.err.println("updating " + lvo);
+                            Decompiler.err.println("updating " + lvo);
                         lvo.updateType();
                     }
                     shadow.operators.addElement(lvo);
@@ -183,7 +183,7 @@ public class LocalInfo {
         LocalInfo li = getLocalInfo();
         newType = li.type.intersection(newType);
         if (Decompiler.isTypeDebugging)
-            System.err.println(getName()+" setType, new: "+newType
+            Decompiler.err.println(getName()+" setType, new: "+newType
                                + " old: "+li.type);
         if (!li.type.equals(newType)) {
             li.type = newType;
@@ -191,7 +191,7 @@ public class LocalInfo {
             while (enum.hasMoreElements()) {
                 LocalVarOperator lvo = (LocalVarOperator) enum.nextElement();
                 if (Decompiler.isTypeDebugging)
-                    System.err.println("updating "+lvo);
+                    Decompiler.err.println("updating "+lvo);
                 lvo.updateType();
             }
         }
