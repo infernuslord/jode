@@ -103,9 +103,12 @@ public class Type {
 ///    private static final ReferenceQueue classQueue = new ReferenceQueue();
 ///    private static final Map arrayHash = new HashMap();    
 ///    private static final ReferenceQueue arrayQueue = new ReferenceQueue();
+///    private static final Map methodHash = new HashMap();    
+///    private static final ReferenceQueue methodQueue = new ReferenceQueue();
 ///#else
     private static final Hashtable classHash = new Hashtable();
     private static final Hashtable arrayHash = new Hashtable();    
+    private static final Hashtable methodHash = new Hashtable();    
 ///#endif
 
     public static final Type tBoolean = new IntegerType(IntegerType.IT_Z);
@@ -134,11 +137,40 @@ public class Type {
 							| IntegerType.IT_Z);
     public static final ClassInterfacesType tObject = 
 	tClass("java.lang.Object");
-    public static final ReferenceType tNull   = new NullType();
+    public static final ReferenceType tNull = new NullType();
     public static final Type tUObject = tRange(tObject, tNull);
     public static final Type tString  = tClass("java.lang.String");
     public static final Type tStringBuffer = tClass("java.lang.StringBuffer");
     public static final Type tJavaLangClass = tClass("java.lang.Class");
+
+    public static final Type tType(Class javaType) {
+	if (javaType.isPrimitive()) {
+	    if (javaType == Boolean.TYPE)
+		return Type.tBoolean;
+	    else if (javaType == Byte.TYPE)
+		return Type.tByte;
+	    else if (javaType == Character.TYPE)
+		return Type.tChar;
+	    else if (javaType == Short.TYPE)
+		return Type.tShort;
+	    else if (javaType == Integer.TYPE)
+		return Type.tInt;
+	    else if (javaType == Long.TYPE)
+		return Type.tLong;
+	    else if (javaType == Float.TYPE)
+		return Type.tFloat;
+	    else if (javaType == Double.TYPE)
+		return Type.tDouble;
+	    else if (javaType == Void.TYPE)
+		return Type.tVoid;
+	    else
+		throw new AssertError("Unknown primitive type: "+javaType);
+	} else if (javaType.isArray()) {
+	    return tArray(tType(javaType.getComponentType()));
+	} else {
+	    return tClass(javaType.getName());
+	}
+    }
 
     public static final Type tType(String type) {
         if (type == null || type.length() == 0)
@@ -170,7 +202,7 @@ public class Type {
                 return tError;
             return tClass(type.substring(1, index));
 	case '(':
-	    return new MethodType(type);
+	    return tMethod(type);
         }
         throw new AssertError("Unknown type signature: "+type);
     }
@@ -223,6 +255,27 @@ public class Type {
         return result;
     }
 
+    public static final MethodType tMethod(String signature) {
+///#ifdef JDK12
+///	java.lang.ref.Reference died;
+///	while ((died = methodQueue.poll()) != null)
+///	    methodHash.values().remove(died);
+///	WeakReference ref = (WeakReference) methodHash.get(signature);
+///        MethodType result = (ref == null) ? null : (MethodType) ref.get();
+///#else
+	MethodType result = (MethodType) methodHash.get(signature);
+///#endif
+	if (result == null) {
+	    result = new MethodType(signature);
+///#ifdef JDK12
+///	    methodHash.put(signature, new WeakReference(result, methodQueue));
+///#else
+            methodHash.put(signature, result);
+///#endif
+        }
+        return result;
+    }
+
     public static final Type tRange(ReferenceType bottom, 
 				    ReferenceType top) {
         return new RangeType(bottom, top);
@@ -247,7 +300,7 @@ public class Type {
 	env = e;
     }
 
-    int typecode;
+    final int typecode;
 
     /**
      * Create a new type with the given type code.
@@ -287,8 +340,8 @@ public class Type {
     {
         switch(typecode) {
         case TC_VOID:
-        case TC_ERROR:
             return 0;
+        case TC_ERROR:
         default:
             return 1;
         case TC_DOUBLE:
@@ -391,6 +444,19 @@ public class Type {
             return "D";
         default:
             return "?";
+        }
+    }
+
+    public Class getTypeClass() throws ClassNotFoundException {
+        switch (typecode) {
+        case TC_LONG:
+            return Long.TYPE;
+        case TC_FLOAT:
+            return Float.TYPE;
+        case TC_DOUBLE:
+            return Double.TYPE;
+        default:
+	    throw new AssertError("getTypeClass() called on illegal type");
         }
     }
     
