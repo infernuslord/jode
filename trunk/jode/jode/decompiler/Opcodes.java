@@ -1,18 +1,18 @@
-/* 
- * Opcodes (c) 1998 Jochen Hoenicke
+/* Opcodes Copyright (C) 1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
@@ -126,17 +126,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_nop:
             return createBlock(ca, instr, new EmptyBlock
 			       (new Jump(FlowBlock.NEXT_BY_ADDR)));
-        case opc_aconst_null:
-        case opc_iconst_m1: 
-        case opc_iconst_0: case opc_iconst_1: case opc_iconst_2:
-        case opc_iconst_3: case opc_iconst_4: case opc_iconst_5:
-        case opc_lconst_0: case opc_lconst_1:
-        case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
-        case opc_dconst_0: case opc_dconst_1:
-        case opc_bipush:
-        case opc_sipush:
         case opc_ldc:
-        case opc_ldc_w:
         case opc_ldc2_w:
             return createNormal (ca, instr, new ConstOperator(instr.objData));
 
@@ -281,9 +271,9 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             FlowBlock[] dests = new FlowBlock[instr.succs.length];
             for (int i=0; i < cases.length; i++) {
                 cases[i] = i+low;
-                dests[i] = (FlowBlock) instr.succs[i+1].tmpInfo;
+                dests[i] = (FlowBlock) instr.succs[i].tmpInfo;
             }
-            dests[cases.length] = (FlowBlock) instr.succs[0].tmpInfo;
+            dests[cases.length] = (FlowBlock)instr.succs[cases.length].tmpInfo;
             return createSwitch(ca, instr, cases, dests);
 	}
         case opc_lookupswitch: {
@@ -291,7 +281,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             FlowBlock[] dests = new FlowBlock[instr.succs.length];
             for (int i=0; i < dests.length; i++)
                 dests[i] = (FlowBlock) instr.succs[i].tmpInfo;
-            dests[cases.length] = (FlowBlock) instr.succs[0].tmpInfo;
+            dests[cases.length] = (FlowBlock)instr.succs[cases.length].tmpInfo;
             return createSwitch(ca, instr, cases, dests);
         }
         case opc_ireturn: case opc_lreturn: 
@@ -305,29 +295,27 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 (ca, instr, new EmptyBlock(new Jump(FlowBlock.END_OF_METHOD)));
         case opc_getstatic:
         case opc_getfield: {
-            String[] ref = (String[]) instr.objData;
+            Reference ref = (Reference) instr.objData;
             return createNormal
                 (ca, instr, new GetFieldOperator
-                 (ca, opcode == opc_getstatic,
-                  Type.tClass(ref[0]), Type.tType(ref[2]), ref[1]));
+                 (ca, opcode == opc_getstatic, ref));
         }
         case opc_putstatic:
         case opc_putfield: {
-            String[] ref = (String[]) instr.objData;
+            Reference ref = (Reference) instr.objData;
             return createNormal
                 (ca, instr, new PutFieldOperator
-                 (ca, opcode == opc_putstatic,
-                  Type.tClass(ref[0]), Type.tType(ref[2]), ref[1]));
+                 (ca, opcode == opc_putstatic, ref));
         }
         case opc_invokevirtual:
         case opc_invokespecial:
         case opc_invokestatic :
         case opc_invokeinterface: {
-            String[] ref = (String[]) instr.objData;
+            Reference ref = (Reference) instr.objData;
             StructuredBlock block = createNormal
                 (ca, instr, new InvokeOperator
-                 (ca, opcode == opc_invokespecial, Type.tClass(ref[0]),
-                  new MethodType(opcode == opc_invokestatic, ref[2]), ref[1]));
+                 (ca, opcode == opc_invokestatic, 
+		  opcode == opc_invokespecial, ref));
             return block;
         }
         case opc_new: {
