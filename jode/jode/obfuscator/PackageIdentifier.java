@@ -407,6 +407,17 @@ public class PackageIdentifier extends Identifier {
 	}
     }
 
+    public void doTransformations() {
+	Enumeration enum = loadedClasses.elements();
+	while (enum.hasMoreElements()) {
+	    Identifier ident = (Identifier) enum.nextElement();
+	    if (ident instanceof ClassIdentifier) {
+		((ClassIdentifier) ident).doTransformations();
+	    } else
+		((PackageIdentifier) ident).doTransformations();
+	}
+    }
+
     public void readTable(Hashtable table) {
 	if (parent != null)
 	    setAlias((String) table.get(parent.getFullName() + getName()));
@@ -453,8 +464,7 @@ public class PackageIdentifier extends Identifier {
 		continue;
 	    }
 	    if (ident instanceof PackageIdentifier)
-		((PackageIdentifier) ident)
-		    .storeClasses(zip);
+		((PackageIdentifier) ident).storeClasses(zip);
 	    else {
 		try {
 		    String filename = ident.getFullAlias().replace('.','/')
