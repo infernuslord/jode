@@ -509,13 +509,22 @@ public final class Instruction implements Opcodes{
 	}
     }
 
-    void appendInstruction(Instruction newInstr) {
+    void appendInstruction(Instruction newInstr, BytecodeInfo codeinfo) {
 	newInstr.addr = nextByAddr.addr;
 
 	newInstr.nextByAddr = nextByAddr;
 	nextByAddr.prevByAddr = newInstr;
 	newInstr.prevByAddr = this;
 	nextByAddr = newInstr;
+
+	/* adjust exception handlers end */
+	Handler[] handlers = codeinfo.getExceptionHandlers();
+	if (handlers != null) {
+	    for (int i=0; i< handlers.length; i++) {
+		if (handlers[i].end == this)
+		    handlers[i].end = newInstr;
+	    }
+	}
     }
 
     /**
