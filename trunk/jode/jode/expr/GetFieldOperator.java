@@ -97,13 +97,15 @@ public class GetFieldOperator extends Operator {
 		    return ana.getField(ref.getName(), 
 					Type.tType(ref.getType()));
 		}
-		if (ana.getParent() instanceof MethodAnalyzer)
-		    ana = ((MethodAnalyzer) ana.getParent())
+		if (ana.getParent() == null)
+		    return null;
+		if (ana.getParent() instanceof CodeAnalyzer)
+		    ana = ((CodeAnalyzer) ana.getParent())
 			.getClassAnalyzer();
 		else if (ana.getParent() instanceof ClassAnalyzer)
 		    ana = (ClassAnalyzer) ana.getParent();
-		else
-		    return null;
+		else 
+		    throw new jode.AssertError("Unknown parent");
 	    }
 	}
 	return null;
@@ -160,11 +162,15 @@ public class GetFieldOperator extends Operator {
 	if (!staticFlag) {
 	    subExpressions[0] = subExpressions[0].simplify();
 	    subExpressions[0].parent = this;
-	    if (subExpressions[0] instanceof ThisOperator
-		&& getField() != null) {
-		Expression constant = getField().getConstant();
-		if (constant instanceof ThisOperator)
-		    return constant;
+	    if (subExpressions[0] instanceof ThisOperator) {
+		FieldAnalyzer field = getField();
+		if (field != null 
+		    && field.isSynthetic() && field.isFinal()) {
+		    Expression constant = field.getConstant();
+		    if (constant instanceof ThisOperator
+			|| constant instanceof OuterLocalOperator)
+			return constant;
+		}
 	    }
 	}
 	return this;
