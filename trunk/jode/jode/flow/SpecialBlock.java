@@ -29,6 +29,7 @@ public class SpecialBlock extends StructuredBlock {
     public static int SWAP = 1;
     public static int POP  = 2;
     private static String[] output = { "DUP", "SWAP", "POP" };
+    private boolean resolved = false;
 
     /**
      * The type, one of DUP or SWAP
@@ -64,13 +65,21 @@ public class SpecialBlock extends StructuredBlock {
 	return super.mapStackToLocal(after);
     }
 
+    public void removePush() {
+	resolved = true;
+	super.removePush();
+    }
+
 
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-        writer.println(output[type] 
-                       + ((count == 1) ? "" : "2")
-                       + ((depth == 0) ? "" : "_X"+depth));
+	if (!resolved)
+	    writer.println(output[type] 
+			   + ((count == 1) ? "" : "2")
+			   + ((depth == 0) ? "" : "_X"+depth));
+	else
+	    writer.println("/* warning: unusual code */");
     }
 
     public boolean doTransformations() {
@@ -184,7 +193,9 @@ public class SpecialBlock extends StructuredBlock {
 		    newIfThen.setThenBlock(new EmptyBlock());
 		    newBlock = newIfThen;
 		}
-		newBlock.moveDefinitions(last.outer, newBlock);
+		// We don't move the definitions of the special block, but
+		// it shouldn't have any.
+		newBlock.moveDefinitions(last.outer, last);
 		newBlock.moveJump(jump);
 		if (this == last) {
 		    newBlock.replace(last.outer);
@@ -202,6 +213,8 @@ public class SpecialBlock extends StructuredBlock {
 		Expression previnstr = prevprev.getInstruction();
 		if (previnstr.getType().stackSize() == 1 
 		    && instr.getType().stackSize() == 1
+		    && (previnstr.getType().getSuperType()
+			.isOfType(instr.getType().getSuperType()))
 		    && count == 2) {
 		    /* compare two objects */
 
@@ -226,7 +239,3 @@ public class SpecialBlock extends StructuredBlock {
         return false;
     }
 }
-
-
-
-
