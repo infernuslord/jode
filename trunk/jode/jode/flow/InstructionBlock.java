@@ -143,7 +143,7 @@ public class InstructionBlock extends InstructionContainer {
         if (isDeclaration) {
             LocalInfo local = ((LocalStoreOperator) instr.getOperator())
                 .getLocalInfo();
-            writer.println(local.getType().getHint() + " " + instr);
+            writer.println(local.getType().getHint() + " " + instr + ";");
         } else {
             if (instr.getType() != Type.tVoid)
                 writer.print("PUSH ");
