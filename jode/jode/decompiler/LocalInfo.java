@@ -39,11 +39,13 @@ public class LocalInfo {
     private static int serialnr = 0;
     private static int nextAnonymousSlot = -1;
     private int slot;
+    private boolean nameIsGenerated;
     private boolean isUnique;
     private String name;
     private Type type;
     private LocalInfo shadow;
     private Vector operators = new Vector();
+    private Vector hints = new Vector();
 
     /**
      * Create a new local info with an anonymous slot.
@@ -66,6 +68,10 @@ public class LocalInfo {
 
     public void setOperator(LocalVarOperator operator) {
         getLocalInfo().operators.addElement(operator);
+    }
+
+    public void addHint(LocalVarEntry entry) {
+	getLocalInfo().hints.addElement(entry);
     }
 
     public int getUseCount() {
@@ -105,6 +111,13 @@ public class LocalInfo {
                     }
                     shadow.operators.addElement(lvo);
                 }
+
+		enum = hints.elements();
+		while (enum.hasMoreElements()) {
+		    Object entry = enum.nextElement();
+		    if (!shadow.hints.contains(entry))
+			shadow.hints.addElement(entry);
+		}
 
                 /* Clear unused fields, to allow garbage collection.
                  */
@@ -147,6 +160,16 @@ public class LocalInfo {
             return shadow.getName();
         }
         if (name == null) {
+	    Enumeration enum = hints.elements();
+	    while (enum.hasMoreElements()) {
+		LocalVarEntry entry = (LocalVarEntry) enum.nextElement();
+		if (type.isOfType(entry.getType())) {
+		    name = entry.getName();
+		    type = entry.getType();
+		    return name;
+		}
+	    }
+	    nameIsGenerated = true;
             if (jode.Decompiler.prettyLocals && type != null) {
                 name = type.getHint().getDefaultName();
             } else {
@@ -156,6 +179,10 @@ public class LocalInfo {
             }
         }
         return name;
+    }
+
+    public boolean isNameGenerated() {
+	return nameIsGenerated;
     }
 
     /**
@@ -203,9 +230,11 @@ public class LocalInfo {
         LocalInfo li = getLocalInfo();
         Type newType = li.type.intersection(otherType);
 	if (newType == Type.tError
-	    && otherType != Type.tError && li.type != Type.tError)
+	    && otherType != Type.tError && li.type != Type.tError) {
 	    Decompiler.err.println("Type error in local " + getName()+": "
 				   + li.type + " and " + otherType);
+	    Thread.dumpStack();
+	}
         else if (Decompiler.isTypeDebugging)
             Decompiler.err.println(getName()+" setType, new: "+newType
 				   + " old: "+li.type);
