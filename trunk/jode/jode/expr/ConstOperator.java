@@ -22,7 +22,7 @@ import jode.Type;
 import jode.IntegerType;
 
 public class ConstOperator extends NoArgOperator {
-    String value;
+    Object value;
     boolean isInitializer = false;
 
     private static final Type tBoolConstInt 
@@ -30,35 +30,46 @@ public class ConstOperator extends NoArgOperator {
 			  | IntegerType.IT_Z
 			  | IntegerType.IT_S | IntegerType.IT_B);
 
-
-    public ConstOperator(Type type, String value) {
-        super(type);
-        this.value = value;
-    }
-
-    public ConstOperator(int value) {
-        super(tBoolConstInt);
-        this.value = Integer.toString(value);
-	if (value < 0 || value > 1) { 
+    public ConstOperator(Object constant) {
+	super(Type.tUnknown);
+	if (constant instanceof Boolean) {
+	    setType(Type.tBoolean);
+	    constant = new Integer(((Boolean)constant).booleanValue() ? 1 : 0);
+	} else if (constant instanceof Integer) {
+	    int intVal = ((Integer) constant).intValue();
 	    setType 
-		((value < Short.MIN_VALUE 
-		  || value > Character.MAX_VALUE) ? Type.tInt
+		((intVal == 0 || intVal == 1) ? tBoolConstInt
+		 : (intVal < Short.MIN_VALUE 
+		    || intVal > Character.MAX_VALUE) ? Type.tInt
 		 : new IntegerType
-		 ((value < Byte.MIN_VALUE) 
+		 ((intVal < Byte.MIN_VALUE) 
 		  ?    IntegerType.IT_S|IntegerType.IT_I
-		  : (value < 0)
+		  : (intVal < 0)
 		  ?    IntegerType.IT_S|IntegerType.IT_B|IntegerType.IT_I
-		  : (value <= Byte.MAX_VALUE)
+		  : (intVal <= Byte.MAX_VALUE)
 		  ?    (IntegerType.IT_S|IntegerType.IT_B
 			|IntegerType.IT_C|IntegerType.IT_I)
-		  : (value <= Short.MAX_VALUE)
+		  : (intVal <= Short.MAX_VALUE)
 		  ?    IntegerType.IT_S|IntegerType.IT_C|IntegerType.IT_I
 		  :    IntegerType.IT_C|IntegerType.IT_I));
-	}
+	} else if (constant instanceof Long)
+	    setType(Type.tLong);
+	else if (constant instanceof Float)
+	    setType(Type.tFloat);
+	else if (constant instanceof Double)
+	    setType(Type.tDouble);
+	else if (constant instanceof String)
+	    setType(Type.tString);
+	else if (constant == null)
+	    setType(Type.tUObject);
+	else
+	    throw new IllegalArgumentException("Illegal constant type: "
+					       +constant.getClass());
+	value = constant;
     }
 
     public String getValue() {
-        return value;
+        return String.valueOf(value);
     }
 
     public int getPriority() {
@@ -66,8 +77,12 @@ public class ConstOperator extends NoArgOperator {
     }
 
     public boolean equals(Object o) {
-	return (o instanceof ConstOperator) &&
-	    ((ConstOperator)o).value.equals(value);
+	if (o instanceof ConstOperator) {
+	    Object otherValue = ((ConstOperator)o).value;
+	    return value == null
+		? otherValue == null : value.equals(otherValue);
+	}
+	return false;
     }
 
     public void makeInitializer() {
@@ -115,18 +130,19 @@ public class ConstOperator extends NoArgOperator {
     }
 
     public String toString(String[] operands) {
-        String value = this.value;
+        String strVal = String.valueOf(value);
         if (type.isOfType(Type.tBoolean)) {
-            if (value.equals("0"))
+	    int intVal = ((Integer)value).intValue();
+            if (intVal == 0)
                 return "false";
-            else if (value.equals("1"))
+            else if (intVal == 1)
                 return "true";
 	    else 
 		throw new jode.AssertError
 		    ("boolean is neither false nor true");
         } 
 	if (type.getHint().equals(Type.tChar)) {
-            char c = (char) Integer.parseInt(value);
+            char c = (char) ((Integer) value).intValue();
             switch (c) {
             case '\0':
                 return "\'\\0\'";
@@ -154,7 +170,7 @@ public class ConstOperator extends NoArgOperator {
                 return "\'\\u0000".substring(0, 7-hex.length())+hex+"\'";
             }
 	} else if (type.equals(Type.tString)) {
-	    return quoted(value);
+	    return quoted(strVal);
         } else if (parent != null) {
             int opindex = parent.getOperator().getOperatorIndex();
             if (opindex >= OPASSIGN_OP + ADD_OP
@@ -165,24 +181,24 @@ public class ConstOperator extends NoArgOperator {
                 /* For bit wise and/or/xor change representation.
                  */
                 if (type.isOfType(Type.tUInt)) {
-                    int i = Integer.parseInt(value);
+                    int i = ((Integer) value).intValue();
                     if (i < -1) 
-                        value = "~0x"+Integer.toHexString(-i-1);
+                        strVal = "~0x"+Integer.toHexString(-i-1);
                     else
-                        value = "0x"+Integer.toHexString(i);
+                        strVal = "0x"+Integer.toHexString(i);
                 } else if (type.equals(Type.tLong)) {
-                    long l = Long.parseLong(value);
+                    long l = ((Long) value).longValue();
                     if (l < -1) 
-                        value = "~0x"+Long.toHexString(-l-1);
+                        strVal = "~0x"+Long.toHexString(-l-1);
                     else
-                        value = "0x"+Long.toHexString(l);
+                        strVal = "0x"+Long.toHexString(l);
                 }
             }
         }
         if (type.isOfType(Type.tLong))
-            return value+"L";
+            return strVal+"L";
         if (type.isOfType(Type.tFloat))
-            return value+"F";
+            return strVal+"F";
         if (!type.isOfType(Type.tInt) 
 	    && (type.getHint().equals(Type.tByte)
 		|| type.getHint().equals(Type.tShort))
@@ -194,9 +210,9 @@ public class ConstOperator extends NoArgOperator {
              * But in assignments and initializers this cast is unnecessary.
 	     * See JLS section 5.2
              */
-            return "("+type.getHint()+") "+value;
+            return "("+type.getHint()+") "+strVal;
 	}
 
-        return value;
+        return strVal;
     }
 }
