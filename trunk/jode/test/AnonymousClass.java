@@ -19,10 +19,16 @@
 
 package jode.test;
 
+import java.util.Vector;
+
 public class AnonymousClass {
     class Inner {
+	int var = 3;
+
 	public void test() {
 	    class Hello {
+		int var = 4;
+
 		Hello() {
 		    System.err.println("construct");
 		}
@@ -30,7 +36,7 @@ public class AnonymousClass {
 		    System.err.println("construct: "+info);
 		}
 
-		void hello() {
+		public void hello() {
 		    this.hashCode();
 		    Inner.this.hashCode();
 		    AnonymousClass.this.hashCode();
@@ -40,9 +46,15 @@ public class AnonymousClass {
 	    final Hello hi = new Hello();
 	    final Hello ho = new Hello("ho");
 	    final Object o = new Object() {
+		int blah = 5;
+
+		Hello hii = hi;
+
 		public String toString() {
+		    this.hii.hello();
 		    hi.hello();
-		    return Integer.toHexString(AnonymousClass.this.hashCode());
+		    return Integer.toHexString(AnonymousClass.this.hashCode()
+					       +blah);
 		}
 	    };
 	    Object p = new Object() {
@@ -50,6 +62,99 @@ public class AnonymousClass {
 		    return o.toString();
 		}
 	    };
+	    Hello blah = new Hello("Hello World") {
+		public void hello() {
+		    System.err.println("overwritten");
+		}
+	    };
+
+	    Inner blub = new AnonymousClass().new Inner("Inner param") {
+		public void test() {
+		    System.err.println("overwritten");
+		}
+	    };
+
+	    class Hi extends Inner {
+		public Hi() {
+		    super("Hi World");
+		}
+	    }
+
+	    Vector v = new Vector(hi.var, new Inner("blah").var) {
+		public String toString() {
+		    return super.toString();
+		}
+	    };
+
+	    Hi hu = new Hi();
+		
 	}
+	Inner (String str) {
+	}
+    }
+
+    
+    public void test() {
+	class Hello {
+	    int var = 4;
+	    
+	    Hello() {
+		System.err.println("construct");
+	    }
+	    Hello(String info) {
+		System.err.println("construct: "+info);
+	    }
+	    
+	    public void hello() {
+		this.hashCode();
+		AnonymousClass.this.hashCode();
+		System.err.println("HelloWorld");
+	    }
+	};
+	final Hello hi = new Hello();
+	final Hello ho = new Hello("ho");
+	final Object o = new Object() {
+	    int blah = 5;
+	    
+	    Hello hii = hi;
+	    
+	    public String toString() {
+		this.hii.hello();
+		    hi.hello();
+		return Integer.toHexString(AnonymousClass.this.hashCode()
+					   +blah);
+	    }
+	};
+	Object p = new Object() {
+	    public String toString() {
+		return o.toString();
+	    }
+	};
+	Hello blah = new Hello("Hello World") {
+	    public void hello() {
+		System.err.println("overwritten");
+	    }
+	};
+	
+	Inner blub = new Inner("Inner param") {
+	    public void test() {
+		    System.err.println("overwritten");
+	    }
+	};
+
+	class Hi extends Inner {
+	    public Hi() {
+		super("Hi World");
+	    }
+	}
+	
+	Vector v = new Vector(hi.var, new Inner("blah").var) {
+	    public String toString() {
+		return super.toString();
+	    }
+	};
+	
+	Hi hu = new Hi();
+	
     }
 }
