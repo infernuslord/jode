@@ -66,7 +66,7 @@ public class ClassBundle implements OptionHandler {
 
     public ClassBundle() {
 	classPath = System.getProperty("java.class.path")
-	    .replace(File.pathSeparatorChar, SearchPath.pathSeparatorChar);
+	    .replace(File.pathSeparatorChar, SearchPath.altPathSeparatorChar);
 	destDir = ".";
 	basePackage = new PackageIdentifier(this, null, "", "");
 	basePackage.setReachable();
@@ -88,7 +88,7 @@ public class ClassBundle implements OptionHandler {
 	    Iterator i = values.iterator();
 	    StringBuffer sb = new StringBuffer((String) i.next());
 	    while (i.hasNext()) {
-		sb.append(SearchPath.pathSeparatorChar)
+		sb.append(SearchPath.altPathSeparatorChar)
 		    .append((String)i.next());
 	    }
 	    ClassInfo.setClassPath(sb.toString());
