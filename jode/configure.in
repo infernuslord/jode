@@ -111,7 +111,7 @@ JODE_CHECK_CLASS(gnu.getopt.Getopt, $CLASSPATH:$CLASSLIB,
 AC_MSG_CHECKING(for swing)
 JODE_CHECK_CLASS(javax.swing.JFrame, $CLASSPATH:$CLASSLIB,
   [ JAVAX_SWING="javax.swing" ],
-  [ JODE_CHECK_CLASS(com.sun.swing.JFrame, $CLASSPATH:$CLASSLIB,
+  [ JODE_CHECK_CLASS(com.sun.java.swing.JFrame, $CLASSPATH:$CLASSLIB,
       [ JAVAX_SWING="com.sun.java.swing" ],
       [ JAVAX_SWING="no" ]) ] )
 AC_MSG_RESULT($JAVAX_SWING)
@@ -142,8 +142,10 @@ jode/util/Makefile
 jode/bytecode/BinaryInfo.java
 jode/bytecode/BytecodeInfo.java
 jode/bytecode/ClassInfo.java
+jode/bytecode/Reference.java
 jode/decompiler/ImportHandler.java
 jode/decompiler/MethodAnalyzer.java
+jode/decompiler/DeadCodeAnalysis.java
 jode/expr/Expression.java
 jode/expr/InvokeOperator.java
 jode/expr/Operator.java
@@ -161,6 +163,13 @@ jode/flow/IfThenElseBlock.java
 jode/flow/InstructionBlock.java
 jode/flow/FlowBlock.java
 jode/flow/TransformExceptionHandlers.java
+jode/jvm/CodeVerifier.java
+jode/jvm/Interpreter.java
+jode/jvm/SyntheticAnalyzer.java
+jode/obfuscator/LocalizeFieldTransformer.java
+jode/obfuscator/LocalOptimizer.java
+jode/obfuscator/RemovePopAnalyzer.java
+jode/obfuscator/SimpleAnalyzer.java
 jode/obfuscator/Renamer.java
 jode/obfuscator/StrongRenamer.java
 jode/obfuscator/OptionHandler.java
@@ -177,11 +186,13 @@ jode/obfuscator/LocalIdentifier.java
 jode/obfuscator/MethodIdentifier.java
 jode/obfuscator/ClassIdentifier.java
 jode/obfuscator/MultiIdentifierMatcher.java
+jode/obfuscator/UniqueRenamer.java
 jode/obfuscator/WildCard.java
 jode/swingui/Main.java
 jode/swingui/PackagesTreeModel.java
 jode/util/SimpleSet.java
 jode/util/SimpleMap.java
+jode/util/UnifyHash.java
 jode/GlobalOptions.java
 bin/Makefile
 bin/jode
