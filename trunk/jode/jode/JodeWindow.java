@@ -25,6 +25,7 @@ import java.awt.event.*;
 ///#endif
 import java.io.*;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.SearchPath;
 import jode.decompiler.*;
 
 public class JodeWindow 
@@ -241,10 +242,7 @@ public class JodeWindow
 ///#endif
 
 	lastClassName = classField.getText();
-	String cp = classpathField.getText();
-	cp = cp.replace(':', jode.bytecode.SearchPath.protocolSeparator);
-	cp = cp.replace(',', File.pathSeparatorChar);
-	ClassInfo.setClassPath(cp);
+	ClassInfo.setClassPath(classpathField.getText());
 	ImportHandler imports = new ImportHandler();
 	try {
 	    ClassInfo clazz;
@@ -291,7 +289,8 @@ public class JodeWindow
 
 	String cp = System.getProperty("java.class.path");
 	if (cp != null)
-	    win.setClasspath(cp.replace(File.pathSeparatorChar, ','));
+	    win.setClasspath(cp.replace(File.pathSeparatorChar, 
+					SearchPath.pathSeparatorChar));
 	String cls = win.getClass().getName();
 	win.setClass(cls);
 
