@@ -27,8 +27,8 @@ public class CreateConstantArray {
     public static boolean transform(InstructionContainer ic,
                                     StructuredBlock last) {
         /* Situation:
-         *  PUSH new Array[]
-         *  DUP
+         *  PUSH new Array[]      // or a constant array operator.
+         *  DUP                   // duplicate array reference
          *  PUSH index
          *  PUSH value
          *  stack_2[stack_1] = stack_0
@@ -67,8 +67,7 @@ public class CreateConstantArray {
 
             if (!indexOp.getType().isOfType(Type.tUInt)
                 || dup.type != SpecialBlock.DUP
-                || dup.depth != 0
-                || dup.count != store.getLValueType().stackSize()
+                || dup.depth != 0 || dup.count != 1
                 || !(sequBlock.subBlocks[0] instanceof InstructionBlock))
                 return false;
 
