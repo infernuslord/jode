@@ -214,9 +214,7 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 		 ("Ljava/lang/Math;", "PI", "D"));
     }
     
-    MethodIdentifier m;
-    public ConstantRuntimeEnvironment(MethodIdentifier method) {
-	m = method;
+    public ConstantRuntimeEnvironment() {
     }
 
     public Object getField(Reference ref, Object obj)
@@ -224,8 +222,8 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	if (isWhite(ref))
 	    return super.getField(ref, obj);
 	Type type = Type.tType(ref.getType());
-	FieldIdentifier fi = (FieldIdentifier) 
-	    m.clazz.bundle.getIdentifier(ref);
+	FieldIdentifier fi
+	    = (FieldIdentifier) Main.getClassBundle().getIdentifier(ref);
 	if (fi != null && !fi.isNotConstant()) {
 	    Object result = fi.getConstant();
 	    if (result == null)
@@ -253,8 +251,8 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	if (isWhite(ref))
 	    return super.invokeMethod(ref, isVirtual, cls, params);
 	Type type = Type.tType(ref.getType());
-	MethodIdentifier mi = (MethodIdentifier) 
-	    m.clazz.bundle.getIdentifier(ref);
+	MethodIdentifier mi
+	    = (MethodIdentifier) Main.getClassBundle().getIdentifier(ref);
 	if (mi != null) {
 	    BytecodeInfo code = mi.info.getBytecode();
 	    if (code != null) {
