@@ -30,6 +30,7 @@ href="http://www.informatik.uni-oldenburg.de/~delwi/jode/jode.html">
 <li><a href="usage.html">Usage</a></li>
 <li><a href="license.html">License</a></li>
 <li><a href="history.html">History</a></li>
+<li><a href="bluesky.html">Blue Sky</a></li>
 </ul>
 </td>
 <td>
@@ -76,6 +77,20 @@ config file</li>
 
 <h2>Known Bugs</h2>
 
+<p>Small bugs, that should be fixed in the next release:</p>
+<ul>
+<li>If there is more than one assignment to a final local variable
+(they can be conditionally, so that only one is actually excuted),
+jode refuses to mark it as final.  This can make decompilation of
+method scoped classes wrong. </li> 
+<li>There's a bug in ConstantAnalyzer (part of the obfuscator).  It is
+triggered very seldom, and produces incorrect code.  Use it with
+care.</li>
+</ul>
+
+<p>Now follows a list of oddities, that will probably never get
+completely fixed.</p>
+
 <p>If not all dependent classes can be found, the verifier (which is
    run before decompilation starts) may exit with a type error.  You
    can decompile it with <tt>--verify=off</tt>, but take the warning
@@ -83,13 +98,14 @@ config file</li>
    to guess the right type, if you don't have access the full class
    hierarchie.<br>
 
-   But if you don't have the dependent classes, you can't compile the
-   code again, anyway, so why do you want to decompile it?</p>
+   This is not a bug in the verifier: java will complain the same way,
+   if it is run with bytecode verification turned on. And if you don't
+   have the dependent classes, you can't compile the code again.</p>
 
 <p>There may be situations, where the code doesn't understand complex
-expressions. In this many ugly temporary variables are used, but the
-code should still be compileable.  This does especially happen when
-you compile with <tt>`-O'</tt> flag and javac has inlined some
+expressions. In this case many ugly temporary variables are used, but
+the code should still be compileable.  This does especially happen
+when you compile with <tt>`-O'</tt> flag and javac has inlined some
 methods. </p>
 
 <p>Sometimes this program may exit with an <code>Exception</code> or
