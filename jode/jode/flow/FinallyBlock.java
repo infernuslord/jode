@@ -68,6 +68,18 @@ public class FinallyBlock extends StructuredBlock {
     }
 
     /**
+     * A finally block starts with empty stack.  It must return with empty
+     * stack too, but that need not to be checked.  If the JSR's aren't 
+     * correctly determined this may even not be true.
+     *
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.  */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	super.mapStackToLocal(stack);
+	return null;
+    }
+
+    /**
      * Returns the block where the control will normally flow to, when
      * the given sub block is finished (<em>not</em> ignoring the jump
      * after this block).  FinallyBlock have a special behaviour, since
