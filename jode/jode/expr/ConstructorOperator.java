@@ -21,15 +21,13 @@ package jode;
 import gnu.bytecode.CpoolRef;
 
 public class ConstructorOperator extends Operator {
-    CpoolRef field;
     MethodType methodType;
     Type classType;
 
-    public ConstructorOperator(Type type, CpoolRef field) {
+    public ConstructorOperator(Type type, MethodType methodType) {
         super(type, 0);
-        methodType = new MethodType(field.getNameAndType().
-                                    getType().getString());
-        this.field = field;
+        this.classType  = type;
+        this.methodType = methodType;
     }
 
     public int getPriority() {
@@ -37,30 +35,27 @@ public class ConstructorOperator extends Operator {
     }
 
     public int getOperandCount() {
-        return 1 + methodType.getArgumentTypes().length;
+        return methodType.getArgumentTypes().length;
     }
 
     public int getOperandPriority(int i) {
-        if (i == 0)
-            return 950;
         return 0;
     }
 
     public Type getOperandType(int i) {
-        if (i == 0)
-            return type;
-        return methodType.getArgumentTypes()[i-1];
+        return methodType.getArgumentTypes()[i];
     }
 
     public void setOperandType(Type types[]) {
     }
 
     public String toString(String[] operands) {
-        StringBuffer result = new StringBuffer(operands[0]).append("(");
+        StringBuffer result = 
+            new StringBuffer("new ").append(classType.toString()).append("(");
         for (int i=0; i < methodType.getArgumentTypes().length; i++) {
             if (i>0)
                 result.append(", ");
-            result.append(operands[i+1]);
+            result.append(operands[i]);
         }
         return result.append(")").toString();
     }
