@@ -26,7 +26,7 @@ import jode.bytecode.ConstantPool;
 import jode.bytecode.ClassFormatException;
 import jode.expr.Expression;
 import jode.flow.TransformConstructors;
-
+import java.util.NoSuchElementException;
 import java.lang.reflect.Modifier;
 
 public class ClassAnalyzer implements Analyzer {
@@ -48,17 +48,26 @@ public class ClassAnalyzer implements Analyzer {
         this.env  = env;
     }
 
-    public boolean setFieldInitializer(String fieldName, Type fieldType,
-				       Expression expr) {
+    public FieldAnalyzer getField(String fieldName, Type fieldType) {
         for (int i=0; i< fields.length; i++) {
 	    if (fields[i].getName().equals(fieldName)
-		&& fields[i].getType().isOfType(fieldType))
-		return fields[i].setInitializer(expr);
+		&& fields[i].getType().equals(fieldType))
+		return fields[i];
         }
-	System.err.println("Can't find field "+fieldType+" "+fieldName+".");
-        return false;
+	throw new NoSuchElementException
+	    ("Field "+fieldType+" "+clazz.getName()+"."+fieldName);
     }
-
+    
+    public MethodAnalyzer getMethod(String methodName, MethodType methodType) {
+        for (int i=0; i< methods.length; i++) {
+	    if (methods[i].getName().equals(methodName)
+		&& methods[i].getType().equals(methodType))
+		return methods[i];
+        }
+	throw new NoSuchElementException
+	    ("Method "+methodType+" "+clazz.getName()+"."+methodName);
+    }
+    
     public ClassInfo getClazz() {
         return clazz;
     }
