@@ -143,33 +143,47 @@ public class Type {
     public static final Type tStringBuffer = tClass("java.lang.StringBuffer");
     public static final Type tJavaLangClass = tClass("java.lang.Class");
 
-    public static final Type tType(Class javaType) {
+    private static final StringBuffer appendSignature(StringBuffer sb,
+						      Class javaType) {
 	if (javaType.isPrimitive()) {
 	    if (javaType == Boolean.TYPE)
-		return Type.tBoolean;
+		return sb.append('Z');
 	    else if (javaType == Byte.TYPE)
-		return Type.tByte;
+		return sb.append('B');
 	    else if (javaType == Character.TYPE)
-		return Type.tChar;
+		return sb.append('C');
 	    else if (javaType == Short.TYPE)
-		return Type.tShort;
+		return sb.append('S');
 	    else if (javaType == Integer.TYPE)
-		return Type.tInt;
+		return sb.append('I');
 	    else if (javaType == Long.TYPE)
-		return Type.tLong;
+		return sb.append('J');
 	    else if (javaType == Float.TYPE)
-		return Type.tFloat;
+		return sb.append('F');
 	    else if (javaType == Double.TYPE)
-		return Type.tDouble;
+		return sb.append('D');
 	    else if (javaType == Void.TYPE)
-		return Type.tVoid;
+		return sb.append('V');
 	    else
 		throw new AssertError("Unknown primitive type: "+javaType);
 	} else if (javaType.isArray()) {
-	    return tArray(tType(javaType.getComponentType()));
+	    return appendSignature(sb.append('['), 
+				   javaType.getComponentType());
 	} else {
-	    return tClass(javaType.getName());
+	    return sb.append('L')
+		.append(javaType.getName().replace('.','/')).append(';');
 	}
+    }
+
+    private static String getSignature(Class clazz) {
+	return appendSignature(new StringBuffer(), clazz).toString();
+    }
+
+    private static String getSignature(Class paramT[], Class returnT) {
+	StringBuffer sig = new StringBuffer("(");
+	for (int i=0; i< paramT.length; i++)
+	    appendSignature(sig, paramT[i]);
+	return appendSignature(sig.append(')'), returnT).toString();
     }
 
     public static final Type tType(String type) {
@@ -205,6 +219,10 @@ public class Type {
 	    return tMethod(type);
         }
         throw new AssertError("Unknown type signature: "+type);
+    }
+
+    public static final Type tType(Class javaType) {
+	return Type.tType(getSignature(javaType));
     }
 
     public static final ClassInterfacesType tClass(String clazzname) {
@@ -255,7 +273,7 @@ public class Type {
         return result;
     }
 
-    public static final MethodType tMethod(String signature) {
+    public static MethodType tMethod(String signature) {
 ///#ifdef JDK12
 ///	java.lang.ref.Reference died;
 ///	while ((died = methodQueue.poll()) != null)
@@ -275,6 +293,9 @@ public class Type {
         }
         return result;
     }
+    public static MethodType tMethod(Class paramT[], Class returnT) {
+	return tMethod(getSignature(paramT, returnT));
+    }
 
     public static final Type tRange(ReferenceType bottom, 
 				    ReferenceType top) {
@@ -289,13 +310,6 @@ public class Type {
         return type.getSubType();
     }
 	
-    public static Type tClassOrArray(String ident) {
-        if (ident.charAt(0) == '[')
-            return Type.tType(ident);
-        else
-            return Type.tClass(ident);
-    }
-
     public static void setEnvironment(JodeEnvironment e) {
 	env = e;
     }
