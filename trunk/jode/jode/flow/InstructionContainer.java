@@ -27,12 +27,15 @@ public abstract class InstructionContainer extends StructuredBlock {
 
     public InstructionContainer(Instruction instr) {
         this.instr = instr;
+        if (instr instanceof LocalVarOperator)
+	  used.addElement(((LocalVarOperator)instr).getLocalInfo());
     }
 
     public InstructionContainer(Instruction instr, Jump jump) {
         this.instr = instr;
         if (instr instanceof LocalVarOperator) {
             LocalVarOperator varOp = (LocalVarOperator) instr;
+	    used.addElement(varOp.getLocalInfo());
             jump.out.addElement(varOp.getLocalInfo());
         }
         setJump(jump);
