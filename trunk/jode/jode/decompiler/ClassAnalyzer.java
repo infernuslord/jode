@@ -47,6 +47,8 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
     MethodAnalyzer[] constructors;
 
     Expression[] outerValues;
+    boolean constructorAnalyzed = false;
+    boolean jikesAnonymousInner = false;
 
     public ClassAnalyzer(Object parent,
 			 ClassInfo clazz, ImportHandler imports,
@@ -132,6 +134,32 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 	return outerValues;
     }
 
+    public void setOuterValues(Expression[] outerValues) {
+	this.outerValues = outerValues;
+    }
+
+    public boolean isConstructorAnalyzed() {
+	return constructorAnalyzed;
+    }
+
+    /**
+     * Jikes gives the outer class reference in an unusual place (as last
+     * parameter) for anonymous classes that extends an inner (or method
+     * scope) class.  This method tells if this is such a class.
+     */
+    public void setJikesAnonymousInner(boolean value) {
+	jikesAnonymousInner = value;
+    }
+
+    /**
+     * Jikes gives the outer class reference in an unusual place (as last
+     * parameter) for anonymous classes that extends an inner (or method
+     * scope) class.  This method tells if this is such a class.
+     */
+    public boolean isJikesAnonymousInner() {
+	return jikesAnonymousInner;
+    }
+
     public void analyze() {
         FieldInfo[] finfos = clazz.getFields();
         MethodInfo[] minfos = clazz.getMethods();
@@ -190,13 +218,15 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 	    for (int j=0; j< constructors.length; j++)
 		constructors[j].analyze();
 
-	    TransformConstructors.transform(this, false, constructors);
+	    new TransformConstructors(this, false, constructors).transform();
         }
         if (staticConstructor != null) {
 	    staticConstructor.analyze();
-            TransformConstructors.transform
-		(this, true, new MethodAnalyzer[] { staticConstructor });
+            new TransformConstructors
+		(this, true, new MethodAnalyzer[] { staticConstructor })
+		.transform();
 	}
+	constructorAnalyzed = true;
 
 	// Now analyze remaining methods.
         for (int j=0; j < methods.length; j++) {
@@ -247,6 +277,7 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 	    if (needNewLine)
 		writer.println("");
 	    inners[i].dumpSource(writer);
+	    needNewLine = true;
 	}
 	for (int i=0; i< methods.length; i++) {
 	    if (methods[i].skipWriting())
