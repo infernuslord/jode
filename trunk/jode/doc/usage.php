@@ -166,12 +166,16 @@ load = new WildCard { value = "org.myorg.myproject" },
 <p>Select the methods and classes you want to preserve.  This is
 the <tt>main</tt> method for applications and the default constructor
 <tt>&lt;init&gt;.()V</tt> for applets, resource bundles and other classes
-that you load manually at runtime.<br> You have to give the method
+that you load manually at runtime. <br>
+You have to give the method
 name and the type signature to identify your method.  <tt>javap
 -s</tt> will show you the type signatures for your classes, but you
-may also use <tt>*</tt>, to select all methods with that name.</p>
+may also use <tt>*</tt>, to select all methods with that name.
+If you have serializable classes and want to preserve their serialized
+form you can use the <tt>SerializePreserver</tt>. </p>
 <pre>
-preserve = new WildCard { value = "org.myorg.ApplicationClass.main.*" },
+preserve = new SerializePreserver,
+           new WildCard { value = "org.myorg.ApplicationClass.main.*" },
            new WildCard { value = "org.myorg.AppletClass.&lt;init&gt;.()V" },
            new WildCard { value = "org.resources.Bundle*.&lt;init&gt;.()V" },
 </pre>
