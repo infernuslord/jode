@@ -39,13 +39,15 @@ public class Decompiler {
     public static final int OPTION_DECRYPT   = 0x0020;
     public static final int OPTION_ONETIME   = 0x0040;
     public static final int OPTION_IMMEDIATE = 0x0080;
+    public static final int OPTION_VERIFY    = 0x0100;
 
     public static int options
-	= OPTION_LVT | OPTION_INNER | OPTION_DECRYPT;
+	= OPTION_LVT | OPTION_INNER | OPTION_DECRYPT | OPTION_VERIFY;
 
     public static final String[] optionNames = {
 	"lvt", "inners", "anonymous", "push", 
-	"pretty", "decrypt", "onetime", "immediate"
+	"pretty", "decrypt", "onetime", "immediate",
+	"verify"
     };
 
     public static int outputStyle = SUN_STYLE;
@@ -88,6 +90,8 @@ public class Decompiler {
 		    "[don't] remove locals, that are used only one time.");
 	err.println("\t--[no]immediate  "+
 		    "[don't] output source immediately with wrong import.");
+	err.println("\t--[no]verify  "+
+		    "[don't] verify code before decompiling it.");
 	err.println("Debugging options, mainly used to debug this decompiler:");
 	err.println("\t--debug=...      "+
 		    "use --debug=help for more information.");
