@@ -1,4 +1,5 @@
 #!/bin/sh
-for i in ci.all jcpp make* COPYING *.html doc/*.texi *.java */*.java; do 
+for i in ci.all jcpp make* COPYING *.html doc/*.texi *.java */*.java test/*.j
+do 
     test -w $i && (./jcpp -DJDK11 $i; rcsdiff $i; ci -u $* $i); 
 done
