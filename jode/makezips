@@ -1,4 +1,5 @@
 #!/bin/sh
-
-zip jode_src.zip COPYING *.java */*.java
-zip jode_cls.zip *.class */*.class
+cd ..
+zip jode/jode_src.zip jode/COPYING jode/*.java jode/*/*.java
+zip jode/jode_cls.zip jode/*.class jode/*/*.class
+jar -cvf jode/jode.jar jode/*.class jode/*/*.class
