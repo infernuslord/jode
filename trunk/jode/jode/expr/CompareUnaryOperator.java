@@ -65,15 +65,15 @@ public class CompareUnaryOperator extends Operator {
 
 	    boolean negated = false;
 	    int opIndex = getOperatorIndex();
-	    if (cmpOp.allowsNAN && getOperatorIndex() > NOTEQUALS_OP) {
-		if (cmpOp.greaterOnNAN ==
+	    if (cmpOp.allowsNaN && getOperatorIndex() > NOTEQUALS_OP) {
+		if (cmpOp.greaterOnNaN ==
 		    (opIndex == GREATEREQ_OP || opIndex == GREATER_OP)) {
 		    negated = true;
 		    opIndex ^= 1;
 		}
 	    }
             Expression newOp = new CompareBinaryOperator
-                (cmpOp.compareType, opIndex)
+                (cmpOp.compareType, opIndex, cmpOp.allowsNaN)
 		.addOperand(cmpOp.subExpressions[1])
 		.addOperand(cmpOp.subExpressions[0]);
 
