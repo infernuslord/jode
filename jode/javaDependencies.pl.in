@@ -28,7 +28,8 @@
 #
 # Usage:  
 #  javaDependencies.pl -classpath <cp> [-dependdir <depdir> [-subdir <subdir>]]
-#                      <classfile>
+#                      [-depfile <depfile>]
+#                      <classfiles>
 # 
 #  cp:     colon separated paths to the java files we should depend on.
 #  depdir: if set, use this path as path to the java files when printing
@@ -36,7 +37,8 @@
 #          useful, if you want to make use of VPATH settings in Makefile.
 #  subdir: if set, this is the path from depdir to the current directory. 
 #          Use it to remove unneccessary ../../$subdir/ 
-#  class:  The class file (not an inner class) for which the dependencies
+#  depfile: the name of the dependency file, default is "Makefile.dep".
+#  class:  The class files (not inner classes) for which the dependencies
 #          should be generated.  We will also look for inner and anon 
 #          classes.
 
@@ -62,112 +64,121 @@ sub readUTF () {
     unpack("a$ulength", $buff);
 }
 
-$clazz = pop;
-$clazz =~ /(.*)\.class/ or die "not a class file";
-$base = $1;
-my ($filename, %done);
-%done=();
-for $filename ($clazz, glob("$base\\\$*.class")) {
-    open FILE, $filename;
-    binmode FILE;
+$depfile = "Makefile.dep" if (!defined($depfile));
+open DEPFILE, ">$depfile";
+print DEPFILE <<EOF;
+# This dependency file is automatically created by $0 from class files.
+# Do not edit.
 
-    readInBuff 8 or die "Can't read header";
-    my ($magic, $minor, $major) = unpack("Nnn", $buff);
+EOF
+foreach $clazz (@ARGV) {
+    next if $clazz =~ (/^.*\$.*\.class/);
+    $clazz =~ /([^\$]*)(\$.*)?\.class/ or die "not a class file";
+    $base = $1;
+    my ($filename, %done);
+    %done=();
+    for $filename ($clazz, glob("$base\\\$*.class")) {
+	open FILE, $filename;
+	binmode FILE;
 
-    die "Wrong magic $magic" if $magic != 0xcafebabe;
-    die "Wrong minor $minor" if $minor > 3;
-    die "Wrong minor $major" if $major != 45;
-    
-    readInBuff 2 or die "Can't read cpool length";
-    
-    
-    my ($length) = unpack("n", $buff) & 0xffff;
+	readInBuff 8 or die "Can't read header";
+	my ($magic, $minor, $major) = unpack("Nnn", $buff);
 
-    my $number;
-    my @strings = ();
-    my @clazzes;
-    for ($number = 1; $number < $length; $number++) {
+	die "Wrong magic $magic" if $magic != 0xcafebabe;
+	die "Wrong minor $minor" if $minor > 3;
+	die "Wrong minor $major" if $major != 45;
 	
-	readInBuff 1 or die "Can't read constant tag";
-	my ($tag) = unpack("C", $buff);
+	readInBuff 2 or die "Can't read cpool length";
+	
+	
+	my ($length) = unpack("n", $buff) & 0xffff;
 
-	#print STDERR "$number/$length: $tag";
-      tags:
-	for ($tag) {
-	    /^1$/ && do { 
-		# UTF 8
-		$strings[$number] = &readUTF();
-		#print STDERR ": $strings[$number]";
-		last tags;
-	    }; 
+	my $number;
+	my @strings = ();
+	my @clazzes;
+	for ($number = 1; $number < $length; $number++) {
 	    
-	    /^(3|4|9|10|11|12)$/ && do {
-		# INTEGER, FLOAT, FIELDREF, METHODREF, IFACEREF, NAMEANDTYPE
-		readInBuff 4;
-		last tags;
-	    }; 
-	    
-	    /^(5|6)$/ && do {
-		# LONG, DOUBLE
-		readInBuff 8;
-		$number++;
-		last tags;
-	    };
-	    
-	    /^7$/ && do {
-		# CLASS
-		readInBuff 2;
-		push @clazzes, (unpack("n", $buff) & 0xffff);
-		last tags;
-	    }; 
-	    
-	    /^8$/ && do {
-		# STRING
-		readInBuff 2;
-		last tags;
-	    };
-	    die "Unknown tag: $tag, $number/$length, $filename";
+	    readInBuff 1 or die "Can't read constant tag";
+	    my ($tag) = unpack("C", $buff);
+
+	    #print STDERR "$number/$length: $tag";
+	  tags:
+	    for ($tag) {
+		/^1$/ && do { 
+		    # UTF 8
+		    $strings[$number] = &readUTF();
+		    #print STDERR ": $strings[$number]";
+		    last tags;
+		}; 
+		
+		/^(3|4|9|10|11|12)$/ && do {
+		    # INTEGER, FLOAT, FIELDREF, METHODREF, IFACEREF, NAMEANDTYPE
+		    readInBuff 4;
+		    last tags;
+		}; 
+		
+		/^(5|6)$/ && do {
+		    # LONG, DOUBLE
+		    readInBuff 8;
+		    $number++;
+		    last tags;
+		};
+		
+		/^7$/ && do {
+		    # CLASS
+		    readInBuff 2;
+		    push @clazzes, (unpack("n", $buff) & 0xffff);
+		    last tags;
+		}; 
+		
+		/^8$/ && do {
+		    # STRING
+		    readInBuff 2;
+		    last tags;
+		};
+		die "Unknown tag: $tag, $number/$length, $filename";
+	    }
+	    #print STDERR "\n";
 	}
-	#print STDERR "\n";
-    }
-    
+	
 
-    my @deplist = ();
-  clazz:
-    for $c (@clazzes) {
-	$clzz = $strings[$c];
-	next if $clzz =~ /^\[/;
-	next if defined $done{"$clzz"};
-	$done{$clzz} = 1;
+	my @deplist = ();
+      clazz:
+	for $c (@clazzes) {
+	    $clzz = $strings[$c];
+	    next if $clzz =~ /^\[/;
+	    next if defined $done{"$clzz"};
+	    $done{$clzz} = 1;
 
-	my $p;
-	for $p (split ':', $classpath) {
-	    if (-e "$p/$clzz.java") {
-		my $path="$p/";
-		if (defined $dependdir) {
-		    $path = "$dependdir/";
-		    if (defined $subdir) {
-			my $currsubdir = "$subdir/";
-			while ($currsubdir =~ m<^([A-Za-z0-9]+)/+(.*)>) {
-			    $currsubdir = $2;
-			    my $firstcomp = $1;
-			    if ($clzz =~ m<$firstcomp/(.*)>) {
-				my $remain = $1;
-				if ($path =~ m<^(|.*/)\.\./+$>) {
-				    $path = $1;
-				    $clzz = $remain;
+	    my $p;
+	    for $p (split ':', $classpath) {
+		if (-e "$p/$clzz.java") {
+		    my $path="$p/";
+		    if (defined $dependdir) {
+			$path = "$dependdir/";
+			if (defined $subdir) {
+			    my $currsubdir = "$subdir/";
+			    while ($currsubdir =~ m<^([A-Za-z0-9]+)/+(.*)>) {
+				$currsubdir = $2;
+				my $firstcomp = $1;
+				if ($clzz =~ m<$firstcomp/(.*)>) {
+				    my $remain = $1;
+				    if ($path =~ m<^(|.*/)\.\./+$>) {
+					$path = $1;
+					$clzz = $remain;
+				    }
 				}
 			    }
 			}
 		    }
+		    push @deplist, "$path$clzz.java";
+		    next clazz;
 		}
-		push @deplist, "$path$clzz.java";
-		next clazz;
 	    }
 	}
-    }
-    if (@deplist) {
-	print "# Dependencies of $filename\n";
-	print "$clazz: " . join (" ", @deplist) . "\n";
+	if (@deplist) {
+	    print DEPFILE "$clazz: " . join (" ", @deplist) . "\n";
+	}
     }
 }
+close DEPFILE;
