@@ -14,6 +14,7 @@ AC_PROG_MAKE_SET
 dnl AC_PROG_RANLIB
 dnl AC_PATH_PROG(ZIP, zip)
 AC_PATH_PROG(UNZIP, unzip)
+AC_PATH_PROG(PERL, perl)
 
 dnl Checks for libraries.
 
@@ -75,7 +76,12 @@ AC_ARG_WITH(javac,
 	[ JAVAC=${withval} ],
 	[ AC_MSG_ERROR(${withval} does not exists) ])
    fi
-], [ true ])
+], [ 
+dnl use jikes as default, if javac option not given.
+  if test -n "$JIKES"; then
+    JAVAC=$JIKES
+  fi
+])
 
 JODE_CHECK_CLASS(java.lang.Object, $CLASSLIB,
   [ true ],
@@ -119,6 +125,7 @@ AC_SUBST(CLASSPATH)
 AC_SUBST(JAVAC)
 
 AC_OUTPUT(Makefile
+javacWithDeps.sh
 jode/Makefile
 jode/bytecode/Makefile
 jode/decompiler/Makefile
@@ -137,3 +144,5 @@ bin/jode
 doc/Makefile
 test/Makefile)
 
+AC_OUTPUT_COMMANDS(chmod 755 javacWithDeps.sh)
+AC_OUTPUT_COMMANDS(chmod 755 bin/jode)

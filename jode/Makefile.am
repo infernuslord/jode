@@ -3,3 +3,5 @@
 SUBDIRS = jode bin doc test
 
 EXTRA_DIST = TODO
+
+all_recursive: javacWithDeps.sh

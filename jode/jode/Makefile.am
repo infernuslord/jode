@@ -1,10 +1,9 @@
 ## Input file for automake to generate the Makefile.in used by configure
 
-SUBDIRS = bytecode type util jvm expr flow decompiler obfuscator @SWINGUI@
+SUBDIRS = util bytecode type jvm expr flow decompiler obfuscator @SWINGUI@
 
 JAR = @JAR@
-JAVAC = @JAVAC@
-JIKES = @JIKES@
+JAVAC = top_srcdir=$(top_srcdir) top_builddir=$(top_builddir) $(top_builddir)/javacWithDeps.sh
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
 BUILD_CLASSPATH = $(top_srcdir):$(top_builddir):.:$(CLASSPATH):$(CLASSLIB)
@@ -24,23 +23,14 @@ EXTRA_DIST = $(MY_JAVA_FILES)
 JARFILE = jode-@VERSION@.jar
 data_DATA = $(JARFILE)
 
-if HAVE_JIKES
-
-@QUOTE@-include $(top_builddir)/jode/.java.deps
+@QUOTE@-include *.u
 
 %.class: %.java
-	$(JIKES) -classpath $(BUILD_CLASSPATH):$(CLASSLIB) +M=$(top_builddir)/jode/.java.deps -d $(top_builddir) $<
-
-else
-
-%.class: %.java
-	$(JAVAC) -classpath $(BUILD_CLASSPATH):$(CLASSLIB) -depend -d $(top_builddir) $<
-
-endif
+	$(JAVAC) -classpath $(BUILD_CLASSPATH):$(CLASSLIB) -d $(top_builddir) $<
 
 clean-local:
 	@rm -f *.class
-	@rm -f $(JARFILE) .java.deps
+	@rm -f *.u
 
 $(JARFILE): $(noinst_DATA)
 	CLASSPATH=$(top_builddir):$(CLASSPATH) $(JAVA) -mx80m \
