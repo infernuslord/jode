@@ -202,7 +202,7 @@ public abstract class Opcodes implements RuntimeConstants {
 		return createNormal
                     (ca, addr, 2, new LocalStoreOperator
 		     (types[0][opcode-opc_istore],
-		      ca.getLocalInfo(addr, stream.readUnsignedByte()),
+		      ca.getLocalInfo(addr+2, stream.readUnsignedByte()),
 		      Operator.ASSIGN_OP));
             case opc_istore_0: case opc_istore_1: 
             case opc_istore_2: case opc_istore_3:
@@ -217,7 +217,7 @@ public abstract class Opcodes implements RuntimeConstants {
 		return createNormal
                     (ca, addr, 1, new LocalStoreOperator
 		     (types[0][(opcode-opc_istore_0)/4],
-		      ca.getLocalInfo(addr, (opcode-opc_istore_0) & 3),
+		      ca.getLocalInfo(addr+1, (opcode-opc_istore_0) & 3),
 		      Operator.ASSIGN_OP));
             case opc_iastore: case opc_lastore:
             case opc_fastore: case opc_dastore: case opc_aastore:
@@ -481,7 +481,7 @@ public abstract class Opcodes implements RuntimeConstants {
 		    (ca, addr, 4,
 		     new LocalStoreOperator
                      (types[0][opcode-opc_istore],
-                      ca.getLocalInfo(addr, stream.readUnsignedShort()),
+                      ca.getLocalInfo(addr+4, stream.readUnsignedShort()),
                       Operator.ASSIGN_OP));
                 case opc_iinc: {
 		    int local = stream.readUnsignedShort();
