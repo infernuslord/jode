@@ -47,6 +47,8 @@ public class LocalVariableTable {
          throws ArrayIndexOutOfBoundsException
     {
         LocalVariableRangeList lv = locals[slot];
+        if (lv == null)
+            lv = new LocalVariableRangeList(slot);
         return lv;
     }
 }
