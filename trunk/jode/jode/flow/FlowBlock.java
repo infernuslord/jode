@@ -1236,7 +1236,8 @@ public class FlowBlock {
                     /* the Block has no successor where T2 is applicable.
                      * Finish this analyzation.
                      */
-                    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+                    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_ANALYZE) != 0)
                         GlobalOptions.err.println
                             ("No more successors applicable: "
                              + start + " - " + end + "; "
@@ -1250,8 +1251,13 @@ public class FlowBlock {
                         /* T2 transformation succeeded. */
                         changed = true;
                             
-                        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+                        if ((GlobalOptions.debuggingFlags
+			     & GlobalOptions.DEBUG_FLOW) != 0)
                             GlobalOptions.err.println("after T2: "+this);
+			if ((GlobalOptions.debuggingFlags
+			     & GlobalOptions.DEBUG_ANALYZE) != 0)
+			    GlobalOptions.err.println
+				("T2("+addr+","+getNextAddr()+") succeeded");
                         break;
                     } 
 
