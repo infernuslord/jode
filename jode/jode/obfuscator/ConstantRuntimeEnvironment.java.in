@@ -23,9 +23,10 @@ import jode.jvm.SimpleRuntimeEnvironment;
 import jode.jvm.InterpreterException;
 import jode.bytecode.Reference;
 import jode.bytecode.BytecodeInfo;
-import jode.type.*;
+import jode.bytecode.TypeSignature;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
+
 import @COLLECTIONS@.Set;
 import @COLLECTIONS@.HashSet;
 
@@ -219,18 +220,36 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	interpreter = new Interpreter(this);
     }
 
+    public static Object getDefaultValue(String typeSig) {
+	switch(typeSig.charAt(0)) {
+	case 'Z':
+	case 'B':
+	case 'S':
+	case 'C':
+	case 'I':
+	    return new Integer(0);
+	case 'J':
+	    return new Long(0L);
+	case 'D':
+	    return new Double(0.0);
+	case 'F':
+	    return new Float(0.0F);
+	default:
+	    return null;
+	}
+    }
+
     public Object getField(Reference ref, Object obj)
 	throws InterpreterException {
 	if (isWhite(ref))
 	    return super.getField(ref, obj);
-	Type type = Type.tType(ref.getType());
 	FieldIdentifier fi
 	    = (FieldIdentifier) Main.getClassBundle().getIdentifier(ref);
 	if (fi != null && !fi.isNotConstant()) {
 	    Object result = fi.getConstant();
 	    if (result == null)
-		result = type.getDefaultValue();
-		return result;
+		result = getDefaultValue(ref.getType());
+	    return result;
 	}
 	throw new InterpreterException("Field " + ref + " not constant");
     }
@@ -252,7 +271,6 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	throws InterpreterException, InvocationTargetException {
 	if (isWhite(ref))
 	    return super.invokeMethod(ref, isVirtual, cls, params);
-	Type type = Type.tType(ref.getType());
 	MethodIdentifier mi
 	    = (MethodIdentifier) Main.getClassBundle().getIdentifier(ref);
 	if (mi != null) {
@@ -280,8 +298,8 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	if (type.length() == dimensions.length + 1) {
 	    Class clazz;
 	    try {
-		clazz = Type.tType(type.substring(dimensions.length))
-		    .getTypeClass();
+		clazz = TypeSignature
+		    .getClass(type.substring(dimensions.length));
 	    } catch (ClassNotFoundException ex) {
 		throw new InterpreterException
 		    ("Class "+ex.getMessage()+" not found");
