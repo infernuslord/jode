@@ -510,9 +510,9 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public void simplify() {
 	cond = cond.simplify();
 	if (type == FOR) {
-	    incrInstr.simplify();
+	    incrInstr = incrInstr.simplify();
 	    if (initInstr != null)
-		initInstr.simplify();
+		initInstr = initInstr.simplify();
 	}
 	super.simplify();
     }
