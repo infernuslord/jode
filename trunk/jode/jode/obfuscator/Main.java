@@ -152,8 +152,11 @@ public class Obfuscator {
         ClassBundle bundle = new ClassBundle();
         for (; i< params.length; i++)
             bundle.loadClasses(params[i]);
+
+	err.println("Computing reachable / preserved settings");
         bundle.setPreserved(preserveRule, preservedIdents);
 
+	err.println("Renaming methods");
         if (strip)
             bundle.strip();
 
@@ -164,6 +167,7 @@ public class Obfuscator {
         if (toTable != null)
             bundle.writeTable(toTable);
 
+	err.println("Writing new classes");
         bundle.storeClasses(destPath);
     }
 }
