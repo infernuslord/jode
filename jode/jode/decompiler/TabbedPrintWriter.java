@@ -100,15 +100,6 @@ public class TabbedPrintWriter {
 	makeIndentStr();
     }
 
-    private String newline = System.getProperty("line.separator");
-
-//     public void write(String str) {
-// 	if (atbol)
-// 	    super.write(indentStr);
-// 	super.write(str);
-// 	atbol = (str.equals(newline));
-//     }
-
     public void println(String str) {
 	if (atbol)
 	    pw.print(indentStr);
