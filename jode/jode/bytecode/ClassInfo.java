@@ -711,10 +711,11 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	/* header */
 	if (input.readInt() != 0xcafebabe)
 	    throw new ClassFormatException("Wrong magic");
-	if (input.readUnsignedShort() > 3) 
-	    throw new ClassFormatException("Wrong minor");
-	if (input.readUnsignedShort() != 45) 
-	    throw new ClassFormatException("Wrong major");
+	int version = input.readUnsignedShort();
+	version |= input.readUnsignedShort() << 16;
+	if (version < (45 << 16 | 0)
+	    || version > (46 << 16 | 0))
+	  throw new ClassFormatException("Wrong class version");
 
 	/* constant pool */
         ConstantPool cpool = new ConstantPool();
