@@ -412,15 +412,19 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
 		case opc_new:
 		case opc_checkcast:
-		case opc_instanceof:
-		    instr.objData = cp.getClassName(input.readUnsignedShort())
-			.replace('/','.');
+		case opc_instanceof: {
+		    String type = cp.getClassType(input.readUnsignedShort());
+		    if (opcode == opc_new && type.charAt(0) == '[')
+			throw new ClassFormatException
+			    ("Can't create array with opc_new");
+		    instr.objData = type;
 		    if (Decompiler.isDebugging)/*XXX*/
 			Decompiler.err.print(" "+instr.objData);
 		    instr.length = 3;
 		    break;
+		}
 		case opc_multianewarray:
-		    instr.objData = cp.getClassName(input.readUnsignedShort());
+		    instr.objData = cp.getClassType(input.readUnsignedShort());
 		    instr.intData = input.readUnsignedByte();
 		    for (int i=0; i<instr.intData; i++)
 			if (((String)instr.objData).charAt(i) != '[')
@@ -433,12 +437,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    instr.length = 4;
 		    break;
 		case opc_anewarray: {
-		    String type = cp.getClassName(input.readUnsignedShort());
+		    String type = cp.getClassType(input.readUnsignedShort());
 		    instr.opcode = opc_multianewarray;
-		    if (type.charAt(0) == '[')
-			instr.objData = "["+type;
-		    else
-			instr.objData = "[L" + type + ';';
+		    instr.objData = "["+type;
 		    if (Decompiler.isDebugging)/*XXX*/
 			Decompiler.err.print(" "+instr.objData);
 		    instr.intData = 1;
@@ -792,7 +793,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    case opc_checkcast:
 	    case opc_instanceof:
 		output.writeByte(instr.opcode);
-		output.writeShort(gcp.putClassRef((String) instr.objData));
+		output.writeShort(gcp.putClassType((String) instr.objData));
 		break;
 	    case opc_multianewarray:
 		if (instr.intData == 1) {
@@ -803,13 +804,11 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			output.writeByte(index + 4);
 		    } else {
 			output.writeByte(opc_anewarray);
-			if (clazz.charAt(0) == 'L')
-			    clazz = clazz.substring(1, clazz.indexOf(';'));
-			output.writeShort(gcp.putClassRef(clazz));
+			output.writeShort(gcp.putClassType(clazz));
 		    }
 		} else {
 		    output.writeByte(instr.opcode);
-		    output.writeShort(gcp.putClassRef((String) instr.objData));
+		    output.writeShort(gcp.putClassType((String)instr.objData));
 		    output.writeByte(instr.intData);
 		}
 		break;
@@ -833,7 +832,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    output.writeShort(exceptionHandlers[i].end.nextByAddr.addr);
 	    output.writeShort(exceptionHandlers[i].catcher.addr);
 	    output.writeShort((exceptionHandlers[i].type == null) ? 0
-			      : gcp.putClassRef(exceptionHandlers[i].type));
+			      : gcp.putClassName(exceptionHandlers[i].type));
 	}
 	output.writeShort(0); // No Attributes;
     }
