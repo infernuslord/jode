@@ -955,7 +955,8 @@ public class FlowBlock {
                         new LoopBlock(LoopBlock.FOR, LoopBlock.TRUE);
                     forBlock.replace(bodyBlock);
                     forBlock.setBody(bodyBlock);
-                    forBlock.incr = (InstructionBlock) lastModified;
+                    forBlock.incrInstr
+			= ((InstructionBlock) lastModified).getInstruction();
                     forBlock.replaceBreakContinue(lb);
 
                     lb.bodyBlock.replace(lastModified.outer);
@@ -981,7 +982,7 @@ public class FlowBlock {
                     new LoopBlock(LoopBlock.POSSFOR, LoopBlock.TRUE);
                 forBlock.replace(bodyBlock);
                 forBlock.setBody(bodyBlock);
-                forBlock.incr = (InstructionBlock) lastModified;
+                forBlock.incrBlock = (InstructionBlock) lastModified;
                 
                 createdForBlock = true;
             }
