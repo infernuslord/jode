@@ -24,19 +24,16 @@ import jode.Type;
  * ShiftOpcodes are special, because their second operand is an UIndex
  */
 public class ShiftOperator extends BinaryOperator {
-    protected Type shiftType;
 
     public ShiftOperator(Type type, int op) {
         super(type, op);
-        shiftType = Type.tInt;
     }
 
     public Type getOperandType(int i) {
-        return (i==0)?operandType:shiftType;
+        return (i==0) ? type : Type.tInt;
     }
 
     public void setOperandType(Type[] inputTypes) {
-        operandType = operandType.intersection(inputTypes[0]);
-        shiftType   = shiftType  .intersection(inputTypes[1]);
+	setType(inputTypes[0]);
     }
 }
