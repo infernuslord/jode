@@ -70,11 +70,11 @@ public class InstructionBlock extends InstructionContainer {
             writer.println
                 (((LocalStoreOperator) ((Expression)instr).getOperator())
                  .getLocalInfo().getType().toString()/*XXX*/
-                 + " " + instr.toString() + ";");
+                 + " " + instr.simplify().toString() + ";");
         } else {
             if (instr.getType() != Type.tVoid)
                 writer.print("push ");
-            writer.println(instr.toString()+";");
+            writer.println(instr.simplify().toString()+";");
         }
     }
 }

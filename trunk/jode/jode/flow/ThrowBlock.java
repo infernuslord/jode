@@ -32,6 +32,7 @@ public class ThrowBlock extends InstructionContainer {
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-        writer.println("throw" + (instr == null ? "" : " " + instr) + ";");
+        writer.println("throw" + 
+                       (instr == null ? "" : " " + instr.simplify()) + ";");
     }
 }

@@ -1013,7 +1013,6 @@ public class FlowBlock {
         new CombineIfGotoExpressions(),
         new CreateIfThenElseOperator(),
         new CreateConstantArray(),
-        new SimplifyExpression()
     };
 
 
