@@ -164,13 +164,13 @@ public class MethodAnalyzer implements Analyzer {
             for (int i=0; i<paramTypes.length; i++) {
                 if (i>0)
                     writer.print(", ");
+                LocalInfo li;
                 if (code == null) {
-                    writer.print(classAnalyzer.getTypeString
-                                 (Type.tType(paramTypes[i])));
-                } else {
-                    LocalInfo li = code.getParamInfo(i+offset);
-                    writer.print(li.getType().toString()+" "+li.getName());
-                }
+                    li = new LocalInfo(i+offset);
+                    li.setType(Type.tType(paramTypes[i]));
+                } else
+                    li = code.getParamInfo(i+offset);
+                writer.print(li.getType().toString()+" "+li.getName());
             }
             writer.print(")");
         }
