@@ -23,8 +23,11 @@ import jode.decompiler.ClassAnalyzer;
 import jode.MethodType;
 import jode.Decompiler;
 import jode.Type;
+import jode.ArrayType;
+import jode.ClassInterfacesType;
 import jode.bytecode.*;
 import jode.jvm.*;
+import java.lang.reflect.InvocationTargetException;
 
 public final class InvokeOperator extends Operator 
     implements MatchableOperator {
@@ -171,6 +174,33 @@ public final class InvokeOperator extends Operator
 	    .getMethod(methodName, methodType).isGetClass();
     }
 
+    class Environment extends SimpleRuntimeEnvironment {
+
+	public Object invokeMethod(Reference ref, boolean isVirtual, 
+				   Object cls, Object[] params) 
+	    throws InterpreterException, InvocationTargetException {
+	    if (ref.getClazz().equals(codeAnalyzer.getClazz().getName())) {
+		
+		MethodType mt = (MethodType) Type.tType(ref.getType());
+		BytecodeInfo info = codeAnalyzer.getClassAnalyzer()
+		    .getMethod(ref.getName(), mt).getCode().getBytecodeInfo();
+		Value[] locals = new Value[info.getMaxLocals()];
+		for (int i=0; i< locals.length; i++)
+		    locals[i] = new Value();
+		int param = params.length;
+		int slot = 0;
+		if (cls != null)
+		    locals[slot++].setObject(cls);
+		for (int i = 0; i < param; i++) {
+		    locals[slot].setObject(params[i]);
+		    slot += mt.getParameterTypes()[i].stackSize();
+		}
+		return Interpreter.interpretMethod(this, info, locals); 
+	    } else
+		return super.invokeMethod(ref, isVirtual, cls, params);
+	}
+    }
+
     public ConstOperator deobfuscateString(ConstOperator op) {
 	if (!isThis() || !isStatic()
 	    || methodType.getParameterTypes().length != 1
@@ -181,25 +211,24 @@ public final class InvokeOperator extends Operator
 	CodeAnalyzer ca = clazz.getMethod(methodName, methodType).getCode();
 	if (ca == null)
 	    return null;
+	Environment env = new Environment();
 	BytecodeInfo info = ca.getBytecodeInfo();
 	Value[] locals = new Value[info.getMaxLocals()];
 	for (int i=0; i< locals.length; i++)
 	    locals[i] = new Value();
-	Value[] stack = new Value[info.getMaxStack()];
-	for (int i=0; i< stack.length; i++)
-	    stack[i] = new Value();
 	locals[0].setObject(op.getValue());
 	String result;
 	try {
-	    result = (String) Interpreter.interpretMethod
-		(clazz, info, locals, stack);
+	    result = (String) Interpreter.interpretMethod(env, info, locals);
 	} catch (InterpreterException ex) {
 	    Decompiler.err.println("Warning: Can't interpret method "
 				   +methodName);
 	    ex.printStackTrace(Decompiler.err);
 	    return null;
-	} catch (ClassFormatException ex) {
-	    ex.printStackTrace(Decompiler.err);
+	} catch (InvocationTargetException ex) {
+	    Decompiler.err.println("Warning: Interpreted method throws"
+				   +" an uncaught exception: ");
+	    ex.getTargetException().printStackTrace(Decompiler.err);
 	    return null;
 	}
 	return new ConstOperator(result);
