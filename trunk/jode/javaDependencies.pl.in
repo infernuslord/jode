@@ -39,11 +39,22 @@
 
 my $buff;
 
-sub readUTF {
-    read FILE, $buff, 2 or die "Can't read UTF8 length";
+sub readInBuff ($) {
+    my $count = $_[0];
+    my $offset = 0;
+    while ($count > 0) {
+        my $result = read FILE, $buff, $count, $offset or 0;
+	$offset += $result;
+	$count -= $result;
+    }
+    $offset;
+}
+
+sub readUTF () {
+    readInBuff 2 or die "Can't read UTF8 length";
     my $ulength = unpack("n", $buff) & 0xffff;
     return "" if $ulength == 0;
-    read FILE, $buff, $ulength or die "Can't read UTF8 string $ulength";
+    readInBuff $ulength or die "Can't read UTF8 string $ulength";
     unpack("a$ulength", $buff);
 }
 
@@ -54,15 +65,16 @@ my ($filename, %done);
 %done=();
 for $filename ($clazz, glob("$base\\\$*.class")) {
     open FILE, $filename;
+    binmode FILE;
 
-    read FILE, $buff, 8 or die "Can't read header";
+    readInBuff 8 or die "Can't read header";
     my ($magic, $minor, $major) = unpack("Nnn", $buff);
 
     die "Wrong magic $magic" if $magic != 0xcafebabe;
     die "Wrong minor $minor" if $minor > 3;
     die "Wrong minor $major" if $major != 45;
     
-    read FILE, $buff, 2 or die "Can't read cpool length";
+    readInBuff 2 or die "Can't read cpool length";
     
     
     my ($length) = unpack("n", $buff) & 0xffff;
@@ -72,7 +84,7 @@ for $filename ($clazz, glob("$base\\\$*.class")) {
     my @clazzes;
     for ($number = 1; $number < $length; $number++) {
 	
-	read FILE, $buff, 1 or die "Can't read constant tag";
+	readInBuff 1 or die "Can't read constant tag";
 	my ($tag) = unpack("C", $buff);
 
 	#print STDERR "$number/$length: $tag";
@@ -87,27 +99,27 @@ for $filename ($clazz, glob("$base\\\$*.class")) {
 	    
 	    /^(3|4|9|10|11|12)$/ && do {
 		# INTEGER, FLOAT, FIELDREF, METHODREF, IFACEREF, NAMEANDTYPE
-		read FILE, $buff, 4;
+		readInBuff 4;
 		last tags;
 	    }; 
 	    
 	    /^(5|6)$/ && do {
 		# LONG, DOUBLE
-		read FILE, $buff, 8;
+		readInBuff 8;
 		$number++;
 		last tags;
 	    };
 	    
 	    /^7$/ && do {
 		# CLASS
-		read FILE, $buff, 2;
+		readInBuff 2;
 		push @clazzes, (unpack("n", $buff) & 0xffff);
 		last tags;
 	    }; 
 	    
 	    /^8$/ && do {
 		# STRING
-		read FILE, $buff, 2;
+		readInBuff 2;
 		last tags;
 	    };
 	    die "Unknown tag: $tag, $number/$length, $filename";
@@ -135,6 +147,6 @@ for $filename ($clazz, glob("$base\\\$*.class")) {
     }
     if (@deplist) {
 	print "# Dependencies of $filename\n";
-	print "$clazz: ". join (" ", @deplist) . "\n";
+	print "$clazz: " . join (" ", @deplist) . "\n";
     }
 }
