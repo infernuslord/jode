@@ -964,7 +964,10 @@ public final class InvokeOperator extends Operator
 	    break;
 	}
 	case SPECIAL:
-	    if (isSuperOrThis()) {
+	    if (isSuperOrThis() 
+		&& subExpressions[0] instanceof ThisOperator
+		&& (((ThisOperator)subExpressions[0]).getClassInfo()
+		    == methodAnalyzer.getClazz())) {
 		if (!isThis()) {
 		    /* We don't have to check if this is the real super
 		     * class, as long as ACC_SUPER is set.
@@ -978,6 +981,23 @@ public final class InvokeOperator extends Operator
 		} else {
 		    /* XXX check if this is a private method. */
 		}
+	    } else if (isThis()) {
+		/* XXX check if this is a private method. */
+		if (needsCast(0, paramTypes)){
+		    writer.print("(");
+		    writer.startOp(writer.EXPL_PAREN, 1);
+		    writer.print("(");
+		    writer.printType(classType);
+		    writer.print(") ");
+		    writer.breakOp();
+		    subExpressions[0].dumpExpression(writer, 700);
+		    writer.endOp();
+		    writer.print(")");
+		    paramTypes[0] = classType;
+		} else 
+		    subExpressions[0].dumpExpression(writer, 950);
+		writer.breakOp();
+		writer.print(".");
 	    } else {
 		writer.print("(");
 		writer.startOp(writer.EXPL_PAREN, 0);
