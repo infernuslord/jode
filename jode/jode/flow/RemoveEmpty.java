@@ -47,6 +47,8 @@ public class RemoveEmpty implements Transformation {
             if (prev.jump != null)
                 return false;
             instr = (Instruction) prev.getInstruction();
+            if (instr.getType() == jode.Type.tVoid)
+                return false;
             instr.setType(prevInstr.getType());
         } catch (NullPointerException ex) {
             return false;
