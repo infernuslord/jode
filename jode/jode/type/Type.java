@@ -48,7 +48,10 @@ import java.util.Hashtable;
  *
  * Note that tUnknown is no valid type, so we can replace
  * <tUnknown,  byte>  with <int, byte>
- * <tUnknown, tArray> with <tObject, tArray>
+ * <tUnknown, tArray> with <tObject, tArray>, <br>
+ *
+ * Arrays extend Object and implement java.lang.Cloneable and 
+ * java.io.Serializable, as defined in jls.
  *
  * The main operation on a type range is the intersection.  To do this
  * on class ranges we need three more operations: specialization,
@@ -85,7 +88,6 @@ public class Type {
     public static final int TC_RANGE = 103;
     public static final int TC_BOOLBYTE = 105;
     public static final int TC_BOOLINT  = 106;
-    public static final int TC_UCLASS   = 107;
 
     protected static JodeEnvironment env;
 
@@ -143,6 +145,7 @@ public class Type {
             return tClass(type.substring(1, index));
         }
         throw new AssertError("Unknown type signature: "+type);
+
     }
 
     public static final Type tClass(String clazzname) {
@@ -414,6 +417,25 @@ public class Type {
 
 	}	    
         return result;
+    }
+
+    /**
+     * Checks if we need to cast to a middle type, before we can cast from
+     * fromType to this type.
+     * @return the middle type, or null if it is not necessary.
+     */
+    public Type getCastHelper(Type fromType) {
+	return null;
+    }
+
+    /**
+     * Checks if this type represents a valid type instead of a list
+     * of minimum types.
+     */
+    public boolean isValidType() {
+	return typecode <= TC_DOUBLE
+	    || typecode == TC_BOOLBYTE
+	    || typecode == TC_BOOLINT;
     }
 
     /**
