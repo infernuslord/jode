@@ -1,0 +1,107 @@
+#!/usr/bin/perl
+
+# This is a program to allow preprocessing of java files.  The key idea is,
+# not to have a file that must go through the preprocessor, but to work on
+# the java files directly and make use of comments.
+#
+# The comments all have the form /// to distinguish them from normal
+# comments. You should use such comments yourself.
+#
+# Usage is simple:  jcpp -Ddefine1 -Ddefine2 first.java second.java
+# The files should contain comments of the form
+#
+#  ///#ifdef JDK12
+#      jdk1.2 code
+#  ///#else
+#      jdk1.1 code
+#  ///#endif
+#
+# After running jcpp the false branch is commented out.  If the true
+# branch was commented out it will get commented in.
+
+my @files;
+my %defs;
+
+for (@ARGV) {
+    if ($_ =~ /^-D([^=]*)$/) {
+	$defs{$1} = 1;
+    } elsif ($_ =~ /^-D([^=]*)=([^=]*)$/) {
+	$defs{$1} = $2;
+    } else {
+	push @files, $_;
+    }
+}
+
+for (@files) {
+    my $file = $_;
+    my $branch = "none";
+    my $level = 0;
+    rename "$file", "$file.orig" or do {
+	print STDERR "Can't open file $file\n"; 
+	next;
+    };
+    open OLD, "<$file.orig";
+    open NEW, ">$file";
+    my $linenr = 0;
+    while (<OLD>) {
+	$linenr++;
+	if (/^\/\/\/\#/) {
+	    # This is a directive.  First we print it out.
+	    print NEW $_;
+	    if (/^\/\/\/\#ifdef (\S*)$/) {
+		my $label=$1;
+		# An ifdef directive, look if -D is defined, but only
+		# if we are not in a false branch. In a false branch
+		# we simply increase level.
+		if ($branch eq "false") {
+		    $level++;
+		} else {
+		    if (defined $defs{$label}) {
+			$branch = "true";
+		    } else {
+			$branch = "false";
+			$level = 0;
+		    }
+		}
+	    } elsif (/^\/\/\/\#else/) {
+		# An else directive.  We switch from true to false and 
+		# if level is zero we switch from false to true
+		if ($branch eq "true") {
+		    $branch = "false";
+		    $level = 0;
+		} elsif ($branch eq "false") {
+		    $branch = "true" if ($level == 0);
+		} else {
+		    # An else outside of any directives; warn.
+		    print STDERR "$file: $linenr: ignoring unmatched $_";
+		}
+	    } elsif (/^\/\/\/\#endif/) {
+		if ($branch eq "none") {
+		    # An endif outside of any directives; warn.
+		    print STDERR "$file: $linenr: ignoring unmatched $_";
+		} elsif ($branch eq "false") {
+		    $branch = "true" if ($level-- == 0);
+		}
+	    } else {
+		print STDERR "$file: $linenr: ignoring unknown directive $_";
+	    }
+	} elsif (/^\/\/\/(.*)/) {
+	    $line = $1;
+	    if ($branch eq "true") {
+		# remove comments in true branch;
+		print NEW "$line\n";
+	    } else {
+		# print out with directly:
+		print NEW $_;
+	    }
+	} else {
+	    if ($branch eq "false") {
+		# add comments in false branch
+		print NEW "///$_";
+	    } else {
+		print NEW $_;
+	    }
+	}
+    }
+}
+
