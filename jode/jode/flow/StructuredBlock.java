@@ -390,6 +390,21 @@ public abstract class StructuredBlock {
 	    subBlocks[i].removePush();
     }
 
+    /** 
+     * This method should remove local variables that are only written
+     * and read one time directly after another.  <br>
+     *
+     * This is especially important for stack locals, that are created
+     * when there are unusual swap or dup instructions, but also makes
+     * inlined functions more pretty (but not that close to the
+     * bytecode).  
+     */
+    public void removeOnetimeLocals() {
+	StructuredBlock[] subBlocks = getSubBlocks();
+	for (int i=0; i< subBlocks.length; i++)
+	    subBlocks[i].removeOnetimeLocals();
+    }
+
     /**
      * Make the declarations, i.e. initialize the declare variable
      * to correct values.  This will declare every variable that

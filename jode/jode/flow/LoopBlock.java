@@ -387,6 +387,25 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 	bodyBlock.removePush();
     }
 
+    /** 
+     * This method should remove local variables that are only written
+     * and read one time directly after another.  <br>
+     *
+     * This is especially important for stack locals, that are created
+     * when there are unusual swap or dup instructions, but also makes
+     * inlined functions more pretty (but not that close to the
+     * bytecode).  
+     */
+    public void removeOnetimeLocals() {
+	cond = cond.removeOnetimeLocals();
+	if (type == FOR) {
+	    if (init != null)
+		init.removeOnetimeLocals();
+	    incr.removeOnetimeLocals();
+	}
+	super.removeOnetimeLocals();
+    }
+
     /**
      * Replace all breaks to block with a continue to this.
      * @param block the breakable block where the breaks originally 

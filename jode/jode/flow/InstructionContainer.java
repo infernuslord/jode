@@ -46,6 +46,21 @@ public abstract class InstructionContainer extends StructuredBlock {
         setJump(jump);
     }
 
+    /** 
+     * This method should remove local variables that are only written
+     * and read one time directly after another.  <br>
+     *
+     * This is especially important for stack locals, that are created
+     * when there are unusual swap or dup instructions, but also makes
+     * inlined functions more pretty (but not that close to the
+     * bytecode).  
+     */
+    public void removeOnetimeLocals() {
+	if (instr != null)
+	    instr = instr.removeOnetimeLocals();
+	super.removeOnetimeLocals();
+    }
+
     /**
      * Fill all in variables into the given VariableSet.
      * @param in The VariableSet, the in variables should be stored to.

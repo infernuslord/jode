@@ -1468,6 +1468,12 @@ public class FlowBlock {
 	}
     }
 
+    public void removeOnetimeLocals() {
+	block.removeOnetimeLocals();
+	if (nextByAddr != null)
+	    nextByAddr.removeOnetimeLocals();
+    }
+
     public void makeDeclaration(VariableSet param) {
 	in.merge(param);
 	in.subtract(param);
