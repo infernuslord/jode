@@ -33,14 +33,15 @@ import jode.GlobalOptions;
 public class SearchPath  {
 
     /**
-     * Hack to allow URLs that use the same separator as the normal
-     * path separator.  Use a very unusual character for this.
+     * We need a different pathSeparatorChar, since ':' (used for most
+     * UNIX System, is used a protocol separator in URLs.  
      */
-    public static final char protocolSeparator = 31;
+    public static final char pathSeparatorChar = ',';
     URL[] bases;
     byte[][] urlzips;
     File[] dirs;
     ZipFile[] zips;
+    String[] zipDirs;
     Hashtable[] zipEntries;
 
     private static void addEntry(Hashtable entries, String name) {
@@ -67,8 +68,13 @@ public class SearchPath  {
 	while (zipEnum.hasMoreElements()) {
 	    ZipEntry ze = (ZipEntry) zipEnum.nextElement();
 	    String name = ze.getName();
-	    if (name.endsWith("/"))
-		name = name.substring(0, name.length()-1);
+//  	    if (name.charAt(0) == '/') 
+//  		name = name.substring(1);
+	    if (zipDirs[nr] != null) {
+		if (!name.startsWith(zipDirs[nr]))
+		    continue;
+		name = name.substring(zipDirs[nr].length());
+	    }
 	    if (!ze.isDirectory() && name.endsWith(".class"))
 		addEntry(zipEntries[nr], name);
 	}
@@ -127,8 +133,13 @@ public class SearchPath  {
 	    ZipEntry ze;
 	    while ((ze = zis.getNextEntry()) != null) {
 		String name = ze.getName();
-		if (name.endsWith("/"))
-		    name = name.substring(0, name.length()-1);
+//  		if (name.charAt(0) == '/') 
+//  		    name = name.substring(1);
+		if (zipDirs[nr] != null) {
+		    if (!name.startsWith(zipDirs[nr]))
+			continue;
+		    name = name.substring(zipDirs[nr].length());
+		}
 		if (!ze.isDirectory() && name.endsWith(".class"))
 		    addEntry(zipEntries[nr], name);
 		zis.closeEntry();
@@ -153,7 +164,8 @@ public class SearchPath  {
      */
     public SearchPath(String path) {
         StringTokenizer tokenizer = 
-            new StringTokenizer(path, File.pathSeparator);
+            new StringTokenizer(path, 
+				String.valueOf(pathSeparatorChar));
         int length = tokenizer.countTokens();
         
 	bases = new URL[length];
@@ -161,9 +173,23 @@ public class SearchPath  {
         dirs = new File[length];
         zips = new ZipFile[length];
         zipEntries = new Hashtable[length];
+        zipDirs = new String[length];
         for (int i=0; i< length; i++) {
-	    String token = tokenizer.nextToken()
-		.replace(protocolSeparator, ':');
+	    String token = tokenizer.nextToken();
+
+	    boolean mustBeJar = false;
+	    // We handle jar URL's ourself.
+	    if (token.startsWith("jar:")) {
+		int index = 0;
+		do {
+		    index = token.indexOf('!', index);
+		} while (token.charAt(index+1) != '/');
+		zipDirs[i] = token.substring(index+2);
+		if (!zipDirs[i].endsWith("/"))
+		    zipDirs[i] = zipDirs[i] + "/";
+		token = token.substring(4, index);
+		mustBeJar = true;
+	    }
 	    int index = token.indexOf(':');
 	    if (index != -1 && index < token.length()-2
 		&& token.charAt(index+1) == '/'
@@ -173,7 +199,8 @@ public class SearchPath  {
 		    bases[i] = new URL(token);
 		    try {
 			URLConnection connection = bases[i].openConnection();
-			if (token.endsWith(".zip") || token.endsWith(".jar")
+			if (mustBeJar 
+			    || token.endsWith(".zip") || token.endsWith(".jar")
 			    || connection.getContentType().endsWith("/zip")) {
 			    // This is a zip file.  Read it into memory.
 			    readURLZip(i, connection);
@@ -193,7 +220,7 @@ public class SearchPath  {
 	    } else {
 		try {
 		    dirs[i] = new File(token);
-		    if (!dirs[i].isDirectory()) {
+		    if (mustBeJar || !dirs[i].isDirectory()) {
 			try {
 			    zips[i] = new ZipFile(dirs[i]);
 			} catch (java.io.IOException ex) {
@@ -244,7 +271,9 @@ public class SearchPath  {
             if (dirs[i] == null)
                 continue;
             if (zips[i] != null) {
-                ZipEntry ze = zips[i].getEntry(filename);
+		String fullname = zipDirs[i] != null
+		    ? zipDirs[i] + filename : filename;
+                ZipEntry ze = zips[i].getEntry(fullname);
                 if (ze != null)
                     return true;
             } else {
@@ -275,8 +304,10 @@ public class SearchPath  {
 		ZipInputStream zis = new ZipInputStream
 		    (new ByteArrayInputStream(urlzips[i]));
 		ZipEntry ze;
+		String fullname = zipDirs[i] != null
+		    ? zipDirs[i] + filename : filename;
 		while ((ze = zis.getNextEntry()) != null) {
-		    if (ze.getName().equals(filename)) {
+		    if (ze.getName().equals(fullname)) {
 ///#ifdef JDK11
 			// The skip method in jdk1.1.7 ZipInputStream
 			// is buggy.  We return a wrapper that fixes
@@ -324,7 +355,9 @@ public class SearchPath  {
             if (dirs[i] == null)
                 continue;
             if (zips[i] != null) {
-                ZipEntry ze = zips[i].getEntry(filename);
+		String fullname = zipDirs[i] != null
+		    ? zipDirs[i] + filename : filename;
+                ZipEntry ze = zips[i].getEntry(fullname);
                 if (ze != null)
                     return zips[i].getInputStream(ze);
             } else {
@@ -412,7 +445,10 @@ public class SearchPath  {
                             String name = files[fileNr++];
                             if (name.endsWith(".class")) {
                                 return name;
-                            } else {
+                            } else if (name.indexOf(".") == -1) {
+				/* ignore directories containing a dot.
+				 * they can't be a package directory.
+				 */
 				File f = new File(currentDir, name);
 				if (f.exists() && f.isDirectory())
 				    return name;
