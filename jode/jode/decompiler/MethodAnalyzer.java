@@ -19,7 +19,6 @@
 
 package jode.decompiler;
 import jode.bytecode.MethodInfo;
-import jode.type.Type;
 import jode.type.*;
 import jode.AssertError;
 import jode.Decompiler;
@@ -35,11 +34,13 @@ public class MethodAnalyzer implements Analyzer {
     boolean isStatic;
     boolean isSynthetic;
     boolean isDeprecated;
-    SyntheticAnalyzer synth;
     int modifiers;
     String methodName;
     MethodType methodType;
     Type[] exceptions;
+
+    boolean analyzed = false;
+    SyntheticAnalyzer synth;
     
     public MethodAnalyzer(ClassAnalyzer cla, MethodInfo minfo,
                           ImportHandler imports) {
@@ -54,7 +55,8 @@ public class MethodAnalyzer implements Analyzer {
 	this.isSynthetic = minfo.isSynthetic();
 	this.isDeprecated = minfo.isDeprecated();
         
-	code = new CodeAnalyzer(this, minfo, imports);
+	if (minfo.getBytecode() != null)
+	    code = new CodeAnalyzer(this, minfo, imports);
         String[] excattr = minfo.getExceptions();
         if (excattr == null) {
             exceptions = new Type[0];
@@ -95,6 +97,8 @@ public class MethodAnalyzer implements Analyzer {
     }
 
     public final boolean isGetClass() {
+	if (synth == null) 
+	    analyzeSynthetic();
 	return synth.type == SyntheticAnalyzer.GETCLASS;
     }
 
@@ -108,6 +112,7 @@ public class MethodAnalyzer implements Analyzer {
 	if (code == null)
 	    return;
 
+	analyzed = true;
 	int offset = 0;
 	if (!isStatic()) {
 	    LocalInfo clazz = code.getParamInfo(0);
@@ -129,17 +134,21 @@ public class MethodAnalyzer implements Analyzer {
         if (!isConstructor)
             imports.useType(methodType.getReturnType());
 
-	if (!Decompiler.immediateOutput || isSynthetic) {
+	if (!Decompiler.immediateOutput) {
 	    if (Decompiler.isVerbose)
 		Decompiler.err.print(methodName+": ");
 	    code.analyze();
-	    if (isSynthetic)
-		synth = new SyntheticAnalyzer(this);
 	    if (Decompiler.isVerbose)
 		Decompiler.err.println("");
 	}
     }
     
+    public void analyzeSynthetic() {
+	if (!analyzed)
+	    analyze();
+	synth = new SyntheticAnalyzer(this);
+    }
+	    
     public void dumpSource(TabbedPrintWriter writer) 
          throws IOException
     {
