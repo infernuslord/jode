@@ -20,7 +20,6 @@
 package jode;
 import java.util.*;
 import jode.bytecode.ClassInfo;
-import jode.bytecode.SearchPath;
 
 public class JodeEnvironment {
     Hashtable imports;
@@ -30,11 +29,9 @@ public class JodeEnvironment {
     String className;
     String pkg;
 
-    SearchPath classPath;
 
     JodeEnvironment(String path) {
-        classPath = new SearchPath(path);
-        ClassInfo.setClassPath(classPath);
+        ClassInfo.setClassPath(path);
 	Type.setEnvironment(this);
         imports = new Hashtable();
         /* java.lang is always imported */
@@ -66,8 +63,7 @@ public class JodeEnvironment {
             name = name.substring(pkgdelim); 
 
             if (pkg.length() != 0) {
-                if (classPath.exists((pkg+name).replace('.', '/')
-                                     + ".class"))
+                if (ClassInfo.exists(pkg+name))
                     return true;
             }
 
@@ -79,8 +75,7 @@ public class JodeEnvironment {
                     importName = importName.substring
                         (0, importName.length()-2);
                     if (!importName.equals(pkgName)) {
-                        if (classPath.exists(importName.replace('.', '/')
-                                             + ".class"))
+                        if (ClassInfo.exists(importName))
                             return true;
                     }
                 }
