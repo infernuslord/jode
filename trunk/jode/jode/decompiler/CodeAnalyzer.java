@@ -59,9 +59,12 @@ public class CodeAnalyzer implements Analyzer {
 
 	if (Decompiler.useLVT) {
 	    AttributeInfo attr = code.findAttribute("LocalVariableTable");
-	    if (attr != null)
+	    if (attr != null) {
+                if (Decompiler.showLVT)
+                    Decompiler.err.println("Method: "+ma.getName());
 		lvt = new LocalVariableTable(bc.getMaxLocals(), 
 					     method.classAnalyzer, attr);
+	    }
 	}
 
 	int paramCount = method.getParamCount();
@@ -199,6 +202,8 @@ public class CodeAnalyzer implements Analyzer {
         readCode(codeArray, handlers);
 	if (!Decompiler.usePUSH && methodHeader.mapStackToLocal())
 	    methodHeader.removePush();
+	if (Decompiler.removeOnetimeLocals)
+	    methodHeader.removeOnetimeLocals();
 
         Enumeration enum = allLocals.elements();
         while (enum.hasMoreElements()) {
