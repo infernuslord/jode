@@ -104,11 +104,12 @@ public class Obfuscator {
             else if (params[i].equals("-nostrip"))
                 shouldStrip = false;
 
-            else if (params[i].equals("-sourcepath"))
+            else if (params[i].equals("-sourcepath")
+		     || params[i].equals("-classpath")
+		     || params[i].equals("-cp"))
                 sourcePath = params[++i];
-            else if (params[i].equals("-classpath"))
-                sourcePath = params[++i];
-            else if (params[i].equals("-d"))
+            else if (params[i].equals("-dest")
+		     || params[i].equals("-d"))
                 destPath   = params[++i];
 
             /* Preserve options */
