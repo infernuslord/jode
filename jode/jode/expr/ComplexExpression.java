@@ -56,8 +56,8 @@ public class ComplexExpression extends Expression {
     }
 
     public Expression negate() {
-        if (operator.operator >= operator.COMPARE_OP && 
-            operator.operator < operator.COMPARE_OP+6) {
+        if (operator.getOperatorIndex() >= operator.COMPARE_OP && 
+            operator.getOperatorIndex() < operator.COMPARE_OP+6) {
             operator.setOperatorIndex(operator.getOperatorIndex() ^ 1);
             return this;
         } else if (operator.getOperatorIndex() == operator.LOG_AND_OP || 
@@ -65,6 +65,7 @@ public class ComplexExpression extends Expression {
             operator.setOperatorIndex(operator.getOperatorIndex() ^ 1);
             for (int i=0; i< subExpressions.length; i++) {
                 subExpressions[i] = subExpressions[i].negate();
+                subExpressions[i].parent = this;
             }
             return this;
         } else if (operator.operator == operator.LOG_NOT_OP) {
@@ -99,6 +100,7 @@ public class ComplexExpression extends Expression {
 		Expression combined = subExpressions[i].tryToCombine(e);
 		if (combined != null) {
 		    subExpressions[i] = combined;
+                    subExpressions[i].parent = this;
 		    return this;
 		}
 	    }
@@ -315,8 +317,10 @@ public class ComplexExpression extends Expression {
                 return new ComplexExpression(new StringAddOperator(), exprs);
             }
         }
-        for (int i=0; i< subExpressions.length; i++)
+        for (int i=0; i< subExpressions.length; i++) {
             subExpressions[i] = (Expression) subExpressions[i].simplify();
+            subExpressions[i].parent = this;
+        }
 
         return this;
     }
