@@ -87,6 +87,8 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	addWhite(new Reference("java.lang.String", "<init>", 
 			       "(Ljava/lang/StringBuffer;)V"));
 	addWhite(new Reference("java.lang.String", "length", "()I"));
+	addWhite(new Reference("java.lang.String", "replace", 
+			       "(CC)Ljava/lang/String;"));
 	addWhite(new Reference("java.lang.String", "valueOf", 
 			       "(Z)Ljava/lang/String;"));
 	addWhite(new Reference("java.lang.String", "valueOf", 
@@ -109,6 +111,8 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 			       "(I)Ljava/lang/String;"));
 	addWhite(new Reference("java.lang.String", "substring", 
 			       "(II)Ljava/lang/String;"));
+	addWhite(new Reference("java.lang.reflect.Modifier", "toString", 
+			       "(I)Ljava/lang/String;"));
 	addWhite(new Reference("java.lang.Math", "abs", "(D)D"));
 	addWhite(new Reference("java.lang.Math", "abs", "(F)F"));
 	addWhite(new Reference("java.lang.Math", "abs", "(I)I"));
