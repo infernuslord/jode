@@ -18,7 +18,7 @@
  */
 
 package jode.expr;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
@@ -114,7 +114,7 @@ public class ComplexExpression extends Expression {
      * is not a CombineableOperator.
      */
     public int canCombine(Expression e) {
-//  	Decompiler.err.println("Try to combine "+e+" into "+this);
+//  	GlobalOptions.err.println("Try to combine "+e+" into "+this);
 	if (e.getOperator() instanceof LocalStoreOperator
 	    && e.getOperandCount() == 0) {
 	    // Special case for locals created on inlining methods, which may
@@ -251,11 +251,11 @@ public class ComplexExpression extends Expression {
 		Type exprType = subExpressions[i].getType();
 		opType = opType.intersection(exprType);
 		if (!opType.equals(exprType)) {
-		    if (Decompiler.isTypeDebugging)
-			Decompiler.err.println("change in "+this+": "
+		    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+			GlobalOptions.err.println("change in "+this+": "
 					       +exprType+"->"+opType);
 		    if (opType == Type.tError)
-			Decompiler.err.println("Type error in "+this+": "
+			GlobalOptions.err.println("Type error in "+this+": "
 					       +exprType+"->"
 					       +operator.getOperandType(i));
 		    subExpressions[i].setType(opType);
@@ -287,11 +287,11 @@ public class ComplexExpression extends Expression {
 		if (types[i].equals(opType))
 		    continue;
 		
-		if (Decompiler.isTypeDebugging)
-		    Decompiler.err.println("change in "+this+" at "+i+": "
+		if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+		    GlobalOptions.err.println("change in "+this+" at "+i+": "
 					   +opType+"->"+types[i]);
 		if (types[i] == Type.tError)
-		    Decompiler.err.println("Type error in "+this+" at "+i+": "
+		    GlobalOptions.err.println("Type error in "+this+" at "+i+": "
 					   +subExpressions[i].getType()
 					   +"->"+opType);
 		else
@@ -440,7 +440,7 @@ public class ComplexExpression extends Expression {
                 return new ComplexExpression
                     (new StringAddOperator(), new Expression[] 
 		     { left, right });
-            } else if (Decompiler.stringDecrypting) {
+            } else if (jode.Decompiler.stringDecrypting) {
 		Expression expr = subExpressions[0].simplifyString();
 		if (expr instanceof ConstOperator) {
 		    expr = invoke.deobfuscateString((ConstOperator)expr);
@@ -489,7 +489,7 @@ public class ComplexExpression extends Expression {
                     ? operator.INC_OP : operator.DEC_OP;
 
                 Operator ppfixop = new PrePostFixOperator
-                    (store.getLValueType(), op, store, store.isVoid());
+                    (getType(), op, store, isVoid());
                 if (subExpressions.length == 1)
                     return ppfixop.simplify();
 
