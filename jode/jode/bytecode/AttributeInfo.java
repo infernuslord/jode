@@ -28,25 +28,31 @@ public class AttributeInfo {
     String name;
     byte[] data;
 
-    public AttributeInfo() {
+    public AttributeInfo(String name) {
+	this.name = name;
+    }
+
+    public AttributeInfo(String name, byte[] data) {
+	this.name = name;
+	this.data = data;
     }
 
     public void read(ConstantPool constantPool, 
                      DataInputStream input, int howMuch) throws IOException {
-	String attrName = constantPool.getUTF8(input.readUnsignedShort());
 	int length = input.readInt();
-        if ((howMuch & ClassInfo.ALL_ATTRIBUTES) != 0) {
-            name = attrName;
-            data = new byte[length];
-            input.readFully(data);
-        } else {
-	    while (length > 0) {
-		int skipped = (int) input.skip(length);
-		if (skipped == 0)
-		    throw new EOFException("Can't skip. EOF?");
-		length -= skipped;
-	    }
-	}
+	data = new byte[length];
+	input.readFully(data);
+    }
+
+    public void prepareWriting(GrowableConstantPool gcp) {
+	gcp.putUTF8(name);
+    }
+
+    public void write(GrowableConstantPool constantPool, 
+		      DataOutputStream output) throws IOException {
+	output.writeShort(constantPool.putUTF8(name));
+	output.writeInt(data.length);
+	output.write(data);
     }
 
     public String getName() {
@@ -85,5 +91,14 @@ public class AttributeInfo {
             writer.untab();
             writer.println("*/");
         }
+    }
+
+    public boolean equals(Object o) {
+	return (o instanceof AttributeInfo
+		&& ((AttributeInfo) o).name.equals(name));
+    }
+
+    public int hashCode() {
+	return name.hashCode();
     }
 }
