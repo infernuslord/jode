@@ -102,14 +102,9 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 			stacksize += Type.tType(ref.getType()).stackSize();
 			if (stacksize == 3) {
 			    /* Add a pop instruction after this opcode. */
-			    Instruction second = new Instruction(bytecode);
-			    second.addr = instr.addr+1;
+			    Instruction second = instr.appendInstruction();
 			    second.length = 1;
 			    second.opcode = Instruction.opc_pop;
-			    second.nextByAddr = instr.nextByAddr;
-			    instr.nextByAddr = second;
-			    second.nextByAddr.preds.removeElement(instr);
-			    second.nextByAddr.preds.addElement(second);
 			    stacksize--;
 			}
 			instr.objData = null;
