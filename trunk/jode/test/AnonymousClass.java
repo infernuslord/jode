@@ -42,17 +42,15 @@ public class AnonymousClass {
 		}
 ///#ifndef JAVAC11
 ///#ifndef JAVAC12
-///#ifndef JIKES
-///		Hello(int i) {
-///		    this("If you find a compiler that can compile this,"
-///			 +" please comment this out and tell me if "
-///			 +"decompilation works.\n"
-///			 +"jikes 0.47, javac 1.2 are both broken!");
-///		}
+///#ifndef JIKES0
+		Hello(int i) {
+		    this("This can only be compiled correctly"
+			 +" by a recent jikes");
+		}
 ///#endif
 ///#endif
 ///#endif
-		public void hello() {
+		private void hello() {
 		    this.hashCode();
 		    Inner.this.hashCode();
 		    AnonymousClass.this.hashCode();
@@ -64,11 +62,11 @@ public class AnonymousClass {
 	    final Object o = new Object() {
 		int blah = 5;
 
-		Hello hii = hi;
-
 		{
 		    System.err.println("Anonymous Constructor speaking");
 		}
+
+		Hello hii = hi;
 
 		public String toString() {
 		    this.hii.hello();
@@ -90,7 +88,7 @@ public class AnonymousClass {
 ///#ifndef JAVAC12
 	    Hello blah = new Hello("Hello World") {
 		public void hello() {
-		    System.err.println("overwritten");
+		    System.err.println("overwritten" + dblVar + hi);
 		}
 	    };
 ///#endif
@@ -107,6 +105,19 @@ public class AnonymousClass {
 		}
 	    }
 
+	    class Huhu extends Hello {
+		public Huhu(String str) {
+		    super(str);
+		}
+		
+		public Huhu(int i) {
+		}
+
+		public Huhu() {
+		    super("What's up");
+		}
+	    }
+
 	    Vector v = new Vector(hi.var, new Inner("blah").var) {
 		public String newMethod() {
 		    return super.toString();
@@ -114,6 +125,7 @@ public class AnonymousClass {
 	    };
 
 	    Hi hu = new Hi();
+	    new Huhu(1);
 		
 	}
 	Inner (String str) {
