@@ -49,41 +49,11 @@ public class SimpleMap extends AbstractMap {
 	return backing;
     }
 
-    public static class SimpleEntry implements Map.Entry {
-	Object key;
-	Object value;
-
+    public static class SimpleEntry extends BasicMapEntry {
 	public SimpleEntry(Object key, Object value) {
-	    this.key = key;
-	    this.value = value;
-	}
-
-	public Object getKey() {
-	    return key;
-	}
-
-	public Object getValue() {
-	    return value;
-	}
-
-	public Object setValue(Object newValue) {
-	    Object old = value;
-	    value = newValue;
-	    return old;
-	}
-	
-	public int hashCode() {
-	    return key.hashCode() ^ value.hashCode();
-	}
-
-	public boolean equals(Object o) {
-	    if (o instanceof Map.Entry) {
-		Map.Entry e = (Map.Entry) o;
-		return key.equals(e.getKey()) && value.equals(e.getValue());
-	    }
-	    return false;
-	}
-    }
+	    super(key, value);
+	} 
+   }
 
     public Object put(Object key, Object value) {
 	for (Iterator i = backing.iterator();
