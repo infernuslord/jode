@@ -339,6 +339,15 @@ public abstract class StructuredBlock {
 	return false;
     }
 
+    /**
+     * Propagate the used set.  Initially the used block contains the
+     * local that are in some expression directly in this block.  This
+     * will extend the set, so that a variable is used if it is used in
+     * at least two sub blocks.
+     *
+     * @return all locals that are used in this block or in some sub
+     * block (this is <i>not</i> the used set).  
+     */
     public VariableSet propagateUsage() {
         StructuredBlock[] subs = getSubBlocks();
         VariableSet allUse = (VariableSet) used.clone();
@@ -431,16 +440,21 @@ public abstract class StructuredBlock {
 	     * also change their types, if they are in the local
 	     * variable table.
 	     */
-	    String localName = local.getName();
+	    String localName = local.guessName();
+
+	    int size = done.size();
+	    // Check if this local is already declared.
+	    for (int i=0; i< size; i++) {
+		LocalInfo prevLocal = done.elementAt(i);
+		if (prevLocal.equals(local))
+		    continue next_used;
+	    }
 
 	    // Merge with all locals in this block, that use the same 
-	    // slot and have compatible type.
-	    int size = done.size();
+	    // slot and have compatible types and names.
 	    for (int i=0; i< size; i++) {
 		LocalInfo prevLocal = done.elementAt(i);
 		if (prevLocal.getSlot() == local.getSlot()) {
-		    if (prevLocal.equals(local))
-			continue next_used;
 
 		    /* XXX - I have to think about this...
 		     * there may be a case where this leads to type errors.
@@ -457,8 +471,8 @@ public abstract class StructuredBlock {
 		     */
 		    if (prevLocal.getType().isOfType(local.getType())
 			&& prevLocal.getName() != "this"
-			&& (!prevLocal.isNameGenerated() 
-			    || !local.isNameGenerated()
+			&& (prevLocal.isNameGenerated() 
+			    || local.isNameGenerated()
 			    || localName.equals(prevLocal.getName()))) {
 			local.combineWith(prevLocal);
 			continue next_used;
@@ -471,9 +485,9 @@ public abstract class StructuredBlock {
 		/* A name conflict happened. */
 		local.makeNameUnique();
 	    }
+	    done.addElement(local);
 	    declare.addElement(local);
 	}
-        done.unionExact(declare);
         StructuredBlock[] subs = getSubBlocks();
 	for (int i=0; i<subs.length; i++)
 	    subs[i].makeDeclaration(done);
@@ -617,6 +631,7 @@ public abstract class StructuredBlock {
 
     /**
      * Do simple transformation on the structuredBlock.
+     * @return true, if some transformation was done.
      */
     public boolean doTransformations() {
         return false;
