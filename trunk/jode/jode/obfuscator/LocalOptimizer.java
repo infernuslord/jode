@@ -20,6 +20,7 @@
 package jode.obfuscator;
 import java.util.*;
 import jode.bytecode.*;
+import jode.type.Type;
 import jode.AssertError;
 import jode.Obfuscator;
 
@@ -27,8 +28,34 @@ import jode.Obfuscator;
  * This class takes some bytecode and tries to minimize the number
  * of locals used.  It will also remove unnecessary stores.  
  *
- * This class can only work on verified code.  There should also be
- * no deadcode, since we can't be sure that deadcode behaves okay.
+ * This class can only work on verified code.  There should also be no
+ * deadcode, since the verifier doesn't check that deadcode behaves
+ * okay.  
+ *
+ * This is done in two phases.  First we determine which locals are
+ * the same, and which locals have a overlapping life time. In the
+ * second phase we will then redistribute the locals with a coloring
+ * graph algorithm.
+ *
+ * The idea for the first phase is: For each read we follow the
+ * instruction flow backward to find the corresponding writes.  We can
+ * also merge with another control flow that has a different read, in
+ * this case we merge with that read, too.
+ *
+ * The tricky part is the subroutine handling.  We follow the local
+ * that is used in a ret and find the corresponding jsr target (there
+ * must be only one, if the verifier should accept this class).  While
+ * we do this we remember in the info of the ret, which locals are
+ * used in that subroutine.
+ *
+ * When we know the jsr target<->ret correlation, we promote from the
+ * nextByAddr of every jsr the locals that are accessed by the
+ * subroutine to the corresponding ret and the others to the jsr.  Also
+ * we will promote all reads from the jsr targets to the jsr.
+ *
+ * If you think this might be to complicated, keep in mind that jsr's
+ * are not only left by the ret instructions, but also "spontanously"
+ * (by not reading the return address again).
  */
 public class LocalOptimizer implements Opcodes {
 
@@ -53,11 +80,6 @@ public class LocalOptimizer implements Opcodes {
 	Vector conflictingLocals = new Vector();
 	int size;
 	int newSlot = -1;
-	/**
-	 * If this local is used as returnAddress, this gives the
-	 * ret that uses it.
-	 */
-	InstrInfo retInfo;
 
 	LocalInfo() {
 	}
@@ -91,12 +113,6 @@ public class LocalOptimizer implements Opcodes {
 		shadow.name = name;
 		shadow.type = type;
 	    }
-	    if (retInfo != null) {
-		if (retInfo != shadow.retInfo)
-		    Obfuscator.err.println
-			("Warning: Multiple rets on one jsr?");
-		shadow.retInfo = retInfo;
-	    }
 	    Enumeration enum = usingInstrs.elements();
 	    while (enum.hasMoreElements()) {
 		InstrInfo instr = (InstrInfo) enum.nextElement();
@@ -117,33 +133,34 @@ public class LocalOptimizer implements Opcodes {
 	 */
 	LocalInfo local;
 	/**
-	 * For each slot, this contains the LocalInfo of the next
-	 * Instruction, that may read from that slot, without prior
-	 * writing.  
+	 * For each slot, this contains the InstrInfo of one of the
+	 * next Instruction, that may read from that slot, without
+	 * prior writing.  */
+	InstrInfo[] nextReads;
+
+	/**
+	 * This only has a value for ret instructions.  In that case
+	 * this bitset contains all locals, that may be used between
+	 * jsr and ret.  
 	 */
-	LocalInfo[] nextReads;
+	BitSet usedBySub;
 	/**
 	 * For each slot if get() is true, no instruction may read
 	 * this slot, since it may contain different locals, depending
 	 * on flow.  
 	 */
-	BitSet conflictingLocals;
+	LocalInfo[] lifeLocals;
 	/**
 	 * If instruction is the destination of a jsr, this contains
-	 * the single allowed ret instructions, or null if there is
-	 * no ret at all.  
+	 * the single allowed ret instruction info, or null if there
+	 * is no ret at all (or not yet detected).  
 	 */
-	Instruction retInstr;
+	InstrInfo retInfo;
 	/**
-	 * If instruction is a jsr, this contains the slots
-	 * used by the sub routine
+	 * If this instruction is a ret, this contains the single
+	 * allowed jsr target to which this ret belongs.  
 	 */
-	BitSet usedBySub;
-	/**
-	 * The jsr to which the nextReads at this slot belongs to.
-	 * I think I don't like jsrs any more.
-	 */
-	Vector[] belongsToJsrs;
+	InstrInfo jsrTargetInfo;
 	/**
 	 * The Instruction of this info
 	 */
@@ -154,69 +171,22 @@ public class LocalOptimizer implements Opcodes {
 	InstrInfo nextInfo;
     }
 
+    BytecodeInfo bc;
+    MethodInfo methodInfo;
+
     InstrInfo firstInfo;
     Stack changedInfos;
     Hashtable instrInfos;
-    BytecodeInfo bc;
     boolean produceLVT;
     int maxlocals;
-    int paramCount;
 
-    public LocalOptimizer(BytecodeInfo bc, int paramCount) {
+    LocalInfo[] paramLocals;
+
+    public LocalOptimizer(BytecodeInfo bc, MethodInfo methodInfo) {
 	this.bc = bc;
-	this.paramCount = paramCount;
+	this.methodInfo = methodInfo;
     }
 
-    /**
-     * This method determines which rets belong to a given jsr.  This
-     * is needed, since the predecessors must be exact.  
-     */
-    void analyzeSubRoutine(InstrInfo subInfo) {
-	Stack instrStack = new Stack();
-	Instruction subInstr = subInfo.instr;
-	if (subInfo.usedBySub != null)
-	    return;
-
-	subInfo.usedBySub = new BitSet(maxlocals);
-	if (subInstr.opcode != opc_astore) {
-	    /* Grrr, the bytecode verifier doesn't test if a
-	     * jsr starts with astore.  So it is possible to
-	     * do something else before putting the ret address
-	     * into a local.  It would be even possible to pop
-	     * the address, and never return.
-	     */
-	    throw new AssertError("Non standard jsr");
-	}
-	int slot = subInstr.localSlot;
-	subInfo.usedBySub.set(slot);
-	instrStack.push(subInstr.nextByAddr);
-	while (!instrStack.isEmpty()) {
-	    Instruction instr = (Instruction) instrStack.pop();
-	    if (instr.localSlot == slot) {
-		if (instr.opcode >= opc_istore
-		    && instr.opcode <= opc_astore) 
-		    /* Return address is overwritten, we will never
-		     * return.
-		     */
-		    continue;
-		
-		if (instr.opcode != opc_ret
-		    || (subInfo.retInstr != null
-			&& subInfo.retInstr != instr))
-		    /* This can't happen in legal bytecode. */
-		    throw new AssertError("Illegal bytecode");
-		
-		subInfo.retInstr = instr;
-	    } else if (instr.localSlot != -1) {
-		subInfo.usedBySub.set(instr.localSlot);
-	    }
-	    if (!instr.alwaysJumps)
-		instrStack.push(instr.nextByAddr);
-	    if (instr.succs != null)
-		for (int i=0; i< instr.succs.length; i++)
-		    instrStack.push(instr.succs[i]);
-	}
-    }
 
     /**
      * Merges the given vector to a new vector.  Both vectors may
@@ -239,8 +209,8 @@ public class LocalOptimizer implements Opcodes {
 	return result;
     }
 
-    void promoteSubRoutineReads(InstrInfo info, Instruction preInstr,
-				InstrInfo jsrInfo) {
+    void promoteReads(InstrInfo info, Instruction preInstr,
+		      BitSet mergeSet, boolean inverted) {
 	InstrInfo preInfo = (InstrInfo) instrInfos.get(preInstr);
 	int omitLocal = -1;
 	if (preInstr.localSlot != -1
@@ -250,53 +220,44 @@ public class LocalOptimizer implements Opcodes {
 	    omitLocal = preInstr.localSlot;
 	    if (info.nextReads[preInstr.localSlot] != null)
 		preInfo.local.combineInto
-		    (info.nextReads[preInstr.localSlot]);
+		    (info.nextReads[preInstr.localSlot].local);
 	}
 	for (int i=0; i < maxlocals; i++) {
 	    if (info.nextReads[i] != null && i != omitLocal
-		&& (jsrInfo == null || !jsrInfo.usedBySub.get(i))) {
+		&& (mergeSet == null || mergeSet.get(i) != inverted)) {
 
 		if (preInfo.nextReads[i] == null) {
 		    preInfo.nextReads[i] = info.nextReads[i];
 		    changedInfos.push(preInfo);
 		} else {
-		    preInfo.nextReads[i]
-			.combineInto(info.nextReads[i]);
-		}
-	    }
-	}
-    }
-
-    void promoteNotModifiedReads(InstrInfo info, Instruction preInstr,
-				 InstrInfo jsrInfo) {
-	InstrInfo preInfo = (InstrInfo) instrInfos.get(preInstr);
-	int omitLocal = -1;
-	if (preInstr.localSlot != -1
-	    && preInstr.opcode >= opc_istore
-	    && preInstr.opcode <= opc_astore) {
-	    /* This is a store */
-	    omitLocal = preInstr.localSlot;
-	    if (info.nextReads[preInstr.localSlot] != null)
-		preInfo.local.combineInto
-		    (info.nextReads[preInstr.localSlot]);
-	}
-	for (int i=0; i < maxlocals; i++) {
-	    if (info.nextReads[i] != null && i != omitLocal
-		&& (jsrInfo == null || !jsrInfo.usedBySub.get(i))) {
-
-		if (preInfo.nextReads[i] == null) {
-		    preInfo.nextReads[i] = info.nextReads[i];
-		    changedInfos.push(preInfo);
-		} else {
-		    preInfo.nextReads[i]
-			.combineInto(info.nextReads[i]);
+		    preInfo.nextReads[i].local
+			.combineInto(info.nextReads[i].local);
 		}
 	    }
 	}
     }
 
     void promoteReads(InstrInfo info, Instruction preInstr) {
-	promoteNotModifiedReads(info, preInstr, null);
+	promoteReads(info, preInstr, null, false);
+    }
+
+    public LocalVariableInfo findLVTEntry(LocalVariableInfo[] lvt, 
+					  int slot, int addr) {
+	LocalVariableInfo match = null;
+	for (int i=0; i < lvt.length; i++) {
+	    if (lvt[i].slot == slot
+		&& lvt[i].start.addr <= addr
+		&& lvt[i].end.addr >= addr) {
+		if (match != null
+		    && (!match.name.equals(lvt[i].name)
+			|| !match.type.equals(lvt[i].type))) {
+		    /* Multiple matches..., give no info */
+		    return null;
+		}
+		match = lvt[i];
+	    }
+	}
+	return match;
     }
 
     public LocalVariableInfo findLVTEntry(LocalVariableInfo[] lvt, 
@@ -305,18 +266,7 @@ public class LocalOptimizer implements Opcodes {
 	if (instr.opcode >= opc_istore
 	    && instr.opcode <= opc_astore)
 	    addr += instr.length;
-	LocalVariableInfo match = null;
-	for (int i=0; i < lvt.length; i++) {
-	    if (lvt[i].slot == instr.localSlot
-		&& lvt[i].start.addr <= addr
-		&& lvt[i].end.addr > addr) {
-		if (match != null)
-		    /* Multiple matches..., give no info */
-		    return null;
-		match = lvt[i];
-	    }
-	}
-	return match;
+	return findLVTEntry(lvt, instr.localSlot, addr);
     }
 
     public void calcLocalInfo() {
@@ -325,6 +275,43 @@ public class LocalOptimizer implements Opcodes {
 	LocalVariableInfo[] lvt = bc.getLocalVariableTable();
 	if (lvt != null)
 	    produceLVT = true;
+
+	/* Initialize paramLocals */
+	{
+	    int paramCount = methodInfo.isStatic() ? 0 : 1;
+	    Type[] paramTypes = 
+		Type.tMethod(methodInfo.getType()).getParameterTypes();
+	    for (int i = paramTypes.length; i-- > 0;)
+		paramCount += paramTypes[i].stackSize();
+	    paramLocals = new LocalInfo[paramCount];
+	    int slot = 0;
+	    if (!methodInfo.isStatic()) {
+		LocalInfo local = new LocalInfo();
+		if (lvt != null) {
+		    LocalVariableInfo lvi = findLVTEntry(lvt, 0, 0);
+		    if (lvi != null) {
+			local.name = lvi.name;
+			local.type = lvi.type;
+		    }
+		}
+		local.size = 1;
+		paramLocals[slot++] = local;
+	    }
+	    for (int i = 0; i< paramTypes.length; i++) {
+		LocalInfo local = new LocalInfo();
+		if (lvt != null) {
+		    LocalVariableInfo lvi = findLVTEntry(lvt, slot, 0);
+		    if (lvi != null) {
+			local.name = lvi.name;
+		    }
+		}
+		local.type = paramTypes[i].getTypeSignature();
+		local.size = paramTypes[i].stackSize();
+		paramLocals[slot] = local;
+		slot += local.size;
+	    }
+	}
+
 	/* Initialize the InstrInfos and LocalInfos
 	 */
 	changedInfos = new Stack();
@@ -335,8 +322,7 @@ public class LocalOptimizer implements Opcodes {
 	    while (true) {
 		instrInfos.put(instr, info);
 		info.instr = instr;
-		info.nextReads = new LocalInfo[maxlocals];
-		info.belongsToJsrs = new Vector[maxlocals];
+		info.nextReads = new InstrInfo[maxlocals];
 		if (instr.localSlot != -1) {
 		    info.local = new LocalInfo(info);
 		    if (lvt != null) {
@@ -354,14 +340,14 @@ public class LocalOptimizer implements Opcodes {
 		    case opc_iload: case opc_fload: case opc_aload:
 		    case opc_iinc:
 			/* this is a load instruction */
-			info.nextReads[instr.localSlot] = info.local;
+			info.nextReads[instr.localSlot] = info;
 			changedInfos.push(info);
 			break;
 
 		    case opc_ret:
 			/* this is a ret instruction */
-			info.local.retInfo = info;
-			info.nextReads[instr.localSlot] = info.local;
+			info.usedBySub = new BitSet();
+			info.nextReads[instr.localSlot] = info;
 			changedInfos.push(info);
 			break;
 
@@ -376,15 +362,25 @@ public class LocalOptimizer implements Opcodes {
 	    }
 	}
 
-//  	for (InstrInfo info = firstInfo; info != null; info = info.nextInfo)
-//  	    if (info.instr.opcode == opc_jsr)
-//  		analyzeSubRoutine(info.succs[0]);
-
 	/* find out which locals are the same.
 	 */
 	while (!changedInfos.isEmpty()) {
 	    InstrInfo info = (InstrInfo) changedInfos.pop();
 	    Instruction instr = info.instr;
+
+	    /* Mark the local as used in all ret instructions */
+	    if (instr.localSlot != -1) {
+		for (int i=0; i< maxlocals; i++) {
+		    InstrInfo retInfo = info.nextReads[i];
+		    if (retInfo != null && retInfo.instr.opcode == opc_ret
+			&& !retInfo.usedBySub.get(instr.localSlot)) {
+			retInfo.usedBySub.set(instr.localSlot);
+			if (retInfo.jsrTargetInfo != null)
+			    changedInfos.push(retInfo.jsrTargetInfo);
+		    }
+		    
+		}
+	    }
 
 	    Instruction prevInstr = instr.prevByAddr;
 	    if (prevInstr != null) {
@@ -394,21 +390,26 @@ public class LocalOptimizer implements Opcodes {
 		     */
 		    InstrInfo jsrInfo = 
 			(InstrInfo) instrInfos.get(prevInstr.succs[0]);
-		    if (jsrInfo.retInstr != null)
-			promoteReads(info, jsrInfo.retInstr);
-
-		    /* Now promote reads that aren't modified by the
-		     * subroutine to prevInstr
-		     */
-		    promoteSubRoutineReads(info, prevInstr, jsrInfo);
-
+		    if (jsrInfo.retInfo != null) {
+			/* Now promote reads that are modified by the
+			 * subroutine to the ret, and those that are not
+			 * to the jsr instruction.
+			 */
+			promoteReads(info, jsrInfo.retInfo.instr,
+				     jsrInfo.retInfo.usedBySub, false);
+			promoteReads(info, prevInstr, 
+				     jsrInfo.retInfo.usedBySub, true);
+		    }
 		} else if (!prevInstr.alwaysJumps)
 		    promoteReads(info, prevInstr);
 	    }
 
 	    if (instr.preds != null) {
 		for (int i = 0; i < instr.preds.length; i++) {
+		    Instruction predInstr = instr.preds[i];
 		    if (instr.preds[i].opcode == opc_jsr) {
+			/* This is the target of a jsr instr.
+			 */
 			if (info.instr.opcode != opc_astore) {
 			    /* XXX Grrr, the bytecode verifier doesn't
 			     * test if a jsr starts with astore.  So
@@ -417,13 +418,34 @@ public class LocalOptimizer implements Opcodes {
 			     * local.  */
 			    throw new AssertError("Non standard jsr");
 			}
-			LocalInfo local = info.nextReads[info.instr.localSlot];
-			if (local != null && local.retInfo != null) {
-			    info.retInstr = local.retInfo.instr;
-			    /*XXX*/
+			InstrInfo retInfo 
+			    = info.nextReads[info.instr.localSlot];
+
+			if (retInfo != null) {
+			    if (retInfo.instr.opcode != opc_ret)
+				throw new AssertError
+				    ("reading return address");
+
+			    info.retInfo = retInfo;
+			    retInfo.jsrTargetInfo = info;
+
+			    /* Now promote reads from the instruction
+			     * after the jsr to the ret instruction if
+			     * they are modified by the subroutine,
+			     * and to the jsr instruction otherwise.  
+			     */
+			    Instruction nextInstr = predInstr.nextByAddr;
+			    InstrInfo nextInfo 
+				= (InstrInfo) instrInfos.get(nextInstr);
+
+			    promoteReads(nextInfo, retInfo.instr,
+					 retInfo.usedBySub, false);
+
+			    promoteReads(nextInfo, predInstr, 
+					 retInfo.usedBySub, true);
 			}
-		    }
-		    promoteReads(info, instr.preds[i]);
+		    } else
+			promoteReads(info, instr.preds[i]);
 		}
 	    }
 
@@ -438,6 +460,16 @@ public class LocalOptimizer implements Opcodes {
 	    }
 	}
 	changedInfos = null;
+
+	/* Now merge with the parameters
+	 * The params should be the locals in firstInfo.nextReads
+	 */
+	for (int i=0; i< paramLocals.length; i++) {
+	    if (firstInfo.nextReads[i] != null) {
+		firstInfo.nextReads[i].local.combineInto(paramLocals[i]);
+		paramLocals[i] = paramLocals[i].getReal();
+	    }
+	}
     }
 
     public void stripLocals() {
@@ -524,12 +556,10 @@ public class LocalOptimizer implements Opcodes {
 	 */
 
 	/* first give the params the same slot as they had before.
-	 * The params should be the locals in firstInfo.nextReads
 	 */
-	for (int i=0; i< maxlocals; i++) {
-	    if (firstInfo.nextReads[i] != null)
-		firstInfo.nextReads[i].getReal().newSlot = i;
-	}
+	for (int i=0; i<paramLocals.length; i++)
+	    if (paramLocals[i] != null)
+		paramLocals[i].newSlot = i;
 
 	/* Now calculate the conflict settings.
 	 */
@@ -543,7 +573,7 @@ public class LocalOptimizer implements Opcodes {
 		for (int i=0; i < maxlocals; i++) {
 		    if (i != info.instr.localSlot
 			&& info.nextReads[i] != null)
-			info.local.conflictsWith(info.nextReads[i]);
+			info.local.conflictsWith(info.nextReads[i].local);
 		}
 	    }
 	}
@@ -564,7 +594,7 @@ public class LocalOptimizer implements Opcodes {
 
 	/* Update the instructions and calculate new maxlocals.
 	 */
-	maxlocals = paramCount;
+	maxlocals = paramLocals.length;
 	for (InstrInfo info = firstInfo; info != null; info = info.nextInfo) {
 	    if (info.local != null) {
 		if (info.local.newSlot+info.local.size > maxlocals)
@@ -580,94 +610,168 @@ public class LocalOptimizer implements Opcodes {
 	    buildNewLVT();
     }
 
-    private LocalInfo CONFLICT = new LocalInfo();
+    private InstrInfo CONFLICT = new InstrInfo();
 
-    void promoteValues(InstrInfo info, Instruction nextInstr) {
-	Instruction instr = info.instr;
-	InstrInfo nextInfo = (InstrInfo) instrInfos.get(nextInstr);
-	for (int i=0; i< maxlocals; i++) {
-	    LocalInfo local = info.nextReads[i];
-	    if (local != null)
-		local = local.getReal();
-	    if (instr.localSlot == i
-		&& instr.opcode >= opc_istore
-		&& instr.opcode <= opc_astore)
-		local = info.local;
-
-	    if (nextInfo.nextReads[i] == null)
-		nextInfo.nextReads[i] = local;
-	    else if (local != null
-		     && local != nextInfo.nextReads[i].getReal())
-		nextInfo.nextReads[i] = CONFLICT;
+    boolean promoteLifeLocals(LocalInfo[] newLife, InstrInfo nextInfo) {
+	if (nextInfo.lifeLocals == null) {
+	    nextInfo.lifeLocals = (LocalInfo[]) newLife.clone();
+	    return true;
 	}
+	boolean changed = false;
+	for (int i=0; i< maxlocals; i++) {
+	    LocalInfo local = nextInfo.lifeLocals[i];
+	    if (local == null)
+		/* A conflict has already happened, or this slot
+		 * may not have been initialized. */
+		continue;
+
+	    local = local.getReal();
+	    LocalInfo newLocal = newLife[i];
+	    if (newLocal != null)
+		newLocal = newLocal.getReal();
+	    if (local != newLocal) {
+		nextInfo.lifeLocals[i] = null;
+		changed = true;
+	    }
+	}
+	return changed;
     }
 
     public void buildNewLVT() {
-	/* We reuse the nextReads array for a differen purpose.  
-	 * For every slot we remember in this array, which local is
-	 * there 
-	 * find out how long they remain there value.  
+	/* First we recalculate the usedBySub, to use the new local numbers.
 	 */
+	for (InstrInfo info = firstInfo; info != null; info = info.nextInfo)
+	    if (info.usedBySub != null)
+		info.usedBySub = new BitSet();
+	for (InstrInfo info = firstInfo; info != null; info = info.nextInfo) {
+	    if (info.local != null) {
+		for (int i=0; i < info.nextReads.length; i++) {
+		    if (info.nextReads[i] != null 
+			&& info.nextReads[i].instr.opcode == opc_ret)
+			info.nextReads[i].usedBySub.set(info.local.newSlot);
+		}
+	    }
+	}
+
+	/* Now we begin with the first Instruction and follow program flow.
+	 * We remember which locals are life in lifeLocals.
+	 */
+
+	firstInfo.lifeLocals = new LocalInfo[maxlocals];
+	for (int i=0; i < paramLocals.length; i++)
+	    firstInfo.lifeLocals[i] = paramLocals[i];
+
 	Stack changedInfo = new Stack();
+	changedInfo.push(firstInfo);
 	Handler[] handlers = bc.getExceptionHandlers();
-	for (InstrInfo info = firstInfo; 
-	     info != null; info = info.nextInfo)
-		changedInfo.push(info);
 	while (!changedInfo.isEmpty()) {
 	    InstrInfo info = (InstrInfo) changedInfo.pop();
 	    Instruction instr = info.instr;
-	    if (!instr.alwaysJumps) {
-		Instruction nextInstr = instr.nextByAddr;
-		    promoteValues(info, instr.nextByAddr);
+	    LocalInfo[] newLife = info.lifeLocals;
+	    if (instr.localSlot != -1) {
+		LocalInfo instrLocal = info.local.getReal();
+		newLife = (LocalInfo[]) newLife.clone();
+		newLife[instr.localSlot] = instrLocal;
+		if (instrLocal.name != null) {
+		    for (int j=0; j< newLife.length; j++) {
+			if (j != instr.localSlot
+			    && newLife[j] != null
+			    && instrLocal.name.equals(newLife[j].name)) {
+			    /* This local changed the slot. */
+		 	   newLife[j] = null;
+			}
+		    }
+		}
 	    }
 	    
+	    if (!instr.alwaysJumps) {
+		InstrInfo nextInfo = info.nextInfo;
+		if (promoteLifeLocals(newLife, nextInfo))
+		    changedInfo.push(nextInfo);
+	    } 
 	    if (instr.succs != null) {
-		for (int i = 0; i < instr.succs.length; i++)
-		    promoteValues(info, instr.succs[i]);
+		for (int i = 0; i < instr.succs.length; i++) {
+		    InstrInfo nextInfo
+			= (InstrInfo) instrInfos.get(instr.succs[i]);
+		    if (promoteLifeLocals(newLife, nextInfo))
+			changedInfo.push(nextInfo);
+		}
 	    }
 	    for (int i=0; i < handlers.length; i++) {
-		if (handlers[i].start.addr >= instr.addr
-		    && handlers[i].end.addr <= instr.addr)
-		    promoteValues(info, handlers[i].catcher);
+		if (handlers[i].start.addr <= instr.addr
+		    && handlers[i].end.addr >= instr.addr) {
+		    InstrInfo nextInfo
+			= (InstrInfo) instrInfos.get(handlers[i].catcher);
+		    if (promoteLifeLocals(newLife, nextInfo))
+			changedInfo.push(nextInfo);
+		}
+	    }
+
+	    if (instr.opcode == opc_ret) {
+		/* On a ret we do a special merge */
+
+		Instruction jsrTargetInstr = info.jsrTargetInfo.instr;
+		for (int j=0; j< jsrTargetInstr.preds.length; j++) {
+		    InstrInfo jsrInfo
+			= (InstrInfo) instrInfos.get(jsrTargetInstr.preds[j]);
+
+		    LocalInfo[] retLife = (LocalInfo[]) newLife.clone();
+		    for (int i=0; i< maxlocals; i++) {
+			if (!info.usedBySub.get(i))
+			    retLife[i] = jsrInfo.lifeLocals[i];
+		    }
+		    if (promoteLifeLocals(retLife, jsrInfo.nextInfo))
+			changedInfo.push(jsrInfo.nextInfo);
+		}
 	    }
 	}
 
 	Vector lvtEntries = new Vector();
 	LocalVariableInfo[] lvi = new LocalVariableInfo[maxlocals];
 	LocalInfo[] currentLocal = new LocalInfo[maxlocals];
+	for (int i=0; i< paramLocals.length; i++) {
+	    if (paramLocals[i] != null) {
+		currentLocal[i] = paramLocals[i];
+		if (currentLocal[i].name != null) {
+		    lvi[i] = new LocalVariableInfo();
+		    lvtEntries.addElement(lvi[i]);
+		    lvi[i].name = currentLocal[i].name;
+		    lvi[i].type = currentLocal[i].type;
+		    lvi[i].start = bc.getFirstInstr();
+		    lvi[i].slot = i;
+		}
+	    }
+	}
 	Instruction lastInstr = null;
 	for (InstrInfo info = firstInfo; info != null; info = info.nextInfo) {
 	    for (int i=0; i< maxlocals; i++) {
-		LocalInfo lcl = info.nextReads[i];
-		if (lcl == CONFLICT)
-		    lcl = null;
-		else if (lcl != null)
-		    lcl = lcl.getReal();
-		if (lcl != currentLocal[i]) {
+		LocalInfo lcl = info.lifeLocals != null ? info.lifeLocals[i]
+		    : null;
+		if (lcl != currentLocal[i]
+		    && (lcl == null || currentLocal[i] == null
+			|| !lcl.name.equals(currentLocal[i].name)
+			|| !lcl.type.equals(currentLocal[i].type))) {
 		    if (lvi[i] != null) {
 			lvi[i].end = info.instr.prevByAddr;
-			lvtEntries.addElement(lvi[i]);
 		    }
 		    lvi[i] = null;
 		    currentLocal[i] = lcl;
 		    if (currentLocal[i] != null
 			&& currentLocal[i].name != null) {
 			lvi[i] = new LocalVariableInfo();
+			lvtEntries.addElement(lvi[i]);
 			lvi[i].name = currentLocal[i].name;
 			lvi[i].type = currentLocal[i].type;
 			lvi[i].start = info.instr;
 			lvi[i].slot = i;
 		    }
-		    changedInfo.push(info);
 		}
 	    }
 	    lastInstr = info.instr;
 	}
 	for (int i=0; i< maxlocals; i++) {
-	    if (lvi[i] != null) {
+	    if (lvi[i] != null)
 		lvi[i].end = lastInstr;
-		lvtEntries.addElement(lvi[i]);
-	    }
 	}
 	LocalVariableInfo[] lvt = new LocalVariableInfo[lvtEntries.size()];
 	lvtEntries.copyInto(lvt);
