@@ -25,9 +25,20 @@ import jode.expr.LocalVarOperator;
  * instruction.  The else part may be null.
  */
 public class ConditionalBlock extends InstructionContainer {
+    /**
+     * The loads that are on the stack before instr is executed.
+     */
+    VariableStack stack;
 
     EmptyBlock trueBlock;
     
+    public void checkConsistent() {
+        super.checkConsistent();
+        if (trueBlock.jump == null
+            || !(trueBlock instanceof EmptyBlock))
+            throw new jode.AssertError("Inconsistency");
+    }
+
     /**
      * Creates a new if conditional block.
      */
@@ -72,6 +83,33 @@ public class ConditionalBlock extends InstructionContainer {
     public boolean replaceSubBlock(StructuredBlock oldBlock, 
                                    StructuredBlock newBlock) {
         throw new jode.AssertError("replaceSubBlock on ConditionalBlock");
+    }
+
+    /**
+     * This does take the instr into account and modifies stack
+     * accordingly.  It then calls super.mapStackToLocal.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	VariableStack newStack;
+	int params = instr.getOperandCount();
+	if (params > 0) {
+	    this.stack = stack.peek(params);
+	    newStack = stack.pop(params);
+	} else 
+	    newStack = stack;
+
+	trueBlock.jump.stackMap = newStack;
+	if (jump != null)
+	    jump.stackMap = newStack;
+	return newStack;
+    }
+
+    public void removePush() {
+	if (stack != null)
+	    instr = stack.mergeIntoExpression(instr, used);
+	trueBlock.removePush();
     }
 
     /**
