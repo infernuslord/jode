@@ -66,7 +66,24 @@ public class CreateExpression {
 		|| lastExpression.canCombine(expr) <= 0)
 		return false;
 
-	    lastExpression =  expr;
+	    /* Hmm, we should really set lastExpression to
+	     * lastExpression.combine(expr), but that may change the
+	     * expressions :-(  XXX
+	     *
+	     * We do a conservative approach and check if there are
+	     * no possible side effects with the skipped expressions.
+	     * Theoretically we would only have to check expressions, 
+	     * that are combined at an earlier point.
+	     */
+	    SequentialBlock block = sequBlock;
+	    while (block != last.outer) {
+		block = (SequentialBlock) block.subBlocks[1];
+		if (((InstructionBlock)block.subBlocks[0])
+		    .getInstruction().hasSideEffects(expr))
+		    return false;
+	    }
+
+
 	    if (!(sequBlock.outer instanceof SequentialBlock))
 		return false;
             sequBlock = (SequentialBlock) sequBlock.outer;
