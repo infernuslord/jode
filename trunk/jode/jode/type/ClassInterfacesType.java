@@ -389,7 +389,13 @@ public class ClassInterfacesType extends Type {
     {
         if (jode.Decompiler.isTypeDebugging) {
             if (this == tObject)
-                return "<tObject>";
+                return "java.lang.Object";
+
+	    if (ifaces.length == 0)
+		return clazz.getName();
+	    if (clazz == null && ifaces.length == 1)
+		return ifaces[0].getName();
+
             StringBuffer sb = new StringBuffer("{");
             String comma = "";
             if (clazz != null) {
