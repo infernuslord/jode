@@ -21,12 +21,10 @@ package jode.decompiler;
 import jode.Type;
 
 public class PopOperator extends SimpleOperator {
-    int count;
 
-    public PopOperator(int count) {
+    public PopOperator(Type argtype) {
         super(Type.tVoid, 0, 1);
-        operandTypes[0] = Type.tUnknown;
-        this.count = count;
+        operandTypes[0] = argtype;
     }
 
     public int getPriority() {
@@ -35,10 +33,6 @@ public class PopOperator extends SimpleOperator {
 
     public int getOperandPriority(int i) {
         return 0;
-    }
-
-    public int getCount() {
-        return count;
     }
 
     public String toString(String[] operands) {
