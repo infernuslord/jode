@@ -57,6 +57,15 @@ implements LocalVarOperator {
         return 100;
     }
 
+    /**
+     * Makes a non void expression out of this store instruction.
+     */
+    public void makeNonVoid() {
+        if (type != Type.tVoid)
+            throw new AssertError("already non void");
+        type = local.getType();
+    }
+
     public boolean matches(Operator loadop) {
         return loadop instanceof LocalLoadOperator && 
             ((LocalLoadOperator)loadop).getLocalInfo().getLocalInfo()
@@ -69,7 +78,7 @@ implements LocalVarOperator {
                 ? INC_OP : DEC_OP;
 
             return new LocalPrePostFixOperator
-                (local.getType(), op, this, true).simplify();
+                (local.getType(), op, this, isVoid()).simplify();
         }
         return super.simplify();
     }
