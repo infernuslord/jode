@@ -18,7 +18,7 @@
  */
 
 package jode;
-import java.lang.reflect.*;
+import java.lang.reflect.Modifier;
 import gnu.bytecode.Attribute;
 import gnu.bytecode.MiscAttr;
 import gnu.bytecode.Spy;

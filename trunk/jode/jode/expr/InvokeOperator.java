@@ -19,6 +19,7 @@
 
 package jode;
 import gnu.bytecode.CpoolRef;
+import jode.bytecode.ClassHierarchy;
 
 public final class InvokeOperator extends Operator {
     CodeAnalyzer codeAnalyzer;
@@ -89,34 +90,31 @@ public final class InvokeOperator extends Operator {
     }
 
     public boolean isThis() {
-        Class clazz = codeAnalyzer.method.classAnalyzer.getClazz();
-        return (classType.equals(Type.tType(clazz)));
+        return (classType.equals(Type.tClass(codeAnalyzer.method.
+                                             classAnalyzer.getClazz().
+                                             getName())));
     }
 
     public boolean isSuperOrThis() {
-        Class clazz = codeAnalyzer.method.classAnalyzer.getClazz();
-        while (clazz != null 
-               && !classType.equals(Type.tType(clazz))) {
-            clazz = clazz.getSuperclass();
-        }
-        return (clazz != null);
+        return ((ClassInterfacesType)classType).getClazz().superClassOf
+            (codeAnalyzer.method.classAnalyzer.getClazz());
     }
 
     public String toString(String[] operands) {
         String object = null;
         if (specialFlag) {
-            Class clazz = codeAnalyzer.method.classAnalyzer.clazz;
+            ClassHierarchy clazz = codeAnalyzer.getClazz();
             if (operands[0].equals("this")) {
                 object = "";
                 while (clazz != null 
-                       && !classType.equals(Type.tType(clazz))) {
+                       && !classType.equals(Type.tClass(clazz.getName()))) {
                     object = "super";
                     clazz = clazz.getSuperclass();
                 }
                 
                 if (clazz == null)
                     object = "NON VIRTUAL this";
-            } else if (classType.equals(Type.tType(clazz)))
+            } else if (classType.equals(Type.tClass(clazz.getName())))
                 object = operands[0];
             else
                 object = "NON VIRTUAL "+operands[0];
@@ -124,13 +122,11 @@ public final class InvokeOperator extends Operator {
             
         object = (object != null) ? object
             : methodType.isStatic()
-            ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
+            ? (classType.equals(Type.tClass(codeAnalyzer.getClazz().getName()))
                ? ""
                : classType.toString())
             : (operands[0].equals("this") 
-               ? (specialFlag &&
-                  classType.equals(Type.tType(codeAnalyzer.getClazz()
-                                              .getSuperclass()))
+               ? (specialFlag && isSuperOrThis()
                   ? "super"
                   : "")
                : operands[0]);

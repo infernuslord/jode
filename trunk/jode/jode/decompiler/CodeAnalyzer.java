@@ -18,6 +18,7 @@
  */
 
 package jode;
+import jode.bytecode.ClassHierarchy;
 import jode.flow.FlowBlock;
 import jode.flow.TransformExceptionHandlers;
 
@@ -182,43 +183,6 @@ public class CodeAnalyzer implements Analyzer {
         methodHeader.analyze();
     } 
 
-//     void readCode(byte[] code, short[] handlers) 
-//          throws ClassFormatError
-//     {
-//         FlowBlock[] instr = new FlowBlock[code.length];
-// 	int returnCount;
-//         try {
-//             DataInputStream stream = 
-//                 new DataInputStream(new ByteArrayInputStream(code));
-// 	    for (int addr = 0; addr < code.length; ) {
-// 		instr[addr] = Opcodes.readOpcode(addr, stream, this);
-
-// 		addr = instr[addr].getNextAddr();
-// 	    }
-//         } catch (IOException ex) {
-//             throw new ClassFormatError(ex.toString());
-//         }
-
-//         for (int addr=0; addr<instr.length; ) {
-//             instr[addr].resolveJumps(instr);
-//             addr = instr[addr].getNextAddr();
-//         }
-
-//         handler = new TransformExceptionHandlers(instr);
-//         for (int i=0; i<handlers.length; i += 4) {
-//             Type type = null;
-//             if (handlers[i + 3 ] != 0) {
-//                 CpoolClass cpcls = (CpoolClass)
-//                     method.classAnalyzer.getConstant(handlers[i + 3]);
-//                 type = Type.tClass(cpcls.getName().getString());
-//             }
-
-//             handler.addHandler(handlers[i + 0], handlers[i + 1],
-//                                handlers[i + 2], type);
-//         }
-// 	methodHeader = instr[0];
-//     }
-
     public void analyze()
     {
         byte[] codeArray = code.getCode();
@@ -265,7 +229,7 @@ public class CodeAnalyzer implements Analyzer {
 	return param[slot];
     }
 
-    public void useClass(Class clazz) 
+    public void useClass(String clazz) 
     {
         env.useClass(clazz);
     }
@@ -274,7 +238,7 @@ public class CodeAnalyzer implements Analyzer {
         return method.classAnalyzer.getTypeString(type);
     }
 
-    public Class getClazz() {
+    public ClassHierarchy getClazz() {
         return method.classAnalyzer.clazz;
     }
 }

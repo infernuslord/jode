@@ -59,6 +59,26 @@ public class SearchPath  {
         }
     }
 
+    public boolean exists(String filename) {
+        for (int i=0; i<dirs.length; i++) {
+            if (dirs[i] == null)
+                continue;
+            if (zips[i] != null) {
+                ZipEntry ze = zips[i].getEntry(filename);
+                if (ze != null)
+                    return true;
+            } else {
+                if (java.io.File.separatorChar != '/')
+                    filename = filename
+                        .replace('/', java.io.File.separatorChar);
+                File f = new File(dirs[i], filename);
+                if (f.exists())
+                    return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Searches for a file in the search path.
      * @param filename the filename. The path components should be separated
