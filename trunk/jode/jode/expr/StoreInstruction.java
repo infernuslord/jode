@@ -30,13 +30,12 @@ public abstract class StoreInstruction extends Operator
     public StoreInstruction(Type type, int operator) {
         super(Type.tVoid, operator);
         lvalueType = type;
-	rvalueType = type;
+	rvalueType = Type.tUnknown;
         lvCasts = lvalueType.toString();
     }
 
     public void makeOpAssign(int operator) {
 	setOperatorIndex(operator);
-	rvalueType = Type.tUnknown;
     }
 
     public Type getType() {
@@ -95,9 +94,13 @@ public abstract class StoreInstruction extends Operator
     }
 
     public Type getOperandType(int i) {
-        if (i == getLValueOperandCount())
-            return rvalueType;
-        else
+        if (i == getLValueOperandCount()) {
+	    if (getOperatorIndex() == ASSIGN_OP)
+		/* In a direct assignment, lvalueType is rvalueType */
+		return getLValueType(); 
+	    else
+		return rvalueType;
+        } else
             return getLValueOperandType(i);
     }
 
@@ -105,10 +108,11 @@ public abstract class StoreInstruction extends Operator
         int count = getLValueOperandCount();
         if (count > 0)
             setLValueOperandType(t);
-	rvalueType = rvalueType.intersection(t[count]);
 	if (getOperatorIndex() == ASSIGN_OP)
 	    /* In a direct assignment, lvalueType is rvalueType */
-	    setLValueType(rvalueType);
+	    setLValueType(t[count]);
+	else
+	    rvalueType = rvalueType.intersection(t[count]);
     }
 
     public int getOperandCount() {
