@@ -21,50 +21,57 @@ package jode;
 import java.lang.reflect.*;
 import gnu.bytecode.Attribute;
 import gnu.bytecode.MiscAttr;
+import gnu.bytecode.Spy;
 
 public class FieldAnalyzer implements Analyzer {
     ClassAnalyzer clazz;
-    int constantValue;
-    Field field;
     JodeEnvironment env;
+    int modifiers;
+    Type type;
+    String fieldName;
+    ConstOperator constant;
     
     public FieldAnalyzer(ClassAnalyzer cla, Field fd, JodeEnvironment e)
     {
         clazz = cla;
-        field = fd;
         env  = e;
-    }
 
-    public void analyze() {
-        Type.tType(field.getType()).useType();
-        constantValue = 0;
+        modifiers = fd.getModifiers();
+        type = Type.tType(fd.getType());
+        fieldName = fd.getName();
+        constant = null;
+
         Attribute attribute = 
-            Attribute.get(clazz.classType.getField(field.getName()), 
+            Attribute.get(clazz.classType.getField(fieldName), 
                           "ConstantValue");
         if (attribute != null) {
-            byte[] data = gnu.bytecode.Spy.getAttribute((MiscAttr)attribute);
-            constantValue = (unsigned(data[0]) << 8) | unsigned(data[1]);
+            try {
+                int index = Spy.getAttributeStream((MiscAttr)attribute)
+                    .readUnsignedShort();
+                constant = new ConstOperator
+                    (type.intersection(cla.getConstantType(index)),
+                     cla.getConstantString(index));
+
+            } catch (java.io.IOException ex) {
+                throw new AssertError("attribute too small");
+            }
         }
     }
 
-    private final int unsigned(byte value) {
-        if (value < 0)
-            return value + 256;
-        else
-            return value;
+    public void analyze() {
+        type.useType();
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException 
     {
-	String modif = Modifier.toString(field.getModifiers());
+	String modif = Modifier.toString(modifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
 
-        writer.print(Type.tType(field.getType()).toString()
-                     + " " + field.getName());
-        if (constantValue != 0) {
-            writer.print(" = "+clazz.getConstantString(constantValue));
+        writer.print(type.toString() + " " + fieldName);
+        if (constant != null) {
+            writer.print(" = " + constant.toString());
         }
         writer.println(";");
     }

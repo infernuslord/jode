@@ -122,15 +122,23 @@ public class ClassAnalyzer implements Analyzer {
     public Type getConstantType(int i) 
          throws ClassFormatError
     {
-        int t = classType.getConstant(i).getTag();
-        switch(t) {
-        case ConstantPool.INTEGER: return Type.tInt   ;
+        CpoolEntry constant = getConstant(i);
+        switch(constant.getTag()) {
+        case ConstantPool.INTEGER: {
+            int value = ((CpoolValue1)constant).getValue();
+            return ((value < Short.MIN_VALUE || value > Character.MAX_VALUE) 
+                    ? Type.tInt
+                    : (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) 
+                    ? Type.tRange(Type.tInt, Type.tChar)
+                    : Type.tUInt);
+        }
         case ConstantPool.FLOAT  : return Type.tFloat ;
         case ConstantPool.LONG   : return Type.tLong  ;
         case ConstantPool.DOUBLE : return Type.tDouble;
         case ConstantPool.STRING : return Type.tString;
         default:
-            throw new ClassFormatError("invalid constant type: "+t);
+            throw new ClassFormatError("invalid constant type: "
+                                       + constant.getTag());
         }
     }
 
