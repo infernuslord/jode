@@ -31,12 +31,9 @@ public class LocalVariableTable {
         for (int i=0; i < maxLocals; i++)
             locals[i] = new LocalVariableRangeList(i);
 
-	for (int i=0; i<lvt.length; i++) {
-	    int length = (lvt[i].end.addr + lvt[i].end.length 
-			  - lvt[i].start.addr);
-	    locals[lvt[i].slot].addLocal(lvt[i].start.addr, length,
+	for (int i=0; i<lvt.length; i++)
+	    locals[lvt[i].slot].addLocal(lvt[i].start.addr, lvt[i].end.addr,
 					 lvt[i].name, Type.tType(lvt[i].type));
-	}
     }
 
     public LocalVariableRangeList getLocal(int slot) 
