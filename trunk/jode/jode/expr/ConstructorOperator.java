@@ -26,7 +26,7 @@ import jode.bytecode.ClassInfo;
 import jode.bytecode.InnerClassInfo;
 import jode.bytecode.Reference;
 import jode.Decompiler;
-import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.Scope;
@@ -42,35 +42,35 @@ public class ConstructorOperator extends Operator
     implements MatchableOperator {
     MethodType methodType;
     Type classType;
-    CodeAnalyzer codeAnalyzer;
+    MethodAnalyzer methodAnalyzer;
 
     public ConstructorOperator(Type classType, MethodType methodType, 
-			       CodeAnalyzer codeAna, boolean isVoid) {
+			       MethodAnalyzer methodAna, boolean isVoid) {
         super(isVoid ? Type.tVoid : classType, 0);
         this.classType = classType;
         this.methodType = methodType;
-	this.codeAnalyzer = codeAna;
+	this.methodAnalyzer = methodAna;
 	initOperands(methodType.getParameterTypes().length);
 	checkAnonymousClasses();
     }
 
-    public ConstructorOperator(Reference ref, CodeAnalyzer codeAna,
+    public ConstructorOperator(Reference ref, MethodAnalyzer methodAna,
 			       boolean isVoid) {
 	this (Type.tType(ref.getClazz()), Type.tMethod(ref.getType()),
-	      codeAna, isVoid);
+	      methodAna, isVoid);
     }
 
     public ConstructorOperator(InvokeOperator invoke, boolean isVoid) {
 	this (invoke.getClassType(), invoke.getMethodType(),
-	      invoke.codeAnalyzer, isVoid);
+	      invoke.methodAnalyzer, isVoid);
     }
 
     public MethodType getMethodType() {
         return methodType;
     }
 
-    public CodeAnalyzer getCodeAnalyzer() {
-	return codeAnalyzer;
+    public MethodAnalyzer getMethodAnalyzer() {
+	return methodAnalyzer;
     }
 
     /**
@@ -123,7 +123,7 @@ public class ConstructorOperator extends Operator
     }
 
     public InnerClassInfo getOuterClassInfo(ClassInfo ci) {
-	if (ci != null && ci.getName().indexOf('$') >= 0) {
+	if (ci != null) {
 	    InnerClassInfo[] outers = ci.getOuterClasses();
 	    if (outers != null)
 		return outers[0];
@@ -137,7 +137,7 @@ public class ConstructorOperator extends Operator
 	ClassInfo clazz = getClassInfo();
 	InnerClassInfo outer = getOuterClassInfo(clazz);
 	if (outer != null && (outer.outer == null || outer.name == null)) {
-	    codeAnalyzer.addAnonymousConstructor(this);
+	    methodAnalyzer.addAnonymousConstructor(this);
 
 	    if (outer.name == null) {
 		if (clazz.getInterfaces().length > 0)
@@ -159,17 +159,21 @@ public class ConstructorOperator extends Operator
 ///#endif
 	ClassInfo clazz = getClassInfo();
 	InnerClassInfo outer = getOuterClassInfo(clazz);
-	ClassAnalyzer anonymousClass = null;
+	ClassAnalyzer clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
 	int arg = 0;
 	int length = subExpressions.length;
 	boolean jikesAnonymousInner = false;
 
 	if ((Decompiler.options & Decompiler.OPTION_ANON) != 0
+	    && clazzAna != null
 	    && outer != null && (outer.outer == null || outer.name == null)) {
-	    anonymousClass = codeAnalyzer.getAnonymousClass(clazz);
+	    arg += clazzAna.getOuterValues().length;
+	    jikesAnonymousInner = clazzAna.isJikesAnonymousInner();
+
 	    if (outer.name != null) {
-		/* This is a named method scope class, declare it */
-		used.add(anonymousClass);
+		if (clazzAna.getParent() == methodAnalyzer)
+		    /* This is a named method scope class, declare it */
+		    used.add(clazzAna);
 	    } else {
 		/* This is an anonymous class */
 		ClassInfo superClazz = clazz.getSuperclass();
@@ -183,8 +187,6 @@ public class ConstructorOperator extends Operator
 			 ? superClazz : ClassInfo.javaLangObject);
 		}
 		outer = getOuterClassInfo(clazz);
-		arg += anonymousClass.getOuterValues().length;
-		jikesAnonymousInner = anonymousClass.isJikesAnonymousInner();
 	    }
 	}
 	if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
@@ -212,15 +214,15 @@ public class ConstructorOperator extends Operator
 	boolean jikesAnonymousInner = false;
 	ClassInfo clazz = getClassInfo();
 	InnerClassInfo outer = getOuterClassInfo(clazz);
+	ClassAnalyzer clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
 
-	ClassAnalyzer anonymousClass = null;
 	boolean dumpBlock = false;
 	if ((Decompiler.options & 
 	     (Decompiler.OPTION_ANON | Decompiler.OPTION_CONTRAFO)) != 0
-	    && codeAnalyzer.hasAnalyzedAnonymous()
+	    && clazzAna != null
 	    && outer != null && (outer.outer == null || outer.name == null)) {
-	    anonymousClass = codeAnalyzer.getAnonymousClass(getClassInfo());
-	    jikesAnonymousInner = anonymousClass.isJikesAnonymousInner();
+	    arg += clazzAna.getOuterValues().length;
+	    jikesAnonymousInner = clazzAna.isJikesAnonymousInner();
 
 	    if (outer.name == null) {
 		/* This is an anonymous class */
@@ -248,11 +250,10 @@ public class ConstructorOperator extends Operator
 		    }
 		    if (!(thisExpr instanceof ThisOperator)
 			|| (((ThisOperator) thisExpr).getClassInfo() 
-			    != codeAnalyzer.getClazz()))
+			    != methodAnalyzer.getClazz()))
 			writer.print("ILLEGAL ANON CONSTR");
 		}
 	    }
-	    arg += anonymousClass.getOuterValues().length;
 	}
 
 	if (outer != null && outer.outer != null && outer.name != null
@@ -266,11 +267,13 @@ public class ConstructorOperator extends Operator
 	    if (outerExpr instanceof CheckNullOperator) {
 		CheckNullOperator cno = (CheckNullOperator) outerExpr;
 		outerExpr = cno.subExpressions[0];
-	    } else if (!(outerExpr instanceof ThisOperator))
+	    } else if (!(outerExpr instanceof ThisOperator)) {
+		// Bug in jikes: it doesn't do a check null.
+		// We don't complain here.
 		if (!jikesAnonymousInner)
-		    // Bug in jikes: it doesn't do a check null.
-		    // We don't complain here.
 		    writer.print("MISSING CHECKNULL ");
+	    }
+
 	    if (outerExpr instanceof ThisOperator) {
 		Scope scope = writer.getScope
 		    (((ThisOperator) outerExpr).getClassInfo(), 
@@ -305,10 +308,9 @@ public class ConstructorOperator extends Operator
 	if (dumpBlock) {
 	    writer.openBrace();
 	    writer.tab();
-	    anonymousClass.dumpBlock(writer);
+	    clazzAna.dumpBlock(writer);
 	    writer.untab();
 	    writer.closeBraceNoSpace();
 	}
     }
 }
-
