@@ -86,6 +86,7 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 	if (excHandlers.length != 1)
 	    return false;
 
+	int excSlot = -1;
 	Instruction instr = bytecode.getFirstInstr();
 	if (excHandlers[0].start != instr)
 	    return false;
@@ -94,7 +95,9 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 		return false;
 	    if (i==0 && instr.localSlot != 0)
 		return false;
-	    if ((i == 3 || i == 6) && instr.localSlot != 1)
+	    if (i == 3)
+		excSlot = instr.localSlot;
+	    if (i == 6 && instr.localSlot != excSlot)
 		return false;
 	    if (i == 2 && excHandlers[0].end != instr)
 		return false;
