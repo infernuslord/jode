@@ -81,7 +81,29 @@ public class ClassInterfacesType extends ReferenceType {
         return new ClassInterfacesType(clazz, ifaces);
     }
 
+    public Type getSubType() {
+	if ((clazz == null && ifaces.length == 1)
+	    || ifaces.length == 0)
+	    return tRange(this, tNull);
+	
+	/* We don't implement the set of types, that are castable to some 
+	 * of the given classes or interfaces.
+	 */
+	throw new jode.AssertError
+	    ("getSubType called on set of classes and interfaces!");
+    }
+
     public Type getHint() {
+	if (ifaces.length == 0
+	    || (clazz == null && ifaces.length == 1))
+	    return this;
+	if (clazz != null)
+	    return Type.tClass(clazz.getName());
+	else 
+	    return Type.tClass(ifaces[0].getName());
+    }
+
+    public Type getCanonic() {
 	if (ifaces.length == 0
 	    || (clazz == null && ifaces.length == 1))
 	    return this;
@@ -471,10 +493,20 @@ public class ClassInterfacesType extends ReferenceType {
 	    || (clazz == null && ifaces.length == 1);
     }
 
+    /**
+     * Checks if this is a class or array type (but not a null type).
+     * @XXX remove this?
+     * @return true if this is a class or array type.
+     */
     public boolean isClassType() {
         return true;
     }
 
+    /**
+     * Generates the default name, that is the `natural' choice for
+     * local of this type.
+     * @return the default name of a local of this type.  
+     */
     public String getDefaultName() {
         ClassInfo type;
         if (clazz != null)
