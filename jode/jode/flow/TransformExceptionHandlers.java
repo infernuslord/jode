@@ -859,8 +859,8 @@ public class TransformExceptionHandlers {
 		     */
 		    EmptyBlock jump = new EmptyBlock(new Jump(catchFlow));
 		    FlowBlock newFlow = new FlowBlock(catchFlow.method,
-						      catchFlow.getAddr(), 0);
-		    newFlow.setBlock(jump);
+						      catchFlow.getAddr());
+		    newFlow.appendBlock(jump, 0);
 		    catchFlow.prevByAddr.nextByAddr = newFlow;
 		    newFlow.nextByAddr = catchFlow;
 		    catchFlow = newFlow;
