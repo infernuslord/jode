@@ -20,9 +20,14 @@
 package jode.jvm;
 import jode.AssertError;
 import jode.GlobalOptions;
-import jode.type.*;
-import jode.bytecode.*;
-import jode.decompiler.ClassAnalyzer;
+import jode.bytecode.BytecodeInfo;
+import jode.bytecode.Handler;
+import jode.bytecode.Instruction;
+import jode.bytecode.Opcodes;
+import jode.bytecode.Reference;
+import jode.type.MethodType;
+import jode.type.Type;
+
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 
@@ -53,7 +58,7 @@ public class Interpreter implements Opcodes {
 	throws InterpreterException, InvocationTargetException {
 	if ((GlobalOptions.debuggingFlags 
 	     & GlobalOptions.DEBUG_INTERPRT) != 0)
-	    GlobalOptions.err.println("Interpreting "+code.getMethodInfo());
+	    GlobalOptions.err.println("Interpreting "+code);
 	Value[] stack = new Value[code.getMaxStack()];
 	for (int i=0; i< stack.length; i++)
 	    stack[i] = new Value();
@@ -82,23 +87,23 @@ public class Interpreter implements Opcodes {
 			GlobalOptions.err.print(locals[i]+",");
 		    GlobalOptions.err.println("]");
 		}
-		pc = instr.nextByAddr;
-		int opcode = instr.opcode;
+		pc = instr.getNextByAddr();
+		int opcode = instr.getOpcode();
 		switch (opcode) {
 		case opc_nop:
 		    break;
 		case opc_ldc:
-		    stack[stacktop++].setObject(instr.objData);
+		    stack[stacktop++].setObject(instr.getConstant());
 		    break;
 		case opc_ldc2_w:
-		    stack[stacktop].setObject(instr.objData);
+		    stack[stacktop].setObject(instr.getConstant());
 		    stacktop += 2;
 		    break;
 		case opc_iload:	case opc_fload: case opc_aload:
-		    stack[stacktop++].setValue(locals[instr.localSlot]);
+		    stack[stacktop++].setValue(locals[instr.getLocalSlot()]);
 		    break;
 		case opc_lload: case opc_dload: 
-		    stack[stacktop].setValue(locals[instr.localSlot]);
+		    stack[stacktop].setValue(locals[instr.getLocalSlot()]);
 		    stacktop += 2;
 		    break;
 		case opc_iaload: case opc_laload: 
@@ -136,10 +141,10 @@ public class Interpreter implements Opcodes {
 		    break;
 		}
 		case opc_istore: case opc_fstore: case opc_astore:
-		    locals[instr.localSlot].setValue(stack[--stacktop]);
+		    locals[instr.getLocalSlot()].setValue(stack[--stacktop]);
 		    break;
 		case opc_lstore: case opc_dstore: 
-		    locals[instr.localSlot].setValue(stack[stacktop -= 2]);
+		    locals[instr.getLocalSlot()].setValue(stack[stacktop -= 2]);
 		    break;
 
 		case opc_lastore: case opc_dastore: 
@@ -404,8 +409,8 @@ public class Interpreter implements Opcodes {
 		    break;
 
 		case opc_iinc:
-		    locals[instr.localSlot].setInt
-			(locals[instr.localSlot].intValue() + instr.intData);
+		    locals[instr.getLocalSlot()].setInt
+			(locals[instr.getLocalSlot()].intValue() + instr.getIntData());
 		    break;
 		case opc_i2l:
 		    stack[stacktop-1]
@@ -541,7 +546,7 @@ public class Interpreter implements Opcodes {
 		    if (value > 0 && (opc_mask & CMP_GREATER_MASK) != 0
 			|| value < 0 && (opc_mask & CMP_LESS_MASK) != 0
 			|| value == 0 && (opc_mask & CMP_EQUAL_MASK) != 0)
-			pc = instr.succs[0];
+			pc = instr.getSuccs()[0];
 		    break;
 		}
 		case opc_jsr:
@@ -550,27 +555,27 @@ public class Interpreter implements Opcodes {
 		    /* fall through */
 		case opc_goto:
 		case opc_goto_w:
-		    pc = instr.succs[0];
+		    pc = instr.getSuccs()[0];
 		    break;
 		case opc_ret:
-		    pc = (Instruction)locals[instr.localSlot].objectValue();
+		    pc = (Instruction)locals[instr.getLocalSlot()].objectValue();
 		    break;
 		case opc_tableswitch: {
 		    int value = stack[--stacktop].intValue();
-		    int low  = instr.intData;
-		    if (value >= low && value <= low + instr.succs.length - 2)
-			pc = instr.succs[value - low];
+		    int low  = instr.getIntData();
+		    if (value >= low && value <= low + instr.getSuccs().length - 2)
+			pc = instr.getSuccs()[value - low];
 		    else
-			pc = instr.succs[instr.succs.length-1];
+			pc = instr.getSuccs()[instr.getSuccs().length-1];
 		    break;
 		}
 		case opc_lookupswitch: {
 		    int value = stack[--stacktop].intValue();
-		    int[] values = (int[]) instr.objData;
-		    pc = instr.succs[values.length];
+		    int[] values = instr.getValues();
+		    pc = instr.getSuccs()[values.length];
 		    for (int i=0; i< values.length; i++) {
 			if (values[i] == value) {
-			    pc = instr.succs[i];
+			    pc = instr.getSuccs()[i];
 			    break;
 			}
 		    }
@@ -583,46 +588,46 @@ public class Interpreter implements Opcodes {
 		case opc_return:
 		    return Void.TYPE;
 		case opc_getstatic: {
-		    Reference ref = (Reference) instr.objData;
+		    Reference ref = instr.getReference();
 		    stack[stacktop].setObject
-			(env.getField((Reference) instr.objData, null));
+			(env.getField(instr.getReference(), null));
 		    stacktop += Type.tType(ref.getType()).stackSize();
 		    break;
 		}
 		case opc_getfield: {
-		    Reference ref = (Reference) instr.objData;
+		    Reference ref = instr.getReference();
 		    Object cls = stack[--stacktop];
 		    if (cls == null)
 			throw new InvocationTargetException
 			    (new NullPointerException());
 		    stack[stacktop].setObject
-			(env.getField((Reference) instr.objData, cls));
+			(env.getField(instr.getReference(), cls));
 		    stacktop += Type.tType(ref.getType()).stackSize();
 		    break;
 		}
 		case opc_putstatic: {
-		    Reference ref = (Reference) instr.objData;
+		    Reference ref = instr.getReference();
 		    stacktop -= Type.tType(ref.getType()).stackSize();
 		    Object value = stack[stacktop];
-		    env.putField((Reference) instr.objData, null, value);
+		    env.putField(instr.getReference(), null, value);
 		    break;
 		}
 		case opc_putfield: {
-		    Reference ref = (Reference) instr.objData;
+		    Reference ref = instr.getReference();
 		    stacktop -= Type.tType(ref.getType()).stackSize();
 		    Object value = stack[stacktop];
 		    Object cls = stack[--stacktop];
 		    if (cls == null)
 			throw new InvocationTargetException
 			    (new NullPointerException());
-		    env.putField((Reference) instr.objData, cls, value);
+		    env.putField(instr.getReference(), cls, value);
 		    break;
 		}
 		case opc_invokevirtual:
 		case opc_invokespecial:
 		case opc_invokestatic :
 		case opc_invokeinterface: {
-		    Reference ref = (Reference) instr.objData;
+		    Reference ref = instr.getReference();
 		    MethodType mt = (MethodType) Type.tType(ref.getType());
 		    Object[] args = new Object[mt.getParameterTypes().length];
 		    for (int i=args.length - 1; i >= 0; i--) {
@@ -654,14 +659,14 @@ public class Interpreter implements Opcodes {
 		    break;
 		}
 		case opc_new: {
-		    String clazz = (String) instr.objData;
+		    String clazz = instr.getClazzType();
 		    stack[stacktop++].setNewObject(new NewObject(clazz));
 		    break;
 		}
 		case opc_newarray: {
 		    int length = stack[--stacktop].intValue();
 		    try {
-			switch (instr.intData) {
+			switch (instr.getIntData()) {
 			case  4: 
 			    stack[stacktop++].setObject(new boolean[length]); 
 			    break;
@@ -698,7 +703,7 @@ public class Interpreter implements Opcodes {
 		    int length = stack[--stacktop].intValue();
 		    try {
 			stack[stacktop++].setObject
-			    (env.newArray((String) instr.objData, 
+			    (env.newArray(instr.getClazzType(), 
 					  new int[] { length }));
 		    } catch (NegativeArraySizeException ex) {
 			throw new InvocationTargetException(ex);
@@ -719,7 +724,7 @@ public class Interpreter implements Opcodes {
 		case opc_checkcast: {
 		    Object obj = stack[stacktop-1].objectValue();
 		    if (obj != null
-			&& !env.instanceOf(obj, (String) instr.objData))
+			&& !env.instanceOf(obj, instr.getClazzType()))
 			throw new InvocationTargetException
 			    (new ClassCastException(obj.getClass().getName()));
 		    break;
@@ -727,7 +732,7 @@ public class Interpreter implements Opcodes {
 		case opc_instanceof: {
 		    Object obj = stack[--stacktop].objectValue();
 		    stack[stacktop++].setInt
-			(env.instanceOf(obj, (String) instr.objData) ? 1 : 0);
+			(env.instanceOf(obj, instr.getClazzType()) ? 1 : 0);
 		    break;
 		}
 		case opc_monitorenter:
@@ -737,13 +742,13 @@ public class Interpreter implements Opcodes {
 		    env.exitMonitor(stack[--stacktop].objectValue());
 		    break;
 		case opc_multianewarray: {
-		    int dimension = instr.intData;
+		    int dimension = instr.getIntData();
 		    int[] dims = new int[dimension];
 		    for (int i=dimension - 1; i >= 0; i--)
 			dims[i] = stack[--stacktop].intValue();
 		    try {
 			stack[stacktop++].setObject
-			    (env.newArray((String) instr.objData, dims));
+			    (env.newArray(instr.getClazzType(), dims));
 		    } catch (NegativeArraySizeException ex) {
 			throw new InvocationTargetException(ex);
 		    }
@@ -756,8 +761,8 @@ public class Interpreter implements Opcodes {
 		Handler[] handlers = code.getExceptionHandlers();
 		Throwable obj = ex.getTargetException();
 		for (int i=0; i< handlers.length; i++) {
-		    if (handlers[i].start.addr <= pc.addr
-			&& handlers[i].end.addr >= pc.addr
+		    if (handlers[i].start.getAddr() <= pc.getAddr()
+			&& handlers[i].end.getAddr() >= pc.getAddr()
 			&& (handlers[i].type == null
 			    || env.instanceOf(obj, handlers[i].type))) {
 			stacktop = 0;

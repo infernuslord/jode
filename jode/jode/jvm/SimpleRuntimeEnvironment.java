@@ -20,8 +20,15 @@
 package jode.jvm;
 import jode.AssertError;
 import jode.bytecode.Reference;
-import jode.type.*;
-import java.lang.reflect.*;
+import jode.type.Type;
+import jode.type.IntegerType;
+import jode.type.MethodType;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 
 public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 

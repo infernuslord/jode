@@ -63,10 +63,10 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 	opc_astore, opc_new, opc_dup, opc_aload, 
 	opc_invokevirtual, opc_invokespecial, opc_athrow
     };
-    private static final Object[] getClassRefs = {
+    private static final Reference[] getClassRefs = {
 	null, Reference.getReference("Ljava/lang/Class;", "forName",
 				     "(Ljava/lang/String;)Ljava/lang/Class;"),
-	null, null, "Ljava/lang/NoClassDefFoundError;", null, null,
+	null, null, null, null, null,
 	Reference.getReference("Ljava/lang/Throwable;", "getMessage",
 			       "()Ljava/lang/String;"),
 	Reference.getReference("Ljava/lang/NoClassDefFoundError;", "<init>",
@@ -88,25 +88,29 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 
 	int excSlot = -1;
 	Instruction instr = bytecode.getFirstInstr();
-	if (excHandlers[0].start != instr)
+	if (excHandlers[0].start != instr
+	    || !"java.lang.ClassNotFoundException".equals(excHandlers[0].type))
 	    return false;
 	for (int i=0; i< getClassOpcodes.length; i++) {
-	    if (instr.opcode != getClassOpcodes[i])
+	    if (instr.getOpcode() != getClassOpcodes[i])
 		return false;
-	    if (i==0 && instr.localSlot != 0)
+	    if (i==0 && instr.getLocalSlot() != 0)
 		return false;
 	    if (i == 3)
-		excSlot = instr.localSlot;
-	    if (i == 6 && instr.localSlot != excSlot)
+		excSlot = instr.getLocalSlot();
+	    if (i == 6 && instr.getLocalSlot() != excSlot)
 		return false;
 	    if (i == 2 && excHandlers[0].end != instr)
 		return false;
 	    if (i == 3 && excHandlers[0].catcher != instr)
 		return false;
-	    if (getClassRefs[i] != null
-		&& !getClassRefs[i].equals(instr.objData))
+	    if (i == 4 && !instr.getClazzType().equals
+		("Ljava/lang/NoClassDefFoundError;"))
 		return false;
-	    instr = instr.nextByAddr;
+	    if (getClassRefs[i] != null
+		&& !getClassRefs[i].equals(instr.getReference()))
+		return false;
+	    instr = instr.getNextByAddr();
 	}
 	if (instr != null)
 	    return false;
@@ -122,8 +126,8 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 	BytecodeInfo bytecode = method.getBytecode();
 	Instruction instr = bytecode.getFirstInstr();
 
-	if (instr.opcode == opc_getstatic) {
-	    Reference ref = (Reference) instr.objData;
+	if (instr.getOpcode() == opc_getstatic) {
+	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
 		  .equals(clazzInfo.getName().replace('.','/'))))
@@ -133,10 +137,11 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 	    if ((refField.getModifiers() & modifierMask) != 
 		(Modifier.PRIVATE | Modifier.STATIC))
 		return false;
-	    instr = instr.nextByAddr;
-	    if (instr.opcode < opc_ireturn || instr.opcode > opc_areturn)
+	    instr = instr.getNextByAddr();
+	    if (instr.getOpcode() < opc_ireturn
+		|| instr.getOpcode() > opc_areturn)
 		return false;
-	    if (instr.nextByAddr != null)
+	    if (instr.getNextByAddr() != null)
 		return false;
 	    /* For valid bytecode the type matches automatically */
 	    reference = ref;
@@ -144,18 +149,19 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 	    return true;
 	}
 	int params = 0, slot = 0;
-	while (instr.opcode >= opc_iload && instr.opcode <= opc_aload
-	       && instr.localSlot == slot) {
+	while (instr.getOpcode() >= opc_iload
+	       && instr.getOpcode() <= opc_aload
+	       && instr.getLocalSlot() == slot) {
 	    params++;
-	    slot += (instr.opcode == opc_lload 
-		     || instr.opcode == opc_dload) ? 2 : 1;
-	    instr = instr.nextByAddr;
+	    slot += (instr.getOpcode() == opc_lload 
+		     || instr.getOpcode() == opc_dload) ? 2 : 1;
+	    instr = instr.getNextByAddr();
 	}
-	if (instr.opcode == opc_putstatic) {
+	if (instr.getOpcode() == opc_putstatic) {
 	    if (params != 1)
 		return false;
 	    /* For valid bytecode the type of param matches automatically */
-	    Reference ref = (Reference) instr.objData;
+	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
 		  .equals(clazzInfo.getName().replace('.','/'))))
@@ -165,17 +171,17 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 	    if ((refField.getModifiers() & modifierMask) != 
 		(Modifier.PRIVATE | Modifier.STATIC))
 		return false;
-	    instr = instr.nextByAddr;
-	    if (instr.opcode != opc_return)
+	    instr = instr.getNextByAddr();
+	    if (instr.getOpcode() != opc_return)
 		return false;
-	    if (instr.nextByAddr != null)
+	    if (instr.getNextByAddr() != null)
 		return false;
 	    reference = ref;
 	    kind = ACCESSPUTSTATIC;
 	    return true;
 	}
-	if (instr.opcode == opc_invokestatic) {
-	    Reference ref = (Reference) instr.objData;
+	if (instr.getOpcode() == opc_invokestatic) {
+	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
 		  .equals(clazzInfo.getName().replace('.','/'))))
@@ -187,15 +193,16 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 		(Modifier.PRIVATE | Modifier.STATIC)
 		|| refType.getParameterTypes().length != params)
 		return false;
-	    instr = instr.nextByAddr;
+	    instr = instr.getNextByAddr();
 	    if (refType.getReturnType() == Type.tVoid) {
-		if (instr.opcode != opc_return)
+		if (instr.getOpcode() != opc_return)
 		    return false;
 	    } else {
-		if (instr.opcode < opc_ireturn || instr.opcode > opc_areturn)
+		if (instr.getOpcode() < opc_ireturn
+		    || instr.getOpcode() > opc_areturn)
 		    return false;
 	    }
-	    if (instr.nextByAddr != null)
+	    if (instr.getNextByAddr() != null)
 		return false;
 
 	    /* For valid bytecode the types matches automatically */
@@ -219,12 +226,12 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 	}
 
 	Instruction instr = bytecode.getFirstInstr();
-	if (instr.opcode != opc_aload || instr.localSlot != 0)
+	if (instr.getOpcode() != opc_aload || instr.getLocalSlot() != 0)
 	    return false;
-	instr = instr.nextByAddr;
+	instr = instr.getNextByAddr();
 
-	if (instr.opcode == opc_getfield) {
-	    Reference ref = (Reference) instr.objData;
+	if (instr.getOpcode() == opc_getfield) {
+	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
 		  .equals(clazzInfo.getName().replace('.','/'))))
@@ -233,10 +240,11 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 		= clazzInfo.findField(ref.getName(), ref.getType());
 	    if ((refField.getModifiers() & modifierMask) != Modifier.PRIVATE)
 		return false;
-	    instr = instr.nextByAddr;
-	    if (instr.opcode < opc_ireturn || instr.opcode > opc_areturn)
+	    instr = instr.getNextByAddr();
+	    if (instr.getOpcode() < opc_ireturn
+		|| instr.getOpcode() > opc_areturn)
 		return false;
-	    if (instr.nextByAddr != null)
+	    if (instr.getNextByAddr() != null)
 		return false;
 	    /* For valid bytecode the type matches automatically */
 	    reference = ref;
@@ -244,18 +252,19 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 	    return true;
 	}
 	int params = 0, slot = 1;
-	while (instr.opcode >= opc_iload && instr.opcode <= opc_aload
-	       && instr.localSlot == slot) {
+	while (instr.getOpcode() >= opc_iload
+	       && instr.getOpcode() <= opc_aload
+	       && instr.getLocalSlot() == slot) {
 	    params++;
-	    slot += (instr.opcode == opc_lload 
-		     || instr.opcode == opc_dload) ? 2 : 1;
-	    instr = instr.nextByAddr;
+	    slot += (instr.getOpcode() == opc_lload 
+		     || instr.getOpcode() == opc_dload) ? 2 : 1;
+	    instr = instr.getNextByAddr();
 	}
-	if (instr.opcode == opc_putfield) {
+	if (instr.getOpcode() == opc_putfield) {
 	    if (params != 1)
 		return false;
 	    /* For valid bytecode the type of param matches automatically */
-	    Reference ref = (Reference) instr.objData;
+	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
 		  .equals(clazzInfo.getName().replace('.','/'))))
@@ -264,17 +273,17 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 		= clazzInfo.findField(ref.getName(), ref.getType());
 	    if ((refField.getModifiers() & modifierMask) != Modifier.PRIVATE)
 		return false;
-	    instr = instr.nextByAddr;
-	    if (instr.opcode != opc_return)
+	    instr = instr.getNextByAddr();
+	    if (instr.getOpcode() != opc_return)
 		return false;
-	    if (instr.nextByAddr != null)
+	    if (instr.getNextByAddr() != null)
 		return false;
 	    reference = ref;
 	    kind = ACCESSPUTFIELD;
 	    return true;
 	}
-	if (instr.opcode == opc_invokespecial) {
-	    Reference ref = (Reference) instr.objData;
+	if (instr.getOpcode() == opc_invokespecial) {
+	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
 		  .equals(clazzInfo.getName().replace('.','/'))))
@@ -285,15 +294,16 @@ public class SyntheticAnalyzer implements jode.bytecode.Opcodes {
 	    if ((refMethod.getModifiers() & modifierMask) != Modifier.PRIVATE
 		|| refType.getParameterTypes().length != params)
 		return false;
-	    instr = instr.nextByAddr;
+	    instr = instr.getNextByAddr();
 	    if (refType.getReturnType() == Type.tVoid) {
-		if (instr.opcode != opc_return)
+		if (instr.getOpcode() != opc_return)
 		    return false;
 	    } else {
-		if (instr.opcode < opc_ireturn || instr.opcode > opc_areturn)
+		if (instr.getOpcode() < opc_ireturn
+		    || instr.getOpcode() > opc_areturn)
 		    return false;
 	    }
-	    if (instr.nextByAddr != null)
+	    if (instr.getNextByAddr() != null)
 		return false;
 
 	    /* For valid bytecode the types matches automatically */
