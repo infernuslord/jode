@@ -22,7 +22,7 @@ package net.sf.jode.decompiler;
 /**
  * This interface is used by jode to tell about its progress.  You
  * supply an instance of this interface to the 
- * {@link Decompiler.decompile} method.<br>
+ * {@link Decompiler#decompile} method.<br>
  * 
  * @author <a href="mailto:jochen@gnu.org">Jochen Hoenicke</a>
  * @version 1.0 */

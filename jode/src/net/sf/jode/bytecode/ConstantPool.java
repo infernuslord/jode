@@ -21,12 +21,22 @@ package net.sf.jode.bytecode;
 import java.io.DataInputStream;
 import java.io.IOException;
 
+import java.util.NoSuchElementException;
+///#def COLLECTIONS java.util
+import java.util.Iterator;
+///#enddef
+///#def COLLECTIONEXTRA java.lang
+import java.lang.UnsupportedOperationException;
+///#enddef
+
 /**
- * This class represent the constant pool.
+ * This class represent the constant pool.  You normally don't need to
+ * access this class, except if you want to add your own custom
+ * attributes that use the constant pool.
  *
  * @author Jochen Hoenicke
  */
-class ConstantPool {
+public class ConstantPool {
     public final static int CLASS              =  7;
     public final static int FIELDREF           =  9;
     public final static int METHODREF          = 10;
@@ -106,16 +116,12 @@ class ConstantPool {
     }
 
     public String getUTF8(int i) throws ClassFormatException {
-        if (i == 0)
-            return null;
         if (tags[i] != UTF8)
             throw new ClassFormatException("Tag mismatch");
         return (String)constants[i];
     }
 
     public Reference getRef(int i) throws ClassFormatException {
-        if (i == 0)
-            return null;
         if (tags[i] != FIELDREF
             && tags[i] != METHODREF && tags[i] != INTERFACEMETHODREF)
             throw new ClassFormatException("Tag mismatch");
@@ -156,8 +162,6 @@ class ConstantPool {
     }
 
     public String getClassType(int i) throws ClassFormatException {
-        if (i == 0)
-            return null;
         if (tags[i] != CLASS)
             throw new ClassFormatException("Tag mismatch");
 	String clName = getUTF8(indices1[i]);
@@ -169,13 +173,10 @@ class ConstantPool {
 	} catch (IllegalArgumentException ex) {
 	    throw new ClassFormatException(ex.getMessage());
 	}
-
         return clName;
     }
 
     public String getClassName(int i) throws ClassFormatException {
-        if (i == 0)
-            return null;
         if (tags[i] != CLASS)
             throw new ClassFormatException("Tag mismatch");
 	String clName = getUTF8(indices1[i]);
@@ -185,6 +186,43 @@ class ConstantPool {
 	    throw new ClassFormatException(ex.getMessage());
 	}
         return clName.replace('/','.').intern();
+    }
+
+    /**
+     * Iterates through all class entries in the class pool and returns
+     * their (dot seperated) class name.
+     */
+    public Iterator iterateClassNames() {
+	return new Iterator() 
+	    {
+		int entry = 1;
+		public boolean hasNext() {
+		    try {
+			while (entry < count 
+			       && (tags[entry] != CLASS
+				   || getUTF8(indices1[entry])
+				   .charAt(0) == '['))
+			    entry++;
+		    } catch (ClassFormatException ex) {
+			throw new InternalError(ex.getMessage());
+		    }
+		    return entry < count;
+		}
+
+		public Object next() {
+		    if (!hasNext())
+			throw new NoSuchElementException();
+		    try {
+			return getClassName(entry++);
+		    } catch (ClassFormatException ex) {
+			throw new InternalError(ex.getMessage());
+		    }
+		}
+
+		public void remove() {
+		    throw new UnsupportedOperationException();
+		}
+	    };
     }
 
     public String toString(int i) {
@@ -225,7 +263,7 @@ class ConstantPool {
     }
 
     public String toString() {
-        StringBuffer result = new StringBuffer("[ null");
+        StringBuffer result = new StringBuffer("ConstantPool[ null");
         for (int i=1; i< count; i++) {
             result.append(", ").append(i).append(" = ").append(toString(i));
         }

@@ -191,6 +191,9 @@ public class UnifyHash extends AbstractCollection {
 ///#endif
 	return new Iterator() {
 	    private int known = modCount;
+	    private boolean removeOk = false;
+	    private Bucket removeBucket = null;
+	    private Bucket prevBucket   = null;
 	    private Bucket nextBucket
 		= buckets[Math.abs(hash % buckets.length)];
 	    private Object nextVal;
@@ -206,7 +209,7 @@ public class UnifyHash extends AbstractCollection {
 			if (nextVal != null)
 			    return;
 		    }
-
+		    prevBucket = nextBucket;
 		    nextBucket = nextBucket.next;
 		}
 	    }
@@ -221,13 +224,26 @@ public class UnifyHash extends AbstractCollection {
 		if (nextBucket == null)
 		    throw new NoSuchElementException();
 		Object result = nextVal;
+		removeBucket = prevBucket;
+		removeOk = true;
+		prevBucket = nextBucket;
 		nextBucket = nextBucket.next;
 		internalNext();
 		return result;
 	    }
 
 	    public void remove() {
-		throw new UnsupportedOperationException();
+		if (known != modCount)
+		    throw new ConcurrentModificationException();
+		if (!removeOk)
+		    throw new IllegalStateException();
+		if (removeBucket == null)
+		    buckets[Math.abs(hash % buckets.length)]
+			= buckets[Math.abs(hash % buckets.length)].next;
+		else
+		    removeBucket.next = removeBucket.next.next;
+		known = ++modCount;
+		size--;
 	    }
 	};
     }
@@ -246,6 +262,17 @@ public class UnifyHash extends AbstractCollection {
 	b.hash = hash;
 	b.next = buckets[slot];
 	buckets[slot] = b;
+    }
+
+    public boolean remove(int hash, Object o) {
+	Iterator i = iterateHashCode(hash);
+	while (i.hasNext()) {
+	    if (i.next() == o) {
+		i.remove();
+		return true;
+	    }
+	}
+	return false;
     }
 
     public Object unify(Object o, int hash, Comparator comparator) {

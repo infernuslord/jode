@@ -29,8 +29,8 @@ import net.sf.jode.expr.Operator;
  * of the PUSH / stack_i statements. <p>
  *
  * This class is immutable, but note, that the local infos can get merged.
- * @see FlowBlock.mapStackToLocal
- * @see FlowBlock.removePush
+ * @see FlowBlock#mapStackToLocal
+ * @see FlowBlock#removePush
  */
 public class VariableStack {
     public final static VariableStack EMPTY = new VariableStack();

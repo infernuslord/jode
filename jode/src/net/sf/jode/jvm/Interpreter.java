@@ -108,7 +108,7 @@ public class Interpreter implements Opcodes {
 		    return Void.TYPE;
 		iter = Arrays.asList(nextBlock.getInstructions()).iterator();
 		succs = nextBlock.getSuccs();
-		handlers = nextBlock.getCatchers();
+		handlers = nextBlock.getHandlers();
 		nextBlock = succs.length > 0 ? succs[succs.length - 1] : null;
 	    }
 	    try {

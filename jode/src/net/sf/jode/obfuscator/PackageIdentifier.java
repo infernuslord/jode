@@ -81,14 +81,14 @@ public class PackageIdentifier extends Identifier {
 
 	    // Load all classes and packages now, so they don't get stripped
 	    Enumeration enum = 
-		ClassInfo.getClassesAndPackages(getFullName());
+		bundle.getClassPath().listClassesAndPackages(getFullName());
 	    while (enum.hasMoreElements()) {
 		String subclazz = ((String)enum.nextElement()).intern();
 		if (loadedClasses.containsKey(subclazz))
 		    continue;
 		String subFull = (fullNamePrefix + subclazz).intern();
 		
-		if (ClassInfo.isPackage(subFull)) {
+		if (bundle.getClassPath().isPackage(subFull)) {
 		    PackageIdentifier ident = new PackageIdentifier
 			(bundle, this, subFull, subclazz);
 		    loadedClasses.put(subclazz, ident);
@@ -121,14 +121,16 @@ public class PackageIdentifier extends Identifier {
 		String subFull = (fullName.length() > 0)
 		    ? fullName + "."+ component : component;
 		subFull = subFull.intern();
-		if (ClassInfo.isPackage(subFull)) {
+		if (bundle.getClassPath().isPackage(subFull)) {
 		    ident = new PackageIdentifier(bundle, this, 
 						  subFull, component);
 		    loadedClasses.put(component, ident);
 		    swappedClasses = null;
 		    if (loadOnDemand)
 			((PackageIdentifier) ident).setLoadOnDemand();
-		} else if (ClassInfo.exists(subFull)) {
+		    if (initialized)
+			((PackageIdentifier) ident).initialize();
+		} else if (bundle.getClassPath().existsClass(subFull)) {
 		    if (GlobalOptions.verboseLevel > 1)
 			GlobalOptions.err.println("loading Class " +subFull);
 		    ident = new ClassIdentifier(this, subFull, component, 
@@ -162,7 +164,7 @@ public class PackageIdentifier extends Identifier {
 		(fullName.length() > 0) ? fullName + "." : "";
 	    /* Load all matching classes and packages */
 	    Enumeration enum = 
-		ClassInfo.getClassesAndPackages(getFullName());
+		bundle.getClassPath().listClassesAndPackages(getFullName());
 	    while (enum.hasMoreElements()) {
 		String subclazz = ((String)enum.nextElement()).intern();
 		if (loadedClasses.containsKey(subclazz))
@@ -170,7 +172,7 @@ public class PackageIdentifier extends Identifier {
 		String subFull = (fullNamePrefix + subclazz).intern();
 		
 		if (matcher.matchesSub(this, subclazz)) {
-		    if (ClassInfo.isPackage(subFull)) {
+		    if (bundle.getClassPath().isPackage(subFull)) {
 			if (GlobalOptions.verboseLevel > 0)
 			    GlobalOptions.err.println("loading Package "
 						      + subFull);
@@ -180,6 +182,8 @@ public class PackageIdentifier extends Identifier {
 			swappedClasses = null;
 			if (loadOnDemand || matcher.matches(ident))
 			    ident.setLoadOnDemand();
+			if (initialized)
+			    ((PackageIdentifier) ident).initialize();
 		    } else {
 			ClassIdentifier ident = new ClassIdentifier
 			    (this, subFull, subclazz, 
@@ -250,14 +254,14 @@ public class PackageIdentifier extends Identifier {
 		String subFull = 
 		   (fullName.length() > 0) ? fullName + "."+ name : name;
 		subFull = subFull.intern();
-		if (ClassInfo.isPackage(subFull)) {
+		if (bundle.getClassPath().isPackage(subFull)) {
 		    PackageIdentifier pack
 			= new PackageIdentifier(bundle, this, subFull, name);
 		    loadedClasses.put(name, pack);
 		    swappedClasses = null;
 		    pack.setLoadOnDemand();
 		    ident = pack;
-		} else if (!ClassInfo.exists(subFull)) {
+		} else if (!bundle.getClassPath().existsClass(subFull)) {
 		    GlobalOptions.err.println("Warning: Can't find class "
 					      + subFull);
 		    Thread.dumpStack();
@@ -280,7 +284,7 @@ public class PackageIdentifier extends Identifier {
 		String subFull = (fullName.length() > 0)
 		    ? fullName + "."+ subpack : subpack;
 		subFull = subFull.intern();
-		if (ClassInfo.isPackage(subFull)) {
+		if (bundle.getClassPath().isPackage(subFull)) {
 		    pack = new PackageIdentifier(bundle, this, 
 						 subFull, subpack);
 		    loadedClasses.put(subpack, pack);

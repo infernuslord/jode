@@ -45,8 +45,15 @@ import java.util.Iterator;
  * this package as appropriate.  This methods are only useful for non
  * standard attributes.</p>
  *
- * <p>One application of this attributes are installation classes.
- * These classes have a special attribute containing a zip of the
+ * <p>You can provide new attributes by overriding the protected
+ * methods of this class.  This makes it possible to use constant pool
+ * entries in the attributes.</p>
+ *
+ * <p>Another possibility is to add the attributes with the public
+ * method.  This way you don't need to extend the classes, but you
+ * can't use a constant pool for the contents of the attributes.  One
+ * possible application of this are installation classes.  These
+ * classes have a special attribute containing a zip archive of the
  * files that should be installed.  There are other possible uses,
  * e.g.  putting native machine code for some architectures into the
  * class.</p>
@@ -70,14 +77,22 @@ public class BinaryInfo {
         }
     }
 
-    int getKnownAttributeCount() {
-	return 0;
-    }
-
-    void readAttribute(String name, int length,
-		       ConstantPool constantPool,
-		       DataInputStream input, 
-		       int howMuch) throws IOException {
+    /**
+     * Reads in an attributes of this class.  Overwrite this method if
+     * you want to handle your own attributes.  If you don't know how
+     * to handle an attribute call this method for the super class.
+     * @param name the attribute name.
+     * @param length the length of the attribute.
+     * @param constantPool the constant pool of the class.
+     * @param input a data input stream where you can read the attribute
+     * from.  It will protect you to read more over the attribute boundary.
+     * @param howMuch the constant that was given to the {@link
+     * ClassInfo#load} function when loading this class.
+     */
+    protected void readAttribute(String name, int length,
+				 ConstantPool constantPool,
+				 DataInputStream input, 
+				 int howMuch) throws IOException {
 	byte[] data = new byte[length];
 	input.readFully(data);
 	if (howMuch >= ClassInfo.ALL) {
@@ -156,12 +171,37 @@ public class BinaryInfo {
 	}
     }
 
-    void drop(int keep) {
+    /**
+     * Drops information from this info.  Override this to drop your
+     * own info and don't forget to call the method of the super class.
+     * @param howMuch the constant that was given to the {@link
+     * ClassInfo#drop} function when loading this class.
+     */
+    protected void drop(int keep) {
 	if (keep < ClassInfo.ALL)
 	    unknownAttributes = null;
     }
 
-    void prepareAttributes(GrowableConstantPool gcp) {
+    /**
+     * Returns the number of attributes of this class.  Overwrite this
+     * method if you want to add your own attributes by providing a
+     * writeAttributes method.  You should call this method for the
+     * super class and add the number of your own attributes to the
+     * returned value.
+     * @return the number of attributes of this class.
+     */
+    protected int getAttributeCount() {
+	return unknownAttributes != null ? unknownAttributes.size() : 0;
+    }
+
+    /**
+     * Prepare writing your attributes.  Overwrite this method if you
+     * want to add your own attributes, which need constants on the
+     * class pool.  Add the necessary constants to the constant pool
+     * and call this method for the super class.
+     * @param gcp The growable constant pool.
+     */
+    protected void prepareAttributes(GrowableConstantPool gcp) {
 	if (unknownAttributes == null)
 	    return;
 	Iterator i = unknownAttributes.keySet().iterator();
@@ -169,19 +209,27 @@ public class BinaryInfo {
 	    gcp.putUTF8((String) i.next());
     }
 
-    void writeKnownAttributes
+    /**
+     * <p>Writes the attributes to the output stream.
+     * Overwrite this method if you want to add your own attributes.
+     * All constants you need from the growable constant pool must
+     * have been previously registered by the {@link #prepareAttributes}
+     * method.</p>
+     *
+     * First call the method of the super class.  Afterwrites write
+     * each of your own attributes including the attribute header
+     * (name and length entry).
+     *
+     * @param gcp The growable constant pool, which is not growable anymore.
+     * @param output the data output stream.  You must write exactly
+     * as many bytes to it as you have told with the {@link
+     * #getAttributeSize} method.
+     */
+    protected void writeAttributes
 	(GrowableConstantPool constantPool, 
 	 DataOutputStream output) throws IOException {
-    }
-
-    void writeAttributes
-	(GrowableConstantPool constantPool, 
-	 DataOutputStream output) throws IOException {
-	int count = getKnownAttributeCount();
-	if (unknownAttributes != null)
-	    count += unknownAttributes.size();
+	int count = getAttributeCount();
 	output.writeShort(count);
-	writeKnownAttributes(constantPool, output);
 	if (unknownAttributes != null) {
 	    Iterator i = unknownAttributes.entrySet().iterator();
 	    while (i.hasNext()) {
@@ -195,7 +243,19 @@ public class BinaryInfo {
 	}
     }
 
-    int getAttributeSize() {
+    /**
+     * Gets the total length of all attributes in this binary info.
+     * Overwrite this method if you want to add your own attributes 
+     * and add the size of your attributes to the value returned by
+     * the super class.<br>
+     *
+     * Currently you only need to write this if you extend
+     * BasicBlocks.
+     *
+     * @return the total length of all attributes, including their
+     * headers and the number of attributes field.
+     */
+    protected int getAttributeSize() {
 	int size = 2; /* attribute count */
 	if (unknownAttributes != null) {
 	    Iterator i = unknownAttributes.values().iterator();
@@ -206,9 +266,12 @@ public class BinaryInfo {
     }
     
     /**
-     * Finds a non standard attribute with the given name.
+     * Finds a non standard attribute with the given name.  You don't
+     * have access to the constant pool.  Instead extend this class
+     * and override readAttribute method if you need the pool.
      * @param name the name of the attribute.
      * @return the contents of the attribute, null if not found.
+     * @see #readAttribute
      */
     public byte[] findAttribute(String name) {
 	if (unknownAttributes != null)
@@ -217,7 +280,10 @@ public class BinaryInfo {
     }
 
     /**
-     * Gets all non standard attributes
+     * Gets all non standard attributes.
+     * @return an iterator for all attributes.  The values returned by
+     * the next() method of the iterator are of byte[] type.
+     * @see #findAttribute
      */
     public Iterator getAttributes() {
 	if (unknownAttributes != null)
@@ -226,19 +292,24 @@ public class BinaryInfo {
     }
 
     /**
-     * Adds a new non standard attribute or replaces an old one with the
-     * same name.
+     * Adds a new non standard attribute or replaces an old one with
+     * the same name.  If it already exists, it will be overwritten.
+     * Note that there's now way to correlate the contents with a
+     * constant pool.  If you need that extend this class and override
+     * the methods {@link #getAttributeCount}, {@link
+     * #prepareAttributes}, {@link #writeAttributes}, and {@link
+     * #getAttributeSize}.
      * @param name the name of the attribute.
      * @param contents the new contens.
      */
-    public void setAttribute(String name, byte[] contents) {
+    public void addAttribute(String name, byte[] contents) {
 	if (unknownAttributes == null)
 	    unknownAttributes = new SimpleMap();
 	unknownAttributes.put(name, contents);
     }
 
     /**
-     * Removes a new non standard attribute.
+     * Removes a non standard attributes.
      * @param name the name of the attribute.
      * @return the old contents of the attribute.
      */
@@ -249,11 +320,9 @@ public class BinaryInfo {
     }
 
     /**
-     * Removes all non standard attribute.
+     * Removes all non standard attributes.
      */
     public void removeAllAttributes() {
 	unknownAttributes = null;
     }
 }
-
-

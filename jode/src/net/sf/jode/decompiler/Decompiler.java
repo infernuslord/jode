@@ -203,9 +203,6 @@ public class Decompiler {
     * @param progress A progress listener (see below).  Null if you
     *        don't need information about progress.
     * @exception IllegalArgumentException if className isn't correct.
-    * @exception net.sf.jode.jvm.VerifyException The code
-    *        isn't valid or a dependent class, needed for type
-    *        guessing, couldn't be found.
     * @exception IOException if writer throws an exception.
     * @exception RuntimeException If jode has a bug ;-)
     */

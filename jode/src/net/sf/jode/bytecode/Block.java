@@ -92,28 +92,34 @@ public final class Block {
     int blockNr;
 
     /**
-     * The blockNr of this block.  Set by BasicBlocks.
+     * The number of items this block takes from the stack with
+     * respect to the stack items at the beginning of the block.
      */
-    int lineNr;
+    int maxpop;
+    /**
+     * The maximum number of items the stack may grow.
+     */
+    int maxpush;
+    /**
+     * The difference stack items after the block minus stack items
+     * before block.
+     */
+    int delta;
+    /**
+     * The stack height at the beginning of this block.
+     * Only valid after the block was inserted in a BasicBlocks and
+     * the updateMaxStackLocals() of BasicBlocks was called.
+     */
+    int stackHeight;
 
     /**
-     * The number of items this block takes from the stack.
-     */
-    int pop;
-    /**
-     * The number of items this block puts on the stack.
-     */
-    int push;
-
-
-    /**
-     * Creates a new empty block, with a null successor array.
+     * Creates a new block uninitialized block.  You mustn't really
+     * use it (except as successor for other blocks) until you have
+     * set the code.
      */
     public Block() {
-	instrs = new Instruction[0];
-	succs  = null;
     }
-    
+
     /**
      * Gets the list of instructions.  The returned list should not be
      * modified, except that the instructions (but not their opcodes)
@@ -134,12 +140,13 @@ public final class Block {
     }
     
     /**
-     * Gets the exception handlers which try part contains this block.
-     * You can't set them since they are calculated automatically. 
+     * Gets the exception handlers whose try region contains this
+     * block.  You can't set them since they are calculated
+     * automatically.
      * @return the exception handlers.
-     * @see BasicBlocks#setExceptionHandlers
+     * @see BasicBlocks#setBlocks
      */
-    public Handler[] getCatchers() {
+    public Handler[] getHandlers() {
 	return catchers;
     }
     
@@ -158,15 +165,18 @@ public final class Block {
 
     private void initCode() {
 	int size = instrs.length;
+	maxpop = maxpush = 0;
 	int depth = 0;
 	int poppush[] = new int[2];
 	boolean needGoto = true;
 	for (int i = 0; i < size; i++) {
 	    instrs[i].getStackPopPush(poppush);
-	    depth += poppush[0];
-	    if (pop < depth)
-		pop = depth;
-	    depth -= poppush[1];
+	    depth -= poppush[0];
+	    if (maxpop < -depth)
+		maxpop = -depth;
+	    depth += poppush[1];
+	    if (maxpush < depth)
+		maxpush = depth;
 
 	    int opcode = instrs[i].getOpcode();
 	    switch (opcode) {
@@ -176,7 +186,7 @@ public final class Block {
 	    case Opcodes.opc_lookupswitch:
 		if (succs.length != instrs[i].getValues().length + 1)
 		    throw new IllegalArgumentException
-			("no successors for switch");
+			("number of successors for switch doesn't match");
 		if (i != size - 1)
 		    throw new IllegalArgumentException
 			("switch in the middle!");
@@ -217,14 +227,14 @@ public final class Block {
 		needGoto = false;
 	    }
 	}
-	push = pop - depth;
+	delta = depth;
 	if (needGoto && succs.length != 1)
 	    throw new IllegalArgumentException("no single successor block");
     }
 
     public void getStackPopPush (int[] poppush) {
-	poppush[0] = pop;
-	poppush[1] = push;
+	poppush[0] = maxpop;
+	poppush[1] = delta + maxpop;
 	return;
     }
     
@@ -235,12 +245,7 @@ public final class Block {
     public void setCode(Instruction[] instrs, Block[] succs) {
 	this.instrs = instrs;
 	this.succs = succs;
-	try {
-	    initCode();
-	} catch (IllegalArgumentException ex) {
-	    dumpCode(net.sf.jode.GlobalOptions.err);
-	    throw ex;
-	}
+	initCode();
     }
 
     public void dumpCode(PrintWriter output) {

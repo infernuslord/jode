@@ -19,6 +19,7 @@
 
 package net.sf.jode.obfuscator.modules;
 import net.sf.jode.bytecode.Opcodes;
+import net.sf.jode.bytecode.ClassPath;
 import net.sf.jode.bytecode.ClassInfo;
 import net.sf.jode.bytecode.BasicBlocks;
 import net.sf.jode.bytecode.Block;
@@ -30,6 +31,7 @@ import net.sf.jode.obfuscator.Identifier;
 import net.sf.jode.obfuscator.*;
 import net.sf.jode.GlobalOptions;
 
+import java.io.IOException;
 ///#def COLLECTIONS java.util
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -38,9 +40,25 @@ import java.util.ListIterator;
 
 public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 
-    public Identifier canonizeReference(Instruction instr) {
+    private ClassInfo canonizeIfaceRef(ClassInfo clazz, Reference ref) {
+	while (clazz != null) {
+	    if (clazz.findMethod(ref.getName(), ref.getType()) != null)
+		return clazz;
+	    ClassInfo[] ifaces = clazz.getInterfaces();
+	    for (int i = 0; i < ifaces.length; i++) {
+		ClassInfo realClass = canonizeIfaceRef(ifaces[i], ref);
+		if (realClass != null)
+		    return realClass;
+	    }
+	    clazz = clazz.getSuperclass();
+	}
+	return null;
+    }
+
+    protected Identifier canonizeReference(Instruction instr) {
 	Reference ref = instr.getReference();
 	Identifier ident = Main.getClassBundle().getIdentifier(ref);
+	ClassPath classPath = Main.getClassBundle().getClassPath();
 	String clName = ref.getClazz();
 	String realClazzName;
 	if (ident != null) {
@@ -56,13 +74,21 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		/* Arrays don't define new methods (well clone(),
 		 * but that can be ignored).
 		 */
-		clazz = ClassInfo.forName("java.lang.Object");
+		clazz = classPath.getClassInfo("java.lang.Object");
 	    } else {
-		clazz = ClassInfo.forName
+		clazz = classPath.getClassInfo
 		    (clName.substring(1, clName.length()-1)
 		     .replace('/','.'));
 	    }
-	    if (instr.getOpcode() >= opc_invokevirtual) {
+	    try {
+		clazz.load(clazz.DECLARATIONS);
+	    } catch (IOException ex) {
+		throw new RuntimeException("Can't get declarations of "
+					   + clazz);
+	    }
+	    if (instr.getOpcode() == opc_invokeinterface) {
+		clazz = canonizeIfaceRef(clazz, ref);
+	    } else if (instr.getOpcode() >= opc_invokevirtual) {
 		while (clazz != null
 		       && clazz.findMethod(ref.getName(), 
 					   ref.getType()) == null)

@@ -150,7 +150,7 @@ public class FlowBlock {
     /**
      * The stack map.  This tells how many objects are on stack at
      * begin of the flow block, and to what locals they are maped.
-     * @see mapStackToLocal
+     * @see #mapStackToLocal
      */
     VariableStack stackMap;
 

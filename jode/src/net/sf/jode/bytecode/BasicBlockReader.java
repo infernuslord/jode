@@ -75,6 +75,9 @@ class BasicBlockReader implements Opcodes {
     BasicBlocks bb;
     Block[] blocks;
 
+    int maxStack;
+    int maxLocals;
+
     public BasicBlockReader(BasicBlocks bb) {
 	this.bb = bb;
     }
@@ -298,13 +301,20 @@ class BasicBlockReader implements Opcodes {
 	if (start != -1)
 	    convertBlock(start, count);
 	bb.setBlocks(blocks, getSuccBlock(0), convertHandlers());
+	if (bb.maxStack > maxStack)
+	    throw new ClassFormatException("Only allocated "+maxStack
+					   +" stack slots for method, needs "
+					   +bb.maxStack);
+	if (bb.maxLocals > maxLocals)
+	    throw new ClassFormatException("Only allocated "+maxLocals
+					   +" local slots for method, needs "
+					   +bb.maxLocals);
     }
 
     public void readCode(ConstantPool cp, 
 			 DataInputStream input) throws IOException {
-        bb.maxStack = input.readUnsignedShort();
-	int maxLocals = input.readUnsignedShort(); 
-        bb.maxLocals = maxLocals;
+        maxStack = input.readUnsignedShort();
+	maxLocals = input.readUnsignedShort(); 
 
         int codeLength = input.readInt();
 	infos = new InstrInfo[codeLength];

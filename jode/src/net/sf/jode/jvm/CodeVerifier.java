@@ -1286,19 +1286,19 @@ public class CodeVerifier implements Opcodes {
 	    Block block = blocks[blockNr];
 	    VerifyInfo info = (VerifyInfo) verifyInfos[blockNr].clone();
 
-	    Handler[] catchers = block.getCatchers();
-	    if (catchers.length > 0) {
+	    Handler[] handlers = block.getHandlers();
+	    if (handlers.length > 0) {
 		VerifyInfo excInfo = (VerifyInfo) info.clone();
 		excInfo.stackHeight = 1;		
-		for (int i=0; i < catchers.length; i++) {
-		    String type = catchers[i].getType();
+		for (int i=0; i < handlers.length; i++) {
+		    String type = handlers[i].getType();
 		    if (type != null)
 			excInfo.stack[0] = 
 			    tType("L" + type.replace('.', '/') + ";");
 		    else
 			excInfo.stack[0]
 			    = tType("Ljava/lang/Throwable;");
-		    Block catcher = catchers[i].getCatcher();
+		    Block catcher = handlers[i].getCatcher();
 		    if (mergeInfo(catcher, excInfo))
 			todoSet.set(catcher.getBlockNr());
 		}
@@ -1311,10 +1311,10 @@ public class CodeVerifier implements Opcodes {
 		instr = (Instruction) iter.next();
 		modelEffect(instr, info);
 
-		if (catchers.length > 0 && instr.isStore()) {
-		    for (int i=0; i < catchers.length; i++) {
+		if (handlers.length > 0 && instr.isStore()) {
+		    for (int i=0; i < handlers.length; i++) {
 			int slot = instr.getLocalSlot();
-			Block catcher = catchers[i].getCatcher();
+			Block catcher = handlers[i].getCatcher();
 			int catcherNr = catcher.getBlockNr();
 			VerifyInfo oldInfo = verifyInfos[catcherNr];
 			Type newType = oldInfo.locals[slot]

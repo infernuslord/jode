@@ -44,10 +44,10 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	this.modifier = modifier;
     }
 
-    void readAttribute(String name, int length,
-		       ConstantPool cp,
-		       DataInputStream input, 
-		       int howMuch) throws IOException {
+    protected void readAttribute(String name, int length,
+				 ConstantPool cp,
+				 DataInputStream input, 
+				 int howMuch) throws IOException {
 	if (howMuch >= ClassInfo.DECLARATIONS
 	    && name.equals("ConstantValue")) {
 	    if (length != 2)
@@ -97,8 +97,8 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	prepareAttributes(gcp);
     }
 
-    protected int getKnownAttributeCount() {
-	int count = 0;
+    protected int getAttributeCount() {
+	int count = super.getAttributeCount();
 	if (constant != null)
 	    count++;
 	if (syntheticFlag)
@@ -108,9 +108,10 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	return count;
     }
 
-    void writeKnownAttributes(GrowableConstantPool gcp,
-			      DataOutputStream output) 
+    protected void writeAttributes(GrowableConstantPool gcp,
+				   DataOutputStream output) 
 	throws IOException {
+	super.writeAttributes(gcp, output);
 	if (constant != null) {
 	    output.writeShort(gcp.putUTF8("ConstantValue"));
 	    output.writeInt(2);
@@ -140,7 +141,7 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
         writeAttributes(constantPool, output);
     }
 
-    void drop(int keep) {
+    protected void drop(int keep) {
 	if (keep < ClassInfo.DECLARATIONS)
 	    constant = null;
 	super.drop(keep);
