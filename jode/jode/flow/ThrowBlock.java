@@ -32,7 +32,6 @@ public class ThrowBlock extends ReturnBlock {
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-        writer.println("throw" + 
-                       (instr == null ? "" : " " + instr.simplify()) + ";");
+        writer.println("throw " + instr + ";");
     }
 }
