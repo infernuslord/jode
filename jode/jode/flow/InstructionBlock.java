@@ -102,11 +102,11 @@ public class InstructionBlock extends InstructionContainer {
      * variable.  In that case mark this as declaration and return the 
      * variable.
      */
-    public LocalInfo checkDeclaration(VariableSet done) {
+    public void checkDeclaration(VariableSet declareSet) {
         if (instr.getOperator() instanceof LocalStoreOperator) {
 	    LocalInfo local = 
 		((LocalStoreOperator) instr.getOperator()).getLocalInfo();
-            if (!done.contains(local)) {
+            if (declareSet.contains(local)) {
 		/* Special case: This is a variable assignment, and
 		 * the variable has not been declared before.  We can
 		 * change this to a initializing variable declaration.  
@@ -115,10 +115,9 @@ public class InstructionBlock extends InstructionContainer {
 		if (instr instanceof ComplexExpression)
 		    ((ComplexExpression) instr)
 			.getSubExpressions()[0].makeInitializer();
-		return local;
+		declareSet.removeElement(local);
 	    }
 	}
-	return null;
     }
 
     /**
@@ -128,13 +127,8 @@ public class InstructionBlock extends InstructionContainer {
      * @param done The set of the already declare variables.
      */
     public void makeDeclaration(VariableSet done) {
-	LocalInfo local = checkDeclaration(done);
-	if (local != null) {
-	    done.addElement(local);
-	    super.makeDeclaration(done);
-	    done.removeElement(local);
-	} else 
-	    super.makeDeclaration(done);
+	super.makeDeclaration(done);
+	checkDeclaration(declare);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 

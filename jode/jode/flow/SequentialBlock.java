@@ -166,21 +166,13 @@ public class SequentialBlock extends StructuredBlock {
      * @param done The set of the already declare variables.
      */
     public void makeDeclaration(VariableSet done) {
+	super.makeDeclaration(done);
 	if (subBlocks[0] instanceof InstructionBlock) {
 	    /* Special case: If the first block is an InstructionBlock,
-	     * it can declare the variable it writes to in a special way
-	     * and that declaration will last for the second sub block.
+	     * it can declare the variable it writes to in a special way.
 	     */
-	    LocalInfo local = 
-		((InstructionBlock) subBlocks[0]).checkDeclaration(done);
-	    if (local != null) {
-		done.addElement(local);
-		super.makeDeclaration(done);
-		done.removeElement(local);
-		return;
-	    }
+	    ((InstructionBlock) subBlocks[0]).checkDeclaration(this.declare);
 	}
-	super.makeDeclaration(done);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer)
