@@ -130,8 +130,8 @@ public class ClassIdentifier extends Identifier {
 	    if (superclass.getName().equals("java.lang.Serializable"))
 		preserveSerializable();
 	    
-	    ClassIdentifier superident = (ClassIdentifier)
-		bundle.getIdentifier(superclass.getName());
+	    ClassIdentifier superident
+		= bundle.getClassIdentifier(superclass.getName());
 	    if (superident != null) {
 		for (int i=superident.fieldCount;
 		     i < superident.identifiers.length; i++) {
@@ -150,7 +150,6 @@ public class ClassIdentifier extends Identifier {
 	    } else {
 		// all methods and fields in superclass are preserved!
 		MethodInfo[] topmethods = superclass.getMethods();
-		FieldInfo[] topfields  = superclass.getFields();
 		for (int i=0; i< topmethods.length; i++) {
 		    // all virtual methods in superclass may be
 		    // virtually reachable
@@ -181,7 +180,7 @@ public class ClassIdentifier extends Identifier {
     }
     
     public void analyze() {
-	if (Obfuscator.isVerbose)
+	if (Obfuscator.verboseLevel > 0)
 	    Obfuscator.err.println("Reachable: "+this);
     }
 
@@ -234,8 +233,8 @@ public class ClassIdentifier extends Identifier {
 
 	ClassInfo[] ifaces = info.getInterfaces();
 	for (int i=0; i < ifaces.length; i++) {
-	    ClassIdentifier ifaceident = (ClassIdentifier)
-		bundle.getIdentifier(ifaces[i].getName());
+	    ClassIdentifier ifaceident
+		= bundle.getClassIdentifier(ifaces[i].getName());
 	    if (ifaceident != null) {
 		ifaceident.addSubClass(this);
 	    }
@@ -243,8 +242,8 @@ public class ClassIdentifier extends Identifier {
 	}
 
 	if (info.getSuperclass() != null) {
-	    ClassIdentifier superident = (ClassIdentifier)
-		bundle.getIdentifier(info.getSuperclass().getName());
+	    ClassIdentifier superident
+		= bundle.getClassIdentifier(info.getSuperclass().getName());
 	    if (superident != null) {
 		superident.addSubClass(this);
 	    }
@@ -275,8 +274,8 @@ public class ClassIdentifier extends Identifier {
 
     public void addIfaces(Vector result, ClassInfo[] ifaces) {
 	for (int i=0; i < ifaces.length; i++) {
-	    ClassIdentifier ifaceident = (ClassIdentifier)
-		bundle.getIdentifier(ifaces[i].getName());
+	    ClassIdentifier ifaceident
+		= bundle.getClassIdentifier(ifaces[i].getName());
 	    if (ifaceident != null) {
 		if (!Obfuscator.shouldStrip || ifaceident.isReachable())
 		    result.addElement(ifaceident.getFullAlias());
@@ -301,8 +300,8 @@ public class ClassIdentifier extends Identifier {
 	String superName = null;
 	ClassInfo superClass = info.getSuperclass();
 	while (superClass != null) {
-	    ClassIdentifier superident = (ClassIdentifier)
-		bundle.getIdentifier(superClass.getName());
+	    ClassIdentifier superident
+		= bundle.getClassIdentifier(superClass.getName());
 	    if (superident != null) {
 		if (!Obfuscator.shouldStrip || superident.isReachable()) {
 		    superName = superident.getFullAlias();
@@ -323,7 +322,7 @@ public class ClassIdentifier extends Identifier {
     }
     
     public void storeClass(DataOutputStream out) throws IOException {
-	if (Obfuscator.isVerbose)
+	if (Obfuscator.verboseLevel > 0)
 	    Obfuscator.err.println("Writing "+this);
 	GrowableConstantPool gcp = new GrowableConstantPool();
 
@@ -337,13 +336,13 @@ public class ClassIdentifier extends Identifier {
 	    hierarchyInts = new int[hierarchy.length];   
 	    for (int i=0; i< hierarchy.length; i++) {
 		if (hierarchy[i] != null)
-		    hierarchyInts[i] = gcp.putClassRef(hierarchy[i]);
+		    hierarchyInts[i] = gcp.putClassName(hierarchy[i]);
 		else
 		    hierarchyInts[i] = 0;
 	    }
 	    hierarchy = null;
 	}
-	int nameIndex = gcp.putClassRef(getFullAlias());
+	int nameIndex = gcp.putClassName(getFullAlias());
 
 	int fields = 0;
 	int methods = 0;
@@ -433,8 +432,8 @@ public class ClassIdentifier extends Identifier {
 	
 	ClassInfo[] ifaces = info.getInterfaces();
 	for (int i=0; i < ifaces.length; i++) {
-	    ClassIdentifier ifaceident = (ClassIdentifier)
-		bundle.getIdentifier(ifaces[i].getName());
+	    ClassIdentifier ifaceident
+		= bundle.getClassIdentifier(ifaces[i].getName());
 	    if (ifaceident != null) {
 		Identifier ident
 		    = ifaceident.getIdentifier(fieldName, typeSig);
@@ -444,8 +443,8 @@ public class ClassIdentifier extends Identifier {
 	}
 
 	if (info.getSuperclass() != null) {
-	    ClassIdentifier superident = (ClassIdentifier)
-		bundle.getIdentifier(info.getSuperclass().getName());
+	    ClassIdentifier superident
+		= bundle.getClassIdentifier(info.getSuperclass().getName());
 	    if (superident != null) {
 		Identifier ident 
 		    = superident.getIdentifier(fieldName, typeSig);
@@ -502,8 +501,8 @@ public class ClassIdentifier extends Identifier {
 	
 	ClassInfo[] ifaces = info.getInterfaces();
 	for (int i=0; i < ifaces.length; i++) {
-	    ClassIdentifier ifaceident = (ClassIdentifier)
-		bundle.getIdentifier(ifaces[i].getName());
+	    ClassIdentifier ifaceident
+		= bundle.getClassIdentifier(ifaces[i].getName());
 	    if (ifaceident != null) {
 		if (ifaceident.containFieldAlias(fieldName, typeSig))
 		    return true;
@@ -514,8 +513,8 @@ public class ClassIdentifier extends Identifier {
 	}
 
 	if (info.getSuperclass() != null) {
-	    ClassIdentifier superident = (ClassIdentifier)
-		bundle.getIdentifier(info.getSuperclass().getName());
+	    ClassIdentifier superident
+		= bundle.getClassIdentifier(info.getSuperclass().getName());
 	    if (superident != null) {
 		if (superident.containFieldAlias(fieldName, typeSig))
 		    return true;
@@ -573,8 +572,8 @@ public class ClassIdentifier extends Identifier {
 	}
 	ClassInfo[] ifaces = info.getInterfaces();
 	for (int i=0; i < ifaces.length; i++) {
-	    ClassIdentifier ifaceident = (ClassIdentifier)
-		bundle.getIdentifier(ifaces[i].getName());
+	    ClassIdentifier ifaceident
+		= bundle.getClassIdentifier(ifaces[i].getName());
 	    if (ifaceident != null) {
 		Object result = ifaceident.getMethod(methodName, paramType);
 		if (result != null)
@@ -587,8 +586,8 @@ public class ClassIdentifier extends Identifier {
 	}
 
 	if (info.getSuperclass() != null) {
-	    ClassIdentifier superident = (ClassIdentifier)
-		bundle.getIdentifier(info.getSuperclass().getName());
+	    ClassIdentifier superident
+		= bundle.getClassIdentifier(info.getSuperclass().getName());
 	    if (superident != null) {
 		Object result = superident.getMethod(methodName, paramType);
 		if (result != null)
