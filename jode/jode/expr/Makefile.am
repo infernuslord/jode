@@ -22,7 +22,6 @@ MY_JAVA_FILES = \
   CompareUnaryOperator.java \
   ConstOperator.java \
   ConstantArrayOperator.java \
-  ConstructorOperator.java \
   ConvertOperator.java \
   Expression.java \
   GetFieldOperator.java \

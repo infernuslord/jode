@@ -175,8 +175,7 @@ public class SpecialBlock extends StructuredBlock {
 
 	    if (instr.getType().stackSize() == count) {
 		StructuredBlock newBlock;
-		if (instr instanceof InvokeOperator
-		    || instr instanceof ConstructorOperator) {
+		if (instr instanceof InvokeOperator) {
 		    Expression newExpr
 			= new PopOperator(instr.getType()).addOperand(instr);
 		    prev.setInstruction(newExpr);
@@ -206,4 +205,3 @@ public class SpecialBlock extends StructuredBlock {
         return false;
     }
 }
-
