@@ -83,4 +83,8 @@ public class BreakBlock extends StructuredBlock {
     {
         writer.println("break"+(label == null ? "" : " "+label) + ";");
     }
+
+    public boolean jumpMayBeChanged() {
+        return true;
+    }
 }

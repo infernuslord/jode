@@ -76,4 +76,12 @@ public class ContinueBlock extends StructuredBlock {
         writer.println("continue"+
                        (continueLabel == null ? "" : " "+continueLabel) + ";");
     }
+
+    public boolean needsBraces() {
+        return false;
+    }
+    
+    public boolean jumpMayBeChanged() {
+        return true;
+    }
 }
