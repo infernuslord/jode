@@ -19,12 +19,17 @@
 
 package jode.bytecode;
 import jode.GlobalOptions;
-import jode.type.Type;
-import java.io.*;
-import java.util.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Enumeration;
 ///#ifdef JDK12
+///import java.util.Map;
+///import java.util.HashMap;
 ///import java.lang.ref.WeakReference;
 ///import java.lang.ref.ReferenceQueue;
+///#else
+import java.util.Hashtable;
 ///#endif
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -472,7 +477,7 @@ public class ClassInfo extends BinaryInfo {
 	    }
 	    fields = new FieldInfo[fs.length];
 	    for (int i = fs.length; --i >= 0; ) {
-		String type = Type.getSignature(fs[i].getType());
+		String type = TypeSignature.getSignature(fs[i].getType());
 		fields[i] = new FieldInfo
 		    (this, fs[i].getName(), type, fs[i].getModifiers());
 	    }
@@ -489,7 +494,7 @@ public class ClassInfo extends BinaryInfo {
 	    }
 	    methods = new MethodInfo[ms.length];
 	    for (int i = ms.length; --i >= 0; ) {
-		String type = Type.getSignature
+		String type = TypeSignature.getSignature
 		    (ms[i].getParameterTypes(), ms[i].getReturnType());
 		methods[i] = new MethodInfo
 		    (this, ms[i].getName(), type, ms[i].getModifiers());

@@ -18,8 +18,8 @@
  */
 
 package jode.bytecode;
-import java.io.*;
-import jode.type.Type;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Hashtable;
 
 /**
@@ -60,7 +60,7 @@ public class GrowableConstantPool extends ConstantPool {
 	}
     }
 
-    int putConstant(int tag, Object constant) {
+    private int putConstant(int tag, Object constant) {
 	String key = "" + (char)tag + constant;
 	Integer index = (Integer) entryToIndex.get(key);
 	if (index != null)
@@ -74,7 +74,7 @@ public class GrowableConstantPool extends ConstantPool {
 	return newIndex;
     }
 
-    int putLongConstant(int tag, Object constant) {
+    private int putLongConstant(int tag, Object constant) {
 	String key = "" + (char)tag + constant;
 	Integer index = (Integer) entryToIndex.get(key);
 	if (index != null)
@@ -112,13 +112,17 @@ public class GrowableConstantPool extends ConstantPool {
 
     public int putClassName(String name) {
 	name = name.replace('.','/');
+	TypeSignature.checkTypeSig("L"+name+";");
 	return putIndexed(""+(char) CLASS + name,
 			  CLASS, putUTF8(name), 0);
     }
 
     public int putClassType(String name) {
+	TypeSignature.checkTypeSig(name);
 	if (name.charAt(0) == 'L')
 	    name = name.substring(1, name.length()-1);
+	else if (name.charAt(0) != '[')
+	    throw new IllegalArgumentException("wrong class type: "+name);
 	return putIndexed(""+(char) CLASS + name,
 			  CLASS, putUTF8(name), 0);
     }
@@ -127,6 +131,11 @@ public class GrowableConstantPool extends ConstantPool {
 	String className = ref.getClazz();
 	String typeSig = ref.getType();
 	String nameAndType = ref.getName() + "/" + typeSig;
+	if (tag == FIELDREF)
+	    TypeSignature.checkTypeSig(typeSig);
+	else
+	    TypeSignature.checkMethodTypeSig(typeSig);
+
 
 	int classIndex = putClassType(className);
 	int nameIndex  = putUTF8(ref.getName());

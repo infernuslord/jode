@@ -18,7 +18,12 @@
  */
 
 package jode.bytecode;
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.FilterInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import jode.util.SimpleMap;
 
 ///#ifdef JDK12

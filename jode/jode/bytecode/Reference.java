@@ -21,8 +21,10 @@ package jode.bytecode;
 ///#ifdef JDK12
 ///import java.lang.ref.WeakReference;
 ///import java.lang.ref.ReferenceQueue;
+///import java.lang.ref.HashMap;
+///#else
+import java.util.Hashtable;
 ///#endif
-import java.util.*;
 
 /**
  * This class represents a field or method reference.
