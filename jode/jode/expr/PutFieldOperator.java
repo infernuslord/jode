@@ -20,8 +20,11 @@
 package jode.expr;
 import jode.type.Type;
 import jode.type.NullType;
+import jode.type.ClassInterfacesType;
 import jode.bytecode.Reference;
+import jode.bytecode.ClassInfo;
 import jode.decompiler.MethodAnalyzer;
+import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.FieldAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.Scope;
@@ -57,11 +60,33 @@ public class PutFieldOperator extends LValueExpression {
         return (classType.equals(Type.tClass(methodAnalyzer.getClazz())));
     }
 
+    public ClassInfo getClassInfo() {
+	if (classType instanceof ClassInterfacesType)
+	    return ((ClassInterfacesType) classType).getClassInfo();
+	return null;
+    }
+
     public FieldAnalyzer getField() {
-	if (!isThis())
-	    return null;
-	return methodAnalyzer.getClassAnalyzer()
-	    .getField(ref.getName(), Type.tType(ref.getType()));
+	ClassInfo clazz = getClassInfo();
+	if (clazz != null) {
+	    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
+	    while (true) {
+		if (clazz == ana.getClazz()) {
+		    return ana.getField(ref.getName(), 
+					Type.tType(ref.getType()));
+		}
+		if (ana.getParent() == null)
+		    return null;
+		if (ana.getParent() instanceof MethodAnalyzer)
+		    ana = ((MethodAnalyzer) ana.getParent())
+			.getClassAnalyzer();
+		else if (ana.getParent() instanceof ClassAnalyzer)
+		    ana = (ClassAnalyzer) ana.getParent();
+		else 
+		    throw new jode.AssertError("Unknown parent");
+	    }
+	}
+	return null;
     }
 
     public String getFieldName() {
@@ -113,22 +138,37 @@ public class PutFieldOperator extends LValueExpression {
 	} else {
 	    if (opIsThis) {
 		ThisOperator thisOp = (ThisOperator) subExpressions[0];
-		Scope scope = writer.getScope(thisOp.getClassInfo(),
-					      Scope.CLASSSCOPE);
+		ClassInfo clazz = thisOp.getClassInfo();
+		Scope scope = writer.getScope(clazz, Scope.CLASSSCOPE);
 
 		if (scope == null || writer.conflicts(fieldName, scope, 
 						      Scope.FIELDNAME)) {
 		    thisOp.dumpExpression(writer, 950);
 		    writer.print(".");
-		} else if (writer.conflicts(fieldName, scope, 
-					    Scope.AMBIGUOUSNAME)
-			   || (/* This is a inherited field conflicting
-				* with a field name in some outer class.
-				*/
-			       getField() == null 
-			       && writer.conflicts(fieldName, null,
-						   Scope.FIELDNAME))) {
-		    writer.print("this.");
+		} else { 
+		    if (writer.conflicts(fieldName, scope, 
+					 Scope.AMBIGUOUSNAME)
+			|| (/* This is a inherited field conflicting
+			     * with a field name in some outer class.
+			     */
+			    getField() == null 
+			    && writer.conflicts(fieldName, null,
+						Scope.NOSUPERFIELDNAME))) {
+
+			ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
+			while (ana.getParent() instanceof ClassAnalyzer
+			       && ana != scope)
+			    ana = (ClassAnalyzer) ana.getParent();
+			if (ana == scope)
+			    // For a simple outer class we can say this
+			    writer.print("this.");
+			else {
+			    // For a class that owns a method that owns
+			    // us, we have to give the full class name
+			    thisOp.dumpExpression(writer, 950);
+			    writer.print(".");
+			}
+		    }
 		}
 	    } else {
 		subExpressions[0].dumpExpression(writer, 950);
