@@ -168,6 +168,14 @@ public class ConstructorOperator extends Operator
 	    && clazzAna != null
 	    && outer != null && (outer.outer == null || outer.name == null)) {
 	    arg += clazzAna.getOuterValues().length;
+	    for (int i=0; i< arg; i++) {
+		Expression expr = subExpressions[i];
+		if (expr instanceof CheckNullOperator) {
+		    CheckNullOperator cno = (CheckNullOperator) expr;
+		    expr = cno.subExpressions[0];
+		}
+		expr.fillDeclarables(used);
+	    }
 	    jikesAnonymousInner = clazzAna.isJikesAnonymousInner();
 
 	    if (outer.name != null) {
