@@ -17,7 +17,6 @@
  * $Id$
  */
 
-package jode.test;
 
 public class TriadicExpr {
     int a,b,c,d,e,f,g,h,i,j;

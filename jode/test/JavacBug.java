@@ -1,4 +1,3 @@
-package jode.test;
 
 /**
  * This class shows a bug in javac 1.2-pre2 compiler.

@@ -17,7 +17,6 @@
  * $Id$
  */
 
-package jode.test;
 
 /**
  * This tests everything that has to do with a ExceptionHandler, that
@@ -120,7 +119,7 @@ class TryCatch {
         synchronized (local) {
             local.foo();
         }
-        if (true) {
+        if (simple() == 0) {
             synchronized (this) {
                 try {
                     System.err.println();

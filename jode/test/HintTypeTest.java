@@ -17,7 +17,6 @@
  * $Id$
  */
 
-package jode.test;
 
 /**
  * The primitive types can give some headaches.  You almost never can say

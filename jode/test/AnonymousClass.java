@@ -17,8 +17,6 @@
  * $Id$
  */
 
-package jode.test;
-
 import java.util.Vector;
 
 public class AnonymousClass {
@@ -42,7 +40,18 @@ public class AnonymousClass {
 		Hello(String info) {
 		    System.err.println("construct: "+info);
 		}
-
+///#ifndef JAVAC11
+///#ifndef JAVAC12
+///#ifndef JIKES
+///		Hello(int i) {
+///		    this("If you find a compiler that can compile this,"
+///			 +" please comment this out and tell me if "
+///			 +"decompilation works.\n"
+///			 +"jikes 0.47, javac 1.2 are both broken!");
+///		}
+///#endif
+///#endif
+///#endif
 		public void hello() {
 		    this.hashCode();
 		    Inner.this.hashCode();
@@ -78,11 +87,13 @@ public class AnonymousClass {
 		    return o.toString();
 		}
 	    };
+///#ifndef JAVAC12
 	    Hello blah = new Hello("Hello World") {
 		public void hello() {
 		    System.err.println("overwritten");
 		}
 	    };
+///#endif
 
 	    Inner blub = new AnonymousClass().new Inner("Inner param") {
 		public void test() {
@@ -97,7 +108,7 @@ public class AnonymousClass {
 	    }
 
 	    Vector v = new Vector(hi.var, new Inner("blah").var) {
-		public String toString() {
+		public String newMethod() {
 		    return super.toString();
 		}
 	    };
@@ -146,11 +157,13 @@ public class AnonymousClass {
 		return o.toString();
 	    }
 	};
+///#ifndef JAVAC12
 	Hello blah = new Hello("Hello World") {
 	    public void hello() {
 		System.err.println("overwritten");
 	    }
 	};
+///#endif
 	
 	Inner blub = new Inner("Inner param") {
 	    public void test() {
@@ -165,7 +178,7 @@ public class AnonymousClass {
 	}
 	
 	Vector v = new Vector(hi.var, new Inner("blah").var) {
-	    public String toString() {
+	    public String newMethod() {
 		return super.toString();
 	    }
 	};

@@ -1,5 +1,5 @@
-.class public jode/test/Child
-.super jode/test/Base
+.class public Child
+.super Base
 
 .field private test I
 
@@ -7,17 +7,17 @@
 	.limit locals 1
 	.limit stack 2
 	aload_0
-	invokespecial jode/test/Base/<init>()V
-	getstatic jode/test/Base/test I	
+	invokespecial Base/<init>()V
+	getstatic Base/test I	
 	pop
 	aload_0
-	getfield jode/test/Base/test J
+	getfield Base/test J
 	pop2
 	aload_0
-	getfield jode/test/Child/test I
+	getfield Child/test I
 	pop
 	aload_0
-	getfield jode/test/Child/test J
+	getfield Child/test J
 	pop2
 	return
 .end method

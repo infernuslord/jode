@@ -17,7 +17,6 @@
  * $Id$
  */
 
-package jode.test;
 
 public class ConstantTypes {
     static boolean bool = true;

@@ -1,7 +1,7 @@
 ; This class converts between boolean and ints without type casts.
 ; You can't decompile this directly, the decompiler probably gives type errors.
 
-.class public jode/test/EvilTypes
+.class public EvilTypes
 .super java/lang/Object
 
 .field public static runner Ljava/lang/Runnable;
@@ -33,7 +33,7 @@
 	.limit locals 2
 	.limit stack 2
 	iconst_1
-	invokestatic jode/test/EvilTypes/intToBool(I)Z
+	invokestatic EvilTypes/intToBool(I)Z
 	istore 0
 	iconst_2
 	istore 1
@@ -67,7 +67,7 @@ second:
 done:
 	dup
 	astore_2
-	invokestatic jode/test/EvilTypes/useSerial(Ljava/io/Serializable;)V
+	invokestatic EvilTypes/useSerial(Ljava/io/Serializable;)V
 	aload_2
 	areturn
 .end method
@@ -115,9 +115,9 @@ loop:
 	aload_0
 	iconst_0
 	aaload
-	invokestatic jode/test/EvilTypes/test(Ljava/lang/String;)Ljava/lang/Runnable;
-	putstatic jode/test/EvilTypes/runner Ljava/lang/Runnable;
-	getstatic jode/test/EvilTypes/runner Ljava/lang/Runnable;
+	invokestatic EvilTypes/test(Ljava/lang/String;)Ljava/lang/Runnable;
+	putstatic EvilTypes/runner Ljava/lang/Runnable;
+	getstatic EvilTypes/runner Ljava/lang/Runnable;
 	invokeinterface java/lang/Runnable/run()V 1
 	return
 .end method

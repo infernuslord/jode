@@ -1,4 +1,3 @@
-package jode.test;
 
 public class InlinedAnon {
 

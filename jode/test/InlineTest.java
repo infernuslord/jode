@@ -17,7 +17,6 @@
  * $Id$
  */
 
-package jode.test;
 
 /**
  * Check if inlines are allowed over package borders.  You should put it

@@ -17,7 +17,6 @@
  * $Id$
  */
 
-package jode.test;
 
 public abstract class Flow {
     int g;
