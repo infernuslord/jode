@@ -25,6 +25,9 @@ import jode.bytecode.InnerClassInfo;
 import jode.decompiler.*;
 import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipEntry;
+import gnu.getopt.LongOpt;
+import gnu.getopt.Getopt;
+
 
 public class Decompiler {
     public final static int TAB_SIZE_MASK = 0x0f;
@@ -47,10 +50,38 @@ public class Decompiler {
 	OPTION_LVT | OPTION_INNER | OPTION_ANON | 
 	OPTION_DECRYPT | OPTION_VERIFY | OPTION_CONTRAFO;
 
-    public static final String[] optionNames = {
-	"lvt", "inner", "anonymous", "push", 
-	"pretty", "decrypt", "onetime", "immediate",
-	"verify", "contrafo"
+    private static final int OPTION_START=100;
+    private static final int OPTION_END  =200;
+    private static final LongOpt[] longOptions = new LongOpt[] {
+	new LongOpt("cp", LongOpt.REQUIRED_ARGUMENT, null, 'c'),
+	new LongOpt("classpath", LongOpt.REQUIRED_ARGUMENT, null, 'c'),
+	new LongOpt("dest", LongOpt.REQUIRED_ARGUMENT, null, 'd'),
+	new LongOpt("help", LongOpt.NO_ARGUMENT, null, 'h'),
+	new LongOpt("version", LongOpt.NO_ARGUMENT, null, 'V'),
+	new LongOpt("verbose", LongOpt.OPTIONAL_ARGUMENT, null, 'v'),
+	new LongOpt("debug", LongOpt.OPTIONAL_ARGUMENT, null, 'D'),
+	new LongOpt("import", LongOpt.REQUIRED_ARGUMENT, null, 'i'),
+	new LongOpt("style", LongOpt.REQUIRED_ARGUMENT, null, 's'),
+	new LongOpt("lvt", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+0),
+	new LongOpt("inner", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+1),
+	new LongOpt("anonymous", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+2),
+	new LongOpt("push", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+3),
+	new LongOpt("pretty", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+4),
+	new LongOpt("decrypt", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+5),
+	new LongOpt("onetime", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+6),
+	new LongOpt("immediate", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+7),
+	new LongOpt("verify", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+8),
+	new LongOpt("contrafo", LongOpt.OPTIONAL_ARGUMENT, null, 
+		    OPTION_START+9)
     };
 
     public static int outputStyle = SUN_STYLE;
@@ -58,50 +89,67 @@ public class Decompiler {
     public static void usage() {
 	PrintWriter err = GlobalOptions.err;
 	err.println("Version: " + GlobalOptions.version);
-        err.print("use: jode [-v]"
-		  +"[--cp <classpath>][--dest <destdir>]"
-		  +"[--import <pkglimit> <clslimit>]");
-	for (int i=0; i < optionNames.length; i++)
-	    err.print("[--[no]"+optionNames[i]+"]");
-	err.println("[--debug=...] class1 [class2 ...]");
-	err.println("\t-v               "+
+        err.println("Usage: java jode.Decompiler [OPTIONS]... [CLASSES]...");
+	err.println("  -h, --help           "+
+		    "show this information.");
+	err.println("  -v, --verbose        "+
 		    "be verbose (multiple times means more verbose).");
-	err.println("\t--cp <classpath> "+
+	err.println("  -c, --classpath <path> "+
 		    "search for classes in specified classpath.");
-	err.println("\t                 "+
-		    "The paths should be separated by ','.");
-	err.println("\t--dest <destdir> "+
-	    "write decompiled files to disk into directory destdir.");
-	err.println("\t--style {sun|gnu}"+
-		    " specifies indentation style");
-	err.println("\t--import <pkglimit> <clslimit>");
-	err.println("\t                 "+
-	    "import classes used more than clslimit times");
-	err.println("\t                 "+
-	    "and packages with more then pkglimit used classes");
-	err.println("\t--[no]inner      "+
-		    "[don't] decompile inner classes.");
-	err.println("\t--[no]anonymous  "+
-		    "[don't] decompile anonymous classes.");
-	err.println("\t--[no]contrafo   "+
-		    "[don't] transform constructors of inner classes.");
-	err.println("\t--[no]lvt        "+
-		    "[don't] use the local variable table.");
-	err.println("\t--[no]pretty     "+
-		    "[don't] use `pretty' names for local variables.");
-	err.println("\t--[no]push       "+
-		    "[replace] PUSH instructions [with compilable code].");
-	err.println("\t--[no]decrypt    "+
-		    "[don't] try to decrypt encrypted strings.");
-	err.println("\t--[no]onetime    "+
-		    "[don't] remove locals, that are used only one time.");
-	err.println("\t--[no]immediate  "+
-		    "[don't] output source immediately with wrong import.");
-	err.println("\t--[no]verify  "+
-		    "[don't] verify code before decompiling it.");
+	err.println("                       "+
+		    "The directories should be separated by ','.");
+	err.println("  -d, --dest <dir>     "+
+		    "write decompiled files to disk into directory destdir.");
+	err.println("  -s, --style {sun|gnu}  "+
+		    "specify indentation style");
+	err.println("  -i, --import <pkglimit>,<clslimit>");
+	err.println("                       "+
+		    "import classes used more than clslimit times");
+	err.println("                       "+
+		    "and packages with more then pkglimit used classes.");
+	err.println("                       "+
+		    "Limit 0 means, never import, default is 0,1.");
+
+	err.println("The following options can be turned on or off with `yes' or `no' argument.");
+	err.println("      --inner          "+
+		    "decompile inner classes (default).");
+	err.println("      --anonymous      "+
+		    "decompile anonymous classes (default).");
+	err.println("      --contrafo       "+
+		    "transform constructors of inner classes (default).");
+	err.println("      --lvt            "+
+		    "use the local variable table (default).");
+	err.println("      --pretty         "+
+		    "use `pretty' names for local variables.");
+	err.println("      --push           "+
+		    "allow PUSH instructions in output.");
+	err.println("      --decrypt        "+
+		    "decrypt encrypted strings (default).");
+	err.println("      --onetime        "+
+		    "remove locals, that are used only one time.");
+	err.println("      --immediate      "+
+		    "output source immediately (may produce buggy code).");
+	err.println("      --verify         "+
+		    "verify code before decompiling it.");
 	err.println("Debugging options, mainly used to debug this decompiler:");
-	err.println("\t--debug=...      "+
+	err.println("  -D, --debug=...      "+
 		    "use --debug=help for more information.");
+    }
+
+    public static boolean handleOption(int option, int longind, String arg) {
+	if (arg == null)
+	    options ^= 1 << option;
+	else if ("yes".startsWith(arg) || arg.equals("on"))
+	    options |= 1 << option;
+	else if ("no".startsWith(arg) || arg.equals("off"))
+	    options &= ~(1 << option);
+	else {
+	    GlobalOptions.err.println
+		("jode.Decompiler: option --"+longOptions[longind].getName()
+		 +" takes one of `yes', `no', `on', `off' as parameter");
+	    return false;
+	}
+	return true;
     }
 
     public static boolean skipClass(ClassInfo clazz) {
@@ -117,99 +165,123 @@ public class Decompiler {
     }
 
     public static void main(String[] params) {
-        int i;
+	if (params.length == 0) {
+	    usage();
+	    return;
+	}
+
         String classPath = System.getProperty("java.class.path")
 	    .replace(File.pathSeparatorChar, SearchPath.pathSeparatorChar);
-	File destDir = null;
-	ZipOutputStream destZip = null;
+	String destDir = null;
+
 	int importPackageLimit = ImportHandler.DEFAULT_PACKAGE_LIMIT;
         int importClassLimit = ImportHandler.DEFAULT_CLASS_LIMIT;;
+
 	GlobalOptions.err.println(GlobalOptions.copyright);
-        for (i=0; i<params.length && params[i].startsWith("-"); i++) {
-            if (params[i].equals("-v"))
-		GlobalOptions.verboseLevel++;
-		else if (params[i].equals("--dest"))
-		destDir = new File(params[++i]);
-            else if (params[i].startsWith("--debug")) {
-		String flags;
-		if (params[i].startsWith("--debug=")) {
-		    flags = params[i].substring(8);
-		} else if (params[i].length() != 7) {
-		    usage();
-		    return;
-		} else {
-		    flags = params[++i];
+
+	boolean errorInParams = false;
+	Getopt g = new Getopt("jode.Decompiler", params, "hVvc:d:D:i:s:",
+			      longOptions, true);
+	for (int opt = g.getopt(); opt != -1; opt = g.getopt()) {
+	    switch(opt) {
+	    case 0:
+		break;
+	    case 'h':
+		usage();
+		errorInParams = true;
+		break;
+	    case 'V':
+		GlobalOptions.err.println(GlobalOptions.version);
+		break;
+	    case 'c':
+		classPath = g.getOptarg();
+		break;
+	    case 'd':
+		destDir = g.getOptarg();
+		break;
+	    case 'v': {
+		String arg = g.getOptarg();
+		if (arg == null)
+		    GlobalOptions.verboseLevel++;
+		else {
+		    try {
+			GlobalOptions.verboseLevel = Integer.parseInt(arg);
+		    } catch (NumberFormatException ex) {
+			GlobalOptions.err.println
+			    ("jode.Decompiler: Argument `"
+			     +arg+"' to --verbose must be numeric:");
+			errorInParams = true;
+		    }
 		}
-		GlobalOptions.setDebugging(flags);
-            } else if (params[i].equals("--style")) {
-		String style = params[++i];
-		if (style.equals("sun"))
+		break;
+	    }
+	    case 'D': {
+		String arg = g.getOptarg();
+		if (arg == null)
+		    arg = "help";
+		errorInParams |= !GlobalOptions.setDebugging(arg);
+		break;
+	    }
+	    case 's': {
+		String arg = g.getOptarg();
+		if ("sun".startsWith(arg))
 		    outputStyle = SUN_STYLE;
-		else if (style.equals("gnu"))
+		else if ("gnu".startsWith(arg))
 		    outputStyle = GNU_STYLE;
 		else {
-		    GlobalOptions.err.println("Unknown style: "+style);
-		    usage();
-		    return;
+		    GlobalOptions.err.println
+			("jode.Decompiler: Unknown style `"+arg+"'.");
+		    errorInParams = true;
 		}
-            } else if (params[i].equals("--import")) {
-                importPackageLimit = Integer.parseInt(params[++i]);
-                importClassLimit = Integer.parseInt(params[++i]);
-            } else if (params[i].equals("--cp")) {
-                classPath = params[++i];
-            } else if (params[i].equals("--")) {
-                i++;
-                break;
-	    } else { 
-		if (params[i].startsWith("--")) {
-		    boolean negated = false;
-		    String optionName = params[i].substring(2);
-		    if (optionName.startsWith("no")) {
-			optionName = optionName.substring(2);
-			negated = true;
-		    }
+		break;
+	    }
+	    case 'i': {
+		String arg = g.getOptarg();
+		int comma = arg.indexOf(',');
+		try {
+		    int packLimit = Integer.parseInt(arg.substring(0, comma));
+		    if (packLimit == 0)
+			packLimit = Integer.MAX_VALUE;
+		    if (packLimit < 0)
+			throw new IllegalArgumentException();
+		    int clazzLimit = Integer.parseInt(arg.substring(comma+1));
+		    if (clazzLimit == 0)
+			clazzLimit = Integer.MAX_VALUE;
+		    if (clazzLimit < 0)
+			throw new IllegalArgumentException();
 
-		    int index = -1;
-		    for (int j=0; j < optionNames.length; j++) {
-			if (optionNames[j].startsWith(optionName)) {
-			    if (optionNames[j].equals(optionName)) {
-				index = j;
-				break;
-			    }
-			    if (index == -1) {
-				index = j;
-			    } else {
-				index = -2;
-				break;
-			    }
-			}
-		    }
-		    if (index >= 0) {
-			if (negated)
-			    options &= ~(1<< index);
-			else
-			options |= 1 << index;
-			continue;
-		    }
+		    importPackageLimit = packLimit;
+		    importClassLimit = clazzLimit;
+			
+		} catch (RuntimeException ex) {
+		    GlobalOptions.err.println
+			("jode.Decompiler: Invalid argument for -i option.");
+		    errorInParams = true;
 		}
-		if (!params[i].startsWith("-h") && !params[i].equals("--help"))
-                    GlobalOptions.err.println("Unknown option: "+params[i]);
-		usage();
-		return;
-            }
-        }
-        if (i == params.length) {
-            usage();
-            return;
-        }
-        
-        ClassInfo.setClassPath(classPath);
+		break;
+	    }
+	    default:
+		if (opt >= OPTION_START && opt <= OPTION_END) {
+		    errorInParams |= !handleOption(opt-OPTION_START, 
+						   g.getLongind(), 
+						   g.getOptarg());
+		} else
+		    errorInParams = true;
+		break;
+	    }
+	}
+	if (errorInParams)
+	    return;
+        ClassInfo.setClassPath(classPath.toString());
 	ImportHandler imports = new ImportHandler(importPackageLimit,
 						  importClassLimit);
+
+	ZipOutputStream destZip = null;
 	TabbedPrintWriter writer = null;
 	if (destDir == null)
 	    writer = new TabbedPrintWriter(System.out, imports);
-	else if (destDir.getName().endsWith(".zip")) {
+	else if (destDir.toLowerCase().endsWith(".zip")
+		 || destDir.toLowerCase().endsWith(".jar")) {
 	    try {
 		destZip = new ZipOutputStream(new FileOutputStream(destDir));
 	    } catch (IOException ex) {
@@ -220,7 +292,7 @@ public class Decompiler {
 	    writer = new TabbedPrintWriter(new BufferedOutputStream(destZip), 
 					   imports, false);
 	}
-        for (; i< params.length; i++) {
+        for (int i= g.getOptind(); i< params.length; i++) {
 	    try {
 		ClassInfo clazz;
 		try {
@@ -238,7 +310,7 @@ public class Decompiler {
 		if (destZip != null) {
 		    writer.flush();
 		    destZip.putNextEntry(new ZipEntry(filename));
-		} else if (destDir != null) {
+		} else if (writer == null) {
 		    File file = new File (destDir, filename);
 		    File directory = new File(file.getParent());
 		    if (!directory.exists() && !directory.mkdirs()) {
