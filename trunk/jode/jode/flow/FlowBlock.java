@@ -32,9 +32,13 @@ import jode.util.SimpleSet;
 ///#ifdef JDK12
 ///import java.util.Map;
 ///import java.util.Iterator;
+///import java.util.Set;
+///import java.util.SimpleSet;
 ///#else
 import jode.util.Map;
 import jode.util.Iterator;
+import jode.util.Set;
+import jode.util.SimpleSet;
 ///#endif
 
 
@@ -1520,8 +1524,29 @@ public class FlowBlock {
 	block.makeDeclaration(declared);
     }
 
-    public void simplify() {
+    /**
+     * Simplify all reachable flowblocks, that are not already
+     * simplified, i.e.  that don't occur in doneSet.  
+     */
+    private void simplify(Set doneSet) {
+	if (doneSet.contains(this))
+	    return;
+	doneSet.add(this);
 	block.simplify();
+	Iterator iter = successors.keySet().iterator();
+	while (iter.hasNext()) {
+	    FlowBlock succ = (FlowBlock)iter.next();
+	    succ.simplify(doneSet);
+	}
+    }
+
+    public void simplify() {
+	if (successors.size() == 0) {
+	    // optimize default path.
+	    block.simplify();
+	    return;
+	}
+	simplify(new SimpleSet());
     }
 
     /**
