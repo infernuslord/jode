@@ -81,7 +81,7 @@ public class ClassBundle {
 	    input.close();
 	} catch (java.io.IOException ex) {
 	    Obfuscator.err.println("Can't read rename table "+filename);
-	    ex.printStackTrace();
+	    ex.printStackTrace(Obfuscator.err);
 	}
 	basePackage.readTable(prop);
     }
@@ -95,7 +95,7 @@ public class ClassBundle {
 	    out.close();
 	} catch (java.io.IOException ex) {
 	    Obfuscator.err.println("Can't write rename table "+filename);
-	    ex.printStackTrace();
+	    ex.printStackTrace(Obfuscator.err);
 	}
     }
 
@@ -109,7 +109,7 @@ public class ClassBundle {
 		zip.close();
 	    } catch (IOException ex) {
 		System.err.println("Can't write zip file: "+destination);
-		ex.printStackTrace();
+		ex.printStackTrace(Obfuscator.err);
 	    }
 	} else {
 	    File directory = new File(destination);

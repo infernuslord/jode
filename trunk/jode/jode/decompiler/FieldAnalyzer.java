@@ -62,7 +62,7 @@ public class FieldAnalyzer implements Analyzer {
                      cla.getConstantPool().getConstantString(index));
                 constant.makeInitializer();
             } catch (ClassFormatException ex) {
-                ex.printStackTrace();
+                ex.printStackTrace(Decompiler.err);
                 throw new AssertError("ClassFormatException");
             }
         }
