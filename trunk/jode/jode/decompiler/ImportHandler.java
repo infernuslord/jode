@@ -31,7 +31,7 @@ public class JodeEnvironment {
     String pkg;
 
 
-    JodeEnvironment(String path) {
+    public JodeEnvironment(String path) {
         ClassInfo.setClassPath(path);
 	Type.setEnvironment(this);
         imports = new Hashtable();
