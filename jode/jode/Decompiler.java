@@ -26,6 +26,7 @@ public class Decompiler {
     public static boolean isDebugging = false;
     public static boolean isTypeDebugging = false;
     public static boolean isFlowDebugging = false;
+    public static boolean debugInOut = false;
     public static boolean showLVT = false;
     public static boolean doChecks = false;
 
@@ -40,6 +41,8 @@ public class Decompiler {
                 isTypeDebugging = true;
             else if (params[i].equals("-flow"))
                 isFlowDebugging = true;
+            else if (params[i].equals("-inout"))
+                debugInOut = true;
             else if (params[i].equals("-lvt"))
                 showLVT = true;
             else if (params[i].equals("-check"))
