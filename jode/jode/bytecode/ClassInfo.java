@@ -243,7 +243,6 @@ public class ClassInfo extends BinaryInfo {
 
 	/* always read modifiers, name, super, ifaces */
 	{
-	    status |= HIERARCHY;
 	    modifiers = input.readUnsignedShort();
 	    String className = cpool.getClassName(input.readUnsignedShort());
 	    if (!name.equals(className))
@@ -256,6 +255,7 @@ public class ClassInfo extends BinaryInfo {
 		interfaces[i] = ClassInfo.forName
 		    (cpool.getClassName(input.readUnsignedShort()));
 	    }
+	    status |= HIERARCHY;
 	}	    
 
 	/* fields */
@@ -554,9 +554,10 @@ public class ClassInfo extends BinaryInfo {
 	    } catch (NoClassDefFoundError ex2) {
 	    }
 	    try {
-		if (clazz != null)
+		if (clazz != null) {
 		    loadInfoReflection(clazz, howMuch);
-		return;
+		    return;
+		}
 	    } catch (SecurityException ex2) {
 		GlobalOptions.err.println
 		    (ex2+" while collecting info about class " + name + ".");
