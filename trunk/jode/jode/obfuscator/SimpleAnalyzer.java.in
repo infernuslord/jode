@@ -24,8 +24,8 @@ import jode.bytecode.ClassInfo;
 import jode.bytecode.BytecodeInfo;
 import jode.bytecode.Instruction;
 import jode.bytecode.Reference;
+import jode.bytecode.TypeSignature;
 import jode.GlobalOptions;
-import jode.type.Type;
 
 import @COLLECTIONS@.Iterator;
 import @COLLECTIONS@.ListIterator;
@@ -162,7 +162,7 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		    int stacksize = 
 			(instr.getOpcode() 
 			 == Instruction.opc_putstatic) ? 0 : 1;
-		    stacksize += Type.tType(ref.getType()).stackSize();
+		    stacksize += TypeSignature.getTypeSize(ref.getType());
 		    switch (stacksize) {
 		    case 1:
 			iter.set(new Instruction(Instruction.opc_pop));
