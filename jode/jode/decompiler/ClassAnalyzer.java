@@ -267,11 +267,8 @@ public class ClassAnalyzer
                     constrVector.addElement(methods[j]);
             }
         }
-	// First analyze fields
-        for (int j=0; j < fields.length; j++)
-	    fields[j].analyze();
 
-	// now analyze constructors and synthetic fields:
+	// First analyze constructors and synthetic fields:
 	constrAna = null;
         constructors = new MethodAnalyzer[constrVector.size()];
 	if (constructors.length > 0) {
@@ -281,15 +278,33 @@ public class ClassAnalyzer
 	    constrAna = new TransformConstructors(this, false, constructors);
 	    constrAna.initSyntheticFields();
         }
+	if (staticConstructor != null)
+	    staticConstructor.analyze();
+
+	// If output should be immediate, we delay analyzation to output.
+	// Note that this may break anonymous classes, but the user
+	// has been warned.
+	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0)
+	    return;
+
+	// Analyze fields
+        for (int j=0; j < fields.length; j++)
+	    fields[j].analyze();
 
 	// Now analyze remaining methods.
         for (int j=0; j < methods.length; j++) {
-	    if (methods[j].isStatic() || !methods[j].isConstructor())
+	    if (!methods[j].isConstructor())
 		methods[j].analyze();
 	}
     }
 
     public void analyzeInnerClasses() {
+	// If output should be immediate, we delay analyzation to output.
+	// Note that this may break anonymous classes, but the user
+	// has been warned.
+	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0)
+	    return;
+
 	// Now analyze the inner classes.
 	for (int j=0; j < inners.length; j++) {
 	    inners[j].analyze();
@@ -303,7 +318,6 @@ public class ClassAnalyzer
     }
 
     public void makeDeclaration() {
-	// Finally anlyze the remaining field initializers.
 	if (constrAna != null)
 	    constrAna.transform();
         if (staticConstructor != null) {
@@ -311,6 +325,13 @@ public class ClassAnalyzer
 		(this, true, new MethodAnalyzer[] { staticConstructor })
 		.transform();
 	}
+
+	// If output should be immediate, we delay analyzation to output.
+	// Note that this may break anonymous classes, but the user
+	// has been warned.
+	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0)
+	    return;
+
         for (int j=0; j < fields.length; j++)
 	    fields[j].makeDeclaration();
         for (int j=0; j < inners.length; j++)
@@ -318,7 +339,6 @@ public class ClassAnalyzer
         for (int j=0; j < methods.length; j++)
 	    methods[j].makeDeclaration();
     }
-
     public void dumpDeclaration(TabbedPrintWriter writer)
         throws java.io.IOException
     {
@@ -336,6 +356,11 @@ public class ClassAnalyzer
 		    writer.println("");
 		blockInitializers[i].dumpSource(writer);
 		needFieldNewLine = needNewLine = true;
+	    }
+	    if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0) {
+		// We now do the analyzation we skipped before.
+		fields[i].analyze();
+		fields[i].makeDeclaration();
 	    }
 	    if (fields[i].skipWriting())
 		continue;
@@ -357,10 +382,26 @@ public class ClassAnalyzer
 	for (int i=0; i< inners.length; i++) {
 	    if (needNewLine)
 		writer.println("");
+
+	    if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0) {
+		// We now do the analyzation we skipped before.
+		inners[i].analyze();
+		inners[i].analyzeInnerClasses();
+		inners[i].makeDeclaration();
+	    }
+
 	    inners[i].dumpSource(writer);
 	    needNewLine = true;
 	}
 	for (int i=0; i< methods.length; i++) {
+	    if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0) {
+		// We now do the analyzation we skipped before.
+		if (!methods[i].isConstructor())
+		    methods[i].analyze();
+		methods[i].analyzeInnerClasses();
+		methods[i].makeDeclaration();
+	    }
+
 	    if (methods[i].skipWriting())
 		continue;
 	    if (needNewLine)
