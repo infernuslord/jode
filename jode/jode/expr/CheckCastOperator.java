@@ -26,7 +26,18 @@ public class CheckCastOperator extends SimpleOperator {
     public CheckCastOperator(Type type, String typeString) {
         super(type, 0, 1);
         this.typeString = typeString;
-        operandTypes[0] = MyType.tSuperType(type);
+        /* The following is wrong.  The operand must not
+         * be a super type of the given type, but any type
+         * especially if type is an interface.
+         *
+         * If operand is of class type, it is probably a
+         * super type, but who knows?
+         *
+         * operandTypes[0] = MyType.tSuperType(type);
+         *
+         * The forgiving solution:
+         */
+        operandTypes[0] = MyType.tUnknown;
     }
 
     public int getPriority() {

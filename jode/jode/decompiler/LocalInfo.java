@@ -65,14 +65,16 @@ public class LocalInfo {
     public void combineWith(LocalInfo li) {
         li = li.getLocalInfo();
         if (shadow != null) {
-            while (shadow.shadow != null) {
-                shadow = shadow.shadow;
+            getLocalInfo().combineWith(li);
+        } else {
+            if (this != li) {
+                shadow = li;
+                li.setType(type);
+                /* Clear unused fields, to allow garbage collection.
+                 */
+                type = null;
+                name = null;
             }
-            shadow.combineWith(li);
-        }
-        if (this != li) {
-            shadow = li;
-            li.setType(type);
         }
     }
 
@@ -127,13 +129,7 @@ public class LocalInfo {
      * Get the type of this local.
      */
     public Type getType() {
-        if (shadow != null) {
-            while (shadow.shadow != null) {
-                shadow = shadow.shadow;
-            }
-            return shadow.getType();
-        }
-        return type;
+        return getLocalInfo().type;
     }
 
     /**
