@@ -31,13 +31,14 @@ public class FieldAnalyzer implements Analyzer {
     String fieldName;
     Expression constant;
     
-    public FieldAnalyzer(ClassAnalyzer cla, Field fd, JodeEnvironment e)
+    public FieldAnalyzer(ClassAnalyzer cla, gnu.bytecode.Field fd, 
+                         JodeEnvironment e)
     {
         clazz = cla;
         env  = e;
 
-        modifiers = fd.getModifiers();
-        type = Type.tType(fd.getType());
+        modifiers = Spy.getModifiers(fd);
+        type = Type.tType(fd.getSignature());
         fieldName = fd.getName();
         constant = null;
 

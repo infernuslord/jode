@@ -72,12 +72,11 @@ public class ClassAnalyzer implements Analyzer {
         int numFields = 0;
         int i = 0;
         
-        Field[] fields = clazz.getDeclaredFields(); 
-
-        analyzers = new Analyzer[fields.length + 
+        analyzers = new Analyzer[classType.getFieldCount() + 
                                 classType.getMethodCount()];
-        for (int j=0; j< fields.length; j++) {
-            analyzers[i] = new FieldAnalyzer(this, fields[j], env);
+        for (gnu.bytecode.Field field = classType.getFields();
+             field != null; field = field.getNext()) {
+            analyzers[i] = new FieldAnalyzer(this, field, env);
             analyzers[i++].analyze();
         }
 
