@@ -33,6 +33,13 @@ public class TabbedPrintWriter {
 	atbol = true;
     }
 
+    public TabbedPrintWriter (Writer os, String tabstr) {
+	pw = new PrintWriter(os);
+	this.tabstr=tabstr;
+	indent = new StringBuffer();
+	atbol = true;
+    }
+
     public void tab() {
 	indent.append(tabstr);
     }

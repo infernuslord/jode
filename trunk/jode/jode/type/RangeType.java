@@ -82,14 +82,20 @@ public class RangeType extends Type {
      */
     public void useType() {
         /* The topType will be printed */
-        topType.useType();
+        if (topType.isClassType() || bottomType == tUnknown)
+            topType.useType();
+        else
+            bottomType.useType();
     }
 
     public String toString()
     {
         if (jode.Decompiler.isTypeDebugging)
             return "<" + bottomType + "-" + topType + ">";
-        return topType.toString();
+        if (topType.isClassType() || bottomType == tUnknown)
+            return topType.toString();
+        else
+            return bottomType.toString();
     }
 
     public boolean equals(Object o) {

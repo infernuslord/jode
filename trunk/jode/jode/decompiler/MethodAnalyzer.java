@@ -103,19 +103,37 @@ public class MethodAnalyzer implements Analyzer {
 	    clazz.setName("this");
 	    offset++;
 	}
+        
 	Class[] paramTypes = isConstructor 
             ? constr.getParameterTypes() : method.getParameterTypes();
 	for (int i=0; i< paramTypes.length; i++)
 	    code.getParamInfo(offset+i).setType(Type.tType(paramTypes[i]));
-	
-	// We do the code.analyze() in dumpSource, to get 
-	// immediate output.
+
+        Class[] exceptions = isConstructor
+            ? constr.getExceptionTypes() : method.getExceptionTypes();
+        for (int i= 0; i< exceptions.length; i++)
+            env.useClass(exceptions[i]);
+    
+        if (!isConstructor)
+            getReturnType().useType();
+
+	if (!Decompiler.immediateOutput) {
+	    if (Decompiler.isVerbose)
+		System.err.print((isConstructor 
+                                  ? "<init>" : method.getName())+": ");
+	    code.analyze();
+	    if (Decompiler.isVerbose)
+		System.err.println("");
+	}
     }
     
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
-	if (code != null) {
+	if (Decompiler.immediateOutput && code != null) {
+            // We do the code.analyze() here, to get 
+            // immediate output.
+
 	    if (Decompiler.isVerbose)
 		System.err.print((isConstructor 
                                   ? "<init>" : method.getName())+": ");
@@ -136,7 +154,7 @@ public class MethodAnalyzer implements Analyzer {
             if (isConstructor)
                 writer.print(env.classString(classAnalyzer.clazz));
             else
-                writer.print(Type.tType(method.getReturnType()).toString()
+                writer.print(getReturnType().toString()
 			     + " " + method.getName());
             writer.print("(");
             Class[] paramTypes = isConstructor 

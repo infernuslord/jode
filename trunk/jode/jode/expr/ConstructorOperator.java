@@ -48,8 +48,8 @@ public class ConstructorOperator extends Operator {
 
     public Type getOperandType(int i) {
         if (i == 0)
-            return Type.tSubType(type);
-        return Type.tSubType(methodType.getArgumentTypes()[i-1]);
+            return type;
+        return methodType.getArgumentTypes()[i-1];
     }
 
     public void setOperandType(Type types[]) {

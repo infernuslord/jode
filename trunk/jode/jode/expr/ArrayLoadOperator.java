@@ -48,7 +48,9 @@ public class ArrayLoadOperator extends SimpleOperator {
 
     public void setOperandType(Type[] t) {
         super.setOperandType(t);
-	if (operandTypes[0] instanceof ArrayType)
+        if (operandTypes[0] == Type.tError)
+            type = Type.tError;
+	else if (operandTypes[0] instanceof ArrayType)
             type = type.intersection
                 (((ArrayType)operandTypes[0]).getElementType());
         else

@@ -38,7 +38,6 @@ public class JodeEnvironment {
         return classPath.getFile(clazz.getName().
                                  replace('.', java.io.File.separatorChar)
                                  +".class");
-        
     }
 
     public void dumpHeader(TabbedPrintWriter writer) 
@@ -52,11 +51,20 @@ public class JodeEnvironment {
         while (enum.hasMoreElements()) {
             String importName = (String) enum.nextElement();
             Integer vote = (Integer) imports.get(importName);
-            if (vote.intValue() >=
-                (importName.endsWith(".*")
-                 ? Decompiler.importPackageLimit
-                 : Decompiler.importClassLimit))
-                writer.println("import "+importName+";");
+            if (!importName.endsWith(".*")) {
+                if (vote.intValue() < Decompiler.importClassLimit)
+                    continue;
+                int delim = importName.lastIndexOf(".");
+                Integer pkgvote = (Integer)
+                    imports.get(importName.substring(0, delim)+".*");
+                if (pkgvote.intValue() >= Decompiler.importPackageLimit)
+                    continue;
+                                                     
+            } else {
+                if (vote.intValue() < Decompiler.importPackageLimit)
+                    continue;
+            }
+            writer.println("import "+importName+";");
         }
         writer.println("");
     }
@@ -109,14 +117,19 @@ public class JodeEnvironment {
             if (pkgName.equals(pkg)
                 || pkgName.equals("java.lang"))
                 return;
-            Integer i = (Integer) imports.get(pkgName+".*");
-            i = (i == null)? new Integer(1): new Integer(i.intValue()+1);
-            imports.put(pkgName+".*", i);
-            if (i.intValue() >= Decompiler.importPackageLimit)
-                return;
-            
-            i = (Integer) imports.get(name);
-            i = (i == null)? new Integer(1): new Integer(i.intValue()+1);
+            Integer i = (Integer) imports.get(name);
+            if (i== null) {
+
+                i = (Integer) imports.get(pkgName+".*");
+                i = (i == null)? new Integer(1): new Integer(i.intValue()+1);
+                imports.put(pkgName+".*", i);
+                if (i.intValue() >= Decompiler.importPackageLimit)
+                    return;
+
+                i = new Integer(1);
+
+            } else
+                i = new Integer(i.intValue()+1);
             imports.put(name, i);
         }
     }

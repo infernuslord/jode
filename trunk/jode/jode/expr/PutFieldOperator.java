@@ -55,8 +55,8 @@ public class PutFieldOperator extends StoreInstruction {
             /* shouldn't be called */
             throw new AssertError("Field is static");
         }
-        return Type.tSubType(Type.tClass(field.getCpoolClass()
-                                         .getName().getString()));
+        return Type.tClass(field.getCpoolClass()
+                           .getName().getString());
     }
 
     public void setLValueOperandType(Type[] t) {
@@ -71,6 +71,7 @@ public class PutFieldOperator extends StoreInstruction {
         String object;
         if (staticFlag) {
             if (field.getCpoolClass().getName().getString()
+                .replace(java.io.File.separatorChar, '.')
                 .equals(codeAnalyzer.getClazz().getName()))
                 return field.getNameAndType().getName().getString();
             object = codeAnalyzer.getTypeString

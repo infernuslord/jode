@@ -43,6 +43,14 @@ public abstract class Opcodes {
     public final static Type    SHORT_TYPE = Type.tShort;
     public final static Type     VOID_TYPE = Type.tVoid;
 
+    public final static Type types[][] = {
+        {BOOL_INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE },
+        {     INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE, 
+         BYTEBOOL_TYPE, CHAR_TYPE, SHORT_TYPE },
+        {    BYTE_TYPE, CHAR_TYPE, SHORT_TYPE },
+        { ALL_INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE }
+    };
+
     public static final int opc_nop = 0;
     public static final int opc_aconst_null = 1;
     public static final int opc_iconst_m1 = 2;
@@ -246,17 +254,7 @@ public abstract class Opcodes {
     public static final int opc_goto_w = 200;
     public static final int opc_jsr_w = 201;
     public static final int opc_breakpoint = 202;
-
     
-    public final static Type types[][] = {
-        {BOOL_INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE },
-        {     INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE, 
-         BYTEBOOL_TYPE, CHAR_TYPE, SHORT_TYPE },
-        {    BYTE_TYPE, CHAR_TYPE, SHORT_TYPE },
-        { ALL_INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, OBJECT_TYPE }
-    };
-
-
     public static FlowBlock createNormal(CodeAnalyzer ca, 
 					 int addr, int length, 
                                          Instruction instr)
@@ -473,7 +471,7 @@ public abstract class Opcodes {
             case opc_ixor: case opc_lxor:
                 return createNormal
 		    (ca, addr, 1, new BinaryOperator
-		     (types[3][(opcode - opc_iand)%2],
+		     (types[0][(opcode - opc_iand)%2],
 		      (opcode - opc_iand)/2 + Operator.AND_OP));
             case opc_iinc: {
                 int local = stream.readUnsignedByte();
@@ -586,7 +584,7 @@ public abstract class Opcodes {
             }
             case opc_ireturn: case opc_lreturn: 
             case opc_freturn: case opc_dreturn: case opc_areturn: {
-                Type retType = Type.tSubType(ca.getMethod().getReturnType());
+                Type retType = ca.getMethod().getReturnType();
 		return createBlock
 		    (ca, addr, 1, new ReturnBlock(new NopOperator(retType)));
             }

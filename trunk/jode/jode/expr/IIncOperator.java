@@ -28,6 +28,7 @@ implements LocalVarOperator {
         super(Type.tVoid, operator);
         this.local = local;
 	this.value = value;
+        local.setType(Type.tUInt);
         local.setOperator(this);
     }
 

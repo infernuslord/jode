@@ -25,24 +25,16 @@ public class ComplexExpression extends Expression {
 
     public ComplexExpression(Operator op, Expression[] sub) {
         super(Type.tUnknown);
+        if (sub.length != op.getOperandCount())
+            throw new AssertError ("Operand count mismatch: "+
+                                   sub.length + " != " + 
+                                   op.getOperandCount());
         operator = op;
         operator.parent = this;
         subExpressions = sub;
-        operator.setExpression(this);
-        if (subExpressions.length != op.getOperandCount())
-            throw new AssertError ("Operand count mismatch: "+
-                                   subExpressions.length + " != " + 
-                                   op.getOperandCount());
-        if (subExpressions.length > 0) {
-            Type types[] = new Type[subExpressions.length];
-            for (int i=0; i < types.length; i++) {
-                subExpressions[i].parent = this;
-                types[i] = subExpressions[i].getType();
-            }
-            operator.setOperandType(types);
-            updateSubTypes();
-        }
-	this.type = operator.getType();
+        for (int i=0; i< subExpressions.length; i++)
+            subExpressions[i].parent = this;
+        updateType();
     }
 
     public int getOperandCount() {
@@ -74,8 +66,7 @@ public class ComplexExpression extends Expression {
 
         Operator negop = 
             new UnaryOperator(Type.tBoolean, Operator.LOG_NOT_OP);
-        Expression[] e = { this };
-        return new ComplexExpression(negop, e);
+        return new ComplexExpression(negop, new Expression[] { this });
     }
 
     public Expression tryToCombine(Expression e) {
@@ -118,18 +109,49 @@ public class ComplexExpression extends Expression {
 
     void updateSubTypes() {
         for (int i=0; i < subExpressions.length; i++) {
-            subExpressions[i].setType(operator.getOperandType(i));
+            if (i == 0 && operator instanceof ArrayStoreOperator) {
+                /* No rule without exception:
+                 * We can always use tSubType, except for the
+                 * array operand of an array store instruction.
+                 */
+                subExpressions[i].setType(operator.getOperandType(i));
+            } else
+                subExpressions[i].setType
+                    (Type.tSubType(operator.getOperandType(i)));
         }
     }
 
     public void updateType() {
-        updateSubTypes();
         if (subExpressions.length > 0) {
             Type types[] = new Type[subExpressions.length];
-            for (int i=0; i < types.length; i++) {
-                types[i] = subExpressions[i].getType();
+            while (true) {
+                boolean changed = false;
+                updateSubTypes();
+                for (int i=0; i < types.length; i++) {
+                    if (i == 0 && operator instanceof ArrayStoreOperator) {
+                        /* No rule without exception:
+                         * We can always use tSuperType, except for the
+                         * array operand of an array store instruction.
+                         */
+                        types[i] = subExpressions[i].getType();
+                    } else
+                        types[i] = Type.tSuperType
+                            (subExpressions[i].getType());
+                    types[i] = 
+                        types[i].intersection(operator.getOperandType(i));
+                    if (!types[i].equals(operator.getOperandType(i))) {
+                        if (Decompiler.isTypeDebugging)
+                            System.err.println("change in "+this+": "
+                                               +operator.getOperandType(i)
+                                               +"->"+types[i]);
+                        changed = true;
+                    }
+                }
+                if (changed)
+                    operator.setOperandType(types);
+                else
+                    break;
             }
-            operator.setOperandType(types);
         }
         setType(operator.getType());
     }
@@ -140,6 +162,8 @@ public class ComplexExpression extends Expression {
             type = newType;
             operator.setType(type);
             updateSubTypes();
+            if (parent != null)
+                parent.updateType();
         }
     }
 
@@ -151,14 +175,22 @@ public class ComplexExpression extends Expression {
         String[] expr = new String[subExpressions.length];
         for (int i=0; i<subExpressions.length; i++) {
             expr[i] = subExpressions[i].
-                toString(operator.getOperandPriority(i));
+                toString(Decompiler.isTypeDebugging 
+                         ? 700 /* type cast priority */
+                         : operator.getOperandPriority(i));
+            if (Decompiler.isTypeDebugging) {
+                expr[i] = "("+
+                    (operator.getOperandType(i)
+                     .equals(subExpressions[i].getType())
+                     ? "" : ""+subExpressions[i].getType()+"->")
+                    + operator.getOperandType(i)+") "+expr[i];
+                if (700 < operator.getOperandPriority(i))
+                    expr[i] = "(" + expr[i] + ")";
+            }
+            else if (subExpressions[i].getType() == Type.tError)
+                expr[i] = "(/*type error */" + expr[i]+")";
         }
-        String result = operator.toString(expr);
-        if (Decompiler.isTypeDebugging) 
-            result = "("+operator.getType()+") ("+result+")";
-        else if (operator.getType() == Type.tError)
-            result = "(/*type error */" + result+")";
-        return result;
+        return operator.toString(expr);
     }
 
     public boolean equals(Object o) {
@@ -186,6 +218,7 @@ public class ComplexExpression extends Expression {
         if (operator instanceof InvokeOperator
             && ((field = ((InvokeOperator)operator).getField())
                 .getCpoolClass().getName().getString()
+                .replace(java.io.File.separatorChar, '.')
                 .equals("java.lang.StringBuffer"))
             && !((InvokeOperator)operator).isStatic() &&
             field.getNameAndType().getName().getString().equals("append") &&
@@ -199,9 +232,9 @@ public class ComplexExpression extends Expression {
                 subExpressions[1].getType().isOfType(Type.tString))
                 return subExpressions[1];
 
-            Expression[] exprs = { e, 
-                                   (Expression)subExpressions[1].simplify() };
-            return new ComplexExpression(new StringAddOperator(), exprs);
+            return new ComplexExpression
+                (new StringAddOperator(), new Expression[] 
+                 { e, (Expression)subExpressions[1].simplify() });
         }
         if (operator instanceof ConstructorOperator &&
             operator.getType().isOfType(Type.tStringBuffer)) {
@@ -224,45 +257,51 @@ public class ComplexExpression extends Expression {
                     (ConstOperator) subExpressions[1].getOperator();
                 ConstOperator c2 = 
                     (ConstOperator) subExpressions[2].getOperator();
-                if (c1.getValue().equals("true") &&
-                    c2.getValue().equals("false"))
+                if (c1.getValue().equals("1") &&
+                    c2.getValue().equals("0"))
                     return subExpressions[0].simplify();
-                if (c2.getValue().equals("true") &&
-                    c1.getValue().equals("false"))
+                if (c2.getValue().equals("1") &&
+                    c1.getValue().equals("0"))
                     return subExpressions[0].negate().simplify();
             }
         }
-//         if ((operator instanceof AssignOperator ||
-//              operator instanceof StoreInstruction) &&
-//             subExpressions[subExpressions.length-1]
-//             .operator instanceof ConstOperator) {
-//             StoreInstruction store;
-//             if (operator instanceof AssignOperator)
-//                 store = ((AssignOperator)operator).getStore();
-//             else
-//                 store = (StoreInstruction)operator;
+        else if ((operator instanceof AssignOperator ||
+                  operator instanceof StoreInstruction) &&
+                 subExpressions[subExpressions.length-1]
+                 .getOperator() instanceof ConstOperator) {
 
-//             ConstOperator one = (ConstOperator) 
-//                 subExpressions[subExpressions.length-1].operator;
+            StoreInstruction store;
+            if (operator instanceof AssignOperator)
+                store = ((AssignOperator)operator).getStore();
+            else
+                store = (StoreInstruction)operator;
 
-//             if ((operator.getOperatorIndex() == 
-//                  operator.OPASSIGN_OP+operator.ADD_OP ||
-//                  operator.getOperatorIndex() == 
-//                  operator.OPASSIGN_OP+operator.NEG_OP) &&
-//                 (one.getValue().equals("1") || 
-//                  one.getValue().equals("-1"))) {
+            ConstOperator one = (ConstOperator) 
+                subExpressions[subExpressions.length-1].getOperator();
 
-//                 int op = ((operator.getOperatorIndex() == 
-//                            operator.OPASSIGN_OP+operator.ADD_OP) ==
-//                           one.getValue().equals("1"))?
-//                     operator.INC_OP : operator.DEC_OP;
+            if ((operator.getOperatorIndex() == 
+                 operator.OPASSIGN_OP+operator.ADD_OP ||
+                 operator.getOperatorIndex() == 
+                 operator.OPASSIGN_OP+operator.NEG_OP) &&
+                (one.getValue().equals("1") || 
+                 one.getValue().equals("-1"))) {
 
-//                 return new PostFixOperator
-//                     (store.getType(), op, store, 
-//                      operator instanceof StoreInstruction).simplify();
-//             }
-//         }
-        if (operator instanceof CompareUnaryOperator &&
+                int op = ((operator.getOperatorIndex() == 
+                           operator.OPASSIGN_OP+operator.ADD_OP) ==
+                          one.getValue().equals("1"))?
+                    operator.INC_OP : operator.DEC_OP;
+
+                Operator ppfixop = new PrePostFixOperator
+                    (store.getLValueType(), op, store, 
+                     operator instanceof StoreInstruction);
+                if (subExpressions.length == 1)
+                    return ppfixop.simplify();
+
+                operator = ppfixop;
+                ppfixop.parent = this;
+            }
+        }
+        else if (operator instanceof CompareUnaryOperator &&
             subExpressions[0].getOperator() instanceof CompareToIntOperator) {
             
             CompareBinaryOperator newOp = new CompareBinaryOperator
@@ -277,7 +316,7 @@ public class ComplexExpression extends Expression {
             } else
                 return newOp.simplify();
         }
-        if (operator instanceof CompareUnaryOperator &&
+        else if (operator instanceof CompareUnaryOperator &&
             operator.getOperandType(0).isOfType(Type.tBoolean)) {
             /* xx == false */
             if (operator.getOperatorIndex() == operator.EQUALS_OP) 
@@ -286,42 +325,39 @@ public class ComplexExpression extends Expression {
             if (operator.getOperatorIndex() == operator.NOTEQUALS_OP)
                 return subExpressions[0].simplify();
         }
-
-        if (operator instanceof InvokeOperator
+        else if (operator instanceof InvokeOperator
             && (((InvokeOperator)operator).getField()
                 .getNameAndType().getName().getString().equals("toString"))
             && !((InvokeOperator)operator).isStatic()
             && (((InvokeOperator)operator).getField()
                 .getCpoolClass().getName().getString()
+                .replace(java.io.File.separatorChar, '.')
                 .equals("java.lang.StringBuffer"))
             && subExpressions.length == 1) {
             Instruction simple = subExpressions[0].simplifyStringBuffer();
             if (simple != null)
                 return simple;
         }
-        if (operator instanceof InvokeOperator
+        else if (operator instanceof InvokeOperator
             && (((InvokeOperator)operator).getField()
                 .getNameAndType().getName().getString().equals("valueOf"))
             && ((InvokeOperator)operator).isStatic() 
             && (((InvokeOperator)operator).getField()
                 .getCpoolClass().getName().getString()
+                .replace(java.io.File.separatorChar, '.')
                 .equals("java.lang.String"))
             && subExpressions.length == 1) {
             if (subExpressions[0].getType() == Type.tString)
                 return subExpressions[0].simplify();
-            else {
-                Expression[] exprs = {
-                    emptyString, 
-                    (Expression) subExpressions[0].simplify() 
-                };
-                return new ComplexExpression(new StringAddOperator(), exprs);
-            }
+
+            return new ComplexExpression
+                (new StringAddOperator(), new Expression[] 
+                 { emptyString, (Expression) subExpressions[0].simplify() });
         }
         for (int i=0; i< subExpressions.length; i++) {
             subExpressions[i] = (Expression) subExpressions[i].simplify();
             subExpressions[i].parent = this;
         }
-
         return this;
     }
 }

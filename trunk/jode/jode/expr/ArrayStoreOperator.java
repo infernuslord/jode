@@ -47,15 +47,6 @@ public class ArrayStoreOperator extends StoreInstruction {
             return 0;
     }
 
-    /**
-     * Sets the type of the lvalue (and rvalue).
-     * @return true since the operand types changed
-     */
-    public boolean setLValueType(Type type) {
-        this.lvalueType = type;
-        return true;
-    }
-
     public Type getLValueOperandType(int i) {
         if (i == 0)
             return Type.tArray(lvalueType);
@@ -66,10 +57,10 @@ public class ArrayStoreOperator extends StoreInstruction {
     public void setLValueOperandType(Type[] t) {
         indexType = indexType.intersection(t[1]);
         Type arrayType = t[0].intersection(Type.tArray(lvalueType));
-	if (arrayType instanceof ArrayType)
+        if (arrayType == Type.tError)
+            lvalueType = Type.tError;
+	else
             lvalueType = ((ArrayType)arrayType).getElementType();
-        else
-            throw new AssertError("No Array type: "+arrayType);
     }
 
     public String getLValueString(String[] operands) {

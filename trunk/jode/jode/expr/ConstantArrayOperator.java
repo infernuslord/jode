@@ -24,7 +24,7 @@ public class ConstantArrayOperator extends SimpleOperator {
     public ConstantArrayOperator(Type type, int size) {
         super(type, 0, size);
         for (int i=0; i< size; i++)
-            operandTypes[i] = Type.tSubType(((ArrayType)type).getElementType());
+            operandTypes[i] = ((ArrayType)type).getElementType();
     }
 
     public int getPriority() {
@@ -37,7 +37,7 @@ public class ConstantArrayOperator extends SimpleOperator {
 
     public String toString(String[] operands) {
         StringBuffer result 
-            = new StringBuffer("{");
+            = new StringBuffer("new "+type+" {");
         for (int i=0; i< getOperandCount(); i++) {
             if (i>0)
                 result.append(", ");

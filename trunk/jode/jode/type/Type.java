@@ -284,7 +284,7 @@ public class Type {
                  : (type.typecode <= typecode)   ? type
                  : (type.typecode <= TC_INT
                     || type.typecode == TC_BOOLINT) ? this 
-                 : (this == tByte && type == tBoolByte) ? this
+                 : (type == tBoolByte) ? tByte
                  : tError)
 
             :  (typecode == TC_BOOLINT)
@@ -384,7 +384,7 @@ public class Type {
                     ?    tRange(bottomType, this)
 
                     : (bottomType.typecode == TC_BOOLBYTE
-                       && bottomType == tByte)
+                       && this == tByte)
                     ?    tByte
 
                     : (bottomType.typecode == TC_BOOLINT
@@ -429,6 +429,13 @@ public class Type {
     }
 
     /**
+     * Checks if this type represents a class or an array of a class
+     */
+    public boolean isClassType() {
+        return false;
+    }
+
+    /**
      * Check if this and &lt;unknown -- type&rt; are not disjunct.
      * @param type  a simple type; this mustn't be a range type.
      * @return true if this is the case.
@@ -437,6 +444,13 @@ public class Type {
         return (getTop().getGeneralizedType(type.getTop()).createRangeType
                 (getBottom().getSpecializedType(type.getBottom())) != tError);
 //         return (getSpecializedType(type).equals(type));
+    }
+
+    /**
+     * Marks this type as used, so that the class is imported.
+     */
+    public void useType() {
+        /* No action needed for simple types */
     }
 
     public String toString() {

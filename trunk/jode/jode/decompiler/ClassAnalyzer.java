@@ -18,7 +18,6 @@
  */
 
 package jode;
-import java.io.IOException;
 import java.lang.reflect.*;
 import gnu.bytecode.ClassType;
 import gnu.bytecode.ConstantPool;
@@ -29,7 +28,7 @@ import gnu.bytecode.CpoolValue2;
 
 public class ClassAnalyzer implements Analyzer {
     JodeEnvironment env;
-    Analyzer analyzers[];
+    Analyzer[] analyzers;
     Class clazz;
     ClassType classType;
     ClassAnalyzer parent;
@@ -49,7 +48,8 @@ public class ClassAnalyzer implements Analyzer {
     }
     
     public void analyze() {
-        int numFields = 0, i=0;
+        int numFields = 0;
+        int i = 0;
         
         Field[] fields = clazz.getDeclaredFields(); 
         Method[] methods = clazz.getDeclaredMethods();
@@ -59,43 +59,49 @@ public class ClassAnalyzer implements Analyzer {
         analyzers = new Analyzer[fields.length + methods.length
                              + constrs.length + clazzes.length];
 
-        for (int j=0; j< clazzes.length; j++, i++) {
+        for (int j=0; j< clazzes.length; j++) {
             analyzers[i] = new ClassAnalyzer(this, clazzes[j], env);
-            analyzers[i].analyze();
+            analyzers[i++].analyze();
         }
 
-        for (int j=0; j< fields.length; j++, i++) {
+        for (int j=0; j< fields.length; j++) {
             analyzers[i] = new FieldAnalyzer(this, fields[j], env);
-            analyzers[i].analyze();
+            analyzers[i++].analyze();
         }
     
-        for (int j=0; j< constrs.length; j++, i++) {
+        for (int j=0; j< constrs.length; j++) {
             analyzers[i] = new MethodAnalyzer(this, constrs[j], env);
-            analyzers[i].analyze();
+            analyzers[i++].analyze();
         }
-        for (int j=0; j< methods.length; j++, i++) {
+        for (int j=0; j< methods.length; j++) {
             analyzers[i] = new MethodAnalyzer(this, methods[j], env);
-            analyzers[i].analyze();
+            analyzers[i++].analyze();
         }
+	env.useClass(clazz);
+        if (clazz.getSuperclass() != null)
+            env.useClass(clazz.getSuperclass());
+        Class[] interfaces = clazz.getInterfaces();
+        for (int j=0; j< interfaces.length; j++)
+            env.useClass(interfaces[j]);
     }
 
-    public void dumpSource(TabbedPrintWriter writer) throws IOException
+    public void dumpSource(TabbedPrintWriter writer) throws java.io.IOException
     {
 //         if (cdef.getSource() != null)
 //             writer.println("/* Original source: "+cdef.getSource()+" */");
 
-        String modif = Modifier.toString(clazz.getModifiers());
+        String modif = Modifier.toString(clazz.getModifiers() 
+                                         & ~Modifier.SYNCHRONIZED);
         if (modif.length() > 0)
             writer.print(modif + " ");
-        writer.print((clazz.isInterface())?"interface ":"class ");
+        writer.print(clazz.isInterface() ? "interface " : "class ");
 	writer.println(env.classString(clazz));
 	writer.tab();
         Class superClazz = clazz.getSuperclass();
-	if (superClazz != null &&
-            superClazz != new Object().getClass()) {
+	if (superClazz != null && superClazz != Object.class) {
 	    writer.println("extends "+env.classString(superClazz));
         }
-        Class interfaces[] = clazz.getInterfaces();
+        Class[] interfaces = clazz.getInterfaces();
 	if (interfaces.length > 0) {
 	    writer.print("implements ");
 	    for (int i=0; i < interfaces.length; i++) {
@@ -190,5 +196,4 @@ public class ClassAnalyzer implements Analyzer {
         return type.toString() + " " + name;
     }
 }
-
 

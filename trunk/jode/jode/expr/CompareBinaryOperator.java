@@ -45,10 +45,8 @@ public class CompareBinaryOperator extends SimpleOperator {
 
     public void setOperandType(Type[] inputTypes) {
         super.setOperandType(inputTypes);
-        Type operandType = 
-	    Type.tSubType(Type.tSuperType(operandTypes[0])
-                          .intersection(Type.tSuperType(operandTypes[1])));
-        operandTypes[0] = operandTypes[1] = operandType;
+        operandTypes[0] = operandTypes[1] = 
+            operandTypes[0].intersection(operandTypes[1]);
     }
 
     public boolean equals(Object o) {
