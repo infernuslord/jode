@@ -59,6 +59,10 @@ public class ArrayType extends ReferenceType {
 	return tArray(elementType.getHint());
     }
     
+    public Type getCanonic() {
+	return tArray(elementType.getCanonic());
+    }
+    
     /**
      * Create the type corresponding to the range from bottomType to this.
      * @param bottomType the start point of the range
