@@ -3,7 +3,7 @@
 <head>
 <title>Java Optimize and Decompile Environment (JODE)</title>
 <meta name="robots" content="noindex">
-<meta name="date" content="1999-10-24">
+<meta name="date" content="2000-01-30">
 </head>
 
 <body>
@@ -25,10 +25,12 @@
 &nbsp;&nbsp;&nbsp;<a href="#cmdline">Command&nbsp;Line</a><br>
 &nbsp;&nbsp;&nbsp;<a href="#awt">AWT&nbsp;Interface</a><br>
 &nbsp;&nbsp;&nbsp;<a href="#swing">Swing&nbsp;Interface</a><br>
+&nbsp;&nbsp;&nbsp;<a href="#java">Java&nbsp;Interface</a><br>
 <a href="#optimizer">Obfuscator</a><br>
 </li><br>
 <li><a href="license.html">License</a></li>
 <li><a href="history.html">History</a></li>
+<li><a href="links.html">Links</a></li>
 <li><a href="bluesky.html">Blue Sky</a></li>
 </ul>
 </td>
@@ -48,6 +50,13 @@ set CLASSPATH=C:\download\jode-xxx.jar;C:\swing\swingall.jar
 or for csh:
 <pre>setenv CLASSPATH /tmp/jode-xxx.jar:/usr/local/swing/swingall.jar</pre>
 </ul>
+<br>
+There is also a batch file for windows and a script file for unix,
+that you can use.  Adapt the CLASSPATH in the file and put it to a
+convenient location.
+<pre>
+  jar -xvf jode-xxx.jar bin/jode.bat <i>resp.</i> bin/jode
+</pre>
 
 <a name="cmdline"><h3>Command Line Interface</h3></a>
 
@@ -66,7 +75,7 @@ The AWT Interface looks exactly like the <a
 href="applet.html">applet</a>.  In fact the applet uses the AWT
 Interface. You start it after setting the <tt>CLASSPATH</tt> (see <a
 href="#decompiler">above</a>), with
-<pre>java jode.JodeWindow</pre>
+<pre>java jode.decompiler.Window</pre>
 
 In the classpath line you can enter a number of jar files, zip files
 and directories separated by comma(<tt>,</tt>). Then enter the
@@ -78,7 +87,10 @@ appear.  You can save it via the <code>save</code> button.
 
 For the swing interface you need java version 1.2 or the separately
 available swing package (see <a href="download.html#swing">download
-page</a>. <br>
+page</a>.  You can invoke it like this:
+<pre>
+java jode.swingui.Main --classpath classes.jar
+</pre>
 
 The swing interface will show the package hierarchie of all classes
 in the classpath on the left side.  You can now select a class and the
@@ -86,20 +98,57 @@ decompiled code will appear on the right side.  Via the menu, you may
 change the classpath or switch between package hierarchie tree and
 class inheritence tree.<br>
 
-The swing interface is very nice, if you just want to work how
-something works, and you don't have the source code.  It is especially
-useful to trace bugs through library code.  It is not meant to
-generate <tt>java</tt> files and so you won't find a save option
-there.<br>
+The swing interface is very useful to browse through class files if
+you don't have the source code.  You can also use it to trace bugs in
+library code.  It is not meant to generate <tt>java</tt> files and so
+you won't find a save option there.<br>
+
+<a name="java"><h3>Java Interface</h3></a>
+
+If you want to integrate <i>JODE</i> into your own java program, you
+can use the <code>jode.decompiler.Decompile</code> class.  Note that
+the GPL only allows you to integrate <i>JODE</i> into GPL programs.
+Please contact me if, so I can put you on my <a href="links.html">link
+page</a> and keep you informed about new releases.<br>
+
+You may use this <a href="jode-embedded.jar">stripped down jar
+archive</a> containing all necessery classes.
 
 <a name="optimizer"><h1>Using the Obfuscator</h1>
 
-To use the obfuscator you have to create a script file, say <a
-href="myproject.jos"><tt>myproject.jos</tt></a>, with
-the following contents (You have to adapt it to match your project, of
-course).  It should contain the following options:
+To use the obfuscator you should first create a script file, say <a
+href="myproject.jos"><tt>myproject.jos</tt></a>.  Then you can invoke the
+obfuscator with:
+<pre>
+java jode.obfuscator.Main myproject.jos
+</pre>
 
-<p>First select what you want to strip.  There are several
+<p>The script file should contain the following options: </p>
+
+<p>First select the classpath.  You should include everything in the
+classpath that you need to run your application.  This also includes
+the system class files (Sun puts them into <code>classes.zip</code> or
+<code>rt.jar</code>))</p>
+<pre>
+classpath = "c:\\jdk1.2\\jre\\lib\\rt.jar","d:\\project\\java",
+     "ftp://www.myorg.org/pub/classlib.jar"
+</pre>
+
+<p>Specify where you want the obfuscated classes to go.  I recommend
+to write them directly into a zip file, but you can also give a
+directory.</p>
+<pre>
+dest = "obfuscated.zip"
+</pre>
+
+<p>You can make <i>JODE</i> write its translation table.  This table
+can be used later to undo the name obfuscation, or you can look there
+to decrypt exceptions you may get.</p>
+<pre>
+revtable = "translat.tbl"
+</pre>
+
+<p>Select what you want to strip.  There are several
 possibilities, which can be separated by comma(<tt>,</tt>):</p>
 <dl>
 <dt>unreach</dt>
@@ -117,8 +166,11 @@ possibilities, which can be separated by comma(<tt>,</tt>):</p>
 strip = "unreach","lvt","inner"
 </pre>
 
-<p>Select the packages and classes you want to obfuscate.  You
-should only include libraries, that you don't ship separately.</p>
+<p>Select the packages and classes you want to obfuscate.  You should
+only include libraries, that you don't ship separately.  If you give a
+package, all classes and subpackages are loaded.  You can also use
+<code>*</code> as wild card, that matches everything (including dots).
+</p>
 <pre>
 load = new WildCard { value = "org.myorg.myproject" },
        new WildCard { value = "org.myorg.mylib*" },
@@ -133,9 +185,9 @@ name and the type signature to identify your method.  <tt>javap
 -s</tt> will show you the type signatures for your classes, but you
 may also use <tt>*</tt>, to select all methods with that name.</p>
 <pre>
-preserve = new WildCard { value = "org.myorg.application.main.*" },
-           new WildCard { value = "org.myorg.applet.&lt;init&gt;.()V" },
-           new WildCard { value = "org.resources.bundle*.&lt;init&gt;.()V" }
+preserve = new WildCard { value = "org.myorg.ApplicationClass.main.*" },
+           new WildCard { value = "org.myorg.AppletClass.&lt;init&gt;.()V" },
+           new WildCard { value = "org.resources.Bundle*.&lt;init&gt;.()V" },
 </pre>
 
 <p>If you want to obfuscate (or just shorten) the identifier you can
@@ -153,12 +205,21 @@ option that is not very strong, but very confusing.</dd>
 <dt>KeywordRenamer</dt>
 <dd>Renames identifiers to keyword.  You can give your own list of
 keywords as parameters.  Resulting code is not decompilable directly,
-but it is legal bytecode.</dd>
+<b>but it is <i>not</i> legal bytecode either</b>.  Some paranoid
+web browsers refuse to run applets containing keywords as identifiers
+(and they are completely within the Java VM spec).</dd>
 </dl>
 <pre>
-renamer = new KeywordRenamer
+renamer = new StrongRenamer
 </pre>
 
+<p>You can also create a renaming table with the same format as the
+table written by revtable.  The entries in the table get precedence
+over renamer.  Entries not in the table will get renamed by the
+renamer.<p>
+<pre>
+table = "translat.tbl"
+</pre>
 
 <p>Now you can select the analyzer.  The purpose of the
 analyzer is to mark all reachable methods, find out which methods
@@ -168,22 +229,26 @@ for <tt>Enumeration</tt>s). There are currently two analyzers.
 <dl><dt>SimpleAnalyzer</dt>
 <dd>Straight forward analyzer.  It is fast and will remove dead code
 on method basis.</dd>
-<dd><dt>ConstantAnalyzer</dt>
 
+<dd><dt>ConstantAnalyzer</dt>
 <dd>Strong analyzer that will determine, which fields and instructions
 have constant values.  It will remove dead code on instruction basis
-and replace constant instruction with a load constant, or remove them
-completely.<br> This analyzer is especially useful to revert Zelix
-Klassmaster's flow obfuscation.</dd>
+and replace constant instruction with a load of the constant, or
+remove them completely.<br> This analyzer is especially useful to
+revert the flow obfuscation of some other obfuscators.</dd>
 </dl>
 </p>
 <pre>
-analyzer = new SimpleAnalyzer
+analyzer = new ConstantAnalyzer
 </pre>
 
 <p>Pre- and Post transformers transform the bytecode before
-resp. after the Analyzer runs.  Using this defaults should be
-okay.</p>
+resp. after the Analyzer runs.  Using this default should be okay.
+You may remove the LocalOptimizer, though, if you have problems.</p>
+<p>In the future I may add some new post transformers, that do string
+encryption, flow obfuscation and similar things.  If you want to write
+your own Transformers please contact me, since the next version will
+change the bytecode interface.</p>
 <pre>
 post = new LocalOptimizer, new RemovePopAnalyzer
 </pre>
@@ -195,8 +260,7 @@ post = new LocalOptimizer, new RemovePopAnalyzer
 
 <p><A HREF="mailto:Jochen.Hoenicke@Informatik.Uni-Oldenburg.DE">
 http://www.informatik.uni-oldenburg.de/~delwi/jode/usage.html</A>, last
-updated on <em>24-Okt-1999</em>.</p>
+updated on <em>30-Jan-2000</em>.</p>
 
 </body>
 </html>
-
