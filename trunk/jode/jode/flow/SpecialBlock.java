@@ -146,6 +146,9 @@ public class SpecialBlock extends StructuredBlock {
         if (last.outer instanceof SequentialBlock
 	    && last.outer.getSubBlocks()[0] instanceof InstructionBlock) {
 
+	    if (jump != null && jump.destination == null)
+		return false;
+
             InstructionBlock prev
                 = (InstructionBlock) last.outer.getSubBlocks()[0];
 	    Expression instr = prev.getInstruction();
@@ -193,9 +196,8 @@ public class SpecialBlock extends StructuredBlock {
 			(new CompareBinaryOperator(instr.getType(), 
 						   Operator.EQUALS_OP), 
 			 new Expression[] { previnstr, instr });
-		    ConditionalBlock newIfThen = new ConditionalBlock(newCond);
-		    newIfThen.moveDefinitions(last.outer.outer, newIfThen);
-		    newIfThen.trueBlock.copyJump(jump);
+		    IfThenElseBlock newIfThen = new IfThenElseBlock(newCond);
+		    newIfThen.setThenBlock(new EmptyBlock());
 		    newIfThen.moveJump(jump);
 		    if (this == last) {
 			newIfThen.replace(last.outer.outer);

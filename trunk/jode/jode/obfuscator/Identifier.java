@@ -70,6 +70,8 @@ public abstract class Identifier {
      * You shouldn't call this directly, but use setReachable instead.
      */
     protected void setSingleReachable() {
+	if (getParent() != null)
+	    getParent().setReachable();
     }
 
     /**
@@ -178,17 +180,17 @@ public abstract class Identifier {
 				}
 				newAlias.setCharAt(pos, '0');
 			    } else {
-				while (c++ < Character.MAX_VALUE) {
-				    if (Character.isUnicodeIdentifierPart(c)) {
+				while (c++ < 255) {
+				    if (Character.isJavaIdentifierPart(c)) {
 					newAlias.setCharAt(pos, c);
 					break okay;
 				    }
 				}
-				newAlias.setCharAt(pos, '!');
+				newAlias.setCharAt(pos, '0');
 			    }
 			}
 			newAlias.insert(0, renameRule == Obfuscator.RENAME_WEAK
-					? 'A': '!');
+					? 'A': '0');
 		    } while (false);
 		    Identifier ptr = this;
 		    while (ptr != null) {
@@ -208,6 +210,7 @@ public abstract class Identifier {
 	    out.println("" + getFullAlias() + " = " + getName());
     }
 
+    public abstract Identifier getParent();
     public abstract String getName();
     public abstract String getType();
     public abstract String getFullName();

@@ -17,7 +17,8 @@
  * $Id$
  */
 package jode.obfuscator;
-import jode.bytecode.FieldInfo;
+import jode.bytecode.*;
+import java.io.*;
 
 public class FieldIdentifier extends Identifier{
     FieldInfo info;
@@ -27,6 +28,21 @@ public class FieldIdentifier extends Identifier{
 	super(info.getName());
 	this.info = info;
 	this.clazz = clazz;
+    }
+
+    public void setSingleReachable() {
+	super.setSingleReachable();
+	String type = getType();
+	int index = type.indexOf('L');
+	if (index != -1) {
+	    int end = type.indexOf(';', index);
+	    clazz.bundle.reachableIdentifier(type.substring(index+1, end)
+					     , false);
+	}
+    }
+
+    public Identifier getParent() {
+	return clazz;
     }
 
     public String getFullName() {
@@ -50,7 +66,44 @@ public class FieldIdentifier extends Identifier{
     }
 
     public boolean conflicting(String newAlias) {
-	return clazz.containsField(newAlias)
-	    || clazz.containsMethod(newAlias, "");
+	return clazz.containFieldAlias(newAlias, "")
+	    || (clazz.getMethod(newAlias, "") != null);
+    }
+
+    int nameIndex;
+    int descriptorIndex;
+    int constvalIndex;
+    int constvalcontentIndex;
+
+    public void fillConstantPool(GrowableConstantPool gcp) 
+	throws ClassFormatException {
+	nameIndex = gcp.putUTF(getAlias());
+	descriptorIndex = gcp.putUTF(clazz.bundle.getTypeAlias(getType()));
+	constvalIndex = 0;
+        AttributeInfo attribute = info.findAttribute("ConstantValue");
+	if (attribute != null) {
+	    byte[] contents = attribute.getContents();
+	    if (contents.length != 2)
+		throw new ClassFormatError("ConstantValue attribute"
+					   + " has wrong length");
+	    int index = (contents[0] & 0xff) << 8 | (contents[1] & 0xff);
+	    constvalIndex = gcp.putUTF("ConstantValue");
+	    constvalcontentIndex = 
+		gcp.copyConstant(clazz.info.getConstantPool(), index);
+	}
+    }
+
+    public void write(DataOutputStream out) throws IOException {
+	out.writeShort(info.getModifiers());
+	out.writeShort(nameIndex);
+	out.writeShort(descriptorIndex);
+	if (constvalIndex != 0) {
+	    out.writeShort(1); // number of Attributes
+	    out.writeShort(constvalIndex);
+	    out.writeInt(2);   // length of Attribute
+	    out.writeShort(constvalcontentIndex);
+	} else
+	    out.writeShort(0);
     }
 }
+

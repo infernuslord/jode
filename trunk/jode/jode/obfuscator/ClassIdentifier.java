@@ -19,9 +19,7 @@
 
 package jode.obfuscator;
 import jode.Obfuscator;
-import jode.bytecode.ClassInfo;
-import jode.bytecode.FieldInfo;
-import jode.bytecode.MethodInfo;
+import jode.bytecode.*;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.io.*;
@@ -31,8 +29,13 @@ public class ClassIdentifier extends Identifier {
     PackageIdentifier pack;
     String name;
     ClassInfo info;
+    boolean willStrip;
 
     int preserveRule;
+    int fieldCount;
+    /* The first fieldCount are of type FieldIdentifier, the remaining
+     * are MethodIdentifier
+     */
     Identifier[] identifiers;
     Vector knownSubClasses = new Vector();
     Vector virtualReachables = new Vector();
@@ -65,7 +68,7 @@ public class ClassIdentifier extends Identifier {
 	for (int i=0; i< identifiers.length; i++) {
 	    if (identifiers[i].getName().equals(name)
 		&& (typeSig == null
-		    || identifiers[i] .getType().equals(typeSig)))
+		    || identifiers[i].getType().equals(typeSig)))
 		identifiers[i].setPreserved();
 	}
     }
@@ -115,21 +118,20 @@ public class ClassIdentifier extends Identifier {
 	    ClassIdentifier superident = (ClassIdentifier)
 		bundle.getIdentifier(superclass.getName());
 	    if (superident != null) {
-		for (int i=0; i < superident.identifiers.length; i++)
-		    if (superident.identifiers[i] 
-			instanceof MethodIdentifier) {
-			MethodIdentifier mid = (MethodIdentifier) 
-			    superident.identifiers[i];
-			// all virtual methods in superclass must be chained.
-			int modif = mid.info.getModifiers();
-			if (((Modifier.PRIVATE 
-			      | Modifier.STATIC
-			      | Modifier.FINAL) & modif) == 0
-			    && !(mid.getName().equals("<init>"))) {
-			    // chain the preserved/same name lists.
-			    chainIdentifier(superident.identifiers[i]);
-			}
+		for (int i=superident.fieldCount;
+		     i < superident.identifiers.length; i++) {
+		    MethodIdentifier mid = (MethodIdentifier) 
+			superident.identifiers[i];
+		    // all virtual methods in superclass must be chained.
+		    int modif = mid.info.getModifiers();
+		    if (((Modifier.PRIVATE 
+			  | Modifier.STATIC
+			  | Modifier.FINAL) & modif) == 0
+			&& !(mid.getName().equals("<init>"))) {
+			// chain the preserved/same name lists.
+			chainIdentifier(superident.identifiers[i]);
 		    }
+		}
 	    } else {
 		// all methods and fields in superclass are preserved!
 		MethodInfo[] topmethods = superclass.getMethods();
@@ -159,15 +161,20 @@ public class ClassIdentifier extends Identifier {
     }
 
     public void setSingleReachable() {
-	info.loadInfo(info.FULLINFO);
-
+	super.setSingleReachable();
 	if (Obfuscator.isVerbose)
-	    Obfuscator.err.println(this);
+	    Obfuscator.err.println("Reachable: "+this);
+	reachableIdentifier("<clinit>", "()V", false);
+    }
+
+    public void initClass() {
+	info.loadInfo(info.FULLINFO);
 
 	FieldInfo[] finfos   = info.getFields();
 	MethodInfo[] minfos  = info.getMethods();
+	fieldCount = finfos.length;
 	identifiers = new Identifier[finfos.length + minfos.length];
-	for (int i=0; i< finfos.length; i++) {
+	for (int i=0; i< fieldCount; i++) {
 	    identifiers[i] = new FieldIdentifier(this, finfos[i]);
 	    if ((preserveRule & (finfos[i].getModifiers() ^ Modifier.PRIVATE))
 		!= 0) {
@@ -176,7 +183,7 @@ public class ClassIdentifier extends Identifier {
 	    }
 	}
 	for (int i=0; i< minfos.length; i++) {
-	    identifiers[finfos.length + i]
+	    identifiers[fieldCount + i]
 		= new MethodIdentifier(this, minfos[i]);
 	    if ((preserveRule & (minfos[i].getModifiers() ^ Modifier.PRIVATE))
 		!= 0) {
@@ -192,7 +199,6 @@ public class ClassIdentifier extends Identifier {
 	    ClassIdentifier ifaceident = (ClassIdentifier)
 		bundle.getIdentifier(ifaces[i].getName());
 	    if (ifaceident != null) {
-		ifaceident.setReachable();
 		ifaceident.addSubClass(this);
 	    }
 	    initSuperClasses(ifaces[i]);
@@ -202,49 +208,152 @@ public class ClassIdentifier extends Identifier {
 	    ClassIdentifier superident = (ClassIdentifier)
 		bundle.getIdentifier(info.getSuperclass().getName());
 	    if (superident != null) {
-		superident.setReachable();
 		superident.addSubClass(this);
 	    }
 	    initSuperClasses(info.getSuperclass());
 	}
 	preserveIdentifier("<clinit>", "()V");
+	preserveIdentifier("<init>", null);
     }
 
     public void strip() {
-	int newLength = 0;
-	for (int i=0; i < identifiers.length; i++) {
-	    if (identifiers[i].isReachable())
-		newLength++;
-	    else {
-		if (Obfuscator.isDebugging)
+	willStrip = true;
+	if (Obfuscator.isDebugging) {
+	    for (int i=0; i < identifiers.length; i++) {
+		if (!identifiers[i].isReachable())
 		    Obfuscator.err.println(identifiers[i].toString()
 					   + " is stripped");
 	    }
 	}
-	Identifier[] newIdents = new Identifier[newLength];
-	int index = 0;
-	for (int i=0; i < identifiers.length; i++) {
-	    if (identifiers[i].isReachable())
-		newIdents[index++] = identifiers[i];
-	}
-	identifiers = newIdents;
     }
 
     public void buildTable(int renameRule) {
 	super.buildTable(renameRule);
 	for (int i=0; i < identifiers.length; i++)
-	    identifiers[i].buildTable(renameRule);
+	    if (!willStrip || identifiers[i].isReachable())
+		identifiers[i].buildTable(renameRule);
     }
 
     public void writeTable(PrintWriter out) throws IOException {
 	if (getName() != getAlias())
 	    out.println("" + getFullAlias() + " = " + getName());
 	for (int i=0; i < identifiers.length; i++)
-	    identifiers[i].writeTable(out);
+	    if (!willStrip || identifiers[i].isReachable())
+		identifiers[i].writeTable(out);
     }
 
-    public void storeClass(OutputStream out) throws IOException {
-	/*XXX*/
+    public void addIfaces(Vector result, ClassInfo[] ifaces) {
+	for (int i=0; i < ifaces.length; i++) {
+	    ClassIdentifier ifaceident = (ClassIdentifier)
+		bundle.getIdentifier(ifaces[i].getName());
+	    if (ifaceident != null) {
+		if (ifaceident.isReachable())
+		    result.addElement(ifaceident.getFullAlias());
+		else
+		    addIfaces(result, ifaceident.info.getInterfaces());
+	    } else
+		result.addElement(ifaces[i].getName());
+	}
+    }
+
+    /**
+     * Generates the new super class and interfaces, removing super
+     * classes and interfaces that are not reachable.
+     * @return an array of class names (full qualified, dot separated)
+     * where the first entry is the super class (may be null) and the
+     * other entries are the interfaces.
+     */
+    public String[] getSuperIfaces() {
+	/* First generate Ifaces and superclass infos */
+	Vector newSuperIfaces = new Vector();
+	addIfaces(newSuperIfaces, info.getInterfaces());
+	String superName = null;
+	ClassInfo superClass = info.getSuperclass();
+	while (superClass != null) {
+	    ClassIdentifier superident = (ClassIdentifier)
+		bundle.getIdentifier(superClass.getName());
+	    if (superident != null) {
+		if (superident.isReachable()) {
+		    superName = superident.getFullAlias();
+		    break;
+		} else {
+		    addIfaces(newSuperIfaces, superClass.getInterfaces());
+		    superClass = superClass.getSuperclass();
+		}
+	    } else {
+		superName = superClass.getName();
+		break;
+	    }
+	}
+	newSuperIfaces.insertElementAt(superName, 0);
+	String[] result = new String[newSuperIfaces.size()];
+	newSuperIfaces.copyInto(result);
+	return result;
+    }
+
+    public void storeClass(DataOutputStream out) throws IOException {
+	GrowableConstantPool gcp = new GrowableConstantPool();
+
+	for (int i=fieldCount; i < identifiers.length; i++)
+	    if (!willStrip || identifiers[i].isReachable())
+		((MethodIdentifier)identifiers[i]).reserveSmallConstants(gcp);
+
+	int[] hierarchyInts;
+	{
+	    String[] hierarchy = getSuperIfaces();
+	    hierarchyInts = new int[hierarchy.length];   
+	    for (int i=0; i< hierarchy.length; i++) {
+		if (hierarchy[i] != null)
+		    hierarchyInts[i] = gcp.putClassRef(hierarchy[i]);
+		else
+		    hierarchyInts[i] = 0;
+	    }
+	    hierarchy = null;
+	}
+	int nameIndex = gcp.putClassRef(getFullAlias());
+
+	int fields = 0;
+	int methods = 0;
+
+	for (int i=0; i<fieldCount; i++) {
+	    if (!willStrip || identifiers[i].isReachable()) {
+		((FieldIdentifier)identifiers[i]).fillConstantPool(gcp);
+		fields++;
+	    }
+	}
+	for (int i=fieldCount; i < identifiers.length; i++) {
+	    if (!willStrip || identifiers[i].isReachable()) {
+		((MethodIdentifier)identifiers[i]).fillConstantPool(gcp);
+		methods++;
+	    }
+	}
+
+	out.writeInt(0xcafebabe);
+	out.writeShort(3);
+	out.writeShort(45);
+	gcp.write(out);
+
+	out.writeShort(info.getModifiers());
+	out.writeShort(nameIndex);
+	out.writeShort(hierarchyInts[0]);
+	out.writeShort(hierarchyInts.length-1);
+	for (int i=1; i<hierarchyInts.length; i++)
+	    out.writeShort(hierarchyInts[i]);
+	
+	out.writeShort(fields);
+	for (int i=0; i<fieldCount; i++)
+	    if (!willStrip || identifiers[i].isReachable())
+		((FieldIdentifier)identifiers[i]).write(out);
+	out.writeShort(methods);
+	for (int i=fieldCount; i < identifiers.length; i++)
+	    if (!willStrip || identifiers[i].isReachable())
+		((MethodIdentifier)identifiers[i]).write(out);
+
+	out.writeShort(0); // no attributes;
+    }
+
+    public Identifier getParent() {
+	return pack;
     }
 
     /**
@@ -273,42 +382,78 @@ public class ClassIdentifier extends Identifier {
 	return "ClassIdentifier "+getFullName();
     }
 
-    public static boolean containsField(ClassInfo clazz, String newAlias) {
+    public Identifier getIdentifier(String fieldName, String typeSig) {
+	for (int i=0; i < identifiers.length; i++) {
+	    if (identifiers[i].getName().equals(fieldName)
+		&& identifiers[i].getType().startsWith(typeSig))
+		return identifiers[i];
+	}
+	
+	ClassInfo[] ifaces = info.getInterfaces();
+	for (int i=0; i < ifaces.length; i++) {
+	    ClassIdentifier ifaceident = (ClassIdentifier)
+		bundle.getIdentifier(ifaces[i].getName());
+	    if (ifaceident != null) {
+		Identifier ident
+		    = ifaceident.getIdentifier(fieldName, typeSig);
+		if (ident != null)
+		    return ident;
+	    }
+	}
+
+	if (info.getSuperclass() != null) {
+	    ClassIdentifier superident = (ClassIdentifier)
+		bundle.getIdentifier(info.getSuperclass().getName());
+	    if (superident != null) {
+		Identifier ident 
+		    = superident.getIdentifier(fieldName, typeSig);
+		if (ident != null)
+		    return ident;
+	    }
+	}
+	return null;
+    }
+
+    public static boolean containFieldAlias(ClassInfo clazz, 
+					    String fieldName, String typeSig) {
 	FieldInfo[] finfos = clazz.getFields();
 	for (int i=0; i< finfos.length; i++) {
-	    if (finfos[i].getName().equals(newAlias))
+	    if (finfos[i].getName().equals(fieldName)
+		&& finfos[i].getType().getTypeSignature().startsWith(typeSig))
 		return true;
 	}
 	
 	ClassInfo[] ifaces = clazz.getInterfaces();
 	for (int i=0; i < ifaces.length; i++) {
-	    if (containsField(ifaces[i], newAlias))
+	    if (containFieldAlias(ifaces[i], fieldName, typeSig))
 		return true;
 	}
 
 	if (clazz.getSuperclass() != null) {
-	    if (containsField(clazz.getSuperclass(), newAlias))
+	    if (containFieldAlias(clazz.getSuperclass(),
+				  fieldName, typeSig))
 		return true;
 	}
 	return false;
     }
 
-    public boolean containsField(String newAlias) {
-	for (int i=0; i< identifiers.length; i++) {
-	    if (identifiers[i] instanceof FieldIdentifier
-		&& identifiers[i].getAlias().equals(newAlias))
+    public boolean containFieldAlias(String fieldName, String typeSig) {
+	for (int i=0; i < fieldCount; i++) {
+	    if ((!willStrip || identifiers[i].isReachable())
+		&& identifiers[i].getAlias().equals(fieldName)
+		&& identifiers[i].getType().startsWith(typeSig))
 		return true;
 	}
-
+	
 	ClassInfo[] ifaces = info.getInterfaces();
 	for (int i=0; i < ifaces.length; i++) {
 	    ClassIdentifier ifaceident = (ClassIdentifier)
 		bundle.getIdentifier(ifaces[i].getName());
 	    if (ifaceident != null) {
-		if (ifaceident.containsField(newAlias))
+		if (ifaceident.containFieldAlias(fieldName, typeSig))
 		    return true;
 	    } else {
-		if (containsField(ifaces[i], newAlias))
+		if (containFieldAlias(ifaces[i], fieldName, typeSig))
 		    return true;
 	    }
 	}
@@ -317,45 +462,49 @@ public class ClassIdentifier extends Identifier {
 	    ClassIdentifier superident = (ClassIdentifier)
 		bundle.getIdentifier(info.getSuperclass().getName());
 	    if (superident != null) {
-		if (superident.containsField(newAlias))
+		if (superident.containFieldAlias(fieldName, typeSig))
 		    return true;
 	    } else {
-		if (containsField(info.getSuperclass(), newAlias))
+		if (containFieldAlias(info.getSuperclass(), 
+				      fieldName, typeSig))
 		    return true;
 	    }
 	}
 	return false;
     }
 
-    public static boolean containsMethod(ClassInfo clazz, 
-					 String newAlias, String paramType) {
+    public static Object getMethod(ClassInfo clazz, 
+				    String methodName, String paramType) {
 	MethodInfo[] minfos = clazz.getMethods();
 	for (int i=0; i< minfos.length; i++) {
-	    if (minfos[i].getName().equals(newAlias)
+	    if (minfos[i].getName().equals(methodName)
 		&& minfos[i].getType().getTypeSignature()
 		.startsWith(paramType))
-		return true;
+		return minfos[i];
 	}
 	
 	ClassInfo[] ifaces = clazz.getInterfaces();
 	for (int i=0; i < ifaces.length; i++) {
-	    if (containsMethod(ifaces[i], newAlias, paramType))
-		return true;
+	    Object result = getMethod(ifaces[i], methodName, paramType);
+	    if (result != null)
+		return result;
 	}
 
 	if (clazz.getSuperclass() != null) {
-	    if (containsMethod(clazz.getSuperclass(), newAlias, paramType))
-		return true;
+	    Object result = getMethod(clazz.getSuperclass(),
+				      methodName, paramType);
+	    if (result != null)
+		return result;
 	}
-	return false;
+	return null;
     }
 
-    public boolean containsMethod(String newAlias, String paramType) {
-	for (int i=0; i< identifiers.length; i++) {
-	    if (identifiers[i] instanceof MethodIdentifier
-		&& identifiers[i].getAlias().equals(newAlias)
+    public Object getMethod(String methodName, String paramType) {
+	for (int i=fieldCount; i< identifiers.length; i++) {
+	    if ((!willStrip || identifiers[i].isReachable())
+		&& identifiers[i].getAlias().equals(methodName)
 		&& identifiers[i].getType().startsWith(paramType))
-		return true;
+		return identifiers[i];
 	}
 	
 	ClassInfo[] ifaces = info.getInterfaces();
@@ -363,11 +512,13 @@ public class ClassIdentifier extends Identifier {
 	    ClassIdentifier ifaceident = (ClassIdentifier)
 		bundle.getIdentifier(ifaces[i].getName());
 	    if (ifaceident != null) {
-		if (ifaceident.containsMethod(newAlias, paramType))
-		    return true;
+		Object result = ifaceident.getMethod(methodName, paramType);
+		if (result != null)
+		    return result;
 	    } else {
-		if (containsMethod(ifaces[i], newAlias, paramType))
-		    return true;
+		Object result = getMethod(ifaces[i], methodName, paramType);
+		if (result != null)
+		    return result;
 	    }
 	}
 
@@ -375,17 +526,21 @@ public class ClassIdentifier extends Identifier {
 	    ClassIdentifier superident = (ClassIdentifier)
 		bundle.getIdentifier(info.getSuperclass().getName());
 	    if (superident != null) {
-		if (superident.containsMethod(newAlias, paramType))
-		    return true;
+		Object result = superident.getMethod(methodName, paramType);
+		if (result != null)
+		    return result;
 	    } else {
-		if (containsMethod(info.getSuperclass(), newAlias, paramType))
-		    return true;
+		Object result = getMethod(info.getSuperclass(), 
+					  methodName, paramType);
+		if (result != null)
+		    return result;
 	    }
 	}
-	return false;
+	return null;
     }
 
     public boolean conflicting(String newAlias) {
 	return pack.contains(newAlias);
     }
 }
+

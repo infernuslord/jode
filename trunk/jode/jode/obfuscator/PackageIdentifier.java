@@ -31,6 +31,7 @@ public class PackageIdentifier extends Identifier {
     PackageIdentifier parent;
     String name;
 
+    boolean willStrip = false;
     boolean loadOnDemand;
     Hashtable loadedClasses;
 
@@ -70,14 +71,16 @@ public class PackageIdentifier extends Identifier {
 		String fullname = getFullName() + name;
 		if (ClassInfo.isPackage(fullname)) {
 		    ident = new PackageIdentifier(bundle, this, name, true);
+		    loadedClasses.put(name, ident);
 		} else if (!ClassInfo.exists(fullname)) {
 		    throw new IllegalArgumentException
 			("Can't find class"+fullname);
 		} else {
 		    ident = new ClassIdentifier(bundle, this, name, 
 						ClassInfo.forName(fullname));
+		    loadedClasses.put(name, ident);
+		    ((ClassIdentifier) ident).initClass();
 		}
-		loadedClasses.put(name, ident);
 	    }
 	    return ident;
 	} else {
@@ -121,7 +124,6 @@ public class PackageIdentifier extends Identifier {
 	if (ident == null)
 	    return;
 
-	ident.setReachable();
 	if (index == -1)
 	    return;
 
@@ -210,12 +212,11 @@ public class PackageIdentifier extends Identifier {
     }
 
     public void strip() {
-	Hashtable ht = new Hashtable();
+	willStrip = true;
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
 	    if (ident.isReachable()) {
-		ht.put(ident.getName(), ident);
 		if (ident instanceof ClassIdentifier) {
 		    ((ClassIdentifier) ident).strip();
 		} else
@@ -227,7 +228,6 @@ public class PackageIdentifier extends Identifier {
 					   + " is not reachable");
 	    }
 	}
-	loadedClasses = ht;
     }
 
     public void buildTable(int renameRule) {
@@ -248,8 +248,14 @@ public class PackageIdentifier extends Identifier {
 			+ " = " + getName());
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
-	    ((Identifier)enum.nextElement()).writeTable(out);
+	    Identifier ident = (Identifier) enum.nextElement();
+	    if (!willStrip || ident.isReachable())
+		ident.writeTable(out);
 	}
+    }
+
+    public Identifier getParent() {
+	return parent;
     }
 
     public String getName() {
@@ -262,16 +268,30 @@ public class PackageIdentifier extends Identifier {
 
     public void storeClasses(File destination) {
 	File newDest = (parent == null) ? destination 
-	    : new File(destination, getName());
+	    : new File(destination, getAlias());
+	if (!newDest.exists() && !newDest.mkdir()) {
+	    Obfuscator.err.println("Could not create directory "
+				   +newDest.getPath()+", check permissions.");
+	}
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
+	    if (willStrip && !ident.isReachable())
+		continue;
 	    if (ident instanceof PackageIdentifier)
 		((PackageIdentifier) ident)
 		    .storeClasses(newDest);
 	    else {
 		try {
-		    ((ClassIdentifier) ident).storeClass(null);
+		    File file = new File(newDest, ident.getAlias()+".class");
+		    if (file.exists()) {
+			Obfuscator.err.println
+			    ("Refuse to overwrite existing class file "
+			     +file.getPath()+".  Remove it first.");
+		    }
+		    DataOutputStream out = new DataOutputStream
+			(new FileOutputStream(file));
+		    ((ClassIdentifier) ident).storeClass(out);
 		} catch (java.io.IOException ex) {
 		    Obfuscator.err.println("Can't write Class "
 					   + ident.getName());
