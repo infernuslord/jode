@@ -76,4 +76,11 @@ public class ConditionalBlock extends InstructionContainer {
         trueBlock.dumpSource(writer);
         writer.untab();
     }
+
+    public boolean doTransformations() {
+        StructuredBlock last =  flowBlock.lastModified;
+        return super.doTransformations()
+            || CombineIfGotoExpressions.transform(this, last)
+            || CreateIfThenElseOperator.createFunny(this, last);
+    }
 }

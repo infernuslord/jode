@@ -24,13 +24,14 @@ import jode.ComplexExpression;
 import jode.ConstructorOperator;
 import jode.NewOperator;
 
-public class CreateNewConstructor implements Transformation{
+public class CreateNewConstructor {
 
-    public boolean transform(FlowBlock flow) {
+    public static boolean transform(InstructionContainer ic,
+                                    StructuredBlock last) {
         /* Situation:
          *
          *  new <object>
-         *  DUP
+         *  (optional DUP)
          *  PUSH load_ops
          *  optionally:  <= used for "string1 += string2"
          *      DUP_X2
@@ -43,23 +44,21 @@ public class CreateNewConstructor implements Transformation{
          *  optionally:
          *      DUP_X1      <= remove the depth
          *  [ n non void + some void expressions ]
-         *  PUSH new <object>(stack_n-1,...,stack_0)
+         *  (optional PUSH) new <object>(stack_n-1,...,stack_0)
          */
 
-        if (!(flow.lastModified instanceof InstructionBlock)
-            || !(flow.lastModified.outer instanceof SequentialBlock))
+        if (!(last.outer instanceof SequentialBlock))
             return false;
-        InstructionBlock block = (InstructionBlock) flow.lastModified;
-        if (!(block.getInstruction() instanceof InvokeOperator))
+        if (!(ic.getInstruction() instanceof InvokeOperator))
             return false;
-        InvokeOperator constrCall = (InvokeOperator) block.getInstruction();
+        InvokeOperator constrCall = (InvokeOperator) ic.getInstruction();
         if (!constrCall.isConstructor())
             return false;
 
         /* The rest should probably succeed */
         int params = constrCall.getOperandCount() - 1;
-        SpecialBlock optDup = null;
-        SequentialBlock sequBlock = (SequentialBlock) block.outer;
+        SpecialBlock optDupX2 = null;
+        SequentialBlock sequBlock = (SequentialBlock) last.outer;
         while (params > 0) {
             if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
                 return false;
@@ -74,11 +73,11 @@ public class CreateNewConstructor implements Transformation{
                     instanceof SpecialBlock) {
                     /* handle the optional dup */
                     sequBlock = (SequentialBlock) sequBlock.outer;
-                    optDup = (SpecialBlock) sequBlock.subBlocks[0];
-                    if (optDup.type != SpecialBlock.DUP
-                        || optDup.depth != 2)
+                    optDupX2 = (SpecialBlock) sequBlock.subBlocks[0];
+                    if (optDupX2.type != SpecialBlock.DUP
+                        || optDupX2.depth != 2)
                         return false;
-                    params = optDup.count;
+                    params = optDupX2.count;
                 } else
                     return false;
             }
@@ -93,34 +92,36 @@ public class CreateNewConstructor implements Transformation{
                && sequBlock.outer instanceof SequentialBlock)
             sequBlock = (SequentialBlock) sequBlock.outer;
                
+        SpecialBlock dup = null;
         if (sequBlock.outer instanceof SequentialBlock
             && sequBlock.subBlocks[0] instanceof SpecialBlock) {
-            SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
+
+            dup = (SpecialBlock) sequBlock.subBlocks[0];
             if (dup.type != SpecialBlock.DUP 
                 || dup.count != 1 || dup.depth != 0)
                 return false;
-
             sequBlock = (SequentialBlock)sequBlock.outer;
-            if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
-                return false;
-            block = (InstructionBlock) sequBlock.subBlocks[0];
-            if (!(block.getInstruction() instanceof NewOperator))
-                return false;
-
-            NewOperator op = (NewOperator) block.getInstruction();
-            if (constrCall.getClassType() != op.getType())
-                return false;
-
-            block.removeBlock();
-            dup.removeBlock();
-            if (optDup != null)
-                optDup.depth = 0;
-            ((InstructionContainer) flow.lastModified).setInstruction
-                (new ConstructorOperator(constrCall.getClassType(), 
-                                         constrCall.getMethodType()));
-            return true;
         }
-        return false;
+
+        if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
+            return false;
+        InstructionBlock block = (InstructionBlock) sequBlock.subBlocks[0];
+        if (!(block.getInstruction() instanceof NewOperator))
+            return false;
+        
+        NewOperator op = (NewOperator) block.getInstruction();
+        if (constrCall.getClassType() != op.getType())
+            return false;
+        
+        block.removeBlock();
+        if (dup != null)
+            dup.removeBlock();
+        if (optDupX2 != null)
+            optDupX2.depth = 0;
+        ic.setInstruction(new ConstructorOperator(constrCall.getClassType(), 
+                                                  constrCall.getMethodType(),
+                                                  dup == null));
+        return true;
     }
 }
 

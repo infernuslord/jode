@@ -56,6 +56,16 @@ public abstract class InstructionContainer extends StructuredBlock {
         }
     }
 
+    public boolean doTransformations() {
+        StructuredBlock last = flowBlock.lastModified;
+        return CreateNewConstructor.transform(this, last)
+            || CreateExpression.transform(this, last)
+            || CreatePrePostIncExpression.transform(this, last)
+            || CreateAssignExpression.transform(this, last)
+            || CreateIfThenElseOperator.create(this, last)
+            || CreateConstantArray.transform(this, last);
+    }
+
     /**
      * Get the contained instruction.
      * @return the contained instruction.

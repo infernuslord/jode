@@ -191,7 +191,7 @@ public abstract class StructuredBlock {
     /** 
      * Removes the jump.  This does not update the successors vector
      * of the flow block, you have to do it yourself.  */
-    public void removeJump() {
+    public final void removeJump() {
         if (jump != null) {
             jump.prev = null;
             jump = null;
@@ -208,21 +208,15 @@ public abstract class StructuredBlock {
      * will be moved to this block (may be this).  
      */
     void moveDefinitions(StructuredBlock from, StructuredBlock sub) {
-        if (from != sub && from != this) {
-            /* define(...) will not move from blocks, that are not sub blocks,
-             * so we do it by hand.
-             */
-            java.util.Enumeration enum = from.used.elements();
-            while (enum.hasMoreElements()) {
-                LocalInfo var = 
-                    ((LocalInfo) enum.nextElement()).getLocalInfo();
-                if (!used.contains(var))
-                    used.addElement(var);
-            }
+        while (from != sub && from != this) {
+            used.unionExact(from.used);
             from.used.removeAllElements();
             StructuredBlock[] subs = from.getSubBlocks();
-            for (int i=0; i<subs.length; i++)
+            if (subs.length == 0)
+                return;
+            for (int i=0; i<subs.length - 1; i++)
                 moveDefinitions(subs[i], sub);
+            from = subs[subs.length-1];
         }
     }
 
@@ -282,11 +276,16 @@ public abstract class StructuredBlock {
      * @return the new combined block.
      */
     public StructuredBlock appendBlock(StructuredBlock block) {
-	SequentialBlock sequBlock = new SequentialBlock();
-	sequBlock.replace(this);
-	sequBlock.setFirst(this);
-	sequBlock.setSecond(block);
-	return sequBlock;
+        if (block instanceof EmptyBlock) {
+            moveJump(block.jump);
+            return this;
+        } else {
+            SequentialBlock sequBlock = new SequentialBlock();
+            sequBlock.replace(this);
+            sequBlock.setFirst(this);
+            sequBlock.setSecond(block);
+            return sequBlock;
+        }
     }
 
     /**
@@ -316,14 +315,6 @@ public abstract class StructuredBlock {
      */
     public boolean jumpMayBeChanged() {
         return false;
-    }
-
-    public void define(VariableSet vars) {
-        java.util.Enumeration enum = vars.elements();
-        while (enum.hasMoreElements()) {
-            LocalInfo var = ((LocalInfo) enum.nextElement()).getLocalInfo();
-            used.addElement(var);
-        }
     }
 
     public VariableSet propagateUsage() {
@@ -371,7 +362,7 @@ public abstract class StructuredBlock {
             }
             subs[i].checkConsistent();
         }
-        if (jump != null) {
+        if (jump != null && jump.destination != null) {
             Jump jumps = (Jump) flowBlock.successors.get(jump.destination);
             for (; jumps != jump; jumps = jumps.next) {
                 if (jumps == null)
@@ -483,6 +474,13 @@ public abstract class StructuredBlock {
         } catch (java.io.IOException ex) {
             return super.toString();
         }
+    }
+
+    /**
+     * Do simple transformation on the structuredBlock.
+     */
+    public boolean doTransformations() {
+        return false;
     }
 }
 

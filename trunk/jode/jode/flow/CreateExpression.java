@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.Operator;
+import jode.NopOperator;
 import jode.Expression;
 import jode.ComplexExpression;
 
@@ -32,88 +33,103 @@ import jode.ComplexExpression;
  *  expr(op, [ expr_1, ..., expr_n ])
  * </pre>
  */
-public class CreateExpression implements Transformation {
+public class CreateExpression {
 
     /**
      * This does the transformation.
      * @param FlowBlock the flow block to transform.
      * @return true if flow block was simplified.
      */
-    public boolean transform(FlowBlock flow) {
-        if (!(flow.lastModified instanceof InstructionContainer)
-            || !(flow.lastModified.outer instanceof SequentialBlock))
+    public static boolean transform(InstructionContainer ic,
+                                    StructuredBlock last) {
+
+        int params = ic.getInstruction().getOperandCount();
+        if (params == 0)
             return false;
 
-        InstructionContainer ic = (InstructionContainer) flow.lastModified;
-        if (ic.getInstruction() instanceof Operator) {
+        ComplexExpression parent = null;
+        Expression inner = ic.getInstruction();
+        while (inner instanceof ComplexExpression) {
+            parent = (ComplexExpression)inner;
+            inner = parent.getSubExpressions()[0];
+        }
 
-            Operator op = (Operator) ic.getInstruction();
-            int params = op.getOperandCount();
-            if (params == 0)
+        if (!(inner instanceof Operator))
+            return false;
+
+        Operator op = (Operator)inner;
+
+        if (!(last.outer instanceof SequentialBlock))
+            return false;
+        SequentialBlock sequBlock = (SequentialBlock)last.outer;
+
+        /* First check if Expression can be created, but do nothing yet.
+         */
+        Expression lastExpression = null;
+        for (int i = params;;) {
+
+            if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
+                return false;
+            
+            Expression expr =
+                ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
+            
+            
+            if (!expr.isVoid()) {
+                if (--i == 0)
+                    break;
+            } else if (lastExpression == null
+                       || lastExpression.canCombine(expr) <= 0)
                 return false;
 
-            Expression[] exprs = new Expression[params];
+            if (expr.getOperandCount() > 0)
+                /* This is a not fully resolved expression in the
+                 * middle, we must not touch it.  */
+                return false;
 
-            SequentialBlock sequBlock = (SequentialBlock) ic.outer;
-
-            Expression lastExpression = null;
-            /* First check if Expression can be created, but do nothing yet.
-             */
-            for (int i=params; ;) {
-                if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
-                    return false;
-
-                InstructionBlock block = 
-                    (InstructionBlock) sequBlock.subBlocks[0];
-                
-                Expression expr = block.getInstruction();
-
-                if (!expr.isVoid()) {
-                    if (--i == 0)
-                        break;
-                } else if (lastExpression != null
-                           && lastExpression.canCombine(expr) <= 0)
-                    return false;
-
-                if (expr.getOperandCount() > 0)
-                    /* This is a not fully resolved expression in the
-                     * middle, we must not touch it.  */
-                    return false;
-
-                lastExpression =  expr;
-                if (!(sequBlock.outer instanceof SequentialBlock))
-                    return false;
-                sequBlock = (SequentialBlock)sequBlock.outer;
-            }
-
-            /* Now, do the combination. Everything must succeed now.
-             */
-            sequBlock = (SequentialBlock) ic.outer;
-            for (int i=params; ;) {
-
-                InstructionBlock block = 
-                    (InstructionBlock) sequBlock.subBlocks[0];
-                
-                Expression expr = block.getInstruction();
-
-                if (!expr.isVoid()) {
-                    exprs[--i] = expr;
-                    if (i == 0)
-                        break;
-                } else
-                    exprs[i] = exprs[i].combine(expr);
-
-                sequBlock = (SequentialBlock)sequBlock.outer;
-            }
-
-            if(jode.Decompiler.isVerbose)
-                System.err.print('x');
+            lastExpression =  expr;
             
-            ic.setInstruction(new ComplexExpression(op, exprs));
-            ic.moveDefinitions(sequBlock, ic);
-            ic.replace(sequBlock);
-            return true;
+            if (!(sequBlock.outer instanceof SequentialBlock))
+                return false;
+            sequBlock = (SequentialBlock) sequBlock.outer;
         }
-        return false;
+
+        /* Now, do the combination. Everything must succeed now.
+         */
+        Expression[] exprs = new Expression[params];
+        sequBlock = (SequentialBlock) last.outer;
+        for (int i=params; ;) {
+
+            Expression expr =
+                ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
+            
+            if (!expr.isVoid()) {
+                exprs[--i] = expr;
+                if (i == 0)
+                    break;
+            } else
+                exprs[i] = exprs[i].combine(expr);
+            
+            sequBlock = (SequentialBlock)sequBlock.outer;
+        }
+
+        if(jode.Decompiler.isVerbose)
+            System.err.print('x');
+
+        Expression newExpr;
+        if (params == 1 && op instanceof NopOperator) {
+            exprs[0].setType(op.getType());
+            newExpr = exprs[0];
+        } else
+            newExpr = new ComplexExpression(op, exprs);
+
+        if (parent != null)
+            parent.setSubExpressions(0, newExpr);
+        else
+            ic.setInstruction(newExpr);
+
+        ic.moveDefinitions(sequBlock, last);
+        last.replace(sequBlock);
+        return true;
     }
 }

@@ -24,14 +24,14 @@ import jode.ComplexExpression;
 import jode.Type;
 import jode.BinaryOperator;
 
-public class CombineIfGotoExpressions implements Transformation{
+public class CombineIfGotoExpressions {
 
-    public boolean transform(FlowBlock flow) {
-        if (!(flow.lastModified instanceof ConditionalBlock)
-            || !(flow.lastModified.outer instanceof SequentialBlock))
+    public static boolean transform(ConditionalBlock cb, 
+                                    StructuredBlock last) {
+        if (cb.jump == null
+            || !(last.outer instanceof SequentialBlock))
             return false;
-        
-        ConditionalBlock cb = (ConditionalBlock) flow.lastModified;
+
         SequentialBlock sequBlock = (SequentialBlock) cb.outer;
         Expression[] e = new Expression[2];
 
@@ -77,6 +77,10 @@ public class CombineIfGotoExpressions implements Transformation{
             } else
                 return false;
 
+            /* We have changed some instructions above.  We may never 
+             * return with a failure now.
+             */
+
             sequBlock = (SequentialBlock) cb.outer;
             while (sequBlock.subBlocks[0] instanceof InstructionBlock) {
                 /* Now combine the expression.  Everything should
@@ -90,14 +94,14 @@ public class CombineIfGotoExpressions implements Transformation{
                 sequBlock = (SequentialBlock) sequBlock.outer;
             }
 
-            flow.removeSuccessor(prevJump);
+            cb.flowBlock.removeSuccessor(prevJump);
             prevJump.prev.removeJump();
             Expression cond = 
                 new ComplexExpression
                 (new BinaryOperator(Type.tBoolean, operator), e);
             cb.setInstruction(cond);
-            cb.moveDefinitions(sequBlock, cb);
-            cb.replace(sequBlock);
+            cb.moveDefinitions(sequBlock, last);
+            last.replace(sequBlock);
             return true;
         }
         return false;    

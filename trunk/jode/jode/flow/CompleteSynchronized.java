@@ -24,22 +24,20 @@ import jode.LocalLoadOperator;
 import jode.LocalStoreOperator;
 import jode.Expression;
 
-public class CompleteSynchronized implements Transformation {
+public class CompleteSynchronized {
 
     /**
      * This combines the monitorenter and the initial expression
      * into a synchronized statement
      * @param flow The FlowBlock that is transformed 
      */
-    public boolean transform(FlowBlock flow) {
+    public static boolean transform(SynchronizedBlock synBlock, 
+                             StructuredBlock last) {
 
-        if (!(flow.lastModified instanceof SynchronizedBlock)
-            || flow.lastModified.outer == null)
+        if (!(last.outer instanceof SequentialBlock))
             return false;
 
         /* If the program is well formed, the following succeed */
-
-        SynchronizedBlock synBlock = (SynchronizedBlock) flow.lastModified;
         try {
             SequentialBlock sequBlock = (SequentialBlock) synBlock.outer;
             
@@ -59,11 +57,11 @@ public class CompleteSynchronized implements Transformation {
             System.err.print('s');
 
         synBlock.isEntered = true;
-        synBlock.moveDefinitions(synBlock.outer,synBlock);
-        synBlock.replace(synBlock.outer);
+        synBlock.moveDefinitions(last.outer,last);
+        last.replace(last.outer);
 
         /* Is there another expression? */
-        if (synBlock.outer == null)
+        if (!(last.outer instanceof SynchronizedBlock))
             return false;
 
         Expression object;
@@ -85,8 +83,8 @@ public class CompleteSynchronized implements Transformation {
         }
 
         synBlock.object = object;
-        synBlock.moveDefinitions(synBlock.outer,synBlock);
-        synBlock.replace(synBlock.outer);
+        synBlock.moveDefinitions(last.outer,last);
+        last.replace(last.outer);
         return true;
     }
 }

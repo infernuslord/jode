@@ -36,7 +36,6 @@ import gnu.bytecode.Spy;
 
 public class CodeAnalyzer implements Analyzer {
     
-    TransformExceptionHandlers handler;
     FlowBlock methodHeader;
     CodeAttr code;
     MethodAnalyzer method;
@@ -71,19 +70,78 @@ public class CodeAnalyzer implements Analyzer {
 	    param.addElement(getLocalInfo(0, i));
     }
 
-    void readCode(CodeAttr bincode) 
+    private final static int SEQUENTIAL   = 1;
+    private final static int PREDECESSORS = 2;
+    /**
+     * @param code The code array.
+     * @param handlers The exception handlers.
+     */
+    void readCode(byte[] code, short[] handlers)
          throws ClassFormatError
     {
-        byte[] code = bincode.getCode();
+        byte[] flags = new byte[code.length];
+        int[] lengths = new int[code.length];
+        try {
+            DataInputStream stream = 
+                new DataInputStream(new ByteArrayInputStream(code));
+	    for (int addr = 0; addr < code.length; ) {
+                int[] succs = Opcodes.getSizeAndSuccs(addr, stream);
+                if  (succs.length == 2 
+                     && succs[1] == addr + succs[0])
+                    flags[addr] |= SEQUENTIAL;
+                lengths[addr] = succs[0];
+                addr += succs[0];
+                for (int i=1; i<succs.length; i++)
+                    if (succs[i] != addr)
+                        flags[succs[i]] |= PREDECESSORS;
+	    }
+        } catch (IOException ex) {
+            throw new ClassFormatError(ex.toString());
+        }
+        for (int i=0; i<handlers.length; i += 4) {
+            int start = handlers[i + 0];
+            int handler = handlers[i + 2];
+            if (start < 0) start += 65536;
+            if (handler < 0) handler += 65536;
+            flags[start]   |= PREDECESSORS;
+            flags[handler] |= PREDECESSORS;
+        }
+
         FlowBlock[] instr = new FlowBlock[code.length];
 	int returnCount;
         try {
             DataInputStream stream = 
                 new DataInputStream(new ByteArrayInputStream(code));
-	    for (int addr = 0; addr < code.length; ) {
-		instr[addr] = Opcodes.readOpcode(addr, stream, this);
 
-		addr = instr[addr].getNextAddr();
+            /* While we read the opcodes into FlowBlocks 
+             * we try to combine sequential blocks, as soon as we
+             * find two sequential instructions in a row, where the
+             * second has no predecessors.
+             */
+            int mark = 1000;
+            FlowBlock lastBlock = null;
+	    for (int addr = 0; addr < code.length; ) {
+		jode.flow.StructuredBlock block
+                    = Opcodes.readOpcode(addr, stream, this);
+
+                if (jode.Decompiler.isVerbose && addr > mark) {
+                    System.err.print('.');
+                    mark += 1000;
+                }
+
+                if (lastBlock != null && flags[addr] == SEQUENTIAL) {
+
+                    lastBlock.doSequentialT1(block, lengths[addr]);
+
+                } else {
+                    
+                    instr[addr] = new FlowBlock(this, addr, 
+                                                lengths[addr], block);
+                    lastBlock =  ((flags[addr] & SEQUENTIAL) == 0) 
+                        ? null : instr[addr];
+
+                }
+                addr += lengths[addr];
 	    }
         } catch (IOException ex) {
             throw new ClassFormatError(ex.toString());
@@ -94,28 +152,74 @@ public class CodeAnalyzer implements Analyzer {
             addr = instr[addr].getNextAddr();
         }
 
-        handler = new TransformExceptionHandlers(instr);
-        short[] handlers = Spy.getExceptionHandlers(bincode);
-
+        TransformExceptionHandlers excHandlers 
+            = new TransformExceptionHandlers(instr);
         for (int i=0; i<handlers.length; i += 4) {
             Type type = null;
+            int start   = handlers[i + 0];
+            int end     = handlers[i + 1];
+            int handler = handlers[i + 2];
+            if (start < 0) start += 65536;
+            if (end < 0) end += 65536;
+            if (handler < 0) handler += 65536;
             if (handlers[i + 3 ] != 0) {
                 CpoolClass cpcls = (CpoolClass)
                     method.classAnalyzer.getConstant(handlers[i + 3]);
                 type = Type.tClass(cpcls.getName().getString());
             }
 
-            handler.addHandler(handlers[i + 0], handlers[i + 1],
-                               handlers[i + 2], type);
+            excHandlers.addHandler(start, end, handler, type);
         }
+        if (Decompiler.isVerbose)
+            System.err.print('-');
+
+        excHandlers.analyze();
 	methodHeader = instr[0];
-    }
+        methodHeader.analyze();
+    } 
+
+//     void readCode(byte[] code, short[] handlers) 
+//          throws ClassFormatError
+//     {
+//         FlowBlock[] instr = new FlowBlock[code.length];
+// 	int returnCount;
+//         try {
+//             DataInputStream stream = 
+//                 new DataInputStream(new ByteArrayInputStream(code));
+// 	    for (int addr = 0; addr < code.length; ) {
+// 		instr[addr] = Opcodes.readOpcode(addr, stream, this);
+
+// 		addr = instr[addr].getNextAddr();
+// 	    }
+//         } catch (IOException ex) {
+//             throw new ClassFormatError(ex.toString());
+//         }
+
+//         for (int addr=0; addr<instr.length; ) {
+//             instr[addr].resolveJumps(instr);
+//             addr = instr[addr].getNextAddr();
+//         }
+
+//         handler = new TransformExceptionHandlers(instr);
+//         for (int i=0; i<handlers.length; i += 4) {
+//             Type type = null;
+//             if (handlers[i + 3 ] != 0) {
+//                 CpoolClass cpcls = (CpoolClass)
+//                     method.classAnalyzer.getConstant(handlers[i + 3]);
+//                 type = Type.tClass(cpcls.getName().getString());
+//             }
+
+//             handler.addHandler(handlers[i + 0], handlers[i + 1],
+//                                handlers[i + 2], type);
+//         }
+// 	methodHeader = instr[0];
+//     }
 
     public void analyze()
     {
-        readCode(code);
-        handler.analyze();
-        methodHeader.analyze();
+        byte[] codeArray = code.getCode();
+        short[] handlers = Spy.getExceptionHandlers(code);
+        readCode(codeArray, handlers);
         Enumeration enum = allLocals.elements();
         while (enum.hasMoreElements()) {
             LocalInfo li = (LocalInfo)enum.nextElement();
@@ -157,4 +261,3 @@ public class CodeAnalyzer implements Analyzer {
         return method.classAnalyzer.clazz;
     }
 }
-

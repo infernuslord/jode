@@ -91,4 +91,8 @@ public class SynchronizedBlock extends StructuredBlock {
         writer.untab();
         writer.println("}");
     }
+
+    public boolean doTransformations() {
+        return CompleteSynchronized.transform(this, flowBlock.lastModified);
+    }
 }

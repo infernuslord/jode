@@ -192,7 +192,7 @@ public class ClassInterfacesType extends Type {
             return tError;
 
         ClassInterfacesType other = (ClassInterfacesType) type;
-        Class clazz = null;
+        Class clazz;
         Vector ifaces = new Vector();
 
         /* First determine the clazz, one of the two classes must be a sub

@@ -56,4 +56,9 @@ public class SpecialBlock extends StructuredBlock {
                        + ((count == 1) ? "" : "2")
                        + ((depth == 0) ? "" : "_X"+depth));
     }
+
+    public boolean doTransformation() {
+        return type == SWAP
+            && RemoveEmpty.removeSwap(this, flowBlock.lastModified);
+    }
 }

@@ -19,30 +19,56 @@
 
 package jode;
 
-public class ConstantArrayOperator extends SimpleOperator {
+public class ConstantArrayOperator extends NoArgOperator {
+
+    ConstOperator empty;
+    Expression[] values;
+    Type argType;
 
     public ConstantArrayOperator(Type type, int size) {
-        super(type, 0, size);
-        for (int i=0; i< size; i++)
-            operandTypes[i] = ((ArrayType)type).getElementType();
+        super(type);
+        values = new Expression[size];
+        argType = (type instanceof ArrayType) 
+            ? Type.tSubType(((ArrayType)type).getElementType()) : Type.tError;
+        empty  = new ConstOperator(argType, "0");
+    }
+
+    public void setType(Type newtype) {
+        super.setType(newtype);
+        Type newArgType = (this.type instanceof ArrayType) 
+            ? Type.tSubType(((ArrayType)this.type).getElementType()) 
+            : Type.tError;
+        if (!newArgType.equals(argType)) {
+            argType = newArgType;
+            empty.setType(argType);
+            for (int i=0; i< values.length; i++)
+                if (values[i] != null)
+                    values[i].setType(argType);
+        }
+    }
+
+    public boolean setValue(int index, Expression value) {
+        if (index < 0 || index > values.length || values[index] != null)
+            return false;
+        value.setType(argType);
+        setType(Type.tSuperType(Type.tArray(value.getType())));
+        values[index] = value;
+        value.parent = this;
+        return true;
     }
 
     public int getPriority() {
         return 200;
     }
 
-    public int getOperandPriority(int i) {
-        return 0;
-    }
-
     public String toString(String[] operands) {
         StringBuffer result 
-            = new StringBuffer("new "+type+" {");
-        for (int i=0; i< getOperandCount(); i++) {
+            = new StringBuffer("new ").append(type).append(" { ");
+        for (int i=0; i< values.length; i++) {
             if (i>0)
                 result.append(", ");
-            result.append(operands[i]);
+            result.append((values[i] != null) ? values[i] : empty);
         }
-        return result.append("}").toString();
+        return result.append(" }").toString();
     }
 }

@@ -26,104 +26,106 @@ import jode.ConstantArrayOperator;
 import jode.ConstOperator;
 import jode.Type;
 
-public class CreateConstantArray implements Transformation {
+public class CreateConstantArray {
 
-    public boolean transform(FlowBlock flow) {
-	InstructionBlock lastBlock;
-	SequentialBlock sequBlock;
-        Expression[] consts = null;
-	int count = 0;
-        Type type;
-        try {
-	    InstructionBlock ib = (InstructionBlock) flow.lastModified;
-	    
-	    sequBlock = (SequentialBlock) ib.outer;
-	    ib = (InstructionBlock) sequBlock.subBlocks[0];
-	    lastBlock = ib;
+    public static boolean transform(InstructionContainer ic,
+                                    StructuredBlock last) {
+        /* Situation:
+         *  PUSH new Array[]
+         *  DUP
+         *  PUSH index
+         *  PUSH value
+         *  stack_2[stack_1] = stack_0
+         *  ...
+         */
+        if (last.outer instanceof SequentialBlock) {
 
-            int lastindex = -1;
-            while (ib.getInstruction() instanceof ArrayStoreOperator) {
-                ArrayStoreOperator store = 
-                    (ArrayStoreOperator) ib.getInstruction();
+	    SequentialBlock sequBlock = (SequentialBlock) last.outer;
 
-		sequBlock = (SequentialBlock) sequBlock.outer;
-		ib = (InstructionBlock) sequBlock.subBlocks[0];
-		Expression lastconst = ib.getInstruction();
+            if (!(ic.getInstruction() instanceof ArrayStoreOperator)
+                || !(sequBlock.subBlocks[0] instanceof InstructionBlock)
+                || !(sequBlock.outer instanceof SequentialBlock))
+                return false;
+            ArrayStoreOperator store 
+                = (ArrayStoreOperator) ic.getInstruction();
+            InstructionBlock ib = (InstructionBlock)sequBlock.subBlocks[0];
+            sequBlock = (SequentialBlock) sequBlock.outer;
 
-		sequBlock = (SequentialBlock) sequBlock.outer;
-		ib = (InstructionBlock) sequBlock.subBlocks[0];
-                Expression indexexpr = ib.getInstruction();
-                ConstOperator indexop = 
-                    (ConstOperator) indexexpr.getOperator();
-                if (!indexop.getType().isOfType(Type.tUInt))
+            if (!(sequBlock.subBlocks[0] instanceof InstructionBlock)
+                || !(sequBlock.outer instanceof SequentialBlock))
+                return false;
+
+            Expression expr = ib.getInstruction();
+            ib = (InstructionBlock)sequBlock.subBlocks[0];
+            sequBlock = (SequentialBlock) sequBlock.outer;
+
+            if (expr.getOperandCount() > 0 
+                || !(ib.getInstruction() instanceof ConstOperator)
+                || !(sequBlock.subBlocks[0] instanceof SpecialBlock)
+                || !(sequBlock.outer instanceof SequentialBlock))
+                return false;
+                
+            ConstOperator indexOp = (ConstOperator) ib.getInstruction();
+            SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
+            sequBlock = (SequentialBlock) sequBlock.outer;
+
+            if (!indexOp.getType().isOfType(Type.tUInt)
+                || dup.type != SpecialBlock.DUP
+                || dup.depth != 0
+                || dup.count != store.getLValueType().stackSize()
+                || !(sequBlock.subBlocks[0] instanceof InstructionBlock))
+                return false;
+
+            int index = Integer.parseInt(indexOp.getValue());
+            ib = (InstructionBlock)sequBlock.subBlocks[0];
+
+            if (ib.getInstruction() instanceof ComplexExpression
+                && (ib.getInstruction().getOperator()
+                    instanceof NewArrayOperator)) {
+                /* This is the first element */
+                ComplexExpression newArrayExpr = 
+                    (ComplexExpression) ib.getInstruction();
+                NewArrayOperator newArrayOp = 
+                    (NewArrayOperator) newArrayExpr.getOperator();
+                if (newArrayOp.getOperandCount() != 1
+                    || !(newArrayExpr.getSubExpressions()[0]
+                         instanceof ConstOperator))
                     return false;
-                int index = Integer.parseInt(indexop.getValue());
-                if (index >= 0 && consts == null) {
-                    lastindex = index;
-                    consts = new Expression[lastindex+1];
-                } else if (index < 0 || index > lastindex)
+                    
+                ConstOperator countop = 
+                    (ConstOperator) newArrayExpr.getSubExpressions()[0];
+                if (!countop.getType().isOfType(Type.tUInt))
                     return false;
-		else { 
-                    while (index < lastindex) {
-                        consts[lastindex--] = 
-                            new ConstOperator(Type.tUnknown, "0");
-                    }
+
+                int arraylength = Integer.parseInt(countop.getValue());
+                if (arraylength <= index)
+                    return false;
+
+                if (jode.Decompiler.isVerbose)
+                    System.err.print('a');
+
+                ConstantArrayOperator cao 
+                    = new ConstantArrayOperator(newArrayOp.getType(), 
+                                                arraylength);
+                cao.setValue(index, expr);
+                ic.setInstruction(cao);
+                ic.moveDefinitions(sequBlock, last);
+                last.replace(sequBlock);
+                return true;
+
+            } else if (ib.getInstruction() instanceof ConstantArrayOperator) {
+                ConstantArrayOperator cao 
+                    = (ConstantArrayOperator) ib.getInstruction();
+                if (cao.setValue(index, expr)) {
+                    /* adding Element succeeded */
+                    ic.setInstruction(cao);
+                    ic.moveDefinitions(sequBlock, last);
+                    last.replace(sequBlock);
+                    return true;
                 }
-                consts[lastindex--] = lastconst;
-		sequBlock = (SequentialBlock) sequBlock.outer;
-
-                SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
-                if (dup.type != SpecialBlock.DUP
-                    || dup.depth != 0
-                    || dup.count != store.getLValueType().stackSize())
-                    return false;
-		count++;
-		sequBlock = (SequentialBlock) sequBlock.outer;
-		ib = (InstructionBlock) sequBlock.subBlocks[0];
             }
-            if (count == 0)
-                return false;
-            while (lastindex >= 0)
-                consts[lastindex--] = new ConstOperator(Type.tUnknown, "0");
-            ComplexExpression newArrayExpr = 
-                (ComplexExpression) ib.getInstruction();
-            NewArrayOperator newArrayOp = 
-                (NewArrayOperator) newArrayExpr.getOperator();
-            type = newArrayOp.getType();
-            if (newArrayOp.getOperandCount() != 1)
-                return false;
-            Expression countexpr = newArrayExpr.getSubExpressions()[0];
-            ConstOperator countop = 
-                (ConstOperator) countexpr.getOperator();
-            if (!countop.getType().isOfType(Type.tUInt))
-                return false;
-            int arraylength = Integer.parseInt(countop.getValue());
-            if (arraylength != consts.length) {
-                if (arraylength < consts.length)
-                    return false;
-                Expression[] newConsts = new Expression[arraylength];
-                System.arraycopy(consts, 0, newConsts, 0, consts.length);
-                for (int i=consts.length; i<arraylength; i++)
-                    newConsts[i] = new ConstOperator(Type.tUnknown, "0");
-                consts = newConsts;
-            }
-        } catch (NullPointerException ex) {
-            return false;
-        } catch (ClassCastException ex) {
-            return false;
+            
         }
-        if (jode.Decompiler.isVerbose)
-            System.err.print("a");
-
-	lastBlock.setInstruction
-	    (new ComplexExpression
-             (new ConstantArrayOperator(type, consts.length), 
-              consts));
-	lastBlock.moveDefinitions(sequBlock.subBlocks[0], lastBlock);
-	lastBlock.replace(sequBlock.subBlocks[0]);
-	flow.lastModified.moveDefinitions(sequBlock.subBlocks[1], 
-                                          flow.lastModified);
-	flow.lastModified.replace(sequBlock.subBlocks[1]);
-        return true;
+        return false;
     }
 }

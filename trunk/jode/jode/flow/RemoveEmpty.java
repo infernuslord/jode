@@ -21,41 +21,10 @@ package jode.flow;
 import jode.Expression;
 import jode.NopOperator;
 
-public class RemoveEmpty implements Transformation {
+public class RemoveEmpty {
     
-    public boolean transform (FlowBlock fb) {
-        return (removeNop(fb) || removeSwap(fb) || removeEmpty(fb));
-    }
-
-    public boolean removeNop(FlowBlock flow) {
-        StructuredBlock block = flow.lastModified;
-        if (block instanceof InstructionContainer
-            && block.outer instanceof SequentialBlock
-            && block.outer.getSubBlocks()[0] instanceof InstructionBlock) {
-            
-            InstructionContainer ic = (InstructionContainer) block;
-
-            Expression nopInstr = ic.getInstruction();
-            if (!(nopInstr instanceof NopOperator)
-                || nopInstr.getType() == jode.Type.tVoid)
-                return false;
-            
-            InstructionBlock prev = 
-                (InstructionBlock) ic.outer.getSubBlocks()[0];
-
-            Expression instr = prev.getInstruction();
-            if (instr.getType() == jode.Type.tVoid)
-                return false;
-
-            instr.setType(nopInstr.getType());
-            ic.setInstruction(instr);
-            ic.replace(ic.outer);
-            return true;
-        }
-        return false;
-    }
-
-    public boolean removeSwap(FlowBlock flow) {
+    public static boolean removeSwap(SpecialBlock swapBlock,
+                                     StructuredBlock last) {
         /* Remove non needed swaps; convert:
          *
          *   PUSH expr1
@@ -67,37 +36,43 @@ public class RemoveEmpty implements Transformation {
          *   PUSH expr2
          *   PUSH expr1
          */
-        StructuredBlock block = flow.lastModified;
-        if (block instanceof SpecialBlock
-            && ((SpecialBlock)block).type == SpecialBlock.SWAP
-            && block.outer instanceof SequentialBlock
-            && block.outer.outer instanceof SequentialBlock
-            && block.outer.getSubBlocks()[0] instanceof InstructionBlock
-            && block.outer.outer.getSubBlocks()[0] 
+        if (last.outer instanceof SequentialBlock
+            && last.outer.outer instanceof SequentialBlock
+            && last.outer.getSubBlocks()[0] instanceof InstructionBlock
+            && last.outer.outer.getSubBlocks()[0] 
             instanceof InstructionBlock) {
 
             InstructionBlock block1 
-                = (InstructionBlock) block.outer.outer.getSubBlocks()[0];
+                = (InstructionBlock) last.outer.outer.getSubBlocks()[0];
             InstructionBlock block2
-                = (InstructionBlock) block.outer.getSubBlocks()[0];
+                = (InstructionBlock) last.outer.getSubBlocks()[0];
+
+            /* XXX check if blocks may be swapped 
+             * (there mustn't be side effects in one of them).
+             */
+            System.err.println("WARNING: this program contains a SWAP "
+                               +"opcode and may not be translated correctly.");
 
             if (block1.getInstruction().isVoid()
                 || block2.getInstruction().isVoid())
                 return false;
+
             /* PUSH expr1 == block1
              * PUSH expr2
              * SWAP
+             * ...
              */
-            block.outer.replace(block1.outer);
+            last.outer.replace(block1.outer);
             /* PUSH expr2
              * SWAP
+             * ...
              */
-            block1.replace(block);
-            block1.moveJump(block.jump);
+            block1.replace(swapBlock);
+            block1.moveJump(swapBlock.jump);
             /* PUSH expr2
              * PUSH expr1
              */
-            flow.lastModified = block1;
+            block1.flowBlock.lastModified = block1.outer;
             return true;
         }
         return false;
