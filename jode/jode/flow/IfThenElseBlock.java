@@ -16,6 +16,8 @@
  * $Id$
  */
 package jode.flow;
+import jode.Instruction;
+import jode.TabbedPrintWriter;
 
 /**
  * An IfThenElseBlock is the structured block representing an if
@@ -53,6 +55,7 @@ public class IfThenElseBlock extends StructuredBlock {
     public void setThenBlock(StructuredBlock thenBlock) {
         this.thenBlock = thenBlock;
         thenBlock.outer = this;
+        thenBlock.setFlowBlock(flowBlock);
     }
 
     /** 
@@ -62,6 +65,7 @@ public class IfThenElseBlock extends StructuredBlock {
     public void setElseBlock(StructuredBlock elseBlock) {
         this.elseBlock = elseBlock;
         elseBlock.outer = this;
+        elseBlock.setFlowBlock(flowBlock);
     }
     
     /* The implementation of getNext[Flow]Block is the standard
@@ -73,7 +77,7 @@ public class IfThenElseBlock extends StructuredBlock {
      * @param newBlock the new sub block.
      * @return false, if oldBlock wasn't a direct sub block.
      */
-    boolean replaceSubBlock(StructuredBlock oldBlock, 
+    public boolean replaceSubBlock(StructuredBlock oldBlock, 
                             StructuredBlock newBlock) {
         if (thenBlock == oldBlock)
             thenBlock = newBlock;
@@ -89,21 +93,28 @@ public class IfThenElseBlock extends StructuredBlock {
      * called only once, because it remembers which local variables
      * were declared.
      */
-    public void dumpSource(TabbedPrintWriter writer)
+    public void dumpInstruction(TabbedPrintWriter writer)
         throws java.io.IOException
     {
         boolean needBrace = ! (thenBlock instanceof InstructionBlock);
-        writer.println("if ("+cond.toString()+")"+needBrace?" {":"");
+        writer.println("if ("+cond.toString()+")"+(needBrace?" {":""));
         writer.tab();
         thenBlock.dumpSource(writer);
         writer.untab();
         if (elseBlock != null) {
-            writer.print(needBrace?"} ":"");
-            needBrace = ! (thenBlock instanceof InstructionBlock);
-            writer.println("else"+needBrace?" {":"");
-            writer.tab();
-            elseBlock.dumpSource(writer);
-            writer.untab();
+            writer.print(needBrace ? "} " : "");
+            if (elseBlock instanceof IfThenElseBlock
+                /* XXX && No variables are declared XXX*/) {
+                needBrace = false;
+                writer.print("else ");
+                elseBlock.dumpSource(writer);
+            } else {
+                needBrace = ! (elseBlock instanceof InstructionBlock);
+                writer.println("else" + (needBrace ? " {" : ""));
+                writer.tab();
+                elseBlock.dumpSource(writer);
+                writer.untab();
+            }
         }
         if (needBrace)
             writer.println("}");
@@ -112,12 +123,12 @@ public class IfThenElseBlock extends StructuredBlock {
     /**
      * Returns all sub block of this structured block.
      */
-    StructuredBlock[] getSubBlocks() {
+    public StructuredBlock[] getSubBlocks() {
         if (elseBlock == null) {
-            StructuredBlock result = { thenBlock };
+            StructuredBlock[] result = { thenBlock };
             return result;
         } else {
-            StructuredBlock result = { thenBlock, elseBlock };
+            StructuredBlock[] result = { thenBlock, elseBlock };
             return result;
         }
     }
@@ -132,7 +143,7 @@ public class IfThenElseBlock extends StructuredBlock {
             return false;
 
         if (elseBlock != null && elseBlock.jump == null &&
-            !elseBlock.jumpMayBeChanged)
+            !elseBlock.jumpMayBeChanged())
             return false;
         return true;
     }

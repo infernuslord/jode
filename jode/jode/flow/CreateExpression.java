@@ -17,39 +17,90 @@
  * $Id$
  */
 
-package jode;
+package jode.flow;
+import jode.Operator;
+import jode.Expression;
 
+/**
+ * This transformation creates expressions.  It transforms
+ * <pre>
+ *  Sequ[expr_1, Sequ[expr_2, ..., Sequ[expr_n, op] ...]] 
+ * </pre>
+ * to
+ * <pre>
+ *  expr(op, [ expr_1, ..., expr_n ])
+ * </pre>
+ */
 public class CreateExpression implements Transformation {
 
-    public StructuredBlock transform(StructuredBlock block) {
+    /**
+     * This does the transformation.
+     * @param FlowBlock the flow block to transform.
+     * @return true if flow block was simplified.
+     */
+    public boolean transform(FlowBlock flow) {
         Operator op;
         Expression exprs[];
         int params;
+        StructuredBlock block;
+
         try {
-            op = (Operator) block.getInstruction();
+            jode.TabbedPrintWriter writer = 
+                new jode.TabbedPrintWriter(System.err, "    ");
+            writer.tab();
+            System.err.println("Transformation on: "+flow.getLabel());
+            flow.block.dumpSource(writer);
+            flow.checkConsistent();
+            System.err.println("; lastModified is: ");
+            flow.lastModified.dumpSource(writer);
+        } catch (java.io.IOException ex) {}
+        try {
+            SequentialBlock sequBlock;
+            block = flow.lastModified;
+            op = (Operator) ((InstructionContainer)block).getInstruction();
             params  = op.getOperandCount();
             exprs = new Expression[params];
+            
             for (int i = params-1; i>=0; i--) {
-                block = block.getSimpleUniquePredecessor();
-                exprs[i] = (Expression) ih.getInstruction();
+                sequBlock = (SequentialBlock)block.outer;
+                if (i == params-1 &&
+                    sequBlock.getSubBlocks()[1] != block)
+                    return false;
+
+                block = sequBlock.getSubBlocks()[0];
+                if (block.jump != null)
+                    return false;
+                exprs[i] = 
+                    (Expression) ((InstructionBlock)block).getInstruction();
                 if (exprs[i].isVoid()) {
 		    if (i == params-1)
-			return null;
+			return false;
 		    Expression e = exprs[i+1].tryToCombine(exprs[i]);
 		    if (e == null)
-			return null;
+			return false;
 		    i++;
+                    SequentialBlock subExprBlock = 
+                        (SequentialBlock) sequBlock.getSubBlocks()[1];
+                    subExprBlock.replace(sequBlock);
+                    sequBlock = subExprBlock;
+                    ((InstructionContainer)subExprBlock.getSubBlocks()[0]).
+                        setInstruction(e);
 		    exprs[i] = e;
-                    ih = ih.combine(2, e);
 		}
+                block = sequBlock;
             }
         } catch (NullPointerException ex) {
-            return null;
+            return false;
         } catch (ClassCastException ex) {
-            return null;
+            return false;
         }
-        if(Decompiler.isVerbose && params > 0)
+        if(jode.Decompiler.isVerbose && params > 0)
             System.err.print("x");
-        return ih.combine(params+1, new Expression(op, exprs));
+
+        ((InstructionContainer) flow.lastModified).setInstruction
+            (new Expression(op, exprs));
+        flow.lastModified.replace(block);
+        return true;
     }
 }
+

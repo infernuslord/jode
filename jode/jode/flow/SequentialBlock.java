@@ -16,6 +16,7 @@
  * $Id$
  */
 package jode.flow;
+import jode.TabbedPrintWriter;
 
 /**
  * A sequential block combines exactly two structured blocks to a new
@@ -24,21 +25,23 @@ package jode.flow;
  * condition is temporarily violated, while the t1 transformation is
  * done.
  */
-public class SequentialBlock {
+public class SequentialBlock extends StructuredBlock {
     StructuredBlock[] subBlocks;
 
     public SequentialBlock() {
         subBlocks = new StructuredBlock[2];
     }
 
-    public setFirst(StructuredBlock sb) {
+    public void setFirst(StructuredBlock sb) {
         subBlocks[0] = sb;
         sb.outer = this;
+        sb.setFlowBlock(flowBlock);
     }
 
-    public setSecond(StructuredBlock sb) {
+    public void setSecond(StructuredBlock sb) {
         subBlocks[1] = sb;
         sb.outer = this;
+        sb.setFlowBlock(flowBlock);
     }
 
     /**
@@ -48,25 +51,32 @@ public class SequentialBlock {
      * SwitchBlock).  If this isn't called with a direct sub block,
      * the behaviour is undefined, so take care.  
      * @return null, if the control flows to another FlowBlock.  */
-    StructuredBlock getNextBlock(StructuredBlock subBlock) {
+    public StructuredBlock getNextBlock(StructuredBlock subBlock) {
         if (subBlock == subBlocks[0])
             return subBlocks[1];
         return getNextBlock();
     }
 
-    FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
+    public FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
         if (subBlock == subBlocks[0])
             return null;
         return getNextFlowBlock();
     }
     
+    public void dumpInstruction(TabbedPrintWriter writer)
+        throws java.io.IOException
+    {
+        subBlocks[0].dumpSource(writer);
+        subBlocks[1].dumpSource(writer);
+    }
+
     /**
      * Replaces the given sub block with a new block.
      * @param oldBlock the old sub block.
      * @param newBlock the new sub block.
      * @return false, if oldBlock wasn't a direct sub block.
      */
-    boolean replaceSubBlock(StructuredBlock oldBlock, 
+    public boolean replaceSubBlock(StructuredBlock oldBlock, 
                             StructuredBlock newBlock) {
         for (int i=0; i<2; i++) {
             if (subBlocks[i] == oldBlock) {
@@ -80,7 +90,7 @@ public class SequentialBlock {
     /**
      * Returns all sub block of this structured block.
      */
-    StructuredBlock[] getSubBlocks() {
+    public StructuredBlock[] getSubBlocks() {
         return subBlocks;
     }
 
@@ -93,7 +103,3 @@ public class SequentialBlock {
         return (subBlocks[1].jump != null || subBlocks[1].jumpMayBeChanged());
     }
 }
-
-
-
-

@@ -19,15 +19,19 @@
 
 package jode;
 import sun.tools.java.*;
+import java.util.Stack;
 import java.io.*;
+import jode.flow.FlowBlock;
 
 public class CodeAnalyzer implements Analyzer, Constants {
     
     BinaryCode bincode;
 
-    MethodInstructionHeader methodHeader;
+    FlowBlock methodHeader;
     MethodAnalyzer method;
     public JodeEnvironment env;
+
+    LocalVariableTable lvt;
     
     /**
      * Get the method.
@@ -39,20 +43,34 @@ public class CodeAnalyzer implements Analyzer, Constants {
          throws ClassFormatError
     {
         byte[] code = bincode.getCode();
-        InstructionHeader[] instr = new InstructionHeader[code.length];
+        FlowBlock[] instr = new FlowBlock[code.length];
 	int returnCount;
         try {
             DataInputStream stream = 
                 new DataInputStream(new ByteArrayInputStream(code));
 	    for (int addr = 0; addr < code.length; ) {
 		instr[addr] = Opcodes.readOpcode(addr, stream, this);
+
 		addr = instr[addr].getNextAddr();
 	    }
         } catch (IOException ex) {
             throw new ClassFormatError(ex.toString());
         }
         BinaryExceptionHandler[] handlers = bincode.getExceptionHandlers();
-	methodHeader = new MethodInstructionHeader(env, instr, handlers);
+        for (int addr=0; addr<instr.length; ) {
+            instr[addr].resolveJumps(instr);
+            //XXX
+// 	    if (instr[addr].getBlock() instanceof ReturnBlock) {
+//                 ReturnBlock block = (ReturnBlock) instr[addr].getBlock();
+//                 if (block.getInstruction() == null) {
+//                     EmptyBlock empty = new EmptyBlock(dummyReturn);
+//                     empty.replace(block);
+//                 }
+//             }
+            addr = instr[addr].getNextAddr();
+        }
+	methodHeader = instr[0];
+        /* XXX do something with handlers */
     }
 
 	/*
@@ -77,16 +95,16 @@ public class CodeAnalyzer implements Analyzer, Constants {
         readCode();
     }
 
-    static Transformation[] exprTrafos = {
-        new RemoveNop(),
-        new CombineCatchLocal(),
-        new CreateExpression(),
-        new CreatePostIncExpression(),
-        new CreateAssignExpression(),
-        new CreateNewConstructor(),
-        new CombineIfGotoExpressions(),
-        new CreateIfThenElseOperator(),
-        new CreateConstantArray()
+    static jode.flow.Transformation[] exprTrafos = {
+        new jode.flow.RemoveEmpty(),
+//         new CombineCatchLocal(),
+        new jode.flow.CreateExpression(),
+//         new CreatePostIncExpression(),
+//         new CreateAssignExpression(),
+//         new CreateNewConstructor(),
+//         new CombineIfGotoExpressions(),
+//         new CreateIfThenElseOperator(),
+//         new CreateConstantArray()
     };
 
     static Transformation[] simplifyTrafos = { new SimplifyExpression() };
@@ -101,9 +119,57 @@ public class CodeAnalyzer implements Analyzer, Constants {
 
     public void analyze()
     {
-        methodHeader.doTransformations(exprTrafos);
-        methodHeader.doTransformations(simplifyTrafos);
-        methodHeader.doTransformations(blockTrafos);
+        /* XXX optimize */
+        Stack todo = new Stack();
+        FlowBlock flow = methodHeader;
+        while (true) {
+
+            /* First do some non flow transformations. */
+            int i=0;
+            while (i < exprTrafos.length) {
+                if (exprTrafos[i].transform(flow))
+                    i = 0;
+                else
+                    i++;
+            }
+            
+            if (flow.doT2()) {
+                /* T2 transformation succeeded.  This may
+                 * make another T1 analysis in the previous
+                 * block possible.  
+                 */
+                if (!todo.isEmpty())
+                    flow = (FlowBlock) todo.pop();
+            }
+
+            FlowBlock succ = flow.getSuccessor();
+            if (succ != null) {
+
+                if (!flow.doT1(succ)) {
+
+                    /* T1 transformation failed, now succeed with
+                     * successor and put flow on the stack.  
+                     */
+                    if (todo.contains(succ)) {
+                        /* This is a sign that the flow graph is not
+                         * reducible.  We give up immediately!
+                         */
+                        break;
+                    }
+                    todo.push(flow);
+                    flow = succ;
+                }
+            } else {
+                /* Block has no successor.
+                 *
+                 * If everything is okay the stack should be empty now,
+                 * and the program is transformed correctly.
+                 *
+                 * Otherwise flow transformation didn't succeeded.
+                 */
+                break;
+            }
+        }
     }
 
     public String getTypeString(Type type) {

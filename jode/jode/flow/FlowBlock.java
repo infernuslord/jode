@@ -18,6 +18,9 @@
  */
 
 package jode.flow;
+import java.util.*;
+import jode.TabbedPrintWriter;
+import jode.Expression;
 
 /**
  * A flow block is the structure of which the flow graph consists.  A
@@ -30,11 +33,23 @@ package jode.flow;
  */
 public class FlowBlock {
 
+    static FlowBlock END_OF_METHOD = 
+        new FlowBlock(Integer.MAX_VALUE, 0, new EmptyBlock());
+
+    static {
+        END_OF_METHOD.label = "END_OF_METHOD";
+    }
+
     /**
      * The starting address of this flow block.  This is mainly used
      * to produce the source code in code order.
      */
     int addr;
+
+    /**
+     * The length of the structured block, only needed at the beginning.
+     */
+    int length;
 
     /**
      * The outermost structructed block in this flow block.
@@ -57,6 +72,25 @@ public class FlowBlock {
      * moved into the preceding flow block.
      */
     Vector predecessors;
+
+    /**
+     * The default constructor.  Creates a new flowblock containing
+     * only the given structured block.
+     */
+    public FlowBlock(int addr, int length, StructuredBlock block) {
+        this.addr = addr;
+        this.length = length;
+        this.block = block;
+        lastModified = block;
+        predecessors = new Vector(); // filled in later
+        successors   = new Vector();
+        block.setFlowBlock(this);
+        block.fillSuccessors(successors);
+    }
+
+    public int getNextAddr() {
+        return addr+length;
+    }
     
     /**
      * This method optimizes the jumps to successor.
@@ -65,109 +99,188 @@ public class FlowBlock {
     public StructuredBlock optimizeJumps(FlowBlock successor,
                                          StructuredBlock appendBlock) {
         Enumeration enum = successors.elements();
+    next_jump:
         while (enum.hasMoreElements()) {
             Jump jump = (Jump) enum.nextElement();
 
             if (jump == null || jump.destination != successor)
-                continue;
+                continue next_jump;
 
+        same_jump: while(true) {
             /* if the jump is the jump of the appendBlock, skip it.
              */
-            if (jump == appendBlock.jump)
-                continue;
+            if (jump.prev == appendBlock)
+                continue next_jump;
 
-            /* Note: jump.parent.outer != null, since appendBlock is
-             * an outer block of jump.parent
+            /* Note: jump.prev.outer != null, since appendBlock is
+             * an outer block of jump.prev
              */
         
             /* remove all jumps to the successor which have the successor
-             * as getNextFlowBlock().  */
-            if (jump.parent.outer.getNextFlowBlock(jump.parent) == successor)
-                jump.parent.removeJump();
+             * as getNextFlowBlock().  
+             */
+            if (jump.prev.outer.getNextFlowBlock(jump.prev) == successor) {
+                jump.prev.removeJump();
+                continue next_jump;
+            }
 
             /* replace all conditional jumps to the successor, which
              * are followed by a block which has the end of the block
              * as normal successor, with "if (not condition) block".  
              */
-            if (jump.parent instanceof ConditionalBlock &&
-                jump.parent.outer instanceof SequentialBlock && 
-                jump.parent.outer.getSubBlocks()[0] = jump.parent &&
-                jump.parent.outer.getNextFlowBlock() == successor) {
+            if (jump.prev instanceof EmptyBlock &&
+                jump.prev.outer instanceof ConditionalBlock) {
 
-                ConditionalBlock cb = (ConditionalBlock) jump.parent;
-                cb.removeJump();
+                StructuredBlock prev = jump.prev;
+                ConditionalBlock cb = (ConditionalBlock) prev.outer;
+                jode.Instruction instr = cb.getInstruction();
 
-                SequentialBlock sequBlock = 
-                    (SequentialBlock) cb.outer;
 
-                IfThenElseBlock newIfBlock = 
-                    new IfThenElseBlock(cb.getCondition().negate(),
-                                        sequBlock.getSubBlocks()[1], null);
+                if ((cb == appendBlock || 
+                     cb.outer.getNextFlowBlock(cb) == successor 
+                     /*XXX jumpMayBeChanged()??? */) &&
+                    instr instanceof jode.Expression) {
 
-                newIfBlock.replace(sequBlock);
+                    cb.setInstruction(((jode.Expression)instr).negate());
+                    prev.removeJump();
+                    prev.moveJump(cb);
+                    continue next_jump;
+                }
 
-                if (appendBlock == sequBlock)
-                    appendBlock = newIfBlock;
-                continue;
+                /* cb.outer is not null,
+                 * since appendBlock outers cb */
+                
+                if (cb.outer instanceof SequentialBlock && 
+                    cb.outer.getSubBlocks()[0] == cb &&
+                    (cb.outer.getNextFlowBlock() == successor ||
+                     cb.outer.jumpMayBeChanged()) &&
+                    instr instanceof jode.Expression) {
+                    SequentialBlock sequBlock = 
+                        (SequentialBlock) cb.outer;
+                    
+                    IfThenElseBlock newIfBlock = 
+                        new IfThenElseBlock(((jode.Expression)instr).negate());
+
+                    newIfBlock.replace(sequBlock);
+                    newIfBlock.setThenBlock(sequBlock.getSubBlocks()[1]);
+
+                    newIfBlock.moveJump(sequBlock);
+                    if (appendBlock == sequBlock)
+                        appendBlock = newIfBlock;
+
+                    if (newIfBlock.getNextFlowBlock() != successor &&
+                        newIfBlock != appendBlock) {
+                        newIfBlock.moveJump(prev);
+                        continue same_jump;
+                    } else {
+                        prev.removeJump();
+                        continue next_jump;
+                    }
+                }
+            }
+
+            /* if there are jumps in an if-then block, which
+             * have as normal successor the end of the if-then block, and
+             * the if-then block is followed by a single block, then replace
+             * the if-then block with a if-then-else block and remove the
+             * unconditional jump.
+             */
+            StructuredBlock elseBlock = 
+                jump.prev.outer.getNextBlock(jump.prev);
+            if (elseBlock != null && 
+                elseBlock.outer != null &&
+                elseBlock.outer instanceof SequentialBlock &&
+                elseBlock.outer.getSubBlocks()[0] instanceof IfThenElseBlock &&
+                (elseBlock.outer.getNextFlowBlock() == successor ||
+                 elseBlock.outer.jumpMayBeChanged())) {
+                IfThenElseBlock ifBlock = 
+                    (IfThenElseBlock)elseBlock.outer.getSubBlocks()[0];
+                if (ifBlock.getSubBlocks().length == 1) {
+
+                    elseBlock.outer.removeJump();
+                    ifBlock.replace(elseBlock.outer);
+                    if (appendBlock == elseBlock.outer)
+                        appendBlock = ifBlock;
+                    ifBlock.moveJump(jump.prev);
+                    ifBlock.setElseBlock(elseBlock);
+                    continue same_jump;
+                }
             }
 
             /* if the successor is the dummy return instruction, replace all
              * jumps with a return.
              */
-            if (successor.block.instanceof ReturnBlock) {
+            if (successor == END_OF_METHOD) {
                 SequentialBlock sequBlock = new SequentialBlock();
-                StructuredBlock prevBlock = jump.parent;
+                StructuredBlock prevBlock = jump.prev;
                 prevBlock.removeJump();
                 sequBlock.replace(prevBlock);
                 sequBlock.setFirst(prevBlock);
                 sequBlock.setSecond(new ReturnBlock());
-                continue;
+                continue next_jump;
             }
 
             /* If this is a conditional jump, the first instruction of
              * a while and the condition of the while is true,  use
              * the condition as while condition.
              */
+            if (jump.prev instanceof EmptyBlock &&
+                jump.prev.outer instanceof ConditionalBlock &&
+                jump.prev.outer.jump == null) {
 
-            /* This is the first instruction in a while block */
-            if (jump.parent instanceof ConditionalBlock &&
-                jump.parent.outer instanceof SequentialBlock &&
-                jump.parent.outer.getSubBlocks()[0] == this &&
-                jump.parent.outer.outer instanceof LoopBlock) {
-                ConditionalBlock cb = (ConditionalBlock) jump.parent;
-                LoopBlock loopBlock = (LoopBlock) cb.outer.outer;
-                if (loopBlock.getCondition() == LoopBlock.TRUE &&
-                    loopBlock.getType() != LoopBlock.DOWHILE &&
-                    loopBlock.getNextFlowBlock() == successor) {
+                StructuredBlock prev = jump.prev;
+                ConditionalBlock cb = (ConditionalBlock) prev.outer;
+                jode.Instruction instr = cb.getInstruction();
 
-                    cb.removeJump();
-                    loopBlock.setCondition(cb);
-                    cb.outer.getSubBlocks()[1].replace(cb.outer);
-                    /* cb and cb.outer are not used any more */
-                    /* Note that cb.outer != appendBlock because
-                     * appendBlock contains loopBlock
-                     */
+                /* This is the first instruction in a while block */
+                if (cb.outer instanceof SequentialBlock &&
+                    cb.outer.getSubBlocks()[0] == cb &&
+                    cb.outer.outer instanceof LoopBlock) {
+
+                    LoopBlock loopBlock = (LoopBlock) cb.outer.outer;
+                    if (loopBlock.getCondition() == LoopBlock.TRUE &&
+                        loopBlock.getType() != LoopBlock.DOWHILE &&
+                        loopBlock.getNextFlowBlock() == successor &&
+                        instr instanceof Expression) {
+                        
+                        prev.removeJump();
+                        loopBlock.setCondition(((Expression)instr).negate());
+                        if (cb.outer.jump != null) {
+                            if (cb.outer.getSubBlocks()[1].jump != null)
+                                cb.outer.removeJump();
+                            else
+                                cb.outer.getSubBlocks()[1].moveJump(cb.outer);
+                        }
+                        cb.outer.getSubBlocks()[1].replace(cb.outer);
+                        /* cb and cb.outer are not used any more */
+                        /* Note that cb.outer != appendBlock because
+                         * appendBlock contains loopBlock
+                         */
+                        continue next_jump;
+                    }
+                }
+
+                /* Now the same for the empty loop. In this case there is
+                 * no sequential block.  
+                 */
+                if (cb.outer instanceof LoopBlock) {
+                    LoopBlock loopBlock = (LoopBlock) cb.outer;
+                    if (loopBlock.getCondition() == LoopBlock.TRUE &&
+                        loopBlock.getType() != LoopBlock.DOWHILE &&
+                        loopBlock.getNextFlowBlock() == successor &&
+                        instr instanceof Expression) {
+                        
+                        prev.removeJump();
+                        loopBlock.setCondition(((Expression)instr).negate());
+                        
+                        EmptyBlock empty = new EmptyBlock();
+                        empty.replace(cb);
+                        /* cb is not used any more */
+                        continue next_jump;
+                    }
                 }
             }
-            /* Now the same for the empty loop. In this case there is
-             * no sequential block.  
-             */
-            if (jump.parent instanceof ConditionalBlock &&
-                jump.parent.outer instanceof LoopBlock) {
-                ConditionalBlock cb = (ConditionalBlock) jump.parent;
-                LoopBlock loopBlock = (LoopBlock) cb.outer;
-                if (loopBlock.getCondition() == LoopBlock.TRUE &&
-                    loopBlock.getType() != LoopBlock.DOWHILE &&
-                    loopBlock.getNextFlowBlock() == successor) {
-
-                    cb.removeJump();
-                    loopBlock.setCondition(cb);
-                    EmptyBlock empty = new EmptyBlock();
-                    empty.replace(cb);
-                    /* cb is not used any more */
-                }
-            }
-
+                
             /* if there are jumps in a while block or switch block and the
              * while/switch block is followed by a jump to successor or has
              * successor as getNextFlowBlock(), replace jump with break to
@@ -178,91 +291,62 @@ public class FlowBlock {
              * succesor, so that the above succeeds.
              */
             int breaklevel = 0;
-            for (StructuredBlock surrounder = jump.parent.outer;
-                 surrounder != null; surrounder = surrounder.outer) {
+            for (StructuredBlock surrounder = jump.prev.outer;
+                 surrounder != null && surrounder != appendBlock.outer; 
+                 surrounder = surrounder.outer) {
                 if (surrounder instanceof BreakableBlock) {
                     breaklevel++;
                     if (surrounder.getNextFlowBlock() == successor ||
                         surrounder.jumpMayBeChanged()) {
 
                         SequentialBlock sequBlock = new SequentialBlock();
-                        StructuredBlock prevBlock = jump.parent;
-                        if (surrounder.getNextFlowBlock() != successor) {
-                            surrounder.jump = jump;
-                            prevBlock.jump = null;
-                            jump.parent = surrounder;
-                        } else {
+                        StructuredBlock prevBlock = jump.prev;
+                        if (surrounder.getNextFlowBlock() != successor)
+                            surrounder.moveJump(prevBlock);
+                        else
                             prevBlock.removeJump();
-                        }
+
                         sequBlock.replace(prevBlock);
                         sequBlock.setFirst(prevBlock);
-                        sequBlock.setSecond(new BreakBlock(surrounder, 
-                                                           breaklevel > 1));
-                        continue;
+                        sequBlock.setSecond
+                            (new BreakBlock((BreakableBlock) surrounder, 
+                                            breaklevel > 1));
+                        continue next_jump;
                     }
                 }
             }
             
-
-            /* if there are jumps in an if-then block, which
-             * have as normal successor the end of the if-then block, and
-             * the if-then block is followed by a single block, then replace
-             * the if-then block with a if-then-else block and remove the
-             * unconditional jump.
-             */
-            StructuredBlock elseBlock = 
-                jump.parent.outer.getNextBlock(jump.parent);
-            if (elseBlock != null && 
-                elseBlock.outer != null &&
-                elseBlock.outer instanceof SequentialBlock &&
-                elseBlock.outer.getSubBlocks()[0] instanceof IfThenElseBlock &&
-                (elseBlock.outer.getNextFlowBlock() == successor ||
-                 elseBlock.outer.jumpMayBeChanged())) {
-                IfThenElseBlock ifBlock = 
-                    (IfThenElseBlock)elseBlock.outer.getSubBlocks()[0];
-                if (ifBlock.getElseBlock() == null) {
-                    if (elseBlock.getNextFlowBlock() != successor) {
-                        elseBlock.outer.jump = jump;
-                        jump.parent.jump = null;
-                        jump.parent = elseBlock.outer;
-                    } else {
-                        jump.parent.removeJump();
-                    }
-                    ifBlock.replace(elseBlock.outer);
-                    ifBlock.setElseBlock(elseBlock);
-                    if (appendBlock = elseBlock.outer)
-                        appendBlock = ifBlock;
-                }
-            }
+            continue next_jump;
+        }
         }
         return appendBlock;
     }
 
     /** 
      * Updates the in/out-Vectors of the structured block of the
-      * successing flow block simultanous to a T1 transformation.
-      * @param successor The flow block which is unified with this flow
-      * block.  
-      */
+     * successing flow block simultanous to a T1 transformation.
+     * @param successor The flow block which is unified with this flow
+     * block.  
+     */
     void updateInOut (FlowBlock successor, boolean t1Transformation) {
         /* First get the out vectors of all jumps to successor and
          * calculate the intersection.
          */
         VariableSet allOuts = new VariableSet();
         VariableSet intersectOut = null;
-        Enumeration enum = successors;
-        while (enum.hasMoreElement()) {
+        Enumeration enum = successors.elements();
+        while (enum.hasMoreElements()) {
             Jump jump = (Jump) enum.nextElement();
             if (jump == null || jump.destination != successor)
                 continue;
-
-            allOuts.union(jump.parent.out);
+            
+            allOuts.union(jump.prev.out);
             if (intersectOut == null) 
-                intersectOut = jump.parent.out;
+                intersectOut = jump.prev.out;
             else
-                intersectOut = intersectOut.intersect(jump.parent.out);
+                intersectOut = intersectOut.intersect(jump.prev.out);
         }
-
+        
         /* Now work on each block of the successor */
         Stack todo = new Stack();
         todo.push(successor.block);
@@ -271,7 +355,7 @@ public class FlowBlock {
             StructuredBlock[] subBlocks = block.getSubBlocks();
             for (int i=0; i<subBlocks.length; i++)
                 todo.push(subBlocks[i]);
-
+            
             /* Merge the locals used in successing block with those written
              * by this blocks
              */
@@ -284,7 +368,7 @@ public class FlowBlock {
             }
         }
     }
-
+    
 
     /* Special cases:
       *
@@ -350,7 +434,12 @@ public class FlowBlock {
       *    return_n
       */
 
-    public boolean doT1 {
+    /**
+     * Search for an apropriate successor.
+     * @return the successor with smallest address
+     *  or null if there isn't a successor at all.
+     */
+    public FlowBlock getSuccessor() {
         /* search successor with smallest addr. */
         Enumeration enum = successors.elements();
         FlowBlock succ = null;
@@ -363,27 +452,78 @@ public class FlowBlock {
                 succ = fb;
             }
         }
-        if (succ == null) {
-            /* There are no successors at all */
-            return false;
+        return succ;
+    }
+
+    public void checkConsistent() {
+        if (block.outer != null || block.flowBlock != this) {
+            throw new RuntimeException("Inconsistency");
         }
+        block.checkConsistent();
+        Enumeration enum = successors.elements();
+        while (enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+            if (jump == null)
+                continue;
+                
+            if (jump.prev.flowBlock != this ||
+                jump.prev.jump != jump)
+                throw new RuntimeException("Inconsistency");
 
-        /* check if this successor has only this block as predecessor. */
-        /* if not, return false. */
-        if (succ.predecessors.size() != 1)
+            StructuredBlock sb = jump.prev;
+            while (sb != block) {
+                if (sb.outer == null)
+                    throw new RuntimeException("Inconsistency");
+                StructuredBlock[] blocks = sb.outer.getSubBlocks();
+                int i;
+                for (i=0; i<blocks.length; i++)
+                    if (blocks[i] == sb)
+                        break;
+                if (i == blocks.length)
+                    throw new RuntimeException("Inconsistency");
+                sb = sb.outer;
+            }
+        }
+    }
+
+    /**
+     * Do a T1 transformation with succ if possible.  It is possible,
+     * iff succ has exactly this block as predecessor.
+     * @param succ the successor block, must be a valid successor of this
+     * block, i.e. not null
+     */
+    public boolean doT1(FlowBlock succ) {
+        /* check if this successor has only this block as predecessor. 
+         * if the predecessor is not unique, return false. */
+        if (succ != END_OF_METHOD && 
+            (succ.predecessors.size() != 1 ||
+             succ.predecessors.elementAt(0) != this))
             return false;
 
-         /* First find the innermost block that contains all jumps to this
-          * successor and the last modified block.
-          */
+        try {
+            TabbedPrintWriter writer = 
+                new TabbedPrintWriter(System.err, "    ");
+            writer.tab();
+            System.err.println("doing T1 analysis on: "+getLabel());
+            block.dumpSource(writer);
+            checkConsistent();
+            System.err.println("and "+succ.getLabel());
+            succ.block.dumpSource(writer);
+            succ.checkConsistent();
+        } catch (java.io.IOException ex) {}
+
+
+        /* First find the innermost block that contains all jumps to this
+         * successor and the last modified block.
+         */
         Enumeration enum = successors.elements();
         StructuredBlock appendBlock = lastModified;
         while(enum.hasMoreElements()) {
             Jump jump = (Jump) enum.nextElement();
-            if (jump == null || jump.destination != successors)
+            if (jump == null || jump.destination != succ)
                 continue;
 
-            while (!appendBlock.contains(jump.parent))
+            while (!appendBlock.contains(jump.prev))
                 appendBlock = appendBlock.outer;
             /* appendBlock can't be null now, because the
              * outermost block contains every structured block.  
@@ -391,14 +531,19 @@ public class FlowBlock {
         }
 
         /* Update the in/out-Vectors now */
-        updateInOut(successor, true);
+        updateInOut(succ, true);
+
 
         /* The switch "fall through" case: if the appendBlock is a
-          * switch, and the successor is the address of a case, and all
-          * other successors are inside the block preceding that case.  
-          */
-        if (case != null) {
-            SwitchBlock switchBlock = (StructuredBlock) appendBlock;
+         * switch, and the successor is the address of a case, and all
+         * other successors are inside the block preceding that case.  
+         */
+        StructuredBlock precedingcase = null;
+        StructuredBlock nextcase = null;
+        /*XXX*/
+        if (succ == END_OF_METHOD) {
+        } else if (nextcase != null) {
+            SwitchBlock switchBlock = (SwitchBlock) appendBlock;
 
             /* Now put the succ.block into the next case.
              */
@@ -408,52 +553,120 @@ public class FlowBlock {
 
             /* Do the following modifications on the struct block. */
             appendBlock = precedingcase;
+            succ.block.setFlowBlock(this);
 
         } else {
 
-            /* Prepare the unification of the blocks: Make sure that
-             * appendBlock has a successor outside of this block.  This is
-             * always possible, because it contains lastModified.  
-             */
+            /* Prepare the unification of the blocks: Make sure if
+             * possible that appendBlock has a successor outside of
+             * this block.  
+             *
+             * This doesn't change the semantics, since appendBlock
+             * is the last block that could be modified. 
+             * XXX (is this true for switches)*/
             if (appendBlock.jump == null) {
-                /* assert(appendBlock.jump.getNextFlowBlock() != null) */
-                appendBlock.setJump(appendBlock.getNextFlowBlock());
+                Jump jump = new Jump(succ);
+                appendBlock.setJump(jump);
+                successors.addElement(jump);
             }
 
             /* Now unify the blocks: Create a new SequentialBlock
              * containing appendBlock and successor.block.  Then replace
              * appendBlock with the new sequential block.
              */
-            StructuredBlock outer = appendBlock.outer;
-            StructuredBlock sequBlock = 
-                new SequentialBlock(appendBlock, switchBlock);
-            outer.replaceSubBlock(appendBlock, sequBlock);
-            sequBlock.outer = outer;
+            SequentialBlock sequBlock = 
+                new SequentialBlock();
+            sequBlock.replace(appendBlock);
+            sequBlock.setFirst(appendBlock);
+            sequBlock.setSecond(succ.block);
+            succ.block.setFlowBlock(this);
         }
 
+        /* Merge the sucessors from the successing flow block
+         */
+        enum = succ.successors.elements();
+        while (enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+            if (jump == null)
+                continue;
+            successors.addElement(jump);
+            if (jump.destination.predecessors.contains(succ)) {
+                /*XXX comment and make clearer, better etc.*/
+                jump.destination.predecessors.removeElement(succ);
+                if (!jump.destination.predecessors.contains(this))
+                    jump.destination.predecessors.addElement(this);
+            }
+        }
+
+        try {
+            TabbedPrintWriter writer = 
+                new TabbedPrintWriter(System.err, "    ");
+            writer.tab();
+            System.err.println("before optimizeJump: "+getLabel());
+            block.dumpSource(writer);
+            checkConsistent();
+        } catch (java.io.IOException ex) {}
+            checkConsistent();
         /* Try to eliminate as many jumps as possible.
          */
 
-        optimizeJumps(succ, appendBlock);
+        appendBlock = optimizeJumps(succ, appendBlock);
 
+        try {
+            TabbedPrintWriter writer = 
+                new TabbedPrintWriter(System.err, "    ");
+            writer.tab();
+            System.err.println("after optimizeJump: "+getLabel());
+            block.dumpSource(writer);
+            checkConsistent();
+        } catch (java.io.IOException ex) {}
+        System.err.println("XXX");
+            checkConsistent();
         /* Now remove the jump of the appendBlock if it points to successor.
          */
-
-        if (appendBlock.jump == succ)
+        if (appendBlock.jump != null &&
+            appendBlock.jump.destination == succ)
             appendBlock.removeJump();
 
         /* If there are further jumps, put a do/while(0) block around
          * appendBlock and replace every remaining jump with a break
          * to the do/while block.
          */
-        
-        /* Merge the sucessors from the successing flow block
-         */
-        enum = succ.successors.elements();
+        LoopBlock doWhileFalse = null;
+        enum = successors.elements();
         while (enum.hasMoreElements()) {
-            successors.addElement(enum.nextElement());
+            Jump jump = (Jump) enum.nextElement();
+
+            if (jump == null || jump.destination != succ)
+                continue;
+
+            if (doWhileFalse == null)
+                doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
+                                             LoopBlock.FALSE);
+
+            int breaklevel = 1;
+            for (StructuredBlock surrounder = jump.prev.outer;
+                 surrounder != appendBlock.outer; 
+                 surrounder = surrounder.outer) {
+                if (surrounder instanceof BreakableBlock) {
+                    breaklevel++;
+                }
+            }
+
+            SequentialBlock sequBlock = new SequentialBlock();
+            StructuredBlock prevBlock = jump.prev;
+            prevBlock.removeJump();
+            
+            sequBlock.replace(prevBlock);
+            sequBlock.setFirst(prevBlock);
+            sequBlock.setSecond(new BreakBlock(doWhileFalse, breaklevel > 1));
         }
 
+        if (doWhileFalse != null) {
+            doWhileFalse.replace(appendBlock);
+            doWhileFalse.setBody(appendBlock);
+        }
+        
         /* Believe it or not: Now the rule, that the first part of a
          * SequentialBlock shouldn't be another SequentialBlock is
          * fulfilled. <p>
@@ -466,6 +679,22 @@ public class FlowBlock {
 
         /* Set last modified to correct value.  */
         lastModified = succ.lastModified;
+
+        /* Set addr+length to (semi-)correct value */
+        if (succ.addr < addr)
+            addr = succ.addr;
+        length += succ.length;
+
+        /* T1 transformation succeeded */
+        try {
+            TabbedPrintWriter writer = 
+                new TabbedPrintWriter(System.err, "    ");
+            writer.tab();
+            System.err.println("T1 succeeded:");
+            block.dumpSource(writer);
+            checkConsistent();
+        } catch (java.io.IOException ex) {}
+        return true;
     }
 
     public boolean doT2() {
@@ -474,9 +703,21 @@ public class FlowBlock {
          * considered yet, return false.  The second condition make
          * sure that the while isn't created up to the first continue.
          */
+        if (!predecessors.contains(this)
+            /* || complicated second condition XXX */ )
+            return false;
+
+        try {
+            TabbedPrintWriter writer = 
+                new TabbedPrintWriter(System.err, "    ");
+            writer.tab();
+            System.err.println("doing T2 analysis on: "+getLabel());
+            block.dumpSource(writer);
+            checkConsistent();
+        } catch (java.io.IOException ex) {}
 
         /* Update the in/out-Vectors now */
-        updateInOut(successor, false);
+        updateInOut(this, false);
 
         /* If there is only one jump to the beginning and it is the
          * last jump and (there is a do/while(0) block surrounding
@@ -485,26 +726,145 @@ public class FlowBlock {
          * do/while(0) with a for(;;last_instr) resp. create a new one
          * and replace breaks to do/while with continue to for.  
          */
+        /* XXX implement above */
+        /* XXX condition for do/while(cond) blocks */
         {
             /* Otherwise: */
 
             /* create a new while(true) block.
              */
+            StructuredBlock bodyBlock = block;
+            
+            /* Prepare the unification of the blocks: Make sure that
+             * bodyBlock has a jump.  */
+            if (bodyBlock.jump == null) {
+                Jump jump = new Jump(this);
+                bodyBlock.setJump(jump);
+                successors.addElement(jump);
+            }
+
+            LoopBlock whileBlock = 
+                new LoopBlock(LoopBlock.WHILE, LoopBlock.TRUE);
+
+            whileBlock.replace(bodyBlock);
+            whileBlock.setBody(bodyBlock);
 
             /* Try to eliminate as many jumps as possible.
              */
-            optimizeJumps(this, block);
+            bodyBlock = optimizeJumps(this, bodyBlock);
 
             /* Now remove the jump of block if it points to this.
              */
+            if (bodyBlock.jump != null &&
+                bodyBlock.jump.destination == this)
+                bodyBlock.removeJump();
 
             /* if there are further jumps to this, replace every jump with a
              * continue to while block and return true.  
              */
+            Enumeration enum = successors.elements();
+            while (enum.hasMoreElements()) {
+                Jump jump = (Jump) enum.nextElement();
+                
+                if (jump == null || jump.destination != this)
+                    continue;
+                
+                int continuelevel = 1;
+                for (StructuredBlock surrounder = jump.prev.outer;
+                     surrounder != null;
+                     surrounder = surrounder.outer) {
+                    if (surrounder instanceof LoopBlock) {
+                        continuelevel++;
+                    }
+                }
+                
+                SequentialBlock sequBlock = new SequentialBlock();
+                StructuredBlock prevBlock = jump.prev;
+                prevBlock.removeJump();
+                
+                sequBlock.replace(prevBlock);
+                sequBlock.setFirst(prevBlock);
+                sequBlock.setSecond(new ContinueBlock(whileBlock, 
+                                                      continuelevel > 1));
+            }
+            lastModified = whileBlock;
+        }
+
+        /* remove ourself from the predecessor list.
+         */
+        predecessors.removeElement(this);
+
+        /* T2 analysis succeeded */
+        try {
+            TabbedPrintWriter writer = 
+                new TabbedPrintWriter(System.err, "    ");
+            writer.tab();
+            System.err.println("T2 succeded:");
+            block.dumpSource(writer);
+            checkConsistent();
+        } catch (java.io.IOException ex) {}
+
+        return true;
+    }
+
+    /**
+     * Resolves the destinations of all jumps.
+     */
+    public void resolveJumps(FlowBlock[] instr) {
+        Enumeration enum = successors.elements();
+        while (enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+            if (jump.destAddr == -1) 
+                jump.destination = END_OF_METHOD;
+            else
+                jump.destination = instr[jump.destAddr];
+            if (!jump.destination.predecessors.contains(this))
+                jump.destination.predecessors.addElement(this);
         }
     }
 
     public void removeSuccessor(Jump jump) {
         successors.setElementAt(null, successors.indexOf(jump));
+    }
+
+
+    /**
+     * Print the source code for this structured block.  This handles
+     * everything that is unique for all structured blocks and calls
+     * dumpInstruction afterwards.
+     * @param writer The tabbed print writer, where we print to.
+     */
+    public void dumpSource(TabbedPrintWriter writer)
+        throws java.io.IOException
+    {
+        if (label != null) {
+            writer.untab();
+            writer.println(label+":");
+            writer.tab();
+        }
+        block.dumpSource(writer);
+        FlowBlock succ = getSuccessor();
+        if (succ != null)
+            succ.dumpSource(writer);
+    }
+
+    /**
+     * The serial number for labels.
+     */
+    static int serialno = 0;
+
+    /**
+     * The label of this instruction, or null if it needs no label.
+     */
+    String label = null;
+
+    /**
+     * Returns the label of this block and creates a new label, if
+     * there wasn't a label previously.
+     */
+    public String getLabel() {
+        if (label == null)
+            label = "flow_"+(serialno++)+"_";
+        return label;
     }
 }

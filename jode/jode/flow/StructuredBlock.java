@@ -18,6 +18,7 @@
  */
 
 package jode.flow;
+import jode.TabbedPrintWriter;
 
 /**
  * A structured block is the building block of the source programm.
@@ -49,8 +50,8 @@ package jode.flow;
 public abstract class StructuredBlock {
     /* Invariants:
      * in.intersection(out) = empty
-     * outer != null => flowblock = outer.flowblock
-     * outer == null => flowblock.block = this
+     * outer != null => flowBlock = outer.flowBlock
+     * outer == null => flowBlock.block = this
      * jump  == null => outer != null
      * either getNextBlock() != null 
      *     or getNextFlowBlock() != null or outer == null
@@ -65,7 +66,7 @@ public abstract class StructuredBlock {
      * path from the start of the current flow block, on which the
      * local variable is never assigned
      */
-    VariableSet in; 
+    VariableSet in = new VariableSet(); 
 
     /**
      * The out locals.  This are the locals, which must be overwritten
@@ -74,14 +75,14 @@ public abstract class StructuredBlock {
      * structured block contain a (unconditional) assignment to this
      * local
      */
-    VariableSet out;
+    VariableSet out = new VariableSet();
 
     /**
      * The variable set containing all variables that must be defined
      * in this block (or maybe an outer block, this changes as the
      * blocks are put together).
      */
-    VariableSet defineHere;
+    VariableSet defineHere = new VariableSet();
 
     /**
      * The surrounding structured block.  If this is the outermost
@@ -91,7 +92,7 @@ public abstract class StructuredBlock {
     /**
      * The flow block in which this structured block lies.
      */
-    FlowBlock flowblock;
+    FlowBlock flowBlock;
     
     /** 
      * The jump that follows on this block, or null if there is no
@@ -104,13 +105,17 @@ public abstract class StructuredBlock {
      * Returns the block where the control will normally flow to, when
      * this block is finished (not ignoring the jump after this block).
      */
-    StructuredBlock getNextBlock() {
+    public StructuredBlock getNextBlock() {
         if (jump != null)
             return null;
         if (outer != null)
-            outer.getNextBlock(this);
-        else 
-            return null;
+            return outer.getNextBlock(this);
+        return null;
+    }
+
+    public void setJump(Jump jump) {
+        this.jump = jump;
+        jump.prev = this;
     }
 
     /**
@@ -120,13 +125,12 @@ public abstract class StructuredBlock {
      * @return null, if the control flows into a non empty structured
      * block or if this is the outermost block.
      */
-    FlowBlock getNextFlowBlock() {
+    public FlowBlock getNextFlowBlock() {
         if (jump != null)
             return jump.destination;
         if (outer != null)
-            outer.getNextFlowBlock(this);
-        else 
-            return null;
+            return outer.getNextFlowBlock(this);
+        return null;
     }
 
     /**
@@ -135,13 +139,12 @@ public abstract class StructuredBlock {
      * @return null, if everything is okay, and a diagnostic message that
      * should be put in a comment otherwise.
      */
-    String checkJump(Jump jump) {
+    public String checkJump(Jump jump) {
         if (outer != null)
             return outer.checkJump(jump);
-        else if (jump.hasAttachments())
-            return "Unknown attachments: "+jump.describeAttachments()
-        else
-            return null;
+        if (jump.hasAttachments())
+            return "Unknown attachments: "+jump.describeAttachments();
+        return null;
     }
 
     /**
@@ -151,11 +154,11 @@ public abstract class StructuredBlock {
      * SwitchBlock).  If this isn't called with a direct sub block,
      * the behaviour is undefined, so take care.  
      * @return null, if the control flows to another FlowBlock.  */
-    StructuredBlock getNextBlock(StructuredBlock subBlock) {
+    public StructuredBlock getNextBlock(StructuredBlock subBlock) {
         return getNextBlock();
     }
 
-    FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
+    public FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
         return getNextFlowBlock();
     }
 
@@ -165,15 +168,15 @@ public abstract class StructuredBlock {
      * @param newBlock the new sub block.
      * @return false, if oldBlock wasn't a direct sub block.
      */
-    boolean replaceSubBlock(StructuredBlock oldBlock, 
-                            StructuredBlock newBlock) {
+    public boolean replaceSubBlock(StructuredBlock oldBlock, 
+                                   StructuredBlock newBlock) {
         return false;
     }
 
     /**
      * Returns all sub block of this structured block.
      */
-    StructuredBlock[] getSubBlocks() {
+    public StructuredBlock[] getSubBlocks() {
         return new StructuredBlock[0];
     }
 
@@ -182,19 +185,21 @@ public abstract class StructuredBlock {
      * @param child the block which should be contained by this block.
      * @return false, if child is null, or is not contained in this block.
      */
-    boolean contains(StructuredBlock child) {
+    public boolean contains(StructuredBlock child) {
         while (child != this && child != null)
             child = child.outer;
         return (child == this);
     }
 
-
     /**
-     * Removes the jump after this structured block.  This does also update
-     * the successors vector of the flow block.
+     * Removes the given jump if it is our jump.  This does also
+     * update the successors vector of the flow block.  
+     *
+     * @param jump  The jump that should be removed.  
      */
     public void removeJump() {
         if (jump != null) {
+            jump.prev = null;
             flowBlock.removeSuccessor(jump);
             jump = null;
         }
@@ -202,28 +207,34 @@ public abstract class StructuredBlock {
 
     /**
      * This function replaces sb with this block.  It copies outer and
-     * the following jump from sb, and updates them, so they know that
-     * sb was replaced. 
-     * The jump field of sb is removed afterwards.  You have to replace
-     * sb.outer or mustn't use sb anymore.
-     * @param sb  The structured block that should be replaced.
-     */
+     * from sb, and updates the outer block, so it knows that sb was
+     * replaced.  You have to replace sb.outer or mustn't use sb
+     * anymore.
+     * @param sb The structured block that should be replaced.  */
     public void replace(StructuredBlock sb) {
         in = sb.in;
         out = sb.out;
         defineHere = sb.defineHere;
         outer = sb.outer;
         flowBlock = sb.flowBlock;
-        jump = sb.jump;
 
-        if (jump != null) {
-            jump.parent = this;
-            sb.jump = null;
-        }
         if (outer != null) {
             outer.replaceSubBlock(sb, this);
         } else {
             flowBlock.block = this;
+        }
+    }
+
+    /**
+     * This function moves the jumps from sb to this block.  
+     * The jump field of sb is removed afterwards.  
+     * @param sb  The structured block whose jump is copied.
+     */
+    public void moveJump(StructuredBlock sb) {
+        jump = sb.jump;
+        if (jump != null) {
+            jump.prev = this;
+            sb.jump = null;
         }
     }
 
@@ -236,25 +247,78 @@ public abstract class StructuredBlock {
         return false;
     }
 
-    /**
-     * Get the unique predecessor which mustn't be a conditional jump
-     * @return the predecessor or null if there isn't a such a thing
-     */
-    public StructuredBlock getSimpleUniquePredecessor() {
-        SequentialBlock sequ;
-        if (outer instanceof SequentialBlock) {
-            if (outer.getSubBlocks()[1] == this)
-                return outer.getSubBlocks()[0];
-            else if (outer.outer instanceof SequentialBlock)
-                return outer.outer.getSubBlocks[0];
+    public void checkConsistent() {
+        StructuredBlock[] subs = getSubBlocks();
+        for (int i=0; i<subs.length; i++) {
+            if (subs[i].outer != this ||
+                subs[i].flowBlock != flowBlock) {
+                throw new RuntimeException("Inconsistency");
+            }
+            subs[i].checkConsistent();
         }
-        return null;
+        if (jump != null && 
+            (jump.prev != this || 
+             !flowBlock.successors.contains(jump) ||
+             !jump.destination.predecessors.contains(flowBlock))) {
+                throw new RuntimeException("Inconsistency");
+        }
+    }
+
+    /**
+     * Set the flow block of this block and all sub blocks.
+     * @param flowBlock the new flow block
+     */
+    public void setFlowBlock(FlowBlock flowBlock) {
+        if (this.flowBlock != flowBlock) {
+            this.flowBlock = flowBlock;
+            StructuredBlock[] subs = getSubBlocks();
+            for (int i=0; i<subs.length; i++) {
+                subs[i].setFlowBlock(flowBlock);
+            }
+        }
+    }
+
+    /**
+     * Put all the successors of this block and all subblocks into
+     * the given vector.
+     * @param succs The vector, the successors should be stored to.
+     */
+    public void fillSuccessors(java.util.Vector succs) {
+        succs.addElement(jump);
+        StructuredBlock[] subs = getSubBlocks();
+        for (int i=0; i<subs.length; i++) {
+            subs[i].fillSuccessors(succs);
+        }
     }
     
     /**
-     * Print the source code for this structured block.  This may be
-     * called only once, because it remembers which local variables
-     * were declared.  */
-    public abstract void dumpSource(TabbedPrintWriter writer)
+     * Print the source code for this structured block.  This handles
+     * everything that is unique for all structured blocks and calls
+     * dumpInstruction afterwards.
+     * @param writer The tabbed print writer, where we print to.
+     */
+    public void dumpSource(TabbedPrintWriter writer)
+        throws java.io.IOException
+    {
+        /* XXX declare variables needed in this block */
+        dumpInstruction(writer);
+        if (jump != null) {
+            if (jump.destination == null)
+                writer.println ("GOTO null-ptr!!!!!");
+            else {
+                writer.println("GOTO "+jump.destination.getLabel());
+                if (jump.prev != this)
+                    writer.println("GOTO has wrong prev");
+            }
+        }
+    }
+
+
+    /**
+     * Print the instruction expressing this structured block.
+     * @param writer The tabbed print writer, where we print to.
+     */
+    public abstract void dumpInstruction(TabbedPrintWriter writer)
         throws java.io.IOException;
 }
+

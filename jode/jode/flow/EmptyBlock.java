@@ -18,27 +18,20 @@
  */
 
 package jode.flow;
+import jode.TabbedPrintWriter;
 
 /**
  * This is the structured block for an empty block.
  */
 public class EmptyBlock extends StructuredBlock {
-    Instruction instr;
-
-    SimpleInstruction(Instruction instr) {
-        in = new Vector();
-        out = new Vector();
-        this.instr = instr;
-        if (instr instanceof LocalVarOperator) {
-            LocalVarOperator varOp = (LocalVarOperator) instr;
-            if (varOp.isRead())
-                in.addElement(varOp.getLocalInfo());
-            else /* if (varOp.isWrite()) */
-                out.addElement(varOp.getLocalInfo());
-        }
+    public EmptyBlock() {
     }
 
-    public void dumpSource(TabbedPrintWriter writer) 
+    public EmptyBlock(Jump jump) {
+        setJump(jump);
+    }
+
+    public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
         writer.println("/* empty */");

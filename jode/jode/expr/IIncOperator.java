@@ -22,13 +22,12 @@ import sun.tools.java.Type;
 
 public class IIncOperator extends NoArgOperator 
 implements LocalVarOperator {
-    int slot;
     String value;
     LocalInfo local;
 
-    public IIncOperator(int slot, String value, int operator) {
+    public IIncOperator(LocalInfo local, String value, int operator) {
         super(MyType.tVoid, operator);
-        this.slot = slot;
+        this.local = local;
 	this.value = value;
     }
 
@@ -44,18 +43,18 @@ implements LocalVarOperator {
         return true;
     }
 
-    public void setLocalInfo(LocalInfo local) {
-        local.setType(MyType.tUIndex);
-	this.local = local;
-    }
+//     public void setLocalInfo(LocalInfo local) {
+//         local.setType(MyType.tUIndex);
+// 	this.local = local;
+//     }
 
     public LocalInfo getLocalInfo() {
 	return local;
     }
 
-    public int getSlot() {
-        return slot;
-    }
+//     public int getSlot() {
+//         return slot;
+//     }
 
     public int getPriority() {
         return 100;

@@ -22,12 +22,11 @@ import sun.tools.java.Type;
 
 public class LocalStoreOperator extends StoreInstruction 
 implements LocalVarOperator {
-    int slot;
     LocalInfo local;
 
-    public LocalStoreOperator(Type lvalueType, int slot, int operator) {
+    public LocalStoreOperator(Type lvalueType, LocalInfo local, int operator) {
         super(lvalueType, operator);
-        this.slot = slot;
+        this.local = local;
     }
 
     public boolean isRead() {
@@ -38,10 +37,10 @@ implements LocalVarOperator {
         return true;
     }
 
-    public void setLocalInfo(LocalInfo local) {
-        local.setType(lvalueType);
-	this.local = local;
-    }
+//     public void setLocalInfo(LocalInfo local) {
+//         local.setType(lvalueType);
+// 	this.local = local;
+//     }
 
     public LocalInfo getLocalInfo() {
 	return local;
@@ -58,9 +57,9 @@ implements LocalVarOperator {
 	    (local.setType(MyType.tSuperType(type)));
     }
 
-    public int getSlot() {
-        return slot;
-    }
+//     public int getSlot() {
+//         return slot;
+//     }
 
     public boolean matches(Operator loadop) {
         return loadop instanceof LocalLoadOperator && 

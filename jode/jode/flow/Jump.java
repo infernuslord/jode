@@ -26,18 +26,34 @@ public class Jump {
      */
     StructuredBlock prev;
     /**
-     * The flow block, where this jump lies in
-     */
-    FlowBlock parent;
-    /**
      * The destination block of this jump.
      */
     FlowBlock destination;
+    /**
+     * The destination address, in case the destination block is not yet
+     * known.  
+     */
+    int destAddr;
+
+    public Jump (int destAddr) {
+        this.destAddr = destAddr;
+    }
+
+    public Jump (FlowBlock dest) {
+        this.destination = dest;
+    }
 
     /**
      * Returns true if this jump has jsr or monitorexit attachments.  
      */
     boolean hasAttachments() {
+        return false;
+    }
+
+    /**
+     * Returns a string describing the jsr or monitorexit attachments.  
+     */
+    String describeAttachments() {
+        return "";
     }
 }
-
