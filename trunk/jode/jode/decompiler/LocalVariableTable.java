@@ -43,8 +43,19 @@ public class LocalVariableTable {
             for (int i=0; i < count; i++) {
                 int start  = stream.readUnsignedShort();
                 int end    = start + stream.readUnsignedShort();
-                String name = constantPool.getUTF8(stream.readUnsignedShort());
-                Type type = Type.tType(constantPool.getUTF8(stream.readUnsignedShort()));
+		int nameIndex = stream.readUnsignedShort();
+		int typeIndex = stream.readUnsignedShort();
+		if (nameIndex == 0 || typeIndex == 0
+		    || constantPool.getTag(nameIndex) != constantPool.UTF8
+		    || constantPool.getTag(typeIndex) != constantPool.UTF8) {
+		    // This is probably an evil lvt as created by HashJava
+		    // simply ignore it.
+		    if (Decompiler.showLVT) 
+			Decompiler.err.println("Illegal entry, ignoring LVT");
+		    return;
+		}
+                String name = constantPool.getUTF8(nameIndex);
+                Type type = Type.tType(constantPool.getUTF8(typeIndex));
                 int slot   = stream.readUnsignedShort();
                 locals[slot].addLocal(start, end-start, name, type);
                 if (Decompiler.showLVT)
@@ -53,7 +64,7 @@ public class LocalVariableTable {
                                        +" slot "+slot);
             }
         } catch (IOException ex) {
-            ex.printStackTrace();
+            ex.printStackTrace(Decompiler.err);
         }
     }
 
