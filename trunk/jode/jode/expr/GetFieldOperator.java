@@ -34,7 +34,7 @@ public class GetFieldOperator extends Operator {
         super(Type.tType(ref.getType()), 0);
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
-        this.classType = Type.tClass(ref.getClazz());
+        this.classType = Type.tType(ref.getClazz());
 	this.ref = ref;
         if (staticFlag)
             classType.useType();
@@ -64,7 +64,7 @@ public class GetFieldOperator extends Operator {
     public String toString(String[] operands) {
 	String fieldName = ref.getName();
         return staticFlag
-            ? (classType.equals(Type.tClass(codeAnalyzer.getClazz().getName()))
+            ? (classType.equals(Type.tClass(codeAnalyzer.getClazz()))
                && codeAnalyzer.findLocal(fieldName) == null
                ? fieldName 
                : classType.toString() + "." + fieldName)
