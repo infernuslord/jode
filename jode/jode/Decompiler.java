@@ -118,8 +118,8 @@ public class Decompiler {
         String classPath = System.getProperty("java.class.path");
 	File destDir = null;
 	ZipOutputStream destZip = null;
-	int importPackageLimit = 3;
-        int importClassLimit = 3;
+	int importPackageLimit = ImportHandler.DEFAULT_PACKAGE_LIMIT;
+        int importClassLimit = ImportHandler.DEFAULT_CLASS_LIMIT;;
 	GlobalOptions.err.println(GlobalOptions.copyright);
         for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
@@ -200,8 +200,8 @@ public class Decompiler {
         }
         
         ClassInfo.setClassPath(classPath);
-	ImportHandler imports = new ImportHandler(importClassLimit,
-						  importPackageLimit);
+	ImportHandler imports = new ImportHandler(importPackageLimit,
+						  importClassLimit);
 	TabbedPrintWriter writer = null;
 	if (destDir == null)
 	    writer = new TabbedPrintWriter(System.out, imports);
