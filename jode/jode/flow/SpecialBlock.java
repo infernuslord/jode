@@ -29,7 +29,6 @@ public class SpecialBlock extends StructuredBlock {
     public static int SWAP = 1;
     public static int POP  = 2;
     private static String[] output = { "DUP", "SWAP", "POP" };
-    private boolean resolved = false;
 
     /**
      * The type, one of DUP or SWAP
@@ -66,20 +65,17 @@ public class SpecialBlock extends StructuredBlock {
     }
 
     public void removePush() {
-	resolved = true;
-	super.removePush();
+	/* XXX */
+	removeBlock();
     }
 
 
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-	if (!resolved)
-	    writer.println(output[type] 
-			   + ((count == 1) ? "" : "2")
-			   + ((depth == 0) ? "" : "_X"+depth));
-	else
-	    writer.println("/* warning: unusual code */");
+	writer.println(output[type] 
+		       + ((count == 1) ? "" : "2")
+		       + ((depth == 0) ? "" : "_X"+depth));
     }
 
     public boolean doTransformations() {
