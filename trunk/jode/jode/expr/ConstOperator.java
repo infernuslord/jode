@@ -54,7 +54,11 @@ public class ConstOperator extends NoArgOperator {
                 return "false";
             else if (value.equals("1"))
                 return "true";
-        } if (type.getBottom() == Type.tChar) {
+	    else 
+		throw new jode.AssertError
+		    ("boolean is neither false nor true");
+        } 
+	if (type.getBottom() == Type.tChar) {
             char c = (char) Integer.parseInt(value);
             switch (c) {
             case '\0':
