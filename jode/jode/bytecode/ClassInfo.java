@@ -175,10 +175,13 @@ public class ClassInfo extends BinaryInfo {
 		String innername = 
 		    nameIndex != 0 ? cp.getUTF8(nameIndex) : null;
 		int access = input.readUnsignedShort();
+		if (innername != null && innername.length() == 0)
+		    innername = null;
 		InnerClassInfo ici = new InnerClassInfo 
 		    (inner, outer, innername, access);
 
-		if (outer != null && outer.equals(getName()))
+		if (outer != null && outer.equals(getName()) 
+		    && innername != null)
 		    innerClassInfo[innerCount++] = ici;
 		else
 		    innerClassInfo[count - (++extraCount)] = ici;
