@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public abstract class StoreInstruction extends Operator {
 
@@ -27,7 +26,7 @@ public abstract class StoreInstruction extends Operator {
 
     public StoreInstruction(Type type, int operator) {
         super(Type.tVoid, operator);
-        lvalueType = MyType.tSubType(type);
+        lvalueType = Type.tSubType(type);
         lvCasts = lvalueType.toString();
     }
 
@@ -46,11 +45,6 @@ public abstract class StoreInstruction extends Operator {
      * @return true if the operand types changed
      */
     public boolean setLValueType(Type type) {
-//         if (!MyType.isOfType(type, this.lvalueType)) {
-//             lvCasts = type.toString()+"/*invalid*/ <- " + lvCasts;
-//         } else if (type != this.lvalueType) {
-//             lvCasts = type.toString()+" <- " + lvCasts;
-//         }
         this.lvalueType = type;
         return false;
     }
@@ -70,7 +64,7 @@ public abstract class StoreInstruction extends Operator {
 
     public Type getOperandType(int i) {
         if (i == getLValueOperandCount())
-            return MyType.tSubType(getLValueType());
+            return Type.tSubType(getLValueType());
         else
             return getLValueOperandType(i);
     }
@@ -78,9 +72,8 @@ public abstract class StoreInstruction extends Operator {
     public void setOperandType(Type[] t) {
         if (getLValueOperandCount() > 0)
             setLValueOperandType(t);
-        setLValueType(MyType.intersection
-		      (lvalueType, 
-		       MyType.tSuperType(t[getLValueOperandCount()])));
+        setLValueType(lvalueType.intersection
+		      (Type.tSuperType(t[getLValueOperandCount()])));
     }
 
     public int getOperandCount() {

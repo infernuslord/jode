@@ -104,7 +104,8 @@ public class IfThenElseBlock extends StructuredBlock {
         if (elseBlock != null) {
             writer.print(needBrace ? "} " : "");
             if (elseBlock instanceof IfThenElseBlock
-                /* XXX && No variables are declared XXX*/) {
+                && (elseBlock.declare == null 
+                    || elseBlock.declare.isEmpty())) {
                 needBrace = false;
                 writer.print("else ");
                 elseBlock.dumpSource(writer);

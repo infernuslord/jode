@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class NewArrayOperator extends SimpleOperator {
     String baseTypeString;
@@ -27,7 +26,7 @@ public class NewArrayOperator extends SimpleOperator {
                             int dimensions) {
         super(arrayType, 0, dimensions);
         for (int i=0; i< dimensions; i++) {
-            operandTypes[i] = MyType.tUIndex;
+            operandTypes[i] = Type.tInt;
         }
         this.baseTypeString = baseTypeString;
     }

@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class CheckCastOperator extends SimpleOperator {
     String typeString;
@@ -37,7 +36,7 @@ public class CheckCastOperator extends SimpleOperator {
          *
          * The forgiving solution:
          */
-        operandTypes[0] = MyType.tUnknown;
+        operandTypes[0] = Type.tUnknown;
     }
 
     public int getPriority() {

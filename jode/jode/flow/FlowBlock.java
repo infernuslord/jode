@@ -443,7 +443,6 @@ public class FlowBlock {
                     doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
                                                  LoopBlock.FALSE);
                     doWhileFalse.setJump(new Jump(succ));
-                    successors.addElement(doWhileFalse.jump);
                 }
                 prevBlock.appendBlock
                     (new BreakBlock(doWhileFalse, breaklevel > 0));
@@ -455,7 +454,7 @@ public class FlowBlock {
         if (doWhileFalse != null) {
             doWhileFalse.replace(appendBlock, appendBlock);
             doWhileFalse.setBody(appendBlock);
-            doWhileFalse.removeJump();
+            doWhileFalse.jump = null;
         }
 
         /* Now remove the jump of the appendBlock if it points to
@@ -756,6 +755,13 @@ public class FlowBlock {
             appendBlock = optimizeJumps(succ, appendBlock);
             
             checkConsistent();
+
+//             TabbedPrintWriter writer = new jode.TabbedPrintWriter(System.err, "    ");
+//             try {
+//                 writer.println("XXXXXXXXXXXXXXXX");
+//                 writer.tab();
+//                 dumpSource(writer);
+//             } catch(java.io.IOException ex) {}
 
             appendBlock = resolveRemaining(succ, appendBlock);
 	}
@@ -1110,6 +1116,11 @@ public class FlowBlock {
                         /* the Block has no successor where t1 is applicable.
                          * Finish this analyzation.
                          */
+                        if (Decompiler.isFlowDebugging) {
+                            writer.println("No more successors applicable: "
+                                           + start + " - " + end + "; "
+                                           + addr + " - " + (addr+length));
+                        }
                         return changed;
                     } else {
                         /* Only do T1 transformation if the blocks are
@@ -1190,8 +1201,15 @@ public class FlowBlock {
                         return changed;
                     else if (next.addr >= start) {
 
-                        /* First analyze the next block. */
-                        changed = next.analyze(next.addr, end) || changed;
+                        /* First analyze the next block.  It may
+                         * return early after a T2 trafo so call it
+                         * until nothing more is possible.  
+                         */
+                        while (next.analyze(addr + length, end))
+                            changed = changed || true;
+
+                        if (next.addr != addr + length)
+                            return changed;
 
                         /* Check if next has only the previous case
                          * and this case as predecessor. Otherwise
@@ -1227,9 +1245,7 @@ public class FlowBlock {
                             lastBlock = resolveRemaining(next, lastBlock);
                         }
 
-                        /* Set addr+length to (semi-)correct value */
-                        if (next.addr < addr)
-                            addr = next.addr;
+                        /* Set length to correct value */
                         length += next.length;
                         
                         lastBlock = next.block;

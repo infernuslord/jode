@@ -29,7 +29,7 @@ public class JodeEnvironment extends LoadEnvironment {
 
     JodeEnvironment() {
         super(null);
-	MyType.setEnvironment(this);
+	Type.setEnvironment(this);
         path = new ClassPath(System.getProperty("java.class.path"));
     }
 
@@ -65,7 +65,7 @@ public class JodeEnvironment extends LoadEnvironment {
     }
 
     public String getTypeString(Type type, Identifier name) {
-        return type.typeString(name.toString(), false, false);
+        return type.toString() + " " + name.toString();
     }
 
     public ClassDefinition getClassDefinition() {

@@ -94,9 +94,9 @@ public class CodeAnalyzer implements Analyzer, Constants {
                 tryBlock = ((RawTryCatchBlock)tryBlock).getTryBlock();
             }
             
-            Type type = 
+            Type type =
                 (handlers[i].exceptionClass != null)? 
-                handlers[i].exceptionClass.getType() : null;
+                Type.tClass(handlers[i].exceptionClass.getName().toString()) : null;
             
             new RawTryCatchBlock(type, tryBlock, 
                                  new Jump(instr[handlers[i].endPC]),

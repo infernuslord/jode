@@ -18,7 +18,7 @@
  */
 
 package jode;
-import sun.tools.java.*;
+import sun.tools.java.Identifier;
 import java.io.*;
 
 public class LocalVariableTable {
@@ -57,7 +57,7 @@ public class LocalVariableTable {
                         Identifier.lookup((String)
                                           env.getConstantPool().
                                           getValue(name_i)),
-                        env.getConstantPool().getType(desc_i));
+                        Type.tType(env.getConstantPool().getType(desc_i)));
 	    if (Decompiler.showLVT)
 		System.err.println(""+env.getConstantPool().getValue(name_i)
 				   +": "+env.getConstantPool().getType(desc_i)

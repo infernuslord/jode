@@ -48,7 +48,8 @@ public class FieldAnalyzer implements Analyzer {
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
 
-        writer.print(env.getTypeString(fdef.getType(), fdef.getName()));
+        writer.print(env.getTypeString(Type.tType(fdef.getType()), 
+                                       fdef.getName()));
         byte[] attrib = 
             ((BinaryField) fdef).getAttribute(Constants.idConstantValue);
         if (attrib != null) {

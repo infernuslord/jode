@@ -30,9 +30,9 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public static final int FOR = 2;
 
     public static final Instruction TRUE = 
-        new ConstOperator(MyType.tBoolean, "1");
+        new ConstOperator(Type.tBoolean, "1");
     public static final Instruction FALSE = 
-        new ConstOperator(MyType.tBoolean, "0");
+        new ConstOperator(Type.tBoolean, "0");
 
     /**
      * The condition.  Must be of boolean type.

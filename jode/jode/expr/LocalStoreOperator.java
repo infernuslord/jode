@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class LocalStoreOperator extends StoreInstruction 
 implements LocalVarOperator {
@@ -27,6 +26,7 @@ implements LocalVarOperator {
     public LocalStoreOperator(Type lvalueType, LocalInfo local, int operator) {
         super(lvalueType, operator);
         this.local = local;
+        local.setOperator(this);
     }
 
     public boolean isRead() {
@@ -35,6 +35,11 @@ implements LocalVarOperator {
 
     public boolean isWrite() {
         return true;
+    }
+
+    public void updateType() {
+        if (parent != null)
+            parent.updateType();
     }
 
     public LocalInfo getLocalInfo() {
@@ -49,7 +54,7 @@ implements LocalVarOperator {
     public boolean setLValueType(Type type) {
 // 	System.err.println("LocalStore.setType of "+local.getName()+": "+local.getType());
 	return super.setLValueType
-	    (local.setType(MyType.tSuperType(type)));
+	    (local.setType(Type.tSuperType(type)));
     }
 
 //     public int getSlot() {

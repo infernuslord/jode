@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class CompareBinaryOperator extends SimpleOperator {
     public CompareBinaryOperator(Type type, int op) {
@@ -47,9 +46,8 @@ public class CompareBinaryOperator extends SimpleOperator {
     public void setOperandType(Type[] inputTypes) {
         super.setOperandType(inputTypes);
         Type operandType = 
-	    MyType.tSubType(MyType.intersection
-			    (MyType.tSuperType(operandTypes[0]),
-			     MyType.tSuperType(operandTypes[1])));
+	    Type.tSubType(Type.tSuperType(operandTypes[0])
+                          .intersection(Type.tSuperType(operandTypes[1])));
         operandTypes[0] = operandTypes[1] = operandType;
     }
 

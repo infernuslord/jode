@@ -29,7 +29,8 @@ public class InvokeOperator extends Operator {
     public InvokeOperator(CodeAnalyzer codeAnalyzer,
                           boolean staticFlag, boolean specialFlag, 
                           FieldDefinition field) {
-        super(field.getType().getReturnType(), 0);
+        super(Type.tType(field.getType().getReturnType().getTypeSignature()), 
+              0);
         this.codeAnalyzer  = codeAnalyzer;
         this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
@@ -45,7 +46,7 @@ public class InvokeOperator extends Operator {
     }
 
     public Type getClassType() {
-        return field.getClassDeclaration().getType();
+        return Type.tClass(field.getClassDeclaration().getName().toString());
     }
 
     public int getPriority() {
@@ -65,10 +66,12 @@ public class InvokeOperator extends Operator {
     public Type getOperandType(int i) {
         if (!staticFlag) {
             if (i == 0)
-                return MyType.tSubType(field.getClassDeclaration().getType());
+                return Type.tSubType(getClassType());
             i--;
         }
-        return MyType.tSubType(field.getType().getArgumentTypes()[i]);
+        return Type.tSubType(Type.tType(field.getType().
+                                        getArgumentTypes()[i].
+                                        getTypeSignature()));
     }
 
     public void setOperandType(Type types[]) {
@@ -86,27 +89,26 @@ public class InvokeOperator extends Operator {
                 object = "";
             else
                 object = codeAnalyzer.
-                    getTypeString(field.getClassDeclaration().getType());
+                    getTypeString(getClassType());
         } else {
             if (operands[arg].equals("this")) {
-                if (specialFlag && 
-                    (field.getClassDeclaration() == 
-                     codeAnalyzer.getClassDefinition().getSuperClass() ||
-                     (field.getClassDeclaration().getName() == 
-                      Constants.idJavaLangObject &&
-                      codeAnalyzer.getClassDefinition().getSuperClass() == null)))
+                if (specialFlag
+                    && (field.getClassDeclaration()
+                        == codeAnalyzer.getClassDefinition().getSuperClass()))
+//                         || (field.getClassDeclaration().getName() 
+//                             == Constants.idJavaLangObject 
+//                             && codeAnalyzer.getClassDefinition()
+//                             .getSuperClass() == null)))
                     object = "super";
                 else if (specialFlag)
-                    object = "(("+codeAnalyzer.getTypeString
-                        (field.getClassDeclaration().getType())+
-                        ") this)";
+                    object = "(("+codeAnalyzer.getTypeString(getClassType())
+                        + ") this)";
                 else
                     object = "";
             } else {
                 if (specialFlag)
-                    object = "(("+codeAnalyzer.getTypeString
-                        (field.getClassDeclaration().getType())+
-                        ") "+operands[arg]+")";
+                    object = "((" + codeAnalyzer.getTypeString(getClassType())
+                        + ") " + operands[arg]+")";
                 else
                     object = operands[arg];
             }

@@ -17,6 +17,7 @@
  * $Id$
  */
 package jode.flow;
+import jode.Type;
 import jode.LocalInfo;
 import sun.tools.java.Identifier;
 
@@ -39,7 +40,7 @@ public class CatchBlock extends StructuredBlock {
     /**
      * The type of the exception.
      */
-    sun.tools.java.Type exceptionType;
+    Type exceptionType;
     
     /**
      * The local containing the exception.
@@ -166,8 +167,8 @@ public class CatchBlock extends StructuredBlock {
         }
         tryBlock.dumpSource(writer);
         writer.untab();
-        writer.println("} catch ("+/*XXX*/exceptionType.typeString
-                       (exceptionLocal.getName().toString())+") {");
+        writer.println("} catch ("+/*XXX*/exceptionType.toString() + " "
+                       + exceptionLocal.getName().toString()+ ") {");
         writer.tab();
         catchBlock.dumpSource(writer);
         if (!(outer instanceof CatchBlock

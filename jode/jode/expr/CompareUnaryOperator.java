@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class CompareUnaryOperator extends SimpleOperator {
     boolean objectType;
@@ -26,7 +25,7 @@ public class CompareUnaryOperator extends SimpleOperator {
     public CompareUnaryOperator(Type type, int op) {
         super(Type.tBoolean, op, 1);
         operandTypes[0] = type;
-        objectType = (type == MyType.tUObject);
+        objectType = (type == Type.tUObject);
     }
 
     public int getPriority() {

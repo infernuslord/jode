@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.*;
 
 public class ArrayLengthOperator extends Operator {
 
@@ -26,7 +25,7 @@ public class ArrayLengthOperator extends Operator {
 
     public ArrayLengthOperator() {
         super(Type.tInt, 0);
-        arrayType = Type.tArray(MyType.tUnknown);
+        arrayType = Type.tArray(Type.tUnknown);
     }
 
     public int getPriority() {
@@ -46,7 +45,7 @@ public class ArrayLengthOperator extends Operator {
     }
 
     public void setOperandType(Type[] types) {
-        arrayType = MyType.intersection(arrayType,types[0]);
+        arrayType = arrayType.intersection(types[0]);
     }
 
     public String toString(String[] operands) {

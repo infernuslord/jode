@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class ConvertOperator extends Operator {
     Type from;
@@ -45,7 +44,7 @@ public class ConvertOperator extends Operator {
     }
 
     public void setOperandType(Type[] inputTypes) {
-        from = MyType.intersection(from, inputTypes[0]);
+        from = from.intersection(inputTypes[0]);
     }
 
     public String toString(String[] operands)

@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public abstract class NoArgOperator extends Operator {
 

@@ -22,9 +22,12 @@ package jode;
 public interface LocalVarOperator {
     public boolean isRead();
     public boolean isWrite();
-//     public int getSlot();
     public LocalInfo getLocalInfo();
-//     public void setLocalInfo(LocalInfo li);
+    /**
+     * This is called by the local info when the type
+     * of it changed
+     */
+    public void updateType();
 }
          
          

@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class AssignOperator extends Operator {
     StoreInstruction store;

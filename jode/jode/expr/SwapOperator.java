@@ -21,7 +21,7 @@ package jode;
 
 public class SwapOperator extends Instruction {
     public SwapOperator() {
-        super(MyType.tVoid);
+        super(Type.tVoid);
     }
 
     public String toString() 

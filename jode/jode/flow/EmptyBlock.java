@@ -32,6 +32,13 @@ public class EmptyBlock extends StructuredBlock {
     }
 
     /**
+     * Tells if this block is empty and only changes control flow.
+     */
+    public boolean isEmpty() {
+        return true;
+    }
+
+    /**
      * Appends a block to this block.
      * @return the new combined block.
      */

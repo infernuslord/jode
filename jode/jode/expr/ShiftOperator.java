@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 /**
  * ShiftOpcodes are special, because their second operand is an UIndex
@@ -28,7 +27,7 @@ public class ShiftOperator extends BinaryOperator {
 
     public ShiftOperator(Type type, int op) {
         super(type, op);
-        shiftType = MyType.tUIndex;
+        shiftType = Type.tInt;
     }
 
     public Type getOperandType(int i) {
@@ -36,7 +35,7 @@ public class ShiftOperator extends BinaryOperator {
     }
 
     public void setOperandType(Type[] inputTypes) {
-        operandType = MyType.intersection(operandType, inputTypes[0]);
-        shiftType   = MyType.intersection(shiftType, inputTypes[1]);
+        operandType = operandType.intersection(inputTypes[0]);
+        shiftType   = shiftType  .intersection(inputTypes[1]);
     }
 }

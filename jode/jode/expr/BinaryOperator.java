@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class BinaryOperator extends Operator {
     protected Type operandType;
@@ -66,9 +65,9 @@ public class BinaryOperator extends Operator {
     }
 
     public void setOperandType(Type[] inputTypes) {
-        operandType = MyType.intersection
-            (operandType, MyType.intersection(inputTypes[0], 
-                                                 inputTypes[1]));
+        operandType = operandType
+            .intersection(inputTypes[0])
+            .intersection(inputTypes[1]);
         type = operandType;
     }
 
@@ -76,7 +75,7 @@ public class BinaryOperator extends Operator {
      * Sets the return type of this operator.
      */
     public void setType(Type newType) {
-        type = operandType = MyType.intersection(operandType, newType);
+        type = operandType = operandType.intersection(newType);
     }
 
     public boolean equals(Object o) {

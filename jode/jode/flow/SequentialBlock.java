@@ -52,14 +52,22 @@ public class SequentialBlock extends StructuredBlock {
      * the behaviour is undefined, so take care.  
      * @return null, if the control flows to another FlowBlock.  */
     public StructuredBlock getNextBlock(StructuredBlock subBlock) {
-        if (subBlock == subBlocks[0])
-            return subBlocks[1];
+        if (subBlock == subBlocks[0]) {
+            if (subBlocks[1].isEmpty())
+                return subBlocks[1].getNextBlock();
+            else
+                return subBlocks[1];
+        }
         return getNextBlock();
     }
 
     public FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
-        if (subBlock == subBlocks[0])
-            return null;
+        if (subBlock == subBlocks[0]) {
+            if (subBlocks[1].isEmpty())
+                return subBlocks[1].getNextFlowBlock();
+            else
+                return null;
+        }
         return getNextFlowBlock();
     }
 

@@ -49,7 +49,7 @@ public class CaseBlock extends StructuredBlock {
     /**
      * The type of the switch value.
      */
-    sun.tools.java.Type type;
+    jode.Type type;
 
     public CaseBlock(int value) {
 	this.value = value;
