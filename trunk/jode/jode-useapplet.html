@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.0//EN">
+<html>
+<head>
+<title>Using the decompiler as applet (locally)</title>
+</head>
+<body>
+<a href="../index.html">Home</a> <a href="jode.html">Up</a> <br>
+
+<h1>Step by Step</h1>
+
+If you want to use the applet version you need a recent Internet
+Explorer or Netscape which supports java 1.1.
+
+<ol>
+<li> Copy <a
+ href="http://www.informatik.uni-oldenburg.de/~delwi/jode/jode-applet.html"
+ >jode-applet.html</a> into a local directory.
+</li>
+<li> Copy <a
+ href="http://www.informatik.uni-oldenburg.de/~delwi/jode/jode_cls.zip"
+ >jode_cls.zip</a> to the <b>same</b> directory.
+</li>
+<li> Copy the <code>.class</code> file or <code>zip</code> file, you
+ want to decompile, to that directory.
+</li>
+<li> Load the html file into Netscape or Internet Explorer.
+</li>
+<li> Set the classpath simply to `<code>.</code>' (without quotes).
+ You may also specify a zip or jar file here.  Note that applet and
+ class files must be in the same directory due to security policy. <br>
+ You can also change the default classpath in the html file.
+</li>
+<li> Enter the name of the class without <code>.class</code>
+ extension.
+</li>
+<li> Press start button in applet. </li>
+<li> Saving doesn't work in Netscape, but maybe in Internet Explorer. </li>
+</ol>
+
+<h1>Packaged classes</h1>
+
+If the class file belongs to a package (like jode.JodeWindow) you
+have to give the full qualified class name (the package names
+separated by a dot followed by the class name).  The class path should
+point to the directory containing the package sub directories in this
+case.
+
+</body>
