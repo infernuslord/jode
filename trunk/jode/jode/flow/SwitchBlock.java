@@ -141,7 +141,7 @@ implements BreakableBlock {
 
     public void setInstruction(jode.Instruction instr) {
 	super.setInstruction(instr);
-	sun.tools.java.Type type = instr.getType();
+	jode.Type type = instr.getType();
 	if (type != caseBlocks[0].type) {
 	    for (int i=0; i < caseBlocks.length; i++)
 		caseBlocks[i].type = type;

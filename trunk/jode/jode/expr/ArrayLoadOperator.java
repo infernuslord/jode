@@ -18,8 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
-import sun.tools.java.ArrayType;
 
 public class ArrayLoadOperator extends SimpleOperator {
     String value;
@@ -27,7 +25,7 @@ public class ArrayLoadOperator extends SimpleOperator {
     public ArrayLoadOperator(Type type) {
         super(type, 0, 2);
         operandTypes[0] = Type.tArray(type);
-        operandTypes[1] = MyType.tUIndex;
+        operandTypes[1] = Type.tInt;
     }
 
     public int getPriority() {
@@ -42,7 +40,7 @@ public class ArrayLoadOperator extends SimpleOperator {
      * Sets the return type of this operator.
      */
     public void setType(Type type) {
-        if (type != this.type) {
+        if (!type.equals(this.type)) {
             super.setType(type);
             operandTypes[0] = Type.tArray(type);
         }
@@ -50,12 +48,11 @@ public class ArrayLoadOperator extends SimpleOperator {
 
     public void setOperandType(Type[] t) {
         super.setOperandType(t);
-	try {
-            type = operandTypes[0].getElementType();
-	} catch (sun.tools.java.CompilerError err) {
-            System.err.println("No Array type: "+operandTypes[0]);
-            type = Type.tError;
-        }
+	if (operandTypes[0] instanceof ArrayType)
+            type = type.intersection
+                (((ArrayType)operandTypes[0]).getElementType());
+        else
+            throw new AssertError("No Array type: "+operandTypes[0]);
     }
 
     public String toString(String[] operands) {

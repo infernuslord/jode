@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class InstanceOfOperator extends SimpleOperator {
     String typeString;
@@ -32,11 +31,11 @@ public class InstanceOfOperator extends SimpleOperator {
          * If operand is of class type, it is probably a
          * super type, but who knows?
          *
-         * this.operandTypes[0] = MyType.tSuperType(type);
+         * this.operandTypes[0] = Type.tSuperType(type);
          *
          * The forgiving solution:
          */
-        this.operandTypes[0] = MyType.tUnknown;
+        this.operandTypes[0] = Type.tUnknown;
         this.typeString = typeString;
     }
     public int getOperandCount() {

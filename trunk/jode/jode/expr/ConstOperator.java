@@ -18,14 +18,13 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class ConstOperator extends NoArgOperator {
     String value;
 
     public ConstOperator(Type type, String value) {
         super(type);
-        if (type == MyType.tString)
+        if (type == Type.tString)
             value = quoted(value);
         this.value = value;
     }
@@ -67,7 +66,7 @@ public class ConstOperator extends NoArgOperator {
     }
 
     public String toString(String[] operands) {
-        if (type == Type.tBoolean) {
+        if (type.isOfType(Type.tBoolean)) {
             if (value.equals("0"))
                 return "false";
             else if (value.equals("1"))

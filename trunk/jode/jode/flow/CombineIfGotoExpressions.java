@@ -21,7 +21,7 @@ package jode.flow;
 import java.util.Vector;
 import jode.Expression;
 import jode.ComplexExpression;
-import jode.MyType;
+import jode.Type;
 import jode.BinaryOperator;
 
 public class CombineIfGotoExpressions implements Transformation{
@@ -83,7 +83,7 @@ public class CombineIfGotoExpressions implements Transformation{
         prevJump.prev.removeJump();
         Expression cond = 
             new ComplexExpression
-            (new BinaryOperator(MyType.tBoolean, operator), e);
+            (new BinaryOperator(Type.tBoolean, operator), e);
         cb.setInstruction(cond);
         cb.replace(cb.outer, cb);
         return true;

@@ -18,14 +18,13 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class StringAddOperator extends SimpleOperator {
     protected Type operandType;
 
     public StringAddOperator() {
-        super(MyType.tString, ADD_OP, 2);
-        operandTypes[1] = MyType.tUnknown;
+        super(Type.tString, ADD_OP, 2);
+        operandTypes[1] = Type.tUnknown;
     }
     
     public int getPriority() {

@@ -18,7 +18,6 @@
  */
 
 package jode.flow;
-import sun.tools.java.Type;
 import jode.*;
 
 public class CreatePostIncExpression implements Transformation {
@@ -57,7 +56,7 @@ public class CreatePostIncExpression implements Transformation {
 	    if (!iinc.matches(load))
 		return false;
 
-	    type = MyType.intersection(load.getType(), MyType.tUInt);
+	    type = load.getType().intersection(Type.tUInt);
         } catch (NullPointerException ex) {
             return false;
         } catch (ClassCastException ex) {
@@ -135,7 +134,7 @@ public class CreatePostIncExpression implements Transformation {
                     dup2.getDepth() != 0)
                     return false;
             }
-	    type = MyType.intersection(load.getType(), store.getLValueType());
+	    type = load.getType().intersection(store.getLValueType());
         } catch (NullPointerException ex) {
             return false;
         } catch (ClassCastException ex) {

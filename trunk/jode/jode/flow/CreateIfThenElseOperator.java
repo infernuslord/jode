@@ -21,7 +21,6 @@ package jode.flow;
 import jode.Expression;
 import jode.ComplexExpression;
 import jode.IfThenElseOperator;
-import jode.MyType;
 import jode.CompareUnaryOperator;
 import java.util.Enumeration;
 import java.util.Vector;
@@ -145,7 +144,7 @@ public class CreateIfThenElseOperator implements Transformation {
             System.err.print("?");
 
         IfThenElseOperator iteo = new IfThenElseOperator
-            (MyType.intersection(e[1].getType(),e[2].getType()));
+            (e[1].getType().intersection(e[2].getType()));
 
         ((InstructionBlock)ifBlock.thenBlock).
             setInstruction(new ComplexExpression(iteo, e));
@@ -206,7 +205,7 @@ public class CreateIfThenElseOperator implements Transformation {
             System.err.print("?");
 
         IfThenElseOperator iteo = new IfThenElseOperator
-            (MyType.intersection(e[1].getType(),e[2].getType()));
+            (e[1].getType().intersection(e[2].getType()));
 
         ((InstructionBlock)flow.lastModified).
             setInstruction(new ComplexExpression(iteo, e));

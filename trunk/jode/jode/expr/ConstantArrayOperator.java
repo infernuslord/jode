@@ -18,14 +18,13 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class ConstantArrayOperator extends SimpleOperator {
 
     public ConstantArrayOperator(Type type, int size) {
         super(type, 0, size);
         for (int i=0; i< size; i++)
-            operandTypes[i] = MyType.tSubType(type.getElementType());
+            operandTypes[i] = Type.tSubType(((ArrayType)type).getElementType());
     }
 
     public int getPriority() {

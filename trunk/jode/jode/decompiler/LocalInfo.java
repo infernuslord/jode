@@ -18,7 +18,9 @@
  */
 
 package jode;
-import sun.tools.java.*;
+import sun.tools.java.Identifier;
+import java.util.Enumeration;
+import java.util.Vector;
 
 /**
  * The LocalInfo represents a local variable of a method.
@@ -37,6 +39,7 @@ public class LocalInfo {
     private Identifier name;
     private Type type;
     private LocalInfo shadow;
+    private Vector operators = new Vector();
 
     /* The current implementation may use very much stack.  This
      * should be changed someday.
@@ -50,8 +53,12 @@ public class LocalInfo {
      */
     public LocalInfo(int slot) {
         name = null;
-        type = MyType.tUnknown;
+        type = Type.tUnknown;
         this.slot = slot;
+    }
+
+    public void setOperator(LocalVarOperator operator) {
+        getLocalInfo().operators.addElement(operator);
     }
 
     /**
@@ -70,10 +77,16 @@ public class LocalInfo {
             if (this != li) {
                 shadow = li;
                 li.setType(type);
+                java.util.Enumeration enum = operators.elements();
+                while (enum.hasMoreElements()) {
+                    shadow.operators.addElement(enum.nextElement());
+                }
+
                 /* Clear unused fields, to allow garbage collection.
                  */
                 type = null;
                 name = null;
+                operators = null;
             }
         }
     }
@@ -139,15 +152,14 @@ public class LocalInfo {
      * @return The new type of the local.
      */
     public Type setType(Type newType) {
-        if (shadow != null) {
-            while (shadow.shadow != null) {
-                shadow = shadow.shadow;
-            }
-            return shadow.setType(newType);
+        LocalInfo li = getLocalInfo();
+        newType = li.type.intersection(newType);
+        if (!li.type.equals(newType)) {
+            li.type = newType;
+            java.util.Enumeration enum = li.operators.elements();
+            while (enum.hasMoreElements())
+                ((LocalVarOperator)enum.nextElement()).updateType();
         }
-        this.type = MyType.intersection(this.type, newType);
-        if (this.type == MyType.tError)
-            System.err.println("Type error in "+getName());
         return this.type;
     }
 

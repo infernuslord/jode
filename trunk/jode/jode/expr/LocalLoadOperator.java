@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class LocalLoadOperator extends ConstOperator 
 implements LocalVarOperator {
@@ -27,6 +26,7 @@ implements LocalVarOperator {
     public LocalLoadOperator(Type type, LocalInfo local) {
         super(type, "");
         this.local = local;
+        local.setOperator(this);
     }
 
     public boolean isRead() {
@@ -44,6 +44,12 @@ implements LocalVarOperator {
 
     public LocalInfo getLocalInfo() {
 	return local.getLocalInfo();
+    }
+
+    public void updateType() {
+        super.setType(local.getType());
+        if (parent != null)
+            parent.updateType();
     }
 
     public Type getType() {

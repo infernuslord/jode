@@ -18,14 +18,13 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class PopOperator extends SimpleOperator {
     int count;
 
     public PopOperator(int count) {
         super(Type.tVoid, 0, 1);
-        operandTypes[0] = MyType.tUnknown;
+        operandTypes[0] = Type.tUnknown;
         this.count = count;
     }
 

@@ -20,7 +20,7 @@
 package jode;
 import sun.tools.java.*;
 
-public class LocalVariableRangeList implements LocalVariable {
+public class LocalVariableRangeList {
 
     class MyLocalInfo extends LocalInfo {
         int start;
@@ -79,9 +79,5 @@ public class LocalVariableRangeList implements LocalVariable {
 
     public LocalInfo getInfo(int addr) {
         return find(addr);
-    }
-
-    public void combine(int addr1, int addr2) {
-        throw new AssertError("combine called on RangeList");
     }
 }

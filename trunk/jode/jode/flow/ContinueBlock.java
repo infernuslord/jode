@@ -44,6 +44,13 @@ public class ContinueBlock extends StructuredBlock {
     }
 
     /**
+     * Tells if this block is empty and only changes control flow.
+     */
+    public boolean isEmpty() {
+        return true;
+    }
+
+    /**
      * Returns the block where the control will normally flow to, when
      * this block is finished (not ignoring the jump after this block).
      */

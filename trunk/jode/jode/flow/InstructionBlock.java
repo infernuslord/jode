@@ -72,7 +72,7 @@ public class InstructionBlock extends InstructionContainer {
                  .getLocalInfo().getType().toString()/*XXX*/
                  + " " + instr.toString() + ";");
         } else {
-            if (instr.getType() != MyType.tVoid)
+            if (instr.getType() != Type.tVoid)
                 writer.print("push ");
             writer.println(instr.toString()+";");
         }

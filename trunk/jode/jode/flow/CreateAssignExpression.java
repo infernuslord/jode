@@ -33,6 +33,7 @@ public class CreateAssignExpression implements Transformation{
         InstructionContainer lastBlock;
         SequentialBlock opBlock;
         SequentialBlock sequBlock;
+        boolean isExpression = false;
         try {
             InstructionBlock ib;
             lastBlock = (InstructionContainer) flow.lastModified;
@@ -42,6 +43,16 @@ public class CreateAssignExpression implements Transformation{
             if (opBlock.subBlocks[1] != lastBlock)
                 return false;
             ib = (InstructionBlock) opBlock.subBlocks[0];
+
+            if (ib.getInstruction() instanceof DupOperator) {
+                DupOperator dup = (DupOperator) ib.getInstruction();
+                if (dup.getDepth() != store.getLValueOperandCount() && 
+                    dup.getCount() != store.getLValueType().stackSize())
+                    return false;
+                opBlock = (SequentialBlock) lastBlock.outer;
+                ib = (InstructionBlock) opBlock.subBlocks[0];
+                isExpression = true;
+            }
 
             ComplexExpression binopExpr = 
                 (ComplexExpression) ib.getInstruction();
@@ -75,9 +86,14 @@ public class CreateAssignExpression implements Transformation{
         opBlock.replace(sequBlock, opBlock);
 
         store.setOperatorIndex(store.OPASSIGN_OP+binop.getOperatorIndex());
-        store.setLValueType(MyType.intersection(binop.getType(), 
-                                                store.getLValueType()));
-        lastBlock.setInstruction(store);
+        store.setLValueType(binop.getType()
+                            .intersection(store.getLValueType()));
+
+        if (isExpression)
+            lastBlock.setInstruction
+                (new AssignOperator(store.getOperatorIndex(), store));
+        else
+            lastBlock.setInstruction(store);
         lastBlock.replace(opBlock.subBlocks[1], lastBlock);
         return true;
     }
@@ -103,7 +119,7 @@ public class CreateAssignExpression implements Transformation{
             return false;
         }
         lastBlock.setInstruction
-            (new AssignOperator(Operator.ASSIGN_OP, store));
+            (new AssignOperator(store.getOperatorIndex(), store));
         lastBlock.replace(sequBlock, lastBlock);
         return true;
                           

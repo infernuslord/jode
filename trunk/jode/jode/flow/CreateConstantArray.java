@@ -25,8 +25,7 @@ import jode.ArrayStoreOperator;
 import jode.NewArrayOperator;
 import jode.ConstantArrayOperator;
 import jode.ConstOperator;
-import jode.MyType;
-import sun.tools.java.Type;
+import jode.Type;
 
 public class CreateConstantArray implements Transformation {
 
@@ -60,7 +59,7 @@ public class CreateConstantArray implements Transformation {
                 Expression indexexpr = (Expression) ib.getInstruction();
                 ConstOperator indexop = 
                     (ConstOperator) indexexpr.getOperator();
-                if (!MyType.isOfType(indexop.getType(), MyType.tUInt))
+                if (!indexop.getType().isOfType(Type.tUInt))
                     return false;
                 int index = Integer.parseInt(indexop.getValue());
                 if (index >= 0 && consts == null) {
@@ -71,7 +70,7 @@ public class CreateConstantArray implements Transformation {
 		else { 
                     while (index < lastindex) {
                         consts[lastindex--] = 
-                            new ConstOperator(MyType.tUnknown, "0");
+                            new ConstOperator(Type.tUnknown, "0");
                     }
                 }
                 consts[lastindex--] = lastconst;
@@ -89,7 +88,7 @@ public class CreateConstantArray implements Transformation {
                 return false;
             while (lastindex >= 0) {
                 consts[lastindex--] = 
-                    new ConstOperator(MyType.tUnknown, "0");
+                    new ConstOperator(Type.tUnknown, "0");
             }
             ComplexExpression newArrayExpr = 
                 (ComplexExpression) ib.getInstruction();
@@ -102,7 +101,7 @@ public class CreateConstantArray implements Transformation {
                 (Expression) newArrayExpr.getSubExpressions()[0];
             ConstOperator countop = 
                 (ConstOperator) countexpr.getOperator();
-            if (!MyType.isOfType(countop.getType(), MyType.tUInt))
+            if (!countop.getType().isOfType(Type.tUInt))
                 return false;
             int arraylength = Integer.parseInt(countop.getValue());
             if (arraylength != consts.length) {
@@ -111,7 +110,7 @@ public class CreateConstantArray implements Transformation {
                 Expression[] newConsts = new Expression[arraylength];
                 System.arraycopy(consts, 0, newConsts, 0, consts.length);
                 for (int i=consts.length; i<arraylength; i++)
-                    newConsts[i] = new ConstOperator(MyType.tUnknown, "0");
+                    newConsts[i] = new ConstOperator(Type.tUnknown, "0");
                 consts = newConsts;
             }
         } catch (NullPointerException ex) {

@@ -27,7 +27,7 @@ public class PutFieldOperator extends StoreInstruction {
 
     public PutFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag, 
                             FieldDefinition field) {
-        super(field.getType(), ASSIGN_OP);
+        super(Type.tType(field.getType()), ASSIGN_OP);
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
         this.field = field;
@@ -55,7 +55,8 @@ public class PutFieldOperator extends StoreInstruction {
             /* shouldn't be called */
             throw new AssertError("Field is static");
         }
-        return MyType.tSubType(field.getClassDefinition().getType());
+        return Type.tSubType(Type.tClass(field.getClassDefinition()
+                                         .getName().toString()));
     }
 
     public void setLValueOperandType(Type[] t) {
@@ -72,9 +73,9 @@ public class PutFieldOperator extends StoreInstruction {
             if (field.getClassDefinition()
                 == codeAnalyzer.getClassDefinition())
                 return field.getName().toString();
-            object = 
-                codeAnalyzer.getTypeString
-                (field.getClassDeclaration().getType())+"."; 
+            object = codeAnalyzer.getTypeString
+                (Type.tClass(field.getClassDeclaration()
+                             .getName().toString()))+"."; 
         } else {
             if (operands[0].equals("this"))
                 return field.getName().toString();

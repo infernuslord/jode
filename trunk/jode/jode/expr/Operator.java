@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public abstract class Operator extends Expression {
     public final static int ADD_OP     =  1;

@@ -18,15 +18,13 @@
  */
 
 package jode;
-import sun.tools.java.Type;
-import sun.tools.java.ArrayType;
 
 public class ArrayStoreOperator extends StoreInstruction {
     Type indexType;
 
     public ArrayStoreOperator(Type type, int operator) {
         super(type, operator);
-        indexType = MyType.tUIndex;
+        indexType = Type.tInt;
     }
 
     public ArrayStoreOperator(Type type) {
@@ -66,15 +64,12 @@ public class ArrayStoreOperator extends StoreInstruction {
     }
 
     public void setLValueOperandType(Type[] t) {
-        indexType = MyType.intersection(indexType, t[1]);
-        Type arrayType = 
-            MyType.intersection(t[0], Type.tArray(lvalueType));
-	try {
-            lvalueType = arrayType.getElementType();
-	} catch (sun.tools.java.CompilerError err) {
-            System.err.println("No Array type: "+arrayType);
-            lvalueType = Type.tError;
-        }
+        indexType = indexType.intersection(t[1]);
+        Type arrayType = t[0].intersection(Type.tArray(lvalueType));
+	if (arrayType instanceof ArrayType)
+            lvalueType = ((ArrayType)arrayType).getElementType();
+        else
+            throw new AssertError("No Array type: "+arrayType);
     }
 
     public String getLValueString(String[] operands) {

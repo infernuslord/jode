@@ -26,7 +26,6 @@ public class MethodAnalyzer implements Analyzer, Constants {
     FieldDefinition mdef;
     JodeEnvironment env;
     CodeAnalyzer code = null;
-    LocalVariableAnalyzer lva;
     
     public MethodAnalyzer(FieldDefinition fd, JodeEnvironment e)
     {
@@ -38,8 +37,6 @@ public class MethodAnalyzer implements Analyzer, Constants {
                 new BinaryCode(bytecode, 
                                env.getConstantPool(),
                                env);
-//             lva = new LocalVariableAnalyzer(env, mdef, bc.getMaxLocals());
-//             lva.read(bc);
             code = new CodeAnalyzer(this, bc, env);
         }
     }
@@ -58,13 +55,15 @@ public class MethodAnalyzer implements Analyzer, Constants {
 	int offset = 0;
 	if (!mdef.isStatic()) {
 	    LocalInfo clazz = code.getParamInfo(0);
-	    clazz.setType(mdef.getClassDefinition().getType());
+	    clazz.setType(Type.tClass(mdef.getClassDefinition()
+                                      .getName().toString()));
 	    clazz.setName(Constants.idThis);
 	    offset++;
 	}
-	Type[] paramTypes = mdef.getType().getArgumentTypes();
+	sun.tools.java.Type[] paramTypes = mdef.getType().getArgumentTypes();
 	for (int i=0; i< paramTypes.length; i++)
-	    code.getParamInfo(offset+i).setType(paramTypes[i]);
+	    code.getParamInfo(offset+i).setType
+                (Type.tType(paramTypes[i].getTypeSignature()));
 	
 	// We do the code.analyze() in dumpSource, to get 
 	// immediate output.
@@ -91,20 +90,21 @@ public class MethodAnalyzer implements Analyzer, Constants {
             if (mdef.isConstructor())
                 writer.print(mdef.getClassDeclaration().getName().toString());
             else
-                writer.print(env.getTypeString(mdef.getType().getReturnType())+
-			     " "+ mdef.getName().toString());
+                writer.print(env.getTypeString
+                             (Type.tType(mdef.getType().getReturnType()))
+			     + " " + mdef.getName().toString());
             writer.print("(");
-            Type[] paramTypes = mdef.getType().getArgumentTypes();
+            sun.tools.java.Type[] paramTypes = 
+                mdef.getType().getArgumentTypes();
             int offset = mdef.isStatic()?0:1;
             for (int i=0; i<paramTypes.length; i++) {
                 if (i>0)
                     writer.print(", ");
 		writer.print
 		    ((code == null)?
-		     env.getTypeString(paramTypes[i]):
-		     env.getTypeString
-		     (paramTypes[i], 
-                      code.getParamInfo(i+offset).getName()));
+		     env.getTypeString(Type.tType(paramTypes[i])):
+                     env.getTypeString(Type.tType(paramTypes[i]), 
+                                       code.getParamInfo(i+offset).getName()));
             }
             writer.print(")");
         }

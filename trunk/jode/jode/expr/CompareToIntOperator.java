@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class CompareToIntOperator extends SimpleOperator {
     public CompareToIntOperator(Type type, int lessGreater) {
@@ -36,8 +35,7 @@ public class CompareToIntOperator extends SimpleOperator {
 
     public void setOperandType(Type[] inputTypes) {
         super.setOperandType(inputTypes);
-        Type operandType = 
-            MyType.intersection(operandTypes[0],operandTypes[1]);
+        Type operandType = operandTypes[0].intersection(operandTypes[1]);
         operandTypes[0] = operandTypes[1] = operandType;
     }
 

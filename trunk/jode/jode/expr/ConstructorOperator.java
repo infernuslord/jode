@@ -18,7 +18,7 @@
  */
 
 package jode;
-import sun.tools.java.*;
+import sun.tools.java.FieldDefinition;
 
 public class ConstructorOperator extends Operator {
     FieldDefinition field;
@@ -44,8 +44,10 @@ public class ConstructorOperator extends Operator {
 
     public Type getOperandType(int i) {
         if (i == 0)
-            return field.getClassDeclaration().getType();  // or subtype? XXX
-        return MyType.tSubType(field.getType().getArgumentTypes()[i-1]);
+            return Type.tSubType(Type.tClass(field.getClassDeclaration()
+                                             .getName().toString()));
+        return Type.tSubType(Type.tType(field.getType()
+                                        .getArgumentTypes()[i-1]));
     }
 
     public void setOperandType(Type types[]) {

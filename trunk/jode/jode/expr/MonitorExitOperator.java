@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class MonitorExitOperator extends SimpleOperator {
     public MonitorExitOperator() {
@@ -35,7 +34,7 @@ public class MonitorExitOperator extends SimpleOperator {
     }
 
     public Type getOperandType(int i) {
-        return MyType.tObject;
+        return Type.tObject;
     }
 
     public String toString(String[] operands) {

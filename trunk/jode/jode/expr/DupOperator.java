@@ -18,13 +18,12 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class DupOperator extends Instruction {
     int count, depth;
 
     public DupOperator(int depth, int count) {
-        super(MyType.tUnknown);
+        super(Type.tUnknown);
         this.count = count;
         this.depth = depth;
     }

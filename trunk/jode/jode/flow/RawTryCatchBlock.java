@@ -42,7 +42,7 @@ import jode.TabbedPrintWriter;
 
 public class RawTryCatchBlock extends StructuredBlock {
 
-    public RawTryCatchBlock(sun.tools.java.Type type, 
+    public RawTryCatchBlock(jode.Type type, 
                             StructuredBlock tryBlock, 
                             Jump endDest, Jump catchDest) {
         this.type = type;
@@ -89,7 +89,7 @@ public class RawTryCatchBlock extends StructuredBlock {
      * The type of the exception that is catched. This is null for a
      * synchronized/finally block 
      */
-    sun.tools.java.Type type;
+    jode.Type type;
 
     /**
      * Replaces the given sub block with a new block.

@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public abstract class SimpleOperator extends Operator {
     protected Type[] operandTypes;
@@ -42,7 +41,7 @@ public abstract class SimpleOperator extends Operator {
 
     public void setOperandType(Type[] t) {
         for (int i=0; i< operandTypes.length; i++) {
-            operandTypes[i] = MyType.intersection(operandTypes[i], t[i]);
+            operandTypes[i] = operandTypes[i].intersection(t[i]);
         }
     }
 }

@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class IIncOperator extends NoArgOperator 
 implements LocalVarOperator {
@@ -26,9 +25,10 @@ implements LocalVarOperator {
     LocalInfo local;
 
     public IIncOperator(LocalInfo local, String value, int operator) {
-        super(MyType.tVoid, operator);
+        super(Type.tVoid, operator);
         this.local = local;
 	this.value = value;
+        local.setOperator(this);
     }
 
     public String getValue() {
@@ -43,18 +43,14 @@ implements LocalVarOperator {
         return true;
     }
 
-//     public void setLocalInfo(LocalInfo local) {
-//         local.setType(MyType.tUIndex);
-// 	this.local = local;
-//     }
+    public void updateType() {
+        if (parent != null)
+            parent.updateType();
+    }
 
     public LocalInfo getLocalInfo() {
 	return local;
     }
-
-//     public int getSlot() {
-//         return slot;
-//     }
 
     public int getPriority() {
         return 100;

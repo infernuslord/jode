@@ -151,6 +151,13 @@ public abstract class StructuredBlock {
     }
 
     /**
+     * Tells if this block is empty and only changes control flow.
+     */
+    public boolean isEmpty() {
+        return false;
+    }
+
+    /**
      * Tells if the sub block is the single exit point of the current block.
      * @param subBlock the sub block.
      * @return true, if the sub block is the single exit point of the
@@ -441,8 +448,8 @@ public abstract class StructuredBlock {
     public void dumpDeclaration(jode.TabbedPrintWriter writer, LocalInfo local)
         throws java.io.IOException
     {
-	writer.println(local.getType().typeString(local.getName().toString())
-		       + ";");
+	writer.println(local.getType().toString() + " "
+                       + local.getName().toString() + ";");
     }
 
     /**

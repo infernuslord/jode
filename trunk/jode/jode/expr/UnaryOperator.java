@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class UnaryOperator extends SimpleOperator {
     public UnaryOperator(Type type, int op) {
@@ -38,7 +37,7 @@ public class UnaryOperator extends SimpleOperator {
      */
     public void setType(Type type) {
         super.setType(type);
-        Type newOpType = MyType.intersection(type, operandTypes[0]);
+        Type newOpType = type.intersection(operandTypes[0]);
         operandTypes[0] = newOpType;
     }
 

@@ -18,17 +18,16 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 import sun.tools.java.Constants;
-import sun.tools.java.FieldDefinition;
 
 public class ComplexExpression extends Expression {
     Operator     operator;
     Expression[] subExpressions;
 
     public ComplexExpression(Operator op, Expression[] sub) {
-        super(MyType.tUnknown);
+        super(Type.tUnknown);
         operator = op;
+        operator.parent = this;
         subExpressions = sub;
         operator.setExpression(this);
         if (subExpressions.length != op.getOperandCount())
@@ -122,9 +121,21 @@ public class ComplexExpression extends Expression {
         }
     }
 
+    public void updateType() {
+        updateSubTypes();
+        if (subExpressions.length > 0) {
+            Type types[] = new Type[subExpressions.length];
+            for (int i=0; i < types.length; i++) {
+                types[i] = subExpressions[i].getType();
+            }
+            operator.setOperandType(types);
+        }
+        setType(operator.getType());
+    }
+
     public void setType(Type newType) {
-	newType = MyType.intersection(type, newType);
-        if (newType != type) {
+	newType = type.intersection(newType);
+        if (!newType.equals(type)) {
             type = newType;
             operator.setType(type);
             updateSubTypes();
@@ -143,8 +154,8 @@ public class ComplexExpression extends Expression {
         }
         String result = operator.toString(expr);
         if (Decompiler.isTypeDebugging) 
-            result = "(("+operator.getType()+")"+result+")";
-        else if (operator.getType() == MyType.tError)
+            result = "("+operator.getType()+") ("+result+")";
+        else if (operator.getType() == Type.tError)
             result = "(/*type error */" + result+")";
         return result;
     }
@@ -170,12 +181,12 @@ public class ComplexExpression extends Expression {
         new EmptyStringOperator();
 
     Expression simplifyStringBuffer() {
-        FieldDefinition field;
+        sun.tools.java.FieldDefinition field;
         if (operator instanceof InvokeOperator &&
             (field = ((InvokeOperator)operator).getField())
-            .getClassDefinition().getName() == 
-            Constants.idJavaLangStringBuffer &&
-            !((InvokeOperator)operator).isStatic() &&
+            .getClassDefinition().getName() 
+            == Constants.idJavaLangStringBuffer 
+            && !((InvokeOperator)operator).isStatic() &&
             field.getName() == Constants.idAppend &&
             field.getType().getArgumentTypes().length == 1) {
 
@@ -184,7 +195,7 @@ public class ComplexExpression extends Expression {
                 return null;
             
             if (e.getOperator() instanceof EmptyStringOperator &&
-                MyType.isOfType(subExpressions[1].getType(), Type.tString))
+                subExpressions[1].getType().isOfType(Type.tString))
                 return subExpressions[1];
 
             Expression[] exprs = { e, 
@@ -192,13 +203,12 @@ public class ComplexExpression extends Expression {
             return new ComplexExpression(new StringAddOperator(), exprs);
         }
         if (operator instanceof ConstructorOperator &&
-            MyType.isOfType(operator.getType(), MyType.tStringBuffer)) {
+            operator.getType().isOfType(Type.tStringBuffer)) {
             /* subExpressions[0] is always a "new StringBuffer" */
             if (subExpressions.length == 1)
                 return emptyString;
             else if (subExpressions.length == 2 &&
-                     MyType.isOfType(subExpressions[1].getType(), 
-                                     MyType.tString))
+                     subExpressions[1].getType().isOfType(Type.tString))
                 return (Expression) subExpressions[1].simplify();
         }
         return null;
@@ -206,7 +216,7 @@ public class ComplexExpression extends Expression {
 
     public Instruction simplify() {
         if (operator instanceof IfThenElseOperator &&
-            operator.getType() == Type.tBoolean) {
+            operator.getType().isOfType(Type.tBoolean)) {
             if (subExpressions[1].getOperator() instanceof ConstOperator &&
                 subExpressions[2].getOperator() instanceof ConstOperator) {
                 ConstOperator c1 = 
@@ -267,18 +277,7 @@ public class ComplexExpression extends Expression {
                 return newOp.simplify();
         }
         if (operator instanceof CompareUnaryOperator &&
-            operator.getOperandType(0) != Type.tBoolean) {
-            if (subExpressions[0].getOperator() instanceof ConstOperator) {
-                ConstOperator c = 
-                    (ConstOperator) subExpressions[0].getOperator();
-                if (c.getValue().equals("0") || c.getValue().equals("1")) {
-                    Type[] newType = {Type.tBoolean};
-                    operator.setOperandType(newType);
-                }
-            }
-        }
-        if (operator instanceof CompareUnaryOperator &&
-            operator.getOperandType(0) == Type.tBoolean) {
+            operator.getOperandType(0).isOfType(Type.tBoolean)) {
             /* xx == false */
             if (operator.getOperatorIndex() == operator.EQUALS_OP) 
                 return subExpressions[0].negate().simplify();
@@ -288,24 +287,26 @@ public class ComplexExpression extends Expression {
         }
 
         if (operator instanceof InvokeOperator &&
-            ((InvokeOperator)operator).getField().
-            getName() == Constants.idToString &&
+            ((InvokeOperator)operator).getField()
+            .getName() == Constants.idToString &&
             !((InvokeOperator)operator).isStatic() &&
-            ((InvokeOperator)operator).getField().
-            getClassDefinition().getType() == MyType.tStringBuffer &&
+            ((InvokeOperator)operator).getField()
+            .getClassDefinition().getName() 
+            == Constants.idJavaLangStringBuffer &&
             subExpressions.length == 1) {
             Instruction simple = subExpressions[0].simplifyStringBuffer();
             if (simple != null)
                 return simple;
         }
         if (operator instanceof InvokeOperator &&
-            ((InvokeOperator)operator).getField().
-            getName() == Constants.idValueOf &&
+            ((InvokeOperator)operator).getField()
+            .getName() == Constants.idValueOf &&
             ((InvokeOperator)operator).isStatic() &&
-            ((InvokeOperator)operator).getField().
-            getClassDefinition().getType() == MyType.tString &&
+            ((InvokeOperator)operator).getField()
+            .getClassDefinition().getName() 
+            == Constants.idJavaLangString &&
             subExpressions.length == 1) {
-            if (subExpressions[0].getType() == MyType.tString)
+            if (subExpressions[0].getType() == Type.tString)
                 return subExpressions[0].simplify();
             else {
                 Expression[] exprs = {

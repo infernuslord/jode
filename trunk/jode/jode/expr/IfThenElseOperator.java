@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class IfThenElseOperator extends SimpleOperator {
     public IfThenElseOperator(Type type) {
@@ -50,7 +49,7 @@ public class IfThenElseOperator extends SimpleOperator {
     public void setOperandType(Type[] inputTypes) {
         super.setOperandType(inputTypes);
         Type operandType = 
-            MyType.intersection(operandTypes[1],operandTypes[2]);
+            type.intersection(operandTypes[1]).intersection(operandTypes[2]);
         type = operandTypes[1] = operandTypes[2] = operandType;
     }
 
@@ -60,8 +59,8 @@ public class IfThenElseOperator extends SimpleOperator {
      */
     public void setType(Type newType) {
         Type operandType = 
-            MyType.intersection(operandTypes[1], newType);
-        if (type != operandType) {
+            type.intersection(operandTypes[1]).intersection(newType);
+        if (!type.equals(operandType)) {
             type = operandTypes[1] = operandTypes[2] = operandType;
         }
     }

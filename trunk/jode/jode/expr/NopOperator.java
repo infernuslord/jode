@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.Type;
 
 public class NopOperator extends Instruction {
     public NopOperator(Type type) {
@@ -26,7 +25,7 @@ public class NopOperator extends Instruction {
     }
 
     public NopOperator() {
-        this(MyType.tVoid);
+        this(Type.tVoid);
     }
 
     public boolean equals(Object o) {
