@@ -12,6 +12,7 @@ BUILD_CLASSPATH = $(top_srcdir):$(top_builddir):$(CLASSPATH):$(CLASSLIB)
 
 MY_JAVA_FILES = \
   Analyzer.java \
+  Applet.java \
   ClassAnalyzer.java \
   ClassDeclarer.java \
   DeadCodeAnalysis.java \
@@ -22,12 +23,15 @@ MY_JAVA_FILES = \
   LocalVarEntry.java \
   LocalVariableRangeList.java \
   LocalVariableTable.java \
+  Main.java \
   MethodAnalyzer.java \
   Opcodes.java \
+  Options.java \
   OuterValueListener.java \
   OuterValues.java \
   Scope.java \
-  TabbedPrintWriter.java
+  TabbedPrintWriter.java \
+  Window.java
 
 noinst_DATA = $(MY_JAVA_FILES:.java=.class)
 EXTRA_DIST = $(MY_JAVA_FILES)

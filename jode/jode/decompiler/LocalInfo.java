@@ -21,7 +21,6 @@ package jode.decompiler;
 import java.util.Enumeration;
 import java.util.Vector;
 import jode.GlobalOptions;
-import jode.Decompiler;
 import jode.type.Type;
 import jode.expr.Expression;
 import jode.expr.LocalVarOperator;
@@ -221,7 +220,7 @@ public class LocalInfo implements Declarable {
 	    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
 		GlobalOptions.err.println(getName()+" set type to getHint()");
 	    setType(type.getHint());
-            if ((Decompiler.options & Decompiler.OPTION_PRETTY) != 0) {
+            if ((Options.options & Options.OPTION_PRETTY) != 0) {
                 name = type.getDefaultName();
             } else {
                 name = type.getDefaultName()

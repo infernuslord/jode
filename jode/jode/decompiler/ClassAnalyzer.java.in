@@ -19,7 +19,6 @@
 
 package jode.decompiler;
 import jode.GlobalOptions;
-import jode.Decompiler;
 import jode.type.MethodType;
 import jode.type.Type;
 import jode.bytecode.ClassInfo;
@@ -32,6 +31,7 @@ import jode.expr.ThisOperator;
 import jode.flow.TransformConstructors;
 import jode.flow.StructuredBlock;
 import jode.flow.FlowBlock;
+import jode.flow.VariableSet;
 
 import java.lang.reflect.Modifier;
 import java.util.NoSuchElementException;
@@ -40,6 +40,7 @@ import java.util.Enumeration;
 import java.io.IOException;
 
 import @COLLECTIONS@.Collection;
+import @COLLECTIONS@.Set;
 
 public class ClassAnalyzer 
     implements Analyzer, Scope, Declarable, ClassDeclarer 
@@ -184,7 +185,7 @@ public class ClassAnalyzer
             return;
         }
 
-	if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
+	if ((Options.options & Options.OPTION_INNER) != 0
 	    && innerInfos != null) {
 	    /* Create inner classes */
 	    Expression[] outerThis = new Expression[] {
@@ -263,7 +264,7 @@ public class ClassAnalyzer
 	// If output should be immediate, we delay analyzation to output.
 	// Note that this may break anonymous classes, but the user
 	// has been warned.
-	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0)
+	if ((Options.options & Options.OPTION_IMMEDIATE) != 0)
 	    return;
 
 	// Analyze fields
@@ -281,7 +282,7 @@ public class ClassAnalyzer
 	// If output should be immediate, we delay analyzation to output.
 	// Note that this may break anonymous classes, but the user
 	// has been warned.
-	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0)
+	if ((Options.options & Options.OPTION_IMMEDIATE) != 0)
 	    return;
 
 	// Now analyze the inner classes.
@@ -296,7 +297,7 @@ public class ClassAnalyzer
 
     }
 
-    public void makeDeclaration() {
+    public void makeDeclaration(Set done) {
 	if (constrAna != null)
 	    constrAna.transform();
         if (staticConstructor != null) {
@@ -308,16 +309,17 @@ public class ClassAnalyzer
 	// If output should be immediate, we delay analyzation to output.
 	// Note that this may break anonymous classes, but the user
 	// has been warned.
-	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0)
+	if ((Options.options & Options.OPTION_IMMEDIATE) != 0)
 	    return;
 
         for (int j=0; j < fields.length; j++)
-	    fields[j].makeDeclaration();
+	    fields[j].makeDeclaration(done);
         for (int j=0; j < inners.length; j++)
-	    inners[j].makeDeclaration();
+	    inners[j].makeDeclaration(done);
         for (int j=0; j < methods.length; j++)
-	    methods[j].makeDeclaration();
+	    methods[j].makeDeclaration(done);
     }
+
     public void dumpDeclaration(TabbedPrintWriter writer) throws IOException
     {
 	dumpSource(writer);
@@ -328,6 +330,9 @@ public class ClassAnalyzer
 	writer.pushScope(this);
 	boolean needFieldNewLine = false;
 	boolean needNewLine = false;
+	Set declared = null;
+	if ((Options.options & Options.OPTION_IMMEDIATE) != 0)
+	    declared = new VariableSet();
 	for (int i=0; i< fields.length; i++) {
 	    if (blockInitializers[i] != null) {
 		if (needNewLine)
@@ -339,10 +344,10 @@ public class ClassAnalyzer
 		writer.closeBrace();
 		needFieldNewLine = needNewLine = true;
 	    }
-	    if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0) {
+	    if ((Options.options & Options.OPTION_IMMEDIATE) != 0) {
 		// We now do the analyzation we skipped before.
 		fields[i].analyze();
-		fields[i].makeDeclaration();
+		fields[i].makeDeclaration(declared);
 	    }
 	    if (fields[i].skipWriting())
 		continue;
@@ -365,23 +370,23 @@ public class ClassAnalyzer
 	    if (needNewLine)
 		writer.println("");
 
-	    if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0) {
+	    if ((Options.options & Options.OPTION_IMMEDIATE) != 0) {
 		// We now do the analyzation we skipped before.
 		inners[i].analyze();
 		inners[i].analyzeInnerClasses();
-		inners[i].makeDeclaration();
+		inners[i].makeDeclaration(declared);
 	    }
 
 	    inners[i].dumpSource(writer);
 	    needNewLine = true;
 	}
 	for (int i=0; i< methods.length; i++) {
-	    if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0) {
+	    if ((Options.options & Options.OPTION_IMMEDIATE) != 0) {
 		// We now do the analyzation we skipped before.
 		if (!methods[i].isConstructor())
 		    methods[i].analyze();
 		methods[i].analyzeInnerClasses();
-		methods[i].makeDeclaration();
+		methods[i].makeDeclaration(declared);
 	    }
 
 	    if (methods[i].skipWriting())
@@ -451,6 +456,7 @@ public class ClassAnalyzer
 	    writer.closeBraceNoSpace();
 	} else
 	    writer.closeBrace();
+        clazz.dropInfo(clazz.KNOWNATTRIBS | clazz.UNKNOWNATTRIBS);
     }
 
     public void dumpJavaFile(TabbedPrintWriter writer) throws IOException {
@@ -459,7 +465,7 @@ public class ClassAnalyzer
 	initialize();
 	analyze();
 	analyzeInnerClasses();
-	makeDeclaration();
+	makeDeclaration(new VariableSet());
 	
 	imports.dumpHeader(writer);
 	dumpSource(writer);

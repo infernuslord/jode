@@ -29,6 +29,8 @@ import jode.expr.OuterLocalOperator;
 import java.lang.reflect.Modifier;
 import java.io.IOException;
 
+import @COLLECTIONS@.Set;
+
 public class FieldAnalyzer implements Analyzer {
     ClassAnalyzer clazz;
     ImportHandler imports;
@@ -137,9 +139,11 @@ public class FieldAnalyzer implements Analyzer {
         imports.useType(type);
     }
 
-    public void makeDeclaration() {
-	if (constant != null)
+    public void makeDeclaration(Set done) {
+	if (constant != null) {
+	    constant.makeDeclaration(done);
 	    constant = constant.simplify();
+	}
     }
 
     public boolean skipWriting() {

@@ -20,7 +20,6 @@
 package jode.decompiler;
 import java.io.*;
 import java.util.Stack;
-import jode.Decompiler;
 import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.InnerClassInfo;
@@ -39,7 +38,7 @@ public class TabbedPrintWriter {
 			      boolean autoFlush) {
 	pw = new PrintWriter(os, autoFlush);
 	this.imports = imports;
-	this.indentsize = (Decompiler.outputStyle & Decompiler.TAB_SIZE_MASK);
+	this.indentsize = (Options.outputStyle & Options.TAB_SIZE_MASK);
 	atbol = true;
     }
 
@@ -47,7 +46,7 @@ public class TabbedPrintWriter {
 			      boolean autoFlush) {
 	pw = new PrintWriter(os, autoFlush);
 	this.imports = imports;
-	this.indentsize = (Decompiler.outputStyle & Decompiler.TAB_SIZE_MASK);
+	this.indentsize = (Options.outputStyle & Options.TAB_SIZE_MASK);
 	atbol = true;
     }
 
@@ -129,7 +128,7 @@ public class TabbedPrintWriter {
      * brace.  It doesn't do a tab stop after opening the brace.
      */
     public void openBrace() {
-	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0)
 	    if (atbol)
 		println("{");
 	    else
@@ -247,14 +246,14 @@ public class TabbedPrintWriter {
     public String getClassString(ClassInfo clazz, int scopeType) {
 	String name = clazz.getName();
 	if (name.indexOf('$') >= 0) {
-	    if ((Decompiler.options & Decompiler.OPTION_INNER) != 0) {
+	    if ((Options.options & Options.OPTION_INNER) != 0) {
 		String innerClassName
 		    = getInnerClassString(clazz, scopeType);
 		if (innerClassName != null)
 		    return innerClassName;
 	    }
-	    if ((Decompiler.options
-		 & Decompiler.OPTION_ANON) != 0) {
+	    if ((Options.options
+		 & Options.OPTION_ANON) != 0) {
 		String innerClassName
 		    = getAnonymousClassString(clazz, scopeType);
 		if (innerClassName != null)
@@ -289,7 +288,7 @@ public class TabbedPrintWriter {
      * brace.  It doesn't do a tab stop after opening the brace.
      */
     public void openBraceNoSpace() {
-	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0)
 	    println("{");
 	else {
 	    if (!atbol)
@@ -301,7 +300,7 @@ public class TabbedPrintWriter {
     }
 
     public void closeBraceContinue() {
-	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0)
 	    print("} ");
 	else {
 	    println("}");
@@ -311,7 +310,7 @@ public class TabbedPrintWriter {
     }
 
     public void closeBraceNoSpace() {
-	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0)
 	    print("}");
 	else {
 	    println("}");
@@ -321,7 +320,7 @@ public class TabbedPrintWriter {
     }
 
     public void closeBrace() {
-	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0)
 	    println("}");
 	else {
 	    println("}");
