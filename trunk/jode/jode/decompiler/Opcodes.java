@@ -338,9 +338,8 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 	    break;
         }
         case opc_return:
-            flow.appendBlock(createBlock
-			     (ma, instr, new ReturnBlock()));
-	    break;
+	    throw new InternalError("opc_return no longer allowed");
+
         case opc_getstatic:
         case opc_getfield: {
             Reference ref = instr.getReference();

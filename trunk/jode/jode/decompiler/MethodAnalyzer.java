@@ -478,12 +478,19 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 		    Opcodes.addOpcode(flows[i], instr, this);
 		}
 		Block[] succs = blocks[i].getSuccs();
-		FlowBlock[] flowSuccs = new FlowBlock[succs.length];
-		for (int j=0; j< succs.length; j++) {
-		    if (succs[j] == null)
-			flowSuccs[j] = FlowBlock.END_OF_METHOD;
-		    else
-			flowSuccs[j] = flows[succs[j].getBlockNr()];
+		FlowBlock[] flowSuccs;
+		int lastOpcode = blocks[i].getInstructions()[last].getOpcode();
+		if (lastOpcode >= Opcodes.opc_ireturn
+		    && lastOpcode <= Opcodes.opc_areturn) {
+		    flowSuccs = new FlowBlock[] { FlowBlock.END_OF_METHOD };
+		} else {
+		    flowSuccs = new FlowBlock[succs.length];
+		    for (int j=0; j< succs.length; j++) {
+			if (succs[j] == null)
+			    flowSuccs[j] = FlowBlock.END_OF_METHOD;
+			else
+			    flowSuccs[j] = flows[succs[j].getBlockNr()];
+		    }
 		}
 		flows[i].setSuccessors(flowSuccs);
 	    }
