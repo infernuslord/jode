@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.decompiler.TabbedPrintWriter;
+import jode.decompiler.LocalInfo;
 import jode.expr.LocalStoreOperator;
 
 /**
@@ -167,20 +168,19 @@ public class SequentialBlock extends StructuredBlock {
     public void makeDeclaration(VariableSet done) {
 	if (subBlocks[0] instanceof InstructionBlock) {
 	    /* Special case: If the first block is an InstructionBlock,
-	     * it can declare the variable it uses for us.
-	     *
-	     * Now add the variables used in the first block to the done
-	     * set of the second block, since the first sub block has
-	     * declared them.  
+	     * it can declare the variable it writes to in a special way
+	     * and that declaration will last for the second sub block.
 	     */
-	    declare = new VariableSet();
-
-	    subBlocks[0].makeDeclaration(done);
-	    done.unionExact(subBlocks[0].declare);
-	    subBlocks[1].makeDeclaration(done);
-	    done.subtractExact(subBlocks[0].declare);
-	} else
-	    super.makeDeclaration(done);
+	    LocalInfo local = 
+		((InstructionBlock) subBlocks[0]).checkDeclaration(done);
+	    if (local != null) {
+		done.addElement(local);
+		super.makeDeclaration(done);
+		done.removeElement(local);
+		return;
+	    }
+	}
+	super.makeDeclaration(done);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer)
