@@ -46,6 +46,9 @@ public class JodeWindow
 
 	sourcecodeArea.setEditable(false);
 	errorArea.setEditable(false);
+	Font monospaced = new Font("monospaced", Font.PLAIN, 10);
+	sourcecodeArea.setFont(monospaced);
+	errorArea.setFont(monospaced);
 
 	GridBagLayout gbl = new GridBagLayout();
 	window.setLayout(gbl);
@@ -101,6 +104,8 @@ public class JodeWindow
 ///	gbl.setConstraints(errorArea, areaConstr);
 ///	window.add(errorArea);
 ///#else
+	window.add(new Label("class path: "), labelConstr);
+	window.add(classpathField, textConstr);
 	window.add(new Label("class name: "), labelConstr);
 	window.add(classField, textConstr);
 	window.add(verboseCheck, checkConstr);
@@ -162,6 +167,11 @@ public class JodeWindow
 		out.write(sourcecodeArea.getText());
 		out.close();
 	    } catch (IOException ex) {
+		errorArea.setText("");
+		Decompiler.err.println("Couldn't write to file " 
+				       + fileName + ": ");
+		ex.printStackTrace(Decompiler.err);
+	    } catch (SecurityException ex) {
 		errorArea.setText("");
 		Decompiler.err.println("Couldn't write to file " 
 				       + fileName + ": ");
