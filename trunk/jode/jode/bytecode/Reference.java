@@ -29,18 +29,15 @@ import java.util.*;
  */
 public class Reference {
     /**
-     * The class info.
+     * The reference string.  This is the class name, the member name and
+     * the member type, all separated by a space.
      */
-    private final String className;
+    private final String sig;
     /**
-     * The member name.  Don't make this a MethodInfo, since the clazz
-     * may not be readable.
+     * The position of the first and second space in the reference
+     * string.
      */
-    private final String memberName;
-    /**
-     * The member type.
-     */
-    private final String memberType;
+    private final int firstSpace, secondSpace;
 
 ///#ifdef JDK12
 ///    private static final Map references = new HashMap();
@@ -58,35 +55,38 @@ public class Reference {
 	Reference reference = (Reference) references.get(sig);
 ///#endif
         if (reference == null) {
-	    reference = new Reference(className, name, type);
+	    sig = sig.intern();
+	    int firstSpace = className.length();
+	    int secondSpace = firstSpace + name.length() + 1;
+	    reference = new Reference(sig, firstSpace, secondSpace);
 ///#ifdef JDK12
 ///	    references.put(sig, new WeakReference(reference));
 ///#else
-            references.put(reference, reference);
+            references.put(sig, reference);
 ///#endif
         }
 	return reference;
     }
 
-    private Reference(String className, String name, String type) {
-	this.className = className.intern();
-	this.memberName = name.intern();
-	this.memberType = type.intern();
+    private Reference(String sig, int first, int second) {
+	this.sig = sig;
+	this.firstSpace = first;
+	this.secondSpace = second;
     }
 
     public String getClazz() {
-	return className;
+	return sig.substring(0, firstSpace);
     }
 
     public String getName() {
-	return memberName;
+	return sig.substring(firstSpace + 1, secondSpace);
     }
 
     public String getType() {
-	return memberType;
+	return sig.substring(secondSpace + 1);
     }
 	
     public String toString() {
-	return className + " " + memberName + " " + memberType;
+	return sig;
     }
 }
