@@ -148,6 +148,23 @@ public class ConstructorOperator extends Operator
 	}
     }
 
+    public boolean isConstant() {
+	ClassInfo clazz = getClassInfo();
+	InnerClassInfo outer = getOuterClassInfo(clazz);
+	ClassAnalyzer clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
+
+	if ((Decompiler.options & Decompiler.OPTION_ANON) != 0
+	    && clazzAna != null
+	    && outer != null && outer.outer == null && outer.name != null
+	    && clazzAna.getParent() == methodAnalyzer) {
+	    /* This is a named method scope class, it needs
+	     * declaration.  And therefore can't be moved into
+	     * a field initializer. */
+	    return false;
+	}
+	return super.isConstant();
+    }
+
     /**
      * We add the named method scoped classes to the declarables, and
      * only fillDeclarables on the parameters we will print.
