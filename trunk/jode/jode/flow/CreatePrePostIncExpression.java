@@ -96,6 +96,8 @@ public class CreatePrePostIncExpression implements Transformation {
 
             Expression storeExpr = lastBlock.getInstruction();
 	    store = (StoreInstruction) storeExpr.getOperator();
+            if (!store.isVoid())
+                return false;
 
             sequBlock = (SequentialBlock) lastBlock.outer;
             if (sequBlock.subBlocks[1] != lastBlock)

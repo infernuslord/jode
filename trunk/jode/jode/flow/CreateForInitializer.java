@@ -45,7 +45,8 @@ public class CreateForInitializer implements Transformation {
         Expression initializer = 
             ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
             
-        if (!(initializer.getOperator() instanceof StoreInstruction))
+        if (!(initializer.getOperator() instanceof StoreInstruction)
+            || !initializer.getOperator().isVoid())
             return false;
 
         if (jode.Decompiler.isVerbose)
