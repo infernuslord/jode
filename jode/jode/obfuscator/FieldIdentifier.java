@@ -86,7 +86,7 @@ public class FieldIdentifier extends Identifier{
     }
 
     public String getType() {
-	return info.getType().getTypeSignature();
+	return info.getType();
     }
 
     public boolean isNotConstant() {
@@ -144,35 +144,8 @@ public class FieldIdentifier extends Identifier{
 	return false;
     }
 
-    int nameIndex;
-    int descriptorIndex;
-    int constvalIndex;
-    int constvalcontentIndex;
-
-    public void fillConstantPool(GrowableConstantPool gcp) 
-	throws ClassFormatException {
-	nameIndex = gcp.putUTF(getAlias());
-	descriptorIndex = gcp.putUTF(clazz.bundle.getTypeAlias(getType()));
-	constvalIndex = 0;
-	if (info.getConstant() != null) {
-	    constvalIndex = gcp.putUTF("ConstantValue");
-	    if (info.getType().stackSize() == 2)
-		constvalcontentIndex = gcp.putLongConstant(info.getConstant());
-	    else
-		constvalcontentIndex = gcp.putConstant(info.getConstant());
-	}
-    }
-
-    public void write(DataOutputStream out) throws IOException {
-	out.writeShort(info.getModifiers());
-	out.writeShort(nameIndex);
-	out.writeShort(descriptorIndex);
-	if (constvalIndex != 0) {
-	    out.writeShort(1); // number of Attributes
-	    out.writeShort(constvalIndex);
-	    out.writeInt(2);   // length of Attribute
-	    out.writeShort(constvalcontentIndex);
-	} else
-	    out.writeShort(0);
+    public void doTransformations() {
+	info.setName(getAlias());
+	info.setType(clazz.bundle.getTypeAlias(info.getType()));
     }
 }
