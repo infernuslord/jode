@@ -47,7 +47,7 @@ public class IIncOperator extends Operator
     }
 
     public void updateSubTypes() {
-	subExpressions[0].setType(type != Type.tVoid ? type : Type.tUInt);
+	subExpressions[0].setType(type != Type.tVoid ? type : Type.tInt);
     }
 
 
