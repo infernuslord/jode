@@ -190,8 +190,12 @@ public class Type {
     }
 
     public static Type tSuperType(Type type) {
-        if (type == tBoolInt || type == tBoolByte)
-            return tBoolInt;
+        if (type.getTop() == tUnknown) {
+            if (type == tBoolInt || type == tBoolByte)
+                return tBoolInt;
+            if (type.getBottom().typecode == TC_CLASS)
+                return tUObject;
+        }
         return type.getTop().createRangeType(tUnknown);
     }
 
