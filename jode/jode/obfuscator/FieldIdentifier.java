@@ -20,7 +20,7 @@ package jode.obfuscator;
 import java.lang.reflect.Modifier;
 import jode.bytecode.*;
 import java.io.*;
-import java.util.Hashtable;
+import java.util.*;
 
 public class FieldIdentifier extends Identifier{
     FieldInfo info;
@@ -88,11 +88,17 @@ public class FieldIdentifier extends Identifier{
     }
 
     public boolean conflicting(String newAlias, boolean strong) {
-	if (strong) {
-	    return clazz.containFieldAlias(newAlias, getType());
-	} else {
-	    return clazz.containFieldAlias(newAlias, "");
+	String typeSig = strong ? getType() : "";
+	if (clazz.containFieldAlias(newAlias, typeSig))
+	    return true;
+
+	Enumeration enum = clazz.knownSubClasses.elements();
+	while (enum.hasMoreElements()) {
+	    ClassIdentifier ci = (ClassIdentifier) enum.nextElement();
+	    if (ci.containsFieldAliasDirectly(newAlias, typeSig))
+		return true;
 	}
+	return false;
     }
 
     int nameIndex;

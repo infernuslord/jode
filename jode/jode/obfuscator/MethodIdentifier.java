@@ -282,13 +282,20 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     }
 
     public boolean conflicting(String newAlias, boolean strong) {
-	if (strong) {
-	    return clazz.getMethod(newAlias, getType()) != null;
-	} else {
-	    String type = getType();
-	    String paramType = type.substring(0, type.indexOf(')')+1);
-	    return clazz.getMethod(newAlias, paramType) != null;
+	String paramType = getType();
+	if (!strong) {
+	    paramType = paramType.substring(0, paramType.indexOf(')')+1);
 	}
+	if (clazz.getMethod(newAlias, paramType) != null)
+	    return true;
+
+	Enumeration enum = clazz.knownSubClasses.elements();
+	while (enum.hasMoreElements()) {
+	    ClassIdentifier ci = (ClassIdentifier) enum.nextElement();
+	    if (ci.hasMethod(newAlias, paramType))
+		return true;
+	}
+	return false;
     }
 
     public String toString() {
