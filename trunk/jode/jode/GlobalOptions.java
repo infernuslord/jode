@@ -29,7 +29,7 @@ public class GlobalOptions {
     public final static String URL =
 	"http://www.informatik.uni-oldenburg.de/~delwi/jode/jode.html";
 
-    public static PrintWriter err = new PrintWriter(System.err);
+    public static PrintWriter err = new PrintWriter(System.err, true);
     public static int verboseLevel   = 0;
     public static int debuggingFlags = 0;
 
