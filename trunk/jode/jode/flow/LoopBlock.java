@@ -257,7 +257,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
                 if (isDeclaration)
                     writer.print(((LocalStoreOperator) 
                                   init.getInstruction().getOperator())
-                                 .getLocalInfo().getType().toString()
+                                 .getLocalInfo().getType().getHint()
                                  + " ");
                 writer.print(init.getInstruction().simplify().toString());
             } else
@@ -361,7 +361,10 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * @return false if the stack is inconsistent.
      */
     public void mergeContinueStack(VariableStack stack) {
-	continueStack.merge(stack);
+	if (continueStack == null)
+	    continueStack = stack;
+	else
+	    continueStack.merge(stack);
     }
 
     /**
