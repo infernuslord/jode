@@ -30,42 +30,40 @@ public class Decompiler {
     public final static int SUN_STYLE = 0x14;
     public final static int GNU_STYLE = 0x02;
 
-    public static boolean usePUSH = false;
-    public static boolean useLVT = true;
-    public static boolean prettyLocals = false;
-    public static boolean immediateOutput = false;
-    public static boolean highlevelTrafos = true;
-    public static boolean stringDecrypting = true;
-    public static boolean undoOptimizations = true;
-    public static boolean removeOnetimeLocals = false;
+    public static final int OPTION_LVT       = 0x0001;
+    public static final int OPTION_INNER     = 0x0002;
+    public static final int OPTION_ANON      = 0x0004;
+    public static final int OPTION_PUSH      = 0x0008;
+    public static final int OPTION_PRETTY    = 0x0010;
+    public static final int OPTION_DECRYPT   = 0x0020;
+    public static final int OPTION_ONETIME   = 0x0040;
+    public static final int OPTION_IMMEDIATE = 0x0080;
+
+    public static int options
+	= OPTION_LVT | OPTION_INNER | OPTION_DECRYPT;
+
+    public static final String[] optionNames = {
+	"lvt", "inners", "anonymous", "push", 
+	"pretty", "decrypt", "onetime", "immediate"
+    };
+
     public static int outputStyle = SUN_STYLE;
 
     public static void usage() {
 	PrintStream err = GlobalOptions.err;
 	err.println("Version: " + GlobalOptions.version);
-        err.println("use: jode [-v][--dest <destdir>]"
-			   +"[--imm][--pretty]"
-			   +"[--cp <classpath>]"
-		           +"[--nolvt][--usepush][--nodecrypt]"
-                           +"[--import <pkglimit> <clslimit>]"
-		           +"[--debug=...]"
-                           +" class1 [class2 ...]");
+        err.print("use: jode [-v]"
+		  +"[--cp <classpath>][--dest <destdir>]"
+		  +"[--import <pkglimit> <clslimit>]");
+	for (int i=0; i < optionNames.length; i++)
+	    err.print("[--[no]"+optionNames[i]+"]");
+	err.println("[--debug=...] class1 [class2 ...]");
 	err.println("\t-v               "+
 		    "be verbose (multiple times means more verbose).");
-	err.println("\t--dest <destdir> "+
-	    "write decompiled files to disk into directory destdir.");
-	err.println("\t--imm            "+
-		    "output source immediately with wrong import.");
-	err.println("\t--pretty         "+
-		    "use `pretty' names for local variables.");
 	err.println("\t--cp <classpath> "+
 		    "search for classes in specified classpath.");
-	err.println("\t--nolvt          "+
-		    "don't use the local variable table.");
-	err.println("\t--usepush        "+
-		    "don't remove non compilable PUSH instrucions.");
-	err.println("\t--nodecrypt      "+
-		    "don't try to decrypt encrypted strings.");
+	err.println("\t--dest <destdir> "+
+	    "write decompiled files to disk into directory destdir.");
 	err.println("\t--style {sun|gnu}"+
 		    " specifies indentation style");
 	err.println("\t--import <pkglimit> <clslimit>");
@@ -73,6 +71,22 @@ public class Decompiler {
 	    "import classes used more than clslimit times");
 	err.println("\t                 "+
 	    "and packages with more then pkglimit used classes");
+	err.println("\t--[no]inner      "+
+		    "[don't] decompile inner classes.");
+	err.println("\t--[no]anonymous  "+
+		    "[don't] decompile anonymous classes.");
+	err.println("\t--[no]lvt        "+
+		    "[don't] use the local variable table.");
+	err.println("\t--[no]pretty     "+
+		    "[don't] use `pretty' names for local variables.");
+	err.println("\t--[no]push       "+
+		    "[replace] PUSH instructions [with compilable code].");
+	err.println("\t--[no]decrypt    "+
+		    "[don't] try to decrypt encrypted strings.");
+	err.println("\t--[no]onetime    "+
+		    "[don't] remove locals, that are used only one time.");
+	err.println("\t--[no]immediate  "+
+		    "[don't] output source immediately with wrong import.");
 	err.println("Debugging options, mainly used to debug this decompiler:");
 	err.println("\t--debug=...      "+
 		    "use --debug=help for more information.");
@@ -89,9 +103,7 @@ public class Decompiler {
         for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
 		GlobalOptions.verboseLevel++;
-            else if (params[i].equals("--imm"))
-                immediateOutput = true;
-	    else if (params[i].equals("--dest"))
+		else if (params[i].equals("--dest"))
 		destDir = new File(params[++i]);
             else if (params[i].startsWith("--debug")) {
 		String flags;
@@ -104,13 +116,7 @@ public class Decompiler {
 		    flags = params[++i];
 		}
 		GlobalOptions.setDebugging(flags);
-	    } else if (params[i].equals("--usepush"))
-		usePUSH = true;
-            else if (params[i].equals("--pretty"))
-                prettyLocals = true;
-            else if (params[i].equals("--nodecrypt"))
-                stringDecrypting = false;
-            else if (params[i].equals("--style")) {
+            } else if (params[i].equals("--style")) {
 		String style = params[++i];
 		if (style.equals("sun"))
 		    outputStyle = SUN_STYLE;
@@ -129,12 +135,42 @@ public class Decompiler {
             } else if (params[i].equals("--")) {
                 i++;
                 break;
-            } else {
-                if (!params[i].startsWith("-h") &&
-		    !params[i].equals("--help"))
+	    } else { 
+		if (params[i].startsWith("--")) {
+		    boolean negated = false;
+		    String optionName = params[i].substring(2);
+		    if (optionName.startsWith("no")) {
+			optionName = optionName.substring(2);
+			negated = true;
+		    }
+
+		    int index = -1;
+		    for (int j=0; j < optionNames.length; j++) {
+			if (optionNames[j].startsWith(optionName)) {
+			    if (optionNames[j].equals(optionName)) {
+				index = j;
+				break;
+			    }
+			    if (index == -1) {
+				index = j;
+			    } else {
+				index = -2;
+				break;
+			    }
+			}
+		    }
+		    if (index >= 0) {
+			if (negated)
+			    options &= ~(1<< index);
+			else
+			options |= 1 << index;
+			continue;
+		    }
+		}
+		if (!params[i].startsWith("-h") && !params[i].equals("--help"))
                     GlobalOptions.err.println("Unknown option: "+params[i]);
-                usage();
-                return;
+		usage();
+		return;
             }
         }
         if (i == params.length) {
@@ -189,8 +225,7 @@ public class Decompiler {
 		imports.init(params[i]);
 		GlobalOptions.err.println(params[i]);
 		
-		ClassAnalyzer clazzAna 
-		    = new ClassAnalyzer(null, clazz, imports);
+		ClassAnalyzer clazzAna = new ClassAnalyzer(clazz, imports);
 		clazzAna.analyze();
 
 		imports.dumpHeader(writer);
