@@ -177,6 +177,8 @@ public class Obfuscator {
         if (toTable != null)
             bundle.writeTable(toTable);
 
+	err.println("Transforming the classes");
+	bundle.doTransformations();
 	err.println("Writing new classes");
         bundle.storeClasses(destPath);
     }
