@@ -31,6 +31,8 @@ public class ClassIdentifier extends Identifier {
     String name;
     ClassInfo info;
     boolean willStrip;
+    String superName;
+    String[] ifaceNames;
 
     int fieldCount;
     /* The first fieldCount are of type FieldIdentifier, the remaining
@@ -59,13 +61,13 @@ public class ClassIdentifier extends Identifier {
     }
 
     public void preserveMatchingIdentifier(WildCard wildcard) {
-	System.err.println("preserve "+getFullName()+"; "+wildcard);
 	String fullName = getFullName() + ".";
 	for (int i=0; i< identifiers.length; i++) {
 	    if (wildcard.matches(fullName + identifiers[i].getName())
 		|| wildcard.matches(fullName + identifiers[i].getName()
 				    + "." +identifiers[i].getType())) {
-		System.err.println("preserving "+identifiers[i]);
+		if (GlobalOptions.verboseLevel > 1)
+		    GlobalOptions.err.println("preserving "+identifiers[i]);
 		setPreserved();
 		identifiers[i].setPreserved();
 		identifiers[i].setReachable();
@@ -243,9 +245,11 @@ public class ClassIdentifier extends Identifier {
 	}
 
 	ClassInfo[] ifaces = info.getInterfaces();
+	ifaceNames = new String[ifaces.length];
 	for (int i=0; i < ifaces.length; i++) {
+	    ifaceNames[i] = ifaces[i].getName();
 	    ClassIdentifier ifaceident
-		= bundle.getClassIdentifier(ifaces[i].getName());
+		= bundle.getClassIdentifier(ifaceNames[i]);
 	    if (ifaceident != null) {
 		ifaceident.addSubClass(this);
 	    }
@@ -253,8 +257,9 @@ public class ClassIdentifier extends Identifier {
 	}
 
 	if (info.getSuperclass() != null) {
+	    superName = info.getSuperclass().getName();
 	    ClassIdentifier superident
-		= bundle.getClassIdentifier(info.getSuperclass().getName());
+		= bundle.getClassIdentifier(superName);
 	    if (superident != null) {
 		superident.addSubClass(this);
 	    }
@@ -283,14 +288,14 @@ public class ClassIdentifier extends Identifier {
 		identifiers[i].writeTable(table);
     }
 
-    public void addIfaces(Vector result, ClassInfo[] ifaces) {
+    public void addIfaces(Vector result, String[] ifaces) {
 	for (int i=0; i < ifaces.length; i++) {
 	    ClassIdentifier ifaceident
-		= bundle.getClassIdentifier(ifaces[i].getName());
+		= bundle.getClassIdentifier(ifaces[i]);
 	    if (ifaceident != null && !ifaceident.isReachable())
-		addIfaces(result, ifaceident.info.getInterfaces());
+		addIfaces(result, ifaceident.ifaceNames);
 	    else
-		result.addElement(ifaces[i]);
+		result.addElement(ClassInfo.forName(ifaces[i]));
 	}
     }
 
@@ -306,21 +311,80 @@ public class ClassIdentifier extends Identifier {
 	    return;
 
 	Vector newIfaces = new Vector();
-	addIfaces(newIfaces, info.getInterfaces());
-	ClassInfo superClass = info.getSuperclass();
-	while (superClass != null) {
+	addIfaces(newIfaces, ifaceNames);
+	String nameOfSuper = superName;
+	while (true) {
 	    ClassIdentifier superident
-		= bundle.getClassIdentifier(superClass.getName());
+		= bundle.getClassIdentifier(nameOfSuper);
 	    if (superident == null || superident.isReachable())
 		break;
 
-	    addIfaces(newIfaces, superClass.getInterfaces());
-	    superClass = superClass.getSuperclass();
+	    addIfaces(newIfaces, superident.ifaceNames);
+	    nameOfSuper = superident.superName;
 	}
 	ClassInfo[] ifaces = new ClassInfo[newIfaces.size()];
 	newIfaces.copyInto(ifaces);
-	info.setSuperclass(superClass);
+	info.setSuperclass(ClassInfo.forName(nameOfSuper));
 	info.setInterfaces(ifaces);
+    }
+
+    public void transformInnerClasses() {
+	InnerClassInfo[] innerClasses = info.getInnerClasses();
+	if (innerClasses == null)
+	    return;
+
+	int newInnerCount;
+	if (Obfuscator.shouldStrip) {
+	    newInnerCount = 0;
+	    for (int i=0; i < innerClasses.length; i++) {
+		ClassIdentifier innerIdent
+		    = bundle.getClassIdentifier(innerClasses[i].inner);
+		if (innerIdent == null || innerIdent.isReachable())
+			newInnerCount++;
+	    }
+	} else
+	    newInnerCount = innerClasses.length;
+
+	InnerClassInfo[] newInners = new InnerClassInfo[newInnerCount];
+	newInnerCount = 0;
+
+	for (int i=0; i<innerClasses.length; i++) {
+	    ClassIdentifier innerIdent
+		= bundle.getClassIdentifier(innerClasses[i].inner);
+	    if (innerIdent != null && !innerIdent.isReachable())
+		continue;
+
+	    String inner, outer, name;
+	    if (innerIdent == null) {
+		inner = innerClasses[i].inner;
+	    } else {
+		inner = innerIdent.getAlias();
+	    }
+	    if (innerClasses[i].outer == null) {
+		outer = null;
+	    } else {
+		ClassIdentifier outerIdent
+		    = bundle.getClassIdentifier(innerClasses[i].outer);
+		if (outerIdent != null) {
+		    if (Obfuscator.shouldStrip && !outerIdent.isReachable())
+			outer = null;
+		    else
+			outer = outerIdent.getAlias();
+		} else {
+		    outer = innerClasses[i].outer;
+		}
+	    }
+	    if (innerClasses[i].name == null)
+		/* This is an anonymous class */
+		name = null;
+	    else if (outer != null && inner.startsWith(outer+"$"))
+		name = inner.substring(outer.length()+1);
+	    else
+		name = inner;
+	    newInners[newInnerCount++] = new InnerClassInfo
+		(inner, outer, name, innerClasses[i].modifiers);
+	}
+	info.setInnerClasses(newInners);
     }
 
     public void doTransformations() {
@@ -328,14 +392,20 @@ public class ClassIdentifier extends Identifier {
 	    GlobalOptions.err.println("Transforming "+this);
 	info.setName(getFullAlias());
 	transformSuperIfaces();
+	transformInnerClasses();
 
 	int newFieldCount = 0, newMethodCount = 0;
-	for (int i=0; i < fieldCount; i++)
-	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
-		newFieldCount++;
-	for (int i=fieldCount; i < identifiers.length; i++)
-	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
-		newMethodCount++;
+	if (Obfuscator.shouldStrip) {
+	    for (int i=0; i < fieldCount; i++)
+		if (identifiers[i].isReachable())
+		    newFieldCount++;
+	    for (int i=fieldCount; i < identifiers.length; i++)
+		if (identifiers[i].isReachable())
+		    newMethodCount++;
+	} else {
+	    newFieldCount = fieldCount;
+	    newMethodCount = identifiers.length - fieldCount;
+	}
 
 	FieldInfo[] newFields = new FieldInfo[newFieldCount];
 	MethodInfo[] newMethods = new MethodInfo[newMethodCount];
@@ -355,6 +425,7 @@ public class ClassIdentifier extends Identifier {
 		    = ((MethodIdentifier)identifiers[i]).info;
 	    }
 	}
+
 	info.setFields(newFields);
 	info.setMethods(newMethods);
     }
@@ -405,10 +476,9 @@ public class ClassIdentifier extends Identifier {
 		return identifiers[i];
 	}
 	
-	ClassInfo[] ifaces = info.getInterfaces();
-	for (int i=0; i < ifaces.length; i++) {
+	for (int i=0; i < ifaceNames.length; i++) {
 	    ClassIdentifier ifaceident
-		= bundle.getClassIdentifier(ifaces[i].getName());
+		= bundle.getClassIdentifier(ifaceNames[i]);
 	    if (ifaceident != null) {
 		Identifier ident
 		    = ifaceident.getIdentifier(fieldName, typeSig);
@@ -417,9 +487,9 @@ public class ClassIdentifier extends Identifier {
 	    }
 	}
 
-	if (info.getSuperclass() != null) {
+	if (superName != null) {
 	    ClassIdentifier superident
-		= bundle.getClassIdentifier(info.getSuperclass().getName());
+		= bundle.getClassIdentifier(superName);
 	    if (superident != null) {
 		Identifier ident 
 		    = superident.getIdentifier(fieldName, typeSig);
