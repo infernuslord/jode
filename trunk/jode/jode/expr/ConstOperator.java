@@ -69,8 +69,8 @@ public class ConstOperator extends NoArgOperator {
 	value = constant;
     }
 
-    public String getValue() {
-        return String.valueOf(value);
+    public Object getValue() {
+        return value;
     }
 
     public int getPriority() {
