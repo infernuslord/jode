@@ -78,7 +78,7 @@ public class Obfuscator {
         err.println("\t[-none]            "+
 		    "Don't rename any method.");
         err.println("\t[-table <file>]    "+
-		    "Read translation table from file");
+		    "Read (some) translation table from file");
         err.println("\t[-revtable <file>] "+
 		    "Write reversed translation table to file");
         err.println("\t[-swaporder]       "+
@@ -137,7 +137,6 @@ public class Obfuscator {
             else if (params[i].equals("-none"))
                 rename = RENAME_NONE;
             else if (params[i].equals("-table")) {
-                rename = RENAME_TABLE;
                 table  = params[++i];
             }
             else if (params[i].equals("-revtable")) {
@@ -171,10 +170,9 @@ public class Obfuscator {
         bundle.setPreserved(preserveRule, preservedIdents);
 
 	err.println("Renaming methods");
-        if (rename != RENAME_TABLE)
-            bundle.buildTable(rename);
-        else
+	if (table != null)
             bundle.readTable(table);
+	bundle.buildTable(rename);
         if (toTable != null)
             bundle.writeTable(toTable);
 
