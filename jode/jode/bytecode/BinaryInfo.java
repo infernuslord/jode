@@ -51,8 +51,13 @@ public class BinaryInfo {
         int count = input.readUnsignedShort();
         for (int i=0; i< count; i++) {
             input.readUnsignedShort();  // the name index
-            int length = input.readInt();
-            input.skip(length);
+            long length = input.readInt();
+	    while (length > 0) {
+		long skipped = input.skip(length);
+		if (skipped == 0)
+		    throw new EOFException("Can't skip. EOF?");
+		length -= skipped;
+	    }
         }
     }
 

@@ -52,7 +52,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    if (exceptionsattr != null)
 		readExceptions(exceptionsattr);
 	} catch (IOException ex) {
-	    ex.printStackTrace();
+	    ex.printStackTrace(Obfuscator.err);
 	}
     }
 
@@ -60,6 +60,22 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	if ((preserveRule & (info.getModifiers() ^ Modifier.PRIVATE)) != 0) {
 	    setReachable();
 	    setPreserved();
+	}
+    }
+
+    /**
+     * Skips the specified number of bytes in the input stream.  This calls
+     * skip as long until the bytes are all skipped.
+     * @param is the inputstream to skip.
+     * @param count the number of bytes to skip.
+     */
+    private final static void skip(InputStream is, long count) 
+	throws IOException {
+	while (count > 0) {
+	    long skipped = is.skip(count);
+	    if (skipped == 0)
+		throw new EOFException("Can't skip.");
+	    count -= skipped;
 	}
     }
 
@@ -84,12 +100,12 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		case opc_istore: case opc_lstore: 
 		case opc_fstore: case opc_dstore: case opc_astore:
 		case opc_ret:
-		    stream.skip(2);
+		    skip(stream, 2);
 		    addr+=4;
 		    break;
 				
 		case opc_iinc:
-		    stream.skip(4);
+		    skip(stream, 4);
 		    addr+=6;
 		    break;
 		default:
@@ -98,7 +114,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		break;
 	    }
 	    case opc_ret:
-		stream.skip(1);
+		skip(stream, 1);
 		addr+=2;
 		break;
 	    case opc_sipush:
@@ -108,28 +124,28 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    case opc_ifnull: case opc_ifnonnull:
 	    case opc_putstatic:
 	    case opc_putfield:
-		stream.skip(2);
+		skip(stream, 2);
 		addr+=3;
 		break;
 	    case opc_jsr_w:
 	    case opc_goto_w:
-		stream.skip(4);
+		skip(stream, 4);
 		addr+=5;
 		break;
 	    case opc_tableswitch: {
 		int length = 7-(addr % 4);
-		stream.skip(length);
+		skip(stream, length);
 		int low  = stream.readInt();
 		int high = stream.readInt();
-		stream.skip(4*(high-low+1));
+		skip(stream, 4*(high-low+1));
 		addr += 9 + length + 4*(high-low+1);
 		break;
 	    }
 	    case opc_lookupswitch: {
 		int length = 7-(addr % 4);
-		stream.skip(length);
+		skip(stream, length);
 		int npairs = stream.readInt();
-		stream.skip(8*npairs);
+		skip(stream, 8*npairs);
 		addr += 5 + length + 8*npairs;
 		break;
 	    }
@@ -166,7 +182,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		clazz.bundle.reachableIdentifier(clName, false);
 		addr += 3;
 		if (opcode == opc_multianewarray) {
-		    stream.skip(1);
+		    skip(stream, 1);
 		    addr ++;
 		}
 		break;
@@ -184,7 +200,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		addr += 3;
 
 		if (opcode == opc_invokeinterface) {
-		    stream.skip(2);
+		    skip(stream, 2);
 		    addr += 2;
 		}
 		break;
@@ -194,10 +210,10 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		if (opcode == opc_newarray
 		    || (opcode >= opc_bipush && opcode <= opc_aload)
 		    || (opcode >= opc_istore && opcode <= opc_astore)) {
-		    stream.skip(1);
+		    skip(stream, 1);
 		    addr += 2;
 		} else if (opcode >= opc_ifeq && opcode <= opc_jsr) {
-		    stream.skip(2);
+		    skip(stream, 2);
 		    addr += 3;
 		} else if (opcode == opc_xxxunusedxxx
 			   || opcode >= opc_breakpoint)
@@ -242,7 +258,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    try {
 		analyzeCode();
 	    } catch (IOException ex) {
-		ex.printStackTrace();
+		ex.printStackTrace(Obfuscator.err);
 		System.exit(0);
 	    }
 	}
@@ -557,7 +573,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    output.writeShort(0); // No Attributes;
 	    output.close();
 	} catch (IOException ex) {
-	    ex.printStackTrace();
+	    ex.printStackTrace(Obfuscator.err);
 	    code = null;
 	    return;
 	}
@@ -590,12 +606,12 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 			case opc_istore: case opc_lstore: 
 			case opc_fstore: case opc_dstore: case opc_astore:
 			case opc_ret:
-			    stream.skip(2);
+			    skip(stream, 2);
 			    addr+=4;
 			    break;
 				
 			case opc_iinc:
-			    stream.skip(4);
+			    skip(stream, 4);
 			    addr+=6;
 			    break;
 			default:
@@ -605,23 +621,23 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    }
 		    case opc_tableswitch: {
 			int length = 7-(addr % 4);
-			stream.skip(length);
+			skip(stream, length);
 			int low  = stream.readInt();
 			int high = stream.readInt();
-			stream.skip(4*(high-low+1));
+			skip(stream, 4*(high-low+1));
 			addr += 9 + length + 4*(high-low+1);
 			break;
 		    }
 		    case opc_lookupswitch: {
 			int length = 7-(addr % 4);
-			stream.skip(length);
+			skip(stream, length);
 			int npairs = stream.readInt();
-			stream.skip(8*npairs);
+			skip(stream, 8*npairs);
 			addr += 5 + length + 8*npairs;
 			break;
 		    }
 		    case opc_ret:
-			stream.skip(1);
+			skip(stream, 1);
 			addr+=2;
 			break;
 		    case opc_sipush:
@@ -633,28 +649,28 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    case opc_anewarray:
 		    case opc_checkcast:
 		    case opc_instanceof:
-			stream.skip(2);
+			skip(stream, 2);
 			addr+=3;
 			break;
 		    case opc_multianewarray:
-			stream.skip(3);
+			skip(stream, 3);
 			addr += 4;
 			break;
 		    case opc_jsr_w:
 		    case opc_goto_w:
 		    case opc_invokeinterface:
-			stream.skip(4);
+			skip(stream, 4);
 			addr+=5;
 			break;
 		    default:
 			if (opcode == opc_newarray
 			    || (opcode >= opc_bipush && opcode <= opc_aload)
 			    || (opcode >= opc_istore && opcode <= opc_astore)) {
-			    stream.skip(1);
+			    skip(stream, 1);
 			    addr += 2;
 			} else if (opcode >= opc_ifeq && opcode <= opc_jsr
 				   || opcode >= opc_getstatic && opcode <= opc_invokestatic) {
-			    stream.skip(2);
+			    skip(stream, 2);
 			    addr += 3;
 			} else if (opcode == opc_xxxunusedxxx
 				   || opcode >= opc_breakpoint)
@@ -664,7 +680,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    }
 		}
 	    } catch (IOException ex) {
-		ex.printStackTrace();
+		ex.printStackTrace(Obfuscator.err);
 	    }
 	}
     }
