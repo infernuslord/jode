@@ -1,52 +1,4 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.0//EN">
-<html>
-<head>
-<title>Java Optimize and Decompile Environment (JODE)</title>
-<meta name="date" content="2000-06-30">
-<meta name="description" content="JODE - Java Optimize and Decompile Environment.">
-<meta name="author" content="Jochen Hoenicke">
-<meta name="keywords" content="jode, java, decompiler, obfuscator, deobfuscator, reverse engineering, free, GPL">
-</head>
-
-<BODY bgcolor=#FFFFFF topmargin="0" bottommargin="0" leftmargin="0" rightmargin="0" marginheight="0" marginwidth="0">
-<table cellpadding=4 cellspacing=1 width=100%>
-<tr><td>
-</td>
-<td> <img src="jode-logo.gif" alt="JODE" width=286 height=110></td>
-</tr>
-<tr>
-<td valign="top">
-<table cellspacing=0 cellpadding=3 width=100% border=0 bgcolor=eeeef8>
-<tr bgcolor="7272cc">
-<td align="center"><font color="ffffff"><b>Jode</b></font></td></tr>
-<tr><td align="right">
-<a href="./"><B>Home</B></a><br>
-<a href="http://sourceforge.net/project/?group_id=3790">Project&nbsp;page</a><br>
-<br>
-<a href="./applet.html">Applet</a><br>
-<a href="./download.html">Download</a><br>
-<a href="./usage.html">Documentation</a><br>
-<a href="./license.html">License</a><br>
-<a href="./history.html">History</a><br>
-<a href="./links.html">Links</a><br>
-<a href="./bluesky.html">Blue&nbsp;Sky</a><tr bgcolor="7272cc">
-<td align="center"><font color="ffffff"><b>Feedback</b></font></td></tr>
-<tr><td align="right">
-<a href="http://sourceforge.net/bugs/?group_id=3790">Bug&nbsp;Tracking</a><br>
-<a href="http://sourceforge.net/forum/?group_id=3790">Public&nbsp;Forums</a><br>
-<a href="http://lists.sourceforge.net/mailman/listinfo/jode-users">Mailing&nbsp;List</a><br>
-<a href="http://sourceforge.net/sendmessage.html?touser=18252">Private&nbsp;Mail</a><tr bgcolor="7272cc">
-<td align="center"><font color="ffffff"><b>Download</b></font></td></tr>
-<tr><td align="right">
-<a href="ftp://jode.sourceforge.net/pub/jode/">FTP&nbsp;server</a><br>
-<a href="http://sourceforge.net/project/filelist.html?group_id=3790">Source&nbsp;releases</a></td></tr>
-<tr bgcolor="ffffff"><td align="center"><br>Powered by <br>
-<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.html?group_id=3790&type=1" border=0 width=88 height=31 alt="SourceForge"></a><br>
-<br>Best viewed with <br>
-<a href="http://www.anybrowser.org/campaign/"><img src="a-logo.gif" border=0 width=88 height=31 alt="Any Browser"></a><br>
-</td></tr></table>
-</td>
-<td valign="top">
+<?php require("header.inc") ?>
 <h1><i>JODE</i> Links</h1>
 <h3>Other decompilers</h3>
 <ul>
@@ -106,18 +58,5 @@ download the <a href="http://www.informatik.uni-oldenburg.de/~delwi/jode/collect
 the script), or <a href="collections.jar">a precompiled jar file</a>.
 </dd>
 </dl>
-</td></tr>
-</table>
-<TABLE width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="737b9c">
-  <TR>
-    <TD align="center"><FONT color="#ffffff"><SPAN class="titlebar">
-      All trademarks and copyrights on this page are properties of their respective owners. <br>
-      Last updated on 8-May-2000, 
-	Copyright &copy; 1998-2000 by Jochen Hoenicke.</SPAN></FONT>
-    </TD>
-  </TR>
-</TABLE>
-
-</BODY>
-</HTML>
+<?php require("footer.inc"); ?>
 

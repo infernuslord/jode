@@ -47,76 +47,35 @@
 </td></tr></table>
 </td>
 <td valign="top">
-<h1>Blue Sky</h1>
+<h2>Download</h2> 
 
-<p>This section contains features that I think would be great to have,
-but are also very hard to implement.  The name of the section is
-inspired, by <a
-href="http://www.mozilla.org/blue-sky/">Mozilla</a>.</p>
+The latest source code of <i>JODE</i> is available at the <a href="http://sourceforge.net/project/?group_id=3790">project page</a>.
+You need several other packages to build <i>JODE</i>, check the <a href="./links.html">links page</a>. <br><br>
 
-<p>Currently this are all my own ideas.  But if you send me an idea
-for an interesting feature, I will add it to this list.</p>
+The simplest way to get it, especially for non unix users, is in
+precompiled form, though.  I have two jar archives at the <a
+href="ftp://jode.sourceforge.net/pub/jode">ftp server</a>.  You may
+need to press shift while clicking on the link, depending on your
+browser.
 
-<h2><i>Out</i>line inlined methods</h2>
 
-<p>If java gets called with `<code>-O</code>' switch, it inlines methods,
-that are private, final, or static and contain no loops.  When
-decompiling this it sometimes produces really ugly code.  The right
-way to solve this would be to <i>out</i>line the code again.  This is
-possible but requires to find the inlined method.  </p>
+<ul> <li><a href="ftp://jode.sourceforge.net/pub/jode/jode-1.0.93-1.1.jar">jode-1.0.93-1.1.jar</a> is for JDK&nbsp;1.1.  It already
+contains Getopt and the collection classes from the GNU Classpath
+project.  If you want to use the swing interface, you have to download
+swing separately. </li>
 
-<p>The name `outline' was suggested by <a
-href="http://www.informatik.uni-oldenburg.de/~mw">Michael</a>.
-</p>
+<li> <a href="ftp://jode.sourceforge.net/pub/jode/jode-1.0.93-1.2.jar">jode-1.0.93-1.2.jar</a> is for JDK&nbsp;1.2.  It already
+contains Getopt, so you don't need any other package.</li> </ul>
 
-<h2>Better names of local variables</h2>
+<h2>CVS Repository</h2>
 
-<p>The local variable naming is very stupid.  Even with pretty it just
-names the variable after the type with a unifying number appended. A
-method containing very much objects of the same type looks very
-ugly. </p>
+You can get the latest sources from the <a href="http://sourceforge.net/cvs/?group_id=3790">CVS repository</a>.
+Follow the instruction on that page; use <code>jode</code> as
+<i>modulename</i>.  Then change to the directory jode and run
 
-<p>My plan is looking at the assignments.  If we have locals in
-assignments
-<pre>
-int l_1 = array.length
-String l_2 = object.getName()
-</pre>
-we could name them "length" and "name".  If we
-have assignments:
-<pre>
-MenuItem local_1 = new MenuItem("Open");
-MenuItem local_2 = new MenuItem("Save");
-</pre>
-good names would be <code>miOpen</code> and <code>miSave</code>.  </p>
+<pre>aclocal && automake -a && autoconf</pre>
 
-<p>It is currently possible to assign a <i>(hint name,type)</i> pair
-to a local.  If the type matches, the local will be named after
-<i>hint name</i>.  This could be extended by giving them several
-weighted hints and constructing the name in an intelligent way. </p>
-
-<h2>Better deobfuscation features</h2>
-<p>First there should be a good Renamer: Methods that simply
-return a field value should be renamed to get<i>FieldName</i>.
-Fields should be named after their type, maybe also by assignments
-(see section about local variable names).</p>
-
-<p>The deobfuscator should detect inner and anonymous variables,
-synthetic methods and so on, and rename them accordingly.</p>
-
-<h2>Handling of Class.forName in obfuscator</h2>
-<p>The obfuscator should detect Class.forName constructs (and
-similarly for methods and fields) and if their parameters are constant
-it should change the parameter according to the rename function. </p>
-
-<h2>Merging javadoc comments</h2>
-<p>It would be nice if the decompiler could merge the javadoc comments
-into the class file.  More and more people use javadoc to comment the
-public api of their java classes.  It shouldn't be too difficult to
-copy them back into the java code. </p>
-
-<p>This doesn't need to be built into the decompiler.  A script that takes
-the javadoc pages and the decompiled code can easily merge them.</p>
+Afterwards follow the instruction in the INSTALL file.  
 </td></tr>
 </table>
 <TABLE width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="737b9c">
