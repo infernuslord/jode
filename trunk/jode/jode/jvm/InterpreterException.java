@@ -18,7 +18,6 @@
  */
 
 package jode.jvm;
-import jode.bytecode.*;
 
 /**
  * This exception is thrown by the interpreter on various conditions.

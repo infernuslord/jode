@@ -18,7 +18,6 @@
  */
 
 package jode.jvm;
-import jode.bytecode.*;
 
 /**
  * This class represents a new object, that may not be initialized yet.

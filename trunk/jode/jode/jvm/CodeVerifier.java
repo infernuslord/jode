@@ -18,10 +18,20 @@
  */
 
 package jode.jvm;
-import jode.bytecode.*;
-import jode.type.*;
 import jode.AssertError;
 import jode.GlobalOptions;
+import jode.bytecode.BytecodeInfo;
+import jode.bytecode.ClassInfo;
+import jode.bytecode.Handler;
+import jode.bytecode.Instruction;
+import jode.bytecode.MethodInfo;
+import jode.bytecode.Opcodes;
+import jode.bytecode.Reference;
+import jode.type.ArrayType;
+import jode.type.ClassInterfacesType;
+import jode.type.MethodType;
+import jode.type.Type;
+
 import java.util.BitSet;
 import java.util.Stack;
 
@@ -297,12 +307,12 @@ public class CodeVerifier implements Opcodes {
 
     public boolean mergeInfo(Instruction instr, VerifyInfo info) 
 	throws VerifyException {
-	if (instr.tmpInfo == null) {
-	    instr.tmpInfo = info;
+	if (instr.getTmpInfo() == null) {
+	    instr.setTmpInfo(info);
 	    return true;
 	}
 	boolean changed = false;
-	VerifyInfo oldInfo = (VerifyInfo) instr.tmpInfo;
+	VerifyInfo oldInfo = (VerifyInfo) instr.getTmpInfo();
 	if (oldInfo.stackHeight != info.stackHeight)
 	    throw new VerifyException("Stack height differ at: "
 				      + instr.getDescription());
@@ -371,17 +381,18 @@ public class CodeVerifier implements Opcodes {
 	int jsrLength = 
 	    prevInfo.jsrTargets != null ? prevInfo.jsrTargets.length : 0;
 	VerifyInfo result = (VerifyInfo) prevInfo.clone();
-	switch (instr.opcode) {
+	switch (instr.getOpcode()) {
 	case opc_nop:
 	case opc_goto:
 	    break;
 	case opc_ldc: {
 	    Type type;
-	    if (instr.objData == null)
+	    Object constant = instr.getConstant();
+	    if (constant == null)
 		type = Type.tUObject;
-	    else if (instr.objData instanceof Integer)
+	    else if (constant instanceof Integer)
 		type = Type.tInt;
-	    else if (instr.objData instanceof Float)
+	    else if (constant instanceof Float)
 		type = Type.tFloat;
 	    else
 		type = Type.tString;
@@ -390,7 +401,8 @@ public class CodeVerifier implements Opcodes {
 	}
 	case opc_ldc2_w: {
 	    Type type;
-	    if (instr.objData instanceof Long)
+	    Object constant = instr.getConstant();
+	    if (constant instanceof Long)
 		type = Type.tLong;
 	    else
 		type = Type.tDouble;
@@ -404,25 +416,25 @@ public class CodeVerifier implements Opcodes {
 	case opc_dload:
 	case opc_aload: {
 	    if (jsrLength > 0
-		&& (!result.jsrLocals[jsrLength-1].get(instr.localSlot)
-		    || ((instr.opcode & 0x1) == 0
+		&& (!result.jsrLocals[jsrLength-1].get(instr.getLocalSlot())
+		    || ((instr.getOpcode() & 0x1) == 0
 			&& !result.jsrLocals[jsrLength-1]
-			.get(instr.localSlot+1)))) {
+			.get(instr.getLocalSlot()+1)))) {
 		result.jsrLocals = (BitSet[]) result.jsrLocals.clone();
 		result.jsrLocals[jsrLength-1]
 		    = (BitSet) result.jsrLocals[jsrLength-1].clone();
-		result.jsrLocals[jsrLength-1].set(instr.localSlot);
-		if ((instr.opcode & 0x1) == 0)
-		    result.jsrLocals[jsrLength-1].set(instr.localSlot + 1);
+		result.jsrLocals[jsrLength-1].set(instr.getLocalSlot());
+		if ((instr.getOpcode() & 0x1) == 0)
+		    result.jsrLocals[jsrLength-1].set(instr.getLocalSlot() + 1);
 	    }
-	    if ((instr.opcode & 0x1) == 0
-		&& result.locals[instr.localSlot+1] != Type.tVoid)
+	    if ((instr.getOpcode() & 0x1) == 0
+		&& result.locals[instr.getLocalSlot()+1] != Type.tVoid)
 		throw new VerifyException(instr.getDescription());
-	    Type type = result.locals[instr.localSlot];
-	    if (!isOfType(type, types[instr.opcode - opc_iload]))
+	    Type type = result.locals[instr.getLocalSlot()];
+	    if (!isOfType(type, types[instr.getOpcode() - opc_iload]))
 		throw new VerifyException(instr.getDescription());
 	    result.push(type);
-	    if ((instr.opcode & 0x1) == 0)
+	    if ((instr.getOpcode() & 0x1) == 0)
 		result.push(Type.tVoid);
 	    break;
 	}
@@ -433,50 +445,50 @@ public class CodeVerifier implements Opcodes {
 		throw new VerifyException(instr.getDescription());
 	    Type arrType = result.pop(); 
 	    if (!isOfType(arrType, 
-			  Type.tArray(types[instr.opcode - opc_iaload]))
-		&& (instr.opcode != opc_baload
+			  Type.tArray(types[instr.getOpcode() - opc_iaload]))
+		&& (instr.getOpcode() != opc_baload
 		    || !isOfType(arrType, Type.tArray(Type.tBoolean))))
 		throw new VerifyException(instr.getDescription());
 	    
 	    Type elemType = (arrType.equals(Type.tUObject) 
-			     ? types[instr.opcode - opc_iaload]
+			     ? types[instr.getOpcode() - opc_iaload]
 			     :((ArrayType)arrType).getElementType());
 	    result.push(elemType);
-	    if (((1 << instr.opcode - opc_iaload) & 0xa) != 0)
+	    if (((1 << instr.getOpcode() - opc_iaload) & 0xa) != 0)
 		result.push(Type.tVoid);
 	    break;
 	}
 	case opc_istore: case opc_lstore: 
 	case opc_fstore: case opc_dstore: case opc_astore: {
 	    if (jsrLength > 0
-		&& (!result.jsrLocals[jsrLength-1].get(instr.localSlot)
-		    || ((instr.opcode & 0x1) != 0
+		&& (!result.jsrLocals[jsrLength-1].get(instr.getLocalSlot())
+		    || ((instr.getOpcode() & 0x1) != 0
 			&& !result.jsrLocals[jsrLength-1]
-			.get(instr.localSlot+1)))) {
+			.get(instr.getLocalSlot()+1)))) {
 		result.jsrLocals = (BitSet[]) result.jsrLocals.clone();
 		result.jsrLocals[jsrLength-1]
 		    = (BitSet) result.jsrLocals[jsrLength-1].clone();
-		result.jsrLocals[jsrLength-1].set(instr.localSlot);
-		if ((instr.opcode & 0x1) != 0)
-		    result.jsrLocals[jsrLength-1].set(instr.localSlot + 1);
+		result.jsrLocals[jsrLength-1].set(instr.getLocalSlot());
+		if ((instr.getOpcode() & 0x1) != 0)
+		    result.jsrLocals[jsrLength-1].set(instr.getLocalSlot() + 1);
 	    }
-	    if ((instr.opcode & 0x1) != 0
+	    if ((instr.getOpcode() & 0x1) != 0
 		&& result.pop() != Type.tVoid)
 		throw new VerifyException(instr.getDescription());
 	    Type type = result.pop();
-	    if (instr.opcode != opc_astore
+	    if (instr.getOpcode() != opc_astore
 		|| !(type instanceof ReturnAddressType))
-		if (!isOfType(type, types[instr.opcode - opc_istore]))
+		if (!isOfType(type, types[instr.getOpcode() - opc_istore]))
 		    throw new VerifyException(instr.getDescription());
-	    result.locals[instr.localSlot] = type;
-	    if ((instr.opcode & 0x1) != 0)
-		result.locals[instr.localSlot+1] = Type.tVoid;
+	    result.locals[instr.getLocalSlot()] = type;
+	    if ((instr.getOpcode() & 0x1) != 0)
+		result.locals[instr.getLocalSlot()+1] = Type.tVoid;
 	    break;
 	}
 	case opc_iastore: case opc_lastore:
 	case opc_fastore: case opc_dastore: case opc_aastore:
 	case opc_bastore: case opc_castore: case opc_sastore: {
-	    if (((1 << instr.opcode - opc_iastore) & 0xa) != 0
+	    if (((1 << instr.getOpcode() - opc_iastore) & 0xa) != 0
 		&& result.pop() != Type.tVoid)
 		throw new VerifyException(instr.getDescription());
 	    Type type = result.pop();
@@ -484,24 +496,24 @@ public class CodeVerifier implements Opcodes {
 		throw new VerifyException(instr.getDescription());
 	    Type arrType = result.pop();
 	    if (!isOfType(arrType, 
-			  Type.tArray(types[instr.opcode - opc_iastore]))
-		&& (instr.opcode != opc_bastore 
+			  Type.tArray(types[instr.getOpcode() - opc_iastore]))
+		&& (instr.getOpcode() != opc_bastore 
 		    || !isOfType(arrType, Type.tArray(Type.tBoolean))))
 		throw new VerifyException(instr.getDescription());
-	    Type elemType = instr.opcode >= opc_bastore ? Type.tInt
-		: types[instr.opcode - opc_iastore];
+	    Type elemType = instr.getOpcode() >= opc_bastore ? Type.tInt
+		: types[instr.getOpcode() - opc_iastore];
 	    if (!isOfType(type, elemType))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
 	case opc_pop: case opc_pop2: {
-	    int count = instr.opcode - (opc_pop-1);
+	    int count = instr.getOpcode() - (opc_pop-1);
 	    result.need(count);
 	    result.stackHeight -= count;
 	    break;
 	}
 	case opc_dup: case opc_dup_x1: case opc_dup_x2: {
-	    int depth = instr.opcode - opc_dup;
+	    int depth = instr.getOpcode() - opc_dup;
 	    result.reserve(1);
 	    result.need(depth+1);
 	    if (result.stack[result.stackHeight-1] == Type.tVoid)
@@ -517,7 +529,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_dup2: case opc_dup2_x1: case opc_dup2_x2: {
-	    int depth = instr.opcode - opc_dup2;
+	    int depth = instr.getOpcode() - opc_dup2;
 	    result.reserve(2);
 	    result.need(depth+2);
 	    if (result.stack[result.stackHeight-2] == Type.tVoid)
@@ -552,13 +564,13 @@ public class CodeVerifier implements Opcodes {
         case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
         case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
         case opc_irem: case opc_lrem: case opc_frem: case opc_drem: {
-	    Type type = types[(instr.opcode - opc_iadd) & 3];
-	    if ((instr.opcode & 1) != 0
+	    Type type = types[(instr.getOpcode() - opc_iadd) & 3];
+	    if ((instr.getOpcode() & 1) != 0
 		&& result.pop() != Type.tVoid)
 		throw new VerifyException(instr.getDescription());
 	    if (!isOfType(result.pop(), type))
 		throw new VerifyException(instr.getDescription());
-	    if ((instr.opcode & 1) != 0) {
+	    if ((instr.getOpcode() & 1) != 0) {
 		result.need(2);
 		if (result.stack[result.stackHeight-1] != Type.tVoid
 		    || !isOfType(result.stack[result.stackHeight-2], type))
@@ -571,8 +583,8 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
         case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg: {
-	    Type type = types[(instr.opcode - opc_ineg) & 3];
-	    if ((instr.opcode & 1) != 0) {
+	    Type type = types[(instr.getOpcode() - opc_ineg) & 3];
+	    if ((instr.getOpcode() & 1) != 0) {
 		result.need(2);
 		if (result.stack[result.stackHeight-1] != Type.tVoid
 		    || !isOfType(result.stack[result.stackHeight-2], type))
@@ -590,7 +602,7 @@ public class CodeVerifier implements Opcodes {
 	    if (!isOfType(result.pop(), Type.tInt))
 		throw new VerifyException(instr.getDescription());
 	    
-	    if ((instr.opcode & 1) != 0) {
+	    if ((instr.getOpcode() & 1) != 0) {
 		result.need(2);
 		if (result.stack[result.stackHeight-1] != Type.tVoid ||
 		    !isOfType(result.stack[result.stackHeight-2],Type.tLong))
@@ -605,13 +617,13 @@ public class CodeVerifier implements Opcodes {
         case opc_iand: case opc_land:
         case opc_ior : case opc_lor :
         case opc_ixor: case opc_lxor:
-	    if ((instr.opcode & 1) != 0
+	    if ((instr.getOpcode() & 1) != 0
 		&& result.pop() != Type.tVoid)
 		throw new VerifyException(instr.getDescription());
 	    if (!isOfType(result.pop(),
-			  types[instr.opcode & 1]))
+			  types[instr.getOpcode() & 1]))
 		throw new VerifyException(instr.getDescription());
-	    if ((instr.opcode & 1) != 0) {
+	    if ((instr.getOpcode() & 1) != 0) {
 		result.need(2);
 		if (result.stack[result.stackHeight-1] != Type.tVoid
 		    || !isOfType(result.stack[result.stackHeight-2],
@@ -626,15 +638,15 @@ public class CodeVerifier implements Opcodes {
 	    break;
 
 	case opc_iinc:
-	    if (!isOfType(result.locals[instr.localSlot], Type.tInt))
+	    if (!isOfType(result.locals[instr.getLocalSlot()], Type.tInt))
 		throw new VerifyException(instr.getDescription());
 	    break;
         case opc_i2l: case opc_i2f: case opc_i2d:
         case opc_l2i: case opc_l2f: case opc_l2d:
         case opc_f2i: case opc_f2l: case opc_f2d:
         case opc_d2i: case opc_d2l: case opc_d2f: {
-            int from = (instr.opcode-opc_i2l)/3;
-            int to   = (instr.opcode-opc_i2l)%3;
+            int from = (instr.getOpcode()-opc_i2l)/3;
+            int to   = (instr.getOpcode()-opc_i2l)%3;
             if (to >= from)
                 to++;
 	    if ((from & 1) != 0
@@ -714,23 +726,23 @@ public class CodeVerifier implements Opcodes {
 
 	case opc_ireturn: case opc_lreturn: 
 	case opc_freturn: case opc_dreturn: case opc_areturn: {
-	    if (((1 << instr.opcode - opc_ireturn) & 0xa) != 0
+	    if (((1 << instr.getOpcode() - opc_ireturn) & 0xa) != 0
 		&& result.pop() != Type.tVoid)
 		throw new VerifyException(instr.getDescription());
 	    Type type = result.pop();
-	    if (!isOfType(type, types[instr.opcode - opc_ireturn])
+	    if (!isOfType(type, types[instr.getOpcode() - opc_ireturn])
 		|| !isOfType(type, mt.getReturnType()))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
 	case opc_jsr: {
 	    result.stack[result.stackHeight++]
-		= new ReturnAddressType(instr.succs[0]);
+		= new ReturnAddressType(instr.getSuccs()[0]);
 	    result.jsrTargets = new Instruction[jsrLength+1];
 	    result.jsrLocals = new BitSet[jsrLength+1];
 	    if (jsrLength > 0) {
 		for (int i=0; i< prevInfo.jsrTargets.length; i++)
-		    if (prevInfo.jsrTargets[i] == instr.succs[0])
+		    if (prevInfo.jsrTargets[i] == instr.getSuccs()[0])
 			throw new VerifyException(instr.getDescription()+
 						  " is recursive");
 		System.arraycopy(prevInfo.jsrTargets, 0, 
@@ -738,7 +750,7 @@ public class CodeVerifier implements Opcodes {
 		System.arraycopy(prevInfo.jsrLocals, 0, 
 				 result.jsrLocals, 0, jsrLength);
 	    }
-	    result.jsrTargets[jsrLength] = instr.succs[0];
+	    result.jsrTargets[jsrLength] = instr.getSuccs()[0];
 	    result.jsrLocals[jsrLength] = new BitSet();
 	    break;
 	}
@@ -748,7 +760,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 
 	case opc_getstatic: {
-	    Reference ref = (Reference) instr.objData;
+	    Reference ref = instr.getReference();
 	    Type type = Type.tType(ref.getType());
 	    result.push(type);
 	    if (type.stackSize() == 2)
@@ -756,7 +768,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_getfield: {
-	    Reference ref = (Reference) instr.objData;
+	    Reference ref = instr.getReference();
 	    Type classType = Type.tType(ref.getClazz());
 	    if (!isOfType(result.pop(), classType))
 		throw new VerifyException(instr.getDescription());
@@ -767,7 +779,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_putstatic: {
-	    Reference ref = (Reference) instr.objData;
+	    Reference ref = instr.getReference();
 	    Type type = Type.tType(ref.getType());
 	    if (type.stackSize() == 2
 		&& result.pop() != Type.tVoid)
@@ -777,7 +789,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_putfield: {
-	    Reference ref = (Reference) instr.objData;
+	    Reference ref = instr.getReference();
 	    Type type = Type.tType(ref.getType());
 	    if (type.stackSize() == 2
 		&& result.pop() != Type.tVoid)
@@ -793,7 +805,7 @@ public class CodeVerifier implements Opcodes {
 	case opc_invokespecial:
 	case opc_invokestatic :
 	case opc_invokeinterface: {
-	    Reference ref = (Reference) instr.objData;
+	    Reference ref = instr.getReference();
 	    MethodType refmt = (MethodType) Type.tType(ref.getType());
 	    Type[] paramTypes = refmt.getParameterTypes();
 	    for (int i=paramTypes.length - 1; i >= 0; i--) {
@@ -825,7 +837,7 @@ public class CodeVerifier implements Opcodes {
 		for (int i=0; i< result.locals.length; i++)
 		    if (result.locals[i] == clazz)
 			result.locals[i] = newType;
-	    } else if (instr.opcode != opc_invokestatic) {
+	    } else if (instr.getOpcode() != opc_invokestatic) {
 		Type classType = Type.tType(ref.getClazz());
 		if (!isOfType(result.pop(), classType))
 		    throw new VerifyException(instr.getDescription());
@@ -839,7 +851,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_new: {
-	    String clName = (String) instr.objData;
+	    String clName = instr.getClazzType();
 	    ClassInfo ci = ClassInfo.forName
 		(clName.substring(1, clName.length()-1).replace('/','.'));
 	    result.stack[result.stackHeight++] = 
@@ -859,7 +871,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_checkcast: {
-	    Type classType = Type.tType((String) instr.objData);
+	    Type classType = Type.tType(instr.getClazzType());
 	    if (!isOfType(result.pop(), Type.tUObject))
 		throw new VerifyException(instr.getDescription());
 	    result.push(classType);
@@ -877,16 +889,16 @@ public class CodeVerifier implements Opcodes {
 		throw new VerifyException(instr.getDescription());
 	    break;
 	case opc_multianewarray: {
-	    int dimension = instr.intData;
+	    int dimension = instr.getIntData();
 	    for (int i=dimension - 1; i >= 0; i--)
 		if (!isOfType(result.pop(), Type.tInt))
 		    throw new VerifyException(instr.getDescription());
-	    Type classType = Type.tType((String) instr.objData);
+	    Type classType = Type.tType(instr.getClazzType());
 	    result.push(classType);
 	    break;
 	}
 	default:
-	    throw new AssertError("Invalid opcode "+instr.opcode);
+	    throw new AssertError("Invalid opcode "+instr.getOpcode());
 	}
 	return result;
     }
@@ -894,28 +906,28 @@ public class CodeVerifier implements Opcodes {
     public void doVerify() throws VerifyException {
 	Stack instrStack = new Stack();
 	
-	bi.getFirstInstr().tmpInfo = initInfo();
+	bi.getFirstInstr().setTmpInfo(initInfo());
 	instrStack.push(bi.getFirstInstr());
 	Handler[] handlers = bi.getExceptionHandlers();
 	while (!instrStack.isEmpty()) {
 	    Instruction instr = (Instruction) instrStack.pop();
-	    if (!instr.alwaysJumps && instr.nextByAddr == null)
+	    if (!instr.doesAlwaysJump() && instr.getNextByAddr() == null)
 		throw new VerifyException("Flow can fall off end of method");
 
-	    VerifyInfo prevInfo = (VerifyInfo) instr.tmpInfo;
-	    if (instr.opcode == opc_ret) {
+	    VerifyInfo prevInfo = (VerifyInfo) instr.getTmpInfo();
+	    if (instr.getOpcode() == opc_ret) {
 		if (prevInfo.jsrTargets == null
-		    || !(prevInfo.locals[instr.localSlot] 
+		    || !(prevInfo.locals[instr.getLocalSlot()] 
 			 instanceof ReturnAddressType))
 		    throw new VerifyException(instr.getDescription());
 		int jsrLength = prevInfo.jsrTargets.length - 1;
 		Instruction jsrTarget = 
 		    ((ReturnAddressType) 
-		     prevInfo.locals[instr.localSlot]).jsrTarget;
+		     prevInfo.locals[instr.getLocalSlot()]).jsrTarget;
 		while (jsrTarget != prevInfo.jsrTargets[jsrLength])
 		    if (--jsrLength < 0) 
 			throw new VerifyException(instr.getDescription());
-		VerifyInfo jsrTargetInfo = (VerifyInfo) jsrTarget.tmpInfo;
+		VerifyInfo jsrTargetInfo = (VerifyInfo) jsrTarget.getTmpInfo();
 		if (jsrTargetInfo.retInstr == null)
 		    jsrTargetInfo.retInstr = instr;
 		else if (jsrTargetInfo.retInstr != instr)
@@ -935,37 +947,37 @@ public class CodeVerifier implements Opcodes {
 		    nextTargets = null;
 		    nextLocals = null;
 		}
-		for (int i=0; i < jsrTarget.preds.length; i++) {
-		    Instruction jsrInstr = jsrTarget.preds[i];
-		    if (jsrInstr.tmpInfo != null)
+		for (int i=0; i < jsrTarget.getPreds().length; i++) {
+		    Instruction jsrInstr = jsrTarget.getPreds()[i];
+		    if (jsrInstr.getTmpInfo() != null)
 			instrStack.push(jsrInstr);
 		}
 	    } else {
 		VerifyInfo info = modelEffect(instr, prevInfo);
-		if (!instr.alwaysJumps)
-		    if (mergeInfo(instr.nextByAddr, info))
-			instrStack.push(instr.nextByAddr);
-		if (instr.opcode == opc_jsr) {
+		if (!instr.doesAlwaysJump())
+		    if (mergeInfo(instr.getNextByAddr(), info))
+			instrStack.push(instr.getNextByAddr());
+		if (instr.getOpcode() == opc_jsr) {
 		    VerifyInfo targetInfo = 
-			(VerifyInfo) instr.succs[0].tmpInfo;
+			(VerifyInfo) instr.getSuccs()[0].getTmpInfo();
 		    if (targetInfo != null && targetInfo.retInstr != null) {
 			VerifyInfo afterJsrInfo
 			    = (VerifyInfo) prevInfo.clone();
 			VerifyInfo retInfo
-			    = (VerifyInfo) targetInfo.retInstr.tmpInfo;
+			    = (VerifyInfo) targetInfo.retInstr.getTmpInfo();
 			BitSet usedLocals
 			    = retInfo.jsrLocals[retInfo.jsrLocals.length-1];
 			for (int j = 0; j < bi.getMaxLocals(); j++) {
 			    if (usedLocals.get(j))
 				afterJsrInfo.locals[j] = retInfo.locals[j];
 			}
-			if (mergeInfo(instr.nextByAddr, afterJsrInfo))
-			    instrStack.push(instr.nextByAddr);
+			if (mergeInfo(instr.getNextByAddr(), afterJsrInfo))
+			    instrStack.push(instr.getNextByAddr());
 		    }
 		}
-		if (instr.succs != null) {
-		    for (int i=0; i< instr.succs.length; i++) {
-			if (instr.succs[i].addr < instr.addr) {
+		if (instr.getSuccs() != null) {
+		    for (int i=0; i< instr.getSuccs().length; i++) {
+			if (instr.getSuccs()[i].getAddr() < instr.getAddr()) {
 			    /* This is a backwards branch */
 			    for (int j = 0; j < prevInfo.locals.length; j++) {
 				if (prevInfo.locals[j] 
@@ -980,14 +992,14 @@ public class CodeVerifier implements Opcodes {
 					("Uninitialized stack in back-branch");
 			    }
 			}
-			if (mergeInfo(instr.succs[i],
+			if (mergeInfo(instr.getSuccs()[i],
 				      (VerifyInfo) info.clone()))
-			    instrStack.push(instr.succs[i]);
+			    instrStack.push(instr.getSuccs()[i]);
 		    }
 		}
 		for (int i=0; i<handlers.length; i++) {
-		    if (handlers[i].start.addr <= instr.addr
-			&& handlers[i].end.addr >= instr.addr) {
+		    if (handlers[i].start.getAddr() <= instr.getAddr()
+			&& handlers[i].end.getAddr() >= instr.getAddr()) {
 			for (int j = 0; j < prevInfo.locals.length; j++) {
 			    if (prevInfo.locals[j] 
 				instanceof UninitializedClassType)
@@ -1011,9 +1023,9 @@ public class CodeVerifier implements Opcodes {
 	if ((GlobalOptions.debuggingFlags
 	     & GlobalOptions.DEBUG_VERIFIER) != 0) {
 	    for (Instruction instr = bi.getFirstInstr(); instr != null;
-		 instr = instr.nextByAddr) {
+		 instr = instr.getNextByAddr()) {
 
-		VerifyInfo info = (VerifyInfo) instr.tmpInfo;
+		VerifyInfo info = (VerifyInfo) instr.getTmpInfo();
 		if (info != null)
 		    GlobalOptions.err.println(info.toString());
 		GlobalOptions.err.println(instr.getDescription());
@@ -1021,8 +1033,8 @@ public class CodeVerifier implements Opcodes {
 	    }
 	}
 	for (Instruction instr = bi.getFirstInstr(); instr != null;
-	     instr = instr.nextByAddr)
-	    instr.tmpInfo = null;
+	     instr = instr.getNextByAddr())
+	    instr.setTmpInfo(null);
     }
 
 
@@ -1031,14 +1043,14 @@ public class CodeVerifier implements Opcodes {
 	    doVerify();
 	} catch (VerifyException ex) {
 	    for (Instruction instr = bi.getFirstInstr(); instr != null;
-		 instr = instr.nextByAddr) {
+		 instr = instr.getNextByAddr()) {
 
-		VerifyInfo info = (VerifyInfo) instr.tmpInfo;
+		VerifyInfo info = (VerifyInfo) instr.getTmpInfo();
 		if (info != null)
 		    GlobalOptions.err.println(info.toString());
 		GlobalOptions.err.println(instr.getDescription());
 
-		instr.tmpInfo = null;
+		instr.setTmpInfo(null);
 	    }
 	    throw ex;
 	}
