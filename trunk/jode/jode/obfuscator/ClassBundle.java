@@ -20,6 +20,7 @@
 package jode.obfuscator;
 import jode.Obfuscator;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.Reference;
 import java.io.*;
 import java.util.*;
 import java.util.zip.ZipOutputStream;
@@ -56,8 +57,21 @@ public class ClassBundle {
 	return newSig.append(typeSig.substring(index)).toString();
     }
 
-    public Identifier getIdentifier(String name) {
-	return basePackage.getIdentifier(name);
+    public ClassIdentifier getClassIdentifier(String name) {
+	return (ClassIdentifier) basePackage.getIdentifier(name);
+    }
+
+    public Identifier getIdentifier(Reference ref) {
+	String clName = ref.getClazz();
+	if (clName.charAt(0) == '[')
+	    /* Can't represent arrays */
+	    return null;
+	ClassIdentifier ident =
+	    getClassIdentifier(clName.substring(1, clName.length()-1)
+			       .replace('/','.'));
+	if (ident == null)
+	    return null;
+	return ident.getIdentifier(ref.getName(), ref.getType());
     }
 
     public void loadClasses(String packageOrClass) {
