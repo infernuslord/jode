@@ -19,11 +19,14 @@
 
 package jode.obfuscator;
 import jode.MethodType;
+import jode.Obfuscator;
 import jode.Type;
 import jode.bytecode.*;
+import jode.jvm.InterpreterException;
 import java.util.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.InvocationTargetException;
 
 interface ConstantListener {
     public void constantChanged();
@@ -120,6 +123,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     BytecodeInfo bytecode;
     Hashtable constInfos = null;
     Stack instrStack;
+    ConstantRuntimeEnvironment runtime;
 
     final static int REACHABLE     = 0x1;
     final static int CONSTANT      = 0x2;
@@ -261,6 +265,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     public ConstantAnalyzer(BytecodeInfo code, MethodIdentifier method) {
 	this.bytecode = code;
 	this.m = method;
+	this.runtime = new ConstantRuntimeEnvironment(m);
     }
 
     public void mergeInfo(Instruction instr, 
@@ -968,20 +973,75 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	case opc_invokeinterface:
 	case opc_invokevirtual: {
 	    Reference ref = (Reference) instr.objData;
-	    handleReference(ref, opcode == opc_invokevirtual 
-			    || opcode == opc_invokeinterface);
 	    MethodType mt = (MethodType) Type.tType(ref.getType());
-	    int size = (opcode == opc_invokestatic) ? 0 : 1;
-	    for (int i=mt.getParameterTypes().length-1; i >=0; i--)
+	    boolean constant = true;
+	    int size = 0;
+	    Object   cls = null;
+	    Object[] args = new Object[mt.getParameterTypes().length];
+	    ConstantAnalyzerValue clsValue = null;
+	    ConstantAnalyzerValue[] argValues = 
+		new ConstantAnalyzerValue[mt.getParameterTypes().length];
+	    for (int i=mt.getParameterTypes().length-1; i >=0; i--) {
 		size += mt.getParameterTypes()[i].stackSize();
-	    ConstantAnalyzerInfo newInfo;
-	    if (mt.getReturnType() != Type.tVoid) {
-		ConstantAnalyzerValue returnVal = 
+		argValues[i] = info.getStack(size);
+		if (argValues[i].value != ConstantAnalyzerValue.VOLATILE)
+		    args[i] = argValues[i].value;
+		else
+		    constant = false;
+	    }
+	    if (opcode != opc_invokestatic) {
+		size++;
+		clsValue = info.getStack(size);
+		cls = clsValue.value;
+		if (cls == ConstantAnalyzerValue.VOLATILE
+		    || cls == null)
+		    constant = false;
+	    }
+	    if (mt.getReturnType() == Type.tVoid) {
+		handleReference(ref, opcode == opc_invokevirtual 
+				|| opcode == opc_invokeinterface);
+		mergeInfo(instr.nextByAddr, info.pop(size));
+		break;
+	    }
+	    Object methodResult = null;
+	    if (constant) {
+		try {
+		    if (jode.Obfuscator.isDebugging)
+			jode.Decompiler.isDebugging = true; /*XXX*/
+		    methodResult = runtime.invokeMethod
+			(ref, opcode != opc_invokespecial, cls, args);
+		} catch (InterpreterException ex) {
+		    constant = false;
+		    Obfuscator.err.println("Can't interpret "+ref+": "
+				       + ex.getMessage());
+		    /* result is not constant */
+		} catch (InvocationTargetException ex) {
+		    constant = false;
+		    Obfuscator.err.println("Method "+ref+" throwed exception: "
+				       + ex.getTargetException().getMessage());
+		    /* method always throws exception ? */
+		} catch (Exception ex) {
+		    Obfuscator.err.println("Unexpected exception in method: "+ref+" while analyzing "+m);
+		    ex.printStackTrace(Obfuscator.err);
+		}
+	    }
+	    ConstantAnalyzerValue returnVal;
+	    if (!constant) {
+		handleReference(ref, opcode == opc_invokevirtual 
+				|| opcode == opc_invokeinterface);
+		returnVal = 
 		    unknownValue[mt.getReturnType().stackSize()-1];
-		newInfo = info.poppush(size, returnVal);
-	    } else
-		newInfo = info.pop(size);
-	    mergeInfo(instr.nextByAddr, newInfo);
+	    } else {
+		shortInfo.flags |= CONSTANT;
+		shortInfo.constant = methodResult;
+		returnVal = new ConstantAnalyzerValue(methodResult);
+		returnVal.addConstantListener(shortInfo);
+		if (clsValue != null)
+		    clsValue.addConstantListener(returnVal);
+		for (int i=0; i< argValues.length; i++)
+		    argValues[i].addConstantListener(returnVal);
+	    }
+	    mergeInfo(instr.nextByAddr, info.poppush(size, returnVal));
 	    break;
 	}
 
@@ -1046,15 +1106,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	bytecode.getFirstInstr().tmpInfo = new ConstantAnalyzerInfo
 	    (bytecode.getMaxLocals(), m.info.isStatic(), m.info.getType());
 	instrStack.push(bytecode.getFirstInstr());
-	try {
-	    while (!instrStack.isEmpty()) {
-		Instruction instr = (Instruction) instrStack.pop();
-//  		System.err.println("addr: "+m+","+instr.addr+";"+instr.tmpInfo);
-		handleOpcode(instr);
-	    }
-	} catch (OutOfMemoryError err) {
-	    System.err.println("Out of memory");
-	    System.exit(0);
+	while (!instrStack.isEmpty()) {
+	    Instruction instr = (Instruction) instrStack.pop();
+	    handleOpcode(instr);
 	}
 
 	Handler[] handlers = bytecode.getExceptionHandlers();
@@ -1151,21 +1205,35 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    insertOnePop(instr, 1);
 	    } else
 		insertOnePop(instr, (instr.opcode == opc_putfield) ? 2 : 1);
+	    break;
+	case opc_invokespecial:
+	case opc_invokestatic:
+	case opc_invokeinterface:
+	case opc_invokevirtual: {
+	    Reference ref = (Reference) instr.objData;
+	    MethodType mt = (MethodType) Type.tType(ref.getType());
+	    for (int i=mt.getParameterTypes().length-1; i >=0; i--)
+		insertOnePop(instr, mt.getParameterTypes()[i].stackSize());
+	    if (instr.opcode != opc_invokestatic)
+		insertOnePop(instr, 1);
+	}
 	}
     }
     
     public void appendJump(Instruction instr, Instruction dest) {
 	/* Add a goto instruction after this opcode. */
-	Instruction second = instr.appendInstruction(true);
+	Instruction second = instr.appendInstruction();
+	second.alwaysJumps = true;
 	second.opcode = Instruction.opc_goto;
 	second.length = 3;
 	second.succs = new Instruction[] { dest };
-	dest.preds.addElement(second);
+	dest.addPredecessor(second);
     }
     
     public BytecodeInfo stripCode() {
 	if (constInfos == null)
 	    analyzeCode();
+// 	bytecode.dumpCode(Obfuscator.err);
 	for (Instruction instr = bytecode.getFirstInstr();
 	     instr != null; instr = instr.nextByAddr) {
 	    ConstantInfo info = (ConstantInfo) constInfos.get(instr);
@@ -1181,9 +1249,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    instr.localSlot = -1;
 		    instr.length = 2;
 		    instr.objData = info.constant;
-//  		    System.err.println(m+": Replacing "
-//  				       +opcodeString[instr.opcode]
-//  				       +" with constant "+info.constant);
+//  		    Obfuscator.err.println(m+": Replacing "
+//  					   +opcodeString[instr.opcode]
+//  					   +" with constant "+info.constant);
 		}
 		instr.tmpInfo = null;
 	    } else if ((info.flags & CONSTANTFLOW) != 0) {
@@ -1194,7 +1262,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		else
 		    instr.opcode = opc_pop;
 		instr.alwaysJumps = false;
-		instr.succs[0].preds.removeElement(instr);
+		instr.succs[0].removePredecessor(instr);
 		instr.succs = null;
 		instr.length = 1;
 		while (instr.nextByAddr != null) {
