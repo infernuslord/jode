@@ -1,0 +1,25 @@
+# Do you have online access for generating javadoc?
+# If not, where are your local files.
+javadoc.offline=false
+javadoc.packagelistLoc=
+# javadoc.offline=true
+# javadoc.packagelistLoc=/usr/doc/inet/java/jdk1.2/docs/api 
+
+# Is Perl installed on your system?
+#
+# perl is needed to reconfigure Jode for JDK-1.1.  If you haven't
+# installed it you can only configure for JDK-1.2 and you should
+# comment out the next line.
+#
+# perl is also used for things that are relevant for the maintainer.
+# 
+# Remove the next line if perl is not installed.
+perl.present=true
+
+# Is PHP installed on your system?
+#
+# php is needed to generate html files from php files.  
+# You also need perl.
+# 
+# Remove the next line if either perl or php is not installed.
+php.present=true
