@@ -41,6 +41,7 @@ public class LocalInfo implements Declarable {
     private static int serialnr = 0;
     private static int nextAnonymousSlot = -1;
     private int slot;
+    private MethodAnalyzer methodAnalyzer;
     private boolean nameIsGenerated = false;
     private boolean isUnique;
     private String name;
@@ -51,6 +52,36 @@ public class LocalInfo implements Declarable {
     private boolean removed = false;
     private boolean isFinal = false;
     private Expression constExpr = null;
+
+    public static class Hint {
+	String name;
+	Type type;
+
+	public Hint(String name, Type type) {
+	    this.name = name;
+	    this.type = type;
+	}
+
+	public final Type getType() {
+	    return type;
+	}
+
+	public final String getName() {
+	    return name;
+	}
+
+	public boolean equals(Object o) {
+	    if (o instanceof Hint) {
+		Hint h = (Hint) o;
+		return name.equals(h.name) && type.equals(h.type);
+	    }
+	    return false;
+	}
+
+	public int hashCode() {
+	    return name.hashCode() ^ type.hashCode();
+	}
+    }
 
     /**
      * Create a new local info with an anonymous slot.
@@ -65,9 +96,10 @@ public class LocalInfo implements Declarable {
      * Create a new local info.
      * @param slot  The slot of this variable.
      */
-    public LocalInfo(int slot) {
+    public LocalInfo(MethodAnalyzer method, int slot) {
         name = null;
         type = Type.tUnknown;
+	this.methodAnalyzer = method;
         this.slot = slot;
     }
 
@@ -79,8 +111,8 @@ public class LocalInfo implements Declarable {
         getLocalInfo().operators.addElement(operator);
     }
 
-    public void addHint(LocalVarEntry entry) {
-	getLocalInfo().hints.addElement(entry);
+    public void addHint(String name, Type type) {
+	getLocalInfo().hints.addElement(new Hint(name, type));
     }
 
     public int getUseCount() {
@@ -133,9 +165,9 @@ public class LocalInfo implements Declarable {
 
 		enum = hints.elements();
 		while (enum.hasMoreElements()) {
-		    Object entry = enum.nextElement();
-		    if (!shadow.hints.contains(entry))
-			shadow.hints.addElement(entry);
+		    Object hint = enum.nextElement();
+		    if (!shadow.hints.contains(hint))
+			shadow.hints.addElement(hint);
 		}
 
                 /* Clear unused fields, to allow garbage collection.
@@ -178,14 +210,16 @@ public class LocalInfo implements Declarable {
 	if (name == null) {
 	    Enumeration enum = hints.elements();
 	    while (enum.hasMoreElements()) {
-		LocalVarEntry entry = (LocalVarEntry) enum.nextElement();
-		if (type.isOfType(entry.getType())) {
-		    name = entry.getName();
-		    setType(entry.getType());
+		Hint hint = (Hint) enum.nextElement();
+		if (type.isOfType(hint.getType())) {
+		    name = hint.getName();
+		    setType(hint.getType());
 		    return name;
 		}
 	    }
 	    nameIsGenerated = true;
+	    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+		GlobalOptions.err.println(getName()+" set type to getHint()");
 	    setType(type.getHint());
             if ((Decompiler.options & Decompiler.OPTION_PRETTY) != 0) {
                 name = type.getDefaultName();
@@ -325,6 +359,23 @@ public class LocalInfo implements Declarable {
 	return removed;
     }
 
+    public boolean isConstant() {
+	LocalInfo li = getLocalInfo();
+	Enumeration enum = li.operators.elements();
+	int writes = 0;
+	while (enum.hasMoreElements()) {
+	    if (((LocalVarOperator) enum.nextElement()).isWrite())
+		writes++;
+	}
+	if (writes > 1)
+	    return false;
+	return true;
+    }
+
+    public MethodAnalyzer getMethodAnalyzer() {
+	return methodAnalyzer;
+    }
+
     public boolean markFinal() {
 	LocalInfo li = getLocalInfo();
 	Enumeration enum = li.operators.elements();
@@ -337,6 +388,10 @@ public class LocalInfo implements Declarable {
 	    return false;
 	li.isFinal = true;
 	return true;
+    }
+
+    public boolean isFinal() {
+	return getLocalInfo().isFinal;
     }
 
     public String toString() {
