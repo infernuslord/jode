@@ -20,18 +20,14 @@
 package jode.expr;
 import jode.Type;
 
-public class BinaryOperator extends Operator {
+public class BinaryOperator extends SimpleOperator {
     protected Type operandType;
 
     public BinaryOperator(Type type, int op) {
-        super(type, op);
+        super(type, op, 2);
         operandType = type;
     }
     
-    public int getOperandCount() {
-        return 2;
-    }
-
     public int getPriority() {
         switch (operator) {
         case 1: case 2:
@@ -61,22 +57,22 @@ public class BinaryOperator extends Operator {
         return getPriority() + i;
     }
 
-    public Type getOperandType(int i) {
-        return operandType;
-    }
+//      public Type getOperandType(int i) {
+//          return operandType;
+//      }
 
-    public void setOperandType(Type[] inputTypes) {
-        operandType = operandType
-            .intersection(inputTypes[0]).intersection(inputTypes[1]);
-        type = operandType;
-    }
+//      public void setOperandType(Type[] inputTypes) {
+//          operandType = operandType
+//              .intersection(inputTypes[0]).intersection(inputTypes[1]);
+//          type = operandType;
+//      }
 
-    /**
-     * Sets the return type of this operator.
-     */
-    public void setType(Type newType) {
-        type = operandType = operandType.intersection(newType);
-    }
+//      /**
+//       * Sets the return type of this operator.
+//       */
+//      public void setType(Type newType) {
+//          type = operandType = operandType.intersection(newType);
+//      }
 
     public boolean equals(Object o) {
 	return (o instanceof BinaryOperator) &&
