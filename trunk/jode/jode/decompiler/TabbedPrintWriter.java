@@ -139,4 +139,12 @@ public class TabbedPrintWriter {
 		untab();
 	}
     }
+
+    public void flush() {
+	pw.flush();
+    }
+
+    public void close() {
+	pw.close();
+    }
 }
