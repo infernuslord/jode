@@ -18,12 +18,7 @@
  */
 package jode.decompiler;
 
-public interface CombineableOperator {
-    /**
-     * Checks if the loadOp is combinable with this operator.
-     */
-    public boolean matches(Operator loadOp);
-
+public interface CombineableOperator extends MatchableOperator {
     /**
      * Make this operator return a value compatible with the loadOp
      * that it should replace.
