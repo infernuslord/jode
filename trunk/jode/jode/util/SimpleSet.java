@@ -18,24 +18,26 @@
  */
 
 package jode.util;
-import java.util.Dictionary;
-import java.util.Enumeration;
 ///#ifdef JDK12
 ///import java.util.AbstractSet;
 ///import java.util.Iterator;
 ///#endif
 
-public class SimpleSet
-///#ifdef JDK12
-///    extends AbstractSet
-///#endif
-    implements Cloneable
+public class SimpleSet extends AbstractSet implements Cloneable
 {
-    Object[] elementObjects = new Object[2];
+    Object[] elementObjects;
     int count = 0;
 
+    public SimpleSet() {
+	this(2);
+    }
+
+    public SimpleSet(int initialSize) {
+	elementObjects = new Object[initialSize];
+    }
+
     public int size() {
-        return count;
+	return count;
     }
 
     public boolean add(Object element) {
@@ -56,10 +58,6 @@ public class SimpleSet
 	return true;
     }
 	
-    public Enumeration elements() {
-        return new ArrayEnum(count, elementObjects);
-    }
-
     public Object clone() {
         try {
             SimpleSet other = (SimpleSet) super.clone();
@@ -70,94 +68,25 @@ public class SimpleSet
         }
     }
 
-///#ifdef JDK12
-///    public Iterator iterator() {
-///	return new Iterator() {
-///	    int pos = 0;
-///
-///	    public boolean hasNext() {
-///		return pos < count;
-///	    }
-///	    
-///	    public Object next() {
-///		return elementObjects[pos++];
-///	    }
-///	  
-///	    public void remove() {
-///		if (pos < count)
-///		    System.arraycopy(elementObjects, pos, 
-///				     elementObjects, pos-1, count - pos);
-///		count--;
-///		pos--;
-///	    }
-///	};
-///    }
-///#else
+    public Iterator iterator() {
+	return new Iterator() {
+	    int pos = 0;
 
-    public boolean isEmpty() {
-	return count == 0;
+	    public boolean hasNext() {
+		return pos < count;
+	    }
+	    
+	    public Object next() {
+		return elementObjects[pos++];
+	    }
+	  
+	    public void remove() {
+		if (pos < count)
+		    System.arraycopy(elementObjects, pos, 
+				     elementObjects, pos-1, count - pos);
+		count--;
+		pos--;
+	    }
+	};
     }
-
-    public boolean addAll(SimpleSet other) {
-	boolean changed = false;
-	for (int i=0; i < other.count; i++) {
-	    changed |= add(other.elementObjects[i]);
-	}
-	return changed;
-    }
-
-    public boolean contains(Object element) {
-	for (int i=0; i < count; i++) {
-            if (elementObjects[i].equals(element))
-		return true;
-	}
-	return false;
-    }
-
-    public boolean remove(Object element) {
-        for (int i=0; i< count; i++) {
-            if (elementObjects[i].equals(element)) {
-                count--;
-                if (i < count)
-                    elementObjects[i] = elementObjects[count];
-		return true;
-            }
-        }
-	return false;
-    }
-    
-    public boolean retainAll(SimpleSet other) {
-	int low = 0;
-        for (int high=0; high < count; high++) {
-	    if (other.contains(elementObjects[high]))
-		elementObjects[low++] = elementObjects[high];
-	}
-	if (count == low)
-	    return false;
-	count = low;
-        return true;
-    }
-
-    public boolean removeAll(SimpleSet other) {
-	int low = 0;
-        for (int high=0; high < count; high++) {
-	    if (!other.contains(elementObjects[high]))
-		elementObjects[low++] = elementObjects[high];
-	}
-	if (count == low)
-	    return false;
-	count = low;
-        return true;
-    }
-
-    public String toString() {
-	StringBuffer sb = new StringBuffer("{");
-	String komma = "";
-	for (int i=0; i< count; i++) {
-	    sb.append(komma).append(elementObjects[i].toString());
-	    komma = ", ";
-	}
-	return sb.append("}").toString();
-    }
-///#endif
 }
