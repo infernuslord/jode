@@ -67,8 +67,8 @@ public class CreateClassField {
 
 	if (invoke.isGetClass()
 	    && param instanceof ConstOperator
-	    && param.getType().equals(Type.tString)) {
-	    String clazz = ((ConstOperator)param).getValue();
+	    && ((ConstOperator)param).getValue() instanceof String) {
+	    String clazz = (String) ((ConstOperator)param).getValue();
 	    if (put.getField().setClassConstant(clazz)) {
 		cmp.setSubExpressions
 		    (0, new ClassFieldOperator(clazz.charAt(0) == '[' 

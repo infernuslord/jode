@@ -61,11 +61,11 @@ public class CreateConstantArray {
 
             if (dup.type != SpecialBlock.DUP
                 || dup.depth != 0 || dup.count != 1
-		|| !(indexOp.getType().isOfType(Type.tUInt))
+		|| !(indexOp.getValue() instanceof Integer)
                 || !(sequBlock.subBlocks[0] instanceof InstructionBlock))
                 return false;
 
-            int index = Integer.parseInt(indexOp.getValue());
+            int index = ((Integer) indexOp.getValue()).intValue();
             InstructionBlock ib = (InstructionBlock)sequBlock.subBlocks[0];
 
             if (ib.getInstruction() instanceof NewArrayOperator) {
@@ -79,10 +79,10 @@ public class CreateConstantArray {
                     
                 ConstOperator countop = 
                     (ConstOperator) newArray.getSubExpressions()[0];
-                if (!countop.getType().isOfType(Type.tUInt))
+                if (!(countop.getValue() instanceof Integer))
                     return false;
 
-                int arraylength = Integer.parseInt(countop.getValue());
+                int arraylength = ((Integer) countop.getValue()).intValue();
                 if (arraylength <= index)
                     return false;
 
