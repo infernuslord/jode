@@ -56,7 +56,7 @@ public class GrowableConstantPool extends ConstantPool {
     }
 
     int putConstant(int tag, Object constant) {
-	String key = tag+"C"+constant;
+	String key = "" + (char)tag + constant;
 	Integer index = (Integer) entryToIndex.get(key);
 	if (index != null)
 	    return index.intValue();
@@ -71,11 +71,15 @@ public class GrowableConstantPool extends ConstantPool {
 	return newIndex;
     }
 
-    int putIndexed(int tag, int index1, int index2) {
-	String key = tag+"I"+index1+","+index2;
-	Integer index = (Integer) entryToIndex.get(key);
-	if (index != null)
-	    return index.intValue();
+    int putIndexed(String key, int tag, int index1, int index2) {
+	Integer indexObj = (Integer) entryToIndex.get(key);
+	if (indexObj != null) {
+	    /* Maybe this was a reserved, but not filled entry */
+	    int index = indexObj.intValue();
+	    indices1[index] = index1;
+	    indices2[index] = index2;
+	    return index;
+	}
 	grow(count+1);
 	tags[count] = tag;
 	indices1[count] = index1;
@@ -89,24 +93,68 @@ public class GrowableConstantPool extends ConstantPool {
     }    
 
     public int putClassRef(String name) {
-	return putIndexed(CLASS, putUTF(name.replace('.','/')), 0);
+	name = name.replace('.','/');
+	return putIndexed(""+(char) CLASS + name,
+			  CLASS, putUTF(name), 0);
     }
 
     public int putRef(int tag, String[] names) {
 	int classIndex = putClassRef(names[0]);
 	int nameIndex  = putUTF(names[1]);
 	int typeIndex  = putUTF(names[2]);
-	int nameTypeIndex = putIndexed(NAMEANDTYPE, nameIndex, typeIndex);
-	return putIndexed(tag, classIndex, nameTypeIndex);
+	int nameTypeIndex = putIndexed("" + (char) NAMEANDTYPE
+				       + names[1] + "/" + names[2],
+				       NAMEANDTYPE, nameIndex, typeIndex);
+	return putIndexed("" + (char)tag
+			  + names[0] + "/" + names[1] + "/" + names[2], 
+			  tag, classIndex, nameTypeIndex);
+    }
+
+    /**
+     * Puts a constant into this constant pool
+     * @param c the constant, must be of type 
+     *    Integer, Long, Float, Double or String
+     * @return the index into the pool of this constant.
+     */
+    public int putConstant(Object c) {
+	if (c instanceof String) {
+	    return putIndexed("" + (char) STRING + c,
+			      STRING, putUTF((String) c), 0);
+	} else {
+	    int tag;
+	    if (c instanceof Integer)
+		tag = INTEGER;
+	    else if (c instanceof Float)
+		tag = FLOAT;
+	    else if (c instanceof Long)
+		tag = LONG;
+	    else if (c instanceof Double)
+		tag = DOUBLE;
+	    else
+		throw new IllegalArgumentException("illegal constant type: "
+						   + c.getClass());
+	    return putConstant(tag, c);
+        }
+    }
+
+    /**
+     * Reserve an entry in this constant pool for a constant (for ldc).
+     * @param c the constant, must be of type 
+     *    Integer, Long, Float, Double or String
+     * @return the reserved index into the pool of this constant.
+     */
+    public int reserveConstant(Object c) {
+	if (c instanceof String) {
+	    return putIndexed("" + (char)STRING + c, 
+			      STRING, -1, 0);
+	} else {
+	    return putConstant(c);
+        }
     }
 
     public int copyConstant(ConstantPool cp, int index) 
 	throws ClassFormatException {
-	if (cp.tags[index] == STRING)
-	    return putIndexed(STRING, 
-			      putUTF(cp.getUTF8(cp.indices1[index])), 0);
-	else
-	    return putConstant(cp.tags[index], cp.constants[index]);
+	return putConstant(cp.getConstant(index));
     }
 
     public void write(DataOutputStream stream) 
