@@ -72,9 +72,6 @@ public class ClassAnalyzer implements Analyzer {
     }
 
     public void analyze() {
-        int numFields = 0;
-        int i = 0;
-        
         FieldInfo[] finfos = clazz.getFields();
         MethodInfo[] minfos = clazz.getMethods();
         if (finfos == null) {
@@ -136,12 +133,15 @@ public class ClassAnalyzer implements Analyzer {
              */
             return;
         }
-        String modif = Modifier.toString(clazz.getModifiers() 
-                                         & ~Modifier.SYNCHRONIZED);
+	int modifiedModifiers = clazz.getModifiers() & ~Modifier.SYNCHRONIZED;
+	if (clazz.isInterface())
+	    modifiedModifiers &= ~Modifier.ABSTRACT;
+        String modif = Modifier.toString(modifiedModifiers);
         if (modif.length() > 0)
             writer.print(modif + " ");
-        writer.print(clazz.isInterface() 
-                     ? ""/*interface is in modif*/ : "class ");
+	/*interface is in modif*/
+	if (!clazz.isInterface())
+	    writer.print("class ");
 	writer.println(imports.getClassString(clazz));
 	writer.tab();
         ClassInfo superClazz = clazz.getSuperclass();
