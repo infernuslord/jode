@@ -82,14 +82,15 @@ public class SynchronizedBlock extends StructuredBlock {
     {
         if (!isEntered)
             writer.println("MISSING MONITORENTER");
-        writer.println("synchronized ("
-                       + (object != null 
-                          ? object.simplify().toString()
-                          : local.getName()) + ") {");
+        writer.print("synchronized ("
+		     + (object != null 
+			? object.simplify().toString()
+			: local.getName()) + ")");
+	writer.openBrace();
         writer.tab();
         bodyBlock.dumpSource(writer);
         writer.untab();
-        writer.println("}");
+	writer.closeBrace();
     }
 
     public boolean doTransformations() {

@@ -92,13 +92,14 @@ public class TryBlock extends StructuredBlock {
 
     public void dumpInstruction(TabbedPrintWriter writer) 
         throws java.io.IOException {
-        writer.println("try {");
+        writer.print("try");
+	writer.openBrace();
         writer.tab();
         subBlocks[0].dumpSource(writer);
         writer.untab();
         for (int i=1; i<subBlocks.length;i++)
             subBlocks[i].dumpSource(writer);
-        writer.println("}");
+	writer.closeBrace();
     }
 
     /**

@@ -253,15 +253,19 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
                          +incr.getInstruction().simplify().toString()+")");
             break;
         }
-        writer.println( needBrace?" {": "");
+	if (needBrace)
+	    writer.openBrace();
+	else
+	    writer.println();
         writer.tab();
         bodyBlock.dumpSource(writer);
         writer.untab();
-        if (type == DOWHILE)
-            writer.println((needBrace?"} ": "")+
-                           "while ("+cond.simplify().toString()+");");
-        else if (needBrace)
-            writer.println("}");
+        if (type == DOWHILE) {
+	    if (needBrace)
+		writer.closeBraceContinue();
+            writer.println("while ("+cond.simplify().toString()+");");
+        } else if (needBrace)
+            writer.closeBrace();
     }
 
 
