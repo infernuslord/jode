@@ -20,7 +20,6 @@
 package jode.obfuscator.modules;
 import jode.bytecode.*;
 import jode.obfuscator.*;
-import jode.AssertError;
 import jode.GlobalOptions;
 
 import java.util.BitSet;
@@ -498,7 +497,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		    case opc_ldc2_w:
 		    case opc_lload: case opc_dload:
 			if (!push_all_popped)
-			    throw new AssertError("pop half of a long");
+			    throw new InternalError("pop half of a long");
 			poppedEntries[--stackDepth] = false;
 			poppedEntries[--stackDepth] = false;
 			continue;
@@ -543,7 +542,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		    case opc_multianewarray:
 
 			if (!push_all_popped)
-			    throw new AssertError("pop half of a long");
+			    throw new InternalError("pop half of a long");
 			if (poppush[0] < poppush[1]) {
 			    for (int j=0; j < poppush[0] - poppush[1]; j++)
 				poppedEntries[stackDepth++] = true;
@@ -558,7 +557,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		    case opc_invokeinterface:
 		    case opc_checkcast:
 			if (!push_all_popped)
-			    throw new AssertError("pop half of a long");
+			    throw new InternalError("pop half of a long");
 			if (poppush[1] == 1) {
 			    poppedEntries[--stackDepth] = false;
 			    newInstructions
@@ -571,7 +570,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 			}
 			newInstructions.addFirst(instr);
 		    default:
-			throw new AssertError("Unexpected opcode!");
+			throw new InternalError("Unexpected opcode!");
 		    }
 		} else {
 		    // Add the instruction ..

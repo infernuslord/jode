@@ -19,7 +19,6 @@
 
 package jode.expr;
 import jode.type.Type;
-import jode.AssertError;
 import jode.decompiler.TabbedPrintWriter;
 
 public abstract class NoArgOperator extends Operator {

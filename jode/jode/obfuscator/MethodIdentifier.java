@@ -18,7 +18,6 @@
  */
 
 package jode.obfuscator;
-import jode.AssertError;
 import jode.GlobalOptions;
 import jode.bytecode.*;
 
@@ -173,7 +172,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     boolean wasTransformed = false;
     public void doTransformations() {
 	if (wasTransformed)
-	    throw new jode.AssertError
+	    throw new InternalError
 		("doTransformation called on transformed method");
 	wasTransformed = true;
 	info.setName(getAlias());

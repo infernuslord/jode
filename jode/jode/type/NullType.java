@@ -18,7 +18,6 @@
  */
 
 package jode.type;
-import jode.AssertError;
 import java.util.Stack;
 ///#def COLLECTIONEXTRA java.lang
 import java.lang.UnsupportedOperationException;

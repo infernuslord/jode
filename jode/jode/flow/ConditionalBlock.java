@@ -37,7 +37,7 @@ public class ConditionalBlock extends InstructionContainer {
     public void checkConsistent() {
         super.checkConsistent();
         if (!(trueBlock instanceof EmptyBlock))
-            throw new jode.AssertError("Inconsistency");
+            throw new InternalError("Inconsistency");
     }
 
     /**
@@ -84,7 +84,7 @@ public class ConditionalBlock extends InstructionContainer {
      */
     public boolean replaceSubBlock(StructuredBlock oldBlock, 
                                    StructuredBlock newBlock) {
-        throw new jode.AssertError("replaceSubBlock on ConditionalBlock");
+        throw new InternalError("replaceSubBlock on ConditionalBlock");
     }
 
     /**

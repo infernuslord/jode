@@ -169,7 +169,7 @@ public class IntegerType extends Type {
         case IT_I:
             return "i";
         default:
-	    throw new jode.AssertError("Local can't be of constant type!");
+	    throw new InternalError("Local can't be of constant type!");
         }
     }
 

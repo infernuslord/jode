@@ -132,7 +132,7 @@ public abstract class FieldOperator extends Operator {
 		else if (ana.getParent() instanceof ClassAnalyzer)
 		    ana = (ClassAnalyzer) ana.getParent();
 		else 
-		    throw new jode.AssertError("Unknown parent");
+		    throw new InternalError("Unknown parent");
 	    }
 	}
 	return null;

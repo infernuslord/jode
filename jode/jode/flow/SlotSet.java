@@ -165,7 +165,7 @@ public final class SlotSet extends AbstractSet implements Cloneable {
             }
             return other;
         } catch (CloneNotSupportedException ex) {
-            throw new jode.AssertError("Clone?");
+            throw new InternalError("Clone?");
         }
     }
 

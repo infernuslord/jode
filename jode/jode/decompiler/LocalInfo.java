@@ -141,7 +141,7 @@ public class LocalInfo implements Declarable {
 	    shadow.name = name;
 	if (constExpr != null) {
 	    if (shadow.constExpr != null)
-		throw new jode.AssertError
+		throw new InternalError
 		    ("local has multiple constExpr");
 	    shadow.constExpr = constExpr;
 	}

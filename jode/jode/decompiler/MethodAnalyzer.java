@@ -18,7 +18,6 @@
  */
 
 package jode.decompiler;
-import jode.AssertError;
 import jode.GlobalOptions;
 import jode.bytecode.BasicBlocks;
 import jode.bytecode.Block;
@@ -572,7 +571,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 		    verifier.verify();
 		} catch (VerifyException ex) {
 		    ex.printStackTrace(GlobalOptions.err);
-		    throw new jode.AssertError("Verification error");
+		    throw new InternalError("Verification error");
 		}
 	    }
 	}

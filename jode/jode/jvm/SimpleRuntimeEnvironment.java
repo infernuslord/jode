@@ -18,7 +18,6 @@
  */
 
 package jode.jvm;
-import jode.AssertError;
 import jode.bytecode.Reference;
 import jode.bytecode.TypeSignature;
 

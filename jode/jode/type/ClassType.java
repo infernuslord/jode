@@ -247,7 +247,14 @@ public abstract class ClassType extends ReferenceType {
      * @return the middle type, or null if it is not necessary.
      */
     public Type getCastHelper(Type fromType) {
-	if (fromType.getHint().isSubTypeOf(this))
+	if (isInterface() || fromType == tNull
+	    || (fromType instanceof RangeType
+		&& ((RangeType)fromType).getBottom() == tNull))
+	    return null;
+	Type hint = fromType.getHint();
+	if (hint.isSubTypeOf(this)
+	    || (hint instanceof ClassType
+		&& ((ClassType) hint).isInterface()))
 	    return null;
 	return tObject;
     }

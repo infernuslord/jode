@@ -123,7 +123,7 @@ public class ConstOperator extends NoArgOperator {
             else if (intVal == 1)
                 return "true";
 	    else 
-		throw new jode.AssertError
+		throw new InternalError
 		    ("boolean is neither false nor true");
         } 
 	if (type.getHint().equals(Type.tChar)) {
