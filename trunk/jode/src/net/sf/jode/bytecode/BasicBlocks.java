@@ -132,7 +132,7 @@ public class BasicBlocks extends BinaryInfo implements Opcodes {
     public BasicBlocks(MethodInfo mi) {
 	methodInfo = mi;
 	int paramSize = (mi.isStatic() ? 0 : 1)
-	    + TypeSignature.getArgumentSize(mi.getType());
+	    + TypeSignature.getParameterSize(mi.getType());
 	paramInfos = new LocalVariableInfo[paramSize];
 	for (int i=0; i< paramSize; i++)
 	    paramInfos[i] = LocalVariableInfo.getInfo(i);

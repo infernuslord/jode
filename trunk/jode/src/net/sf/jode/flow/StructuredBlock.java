@@ -60,14 +60,13 @@ import java.util.Set;
 
 public abstract class StructuredBlock {
     /* Invariants:
-     * in.intersection(out) = empty
-     * outer != null => flowBlock = outer.flowBlock
-     * outer == null => flowBlock.block = this
-     * jump  == null => outer != null
-     * either getNextBlock() != null 
-     *     or getNextFlowBlock() != null or outer == null
-     * either outer.getNextBlock(this) != null 
-     *     or outer.getNextFlowBlock(this) != null
+     * outer != null ==> flowBlock = outer.flowBlock;
+     * outer == null ==> flowBlock.block = this;
+     * jump  == null ==> outer != null;
+     * getNextBlock() != null ^ getNextFlowBlock() != null;
+     * outer != null ==>
+     *   outer.getNextBlock(this) != null 
+     *   ^ outer.getNextFlowBlock(this) != null;
      */
 
     /**

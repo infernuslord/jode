@@ -26,17 +26,15 @@ import net.sf.jode.expr.LocalLoadOperator;
 
 /**
  * A TryBlock is created for each exception in the
- * ExceptionHandlers-Attribute. <p>
+ * ExceptionHandlers attribute. <br>
  *
  * For each catch block (there may be more than one catch block
  * appending a single try block) and for each finally and each
  * synchronized block such a TryBlock is created.  The
  * finally/synchronized-blocks have a null exception type so that they
- * are easily distinguishable from the catch blocks. <p>
+ * are easily distinguishable from the catch blocks. <br>
  *
- * A TryBlock is an intermediate representation that gets
- * converted later to a CatchBlock, a FinallyBlock or a
- * SynchronizedBlock (after the body is parsed).
+ * A TryBlock may be converted later into a SynchronizedBlock.
  *
  * @date 1998/09/16
  * @author Jochen Hoenicke

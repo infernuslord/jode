@@ -1033,7 +1033,8 @@ public final class InvokeOperator extends Operator
 			}
 		    } else {
 			qualifiedNew = true;
-			if (outerExpr.getType() instanceof NullType) {
+			if (outerExpr.getType().getCanonic() 
+			    instanceof NullType) {
 			    writer.print("(");
 			    writer.startOp(writer.EXPL_PAREN, 1);
 			    writer.print("(");

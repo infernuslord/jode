@@ -1,3 +1,56 @@
+2001-08-14  Jochen Hoenicke  <jochen@gnu.org>
+
+	* build.xml: test is default.
+	(release-javadoc): New target.
+	(release-src): Get from dir test only source files.
+	(doc-javadoc): More parameters for nicer docu.
+
+2001-08-12  Jochen Hoenicke  <jochen@gnu.org>
+
+	* net/sf/jode/bytecode/TypeSignature.java: 
+	(getArgumentSize): Renamed to ...
+	(getParameterSize): ... this.  Changed all callers.
+	(skipType): Made private.
+
+	* net/sf/jode/jvm/CodeVerifier.java: 
+	(initInfo): Use TypeSignature.getParameterTypes instead of skipType.
+
+	* net/sf/jode/jvm/SyntheticAnalyzer.java:
+	(checkGetClass): Be more lenient with the types, they are already
+	checked by the CodeVerifier.  This is to support jdk-1.4.
+
+	* net/sf/jode/expr/InvokeOperator.java
+	(dumpExpression): Fixed the check for null outerExpr.
+
+	* net/sf/jode/flow/FlowBlock.java: 
+	(checkConsistent): Allow lastModified in a finally block.
+	* net/sf/jode/flow/TransformExceptionHandlers.java: Reworked exception
+	handlers again.  This time checked with javac 1.3, javac 1.1 and
+	jikes.
+	(checkTryCatchOrder): New method that was previously part of
+	analyze.
+	(analyze): Use checkTryCatchOrder.  Don't merge try and catch flow
+	blocks anymore, leave it to the analyzeXXX methods.
+	(mergeTryCatch): New method.
+	(analyzeCatchBlock): Get catchFlow as parameter. Call
+	mergeTryCatch.
+	(transformSubroutine): Handle POP-only subroutines.
+	(removeJSR): Don't do special case for catchBlock any more.  This
+	is because catchFlow isn't yet merged when this method is called.
+	(checkAndRemoveJSR): Likewise.
+	(checkAndRemoveMonitorExit): Likewise.  Merge subroutine only if
+	we are the only predecessor.
+	(analyzeSynchronized): Get catchFlow as parameter. Call
+	mergeTryCatch.
+	(mergeFinallyBlocks): New method, calls mergeTryCatch and does the
+	common part of mergeFinally and mergeSpecialFinally.
+	(analyzeFinally): Simplified, after checking and removing JSR, it
+	does immediately analyze and transform subroutine to get the
+	finallyBlock.  Then it throws away the catchFlow and calls
+	mergeFinallyBlocks.
+	(analyzeSpecialFinally): Simplified, after checking it only handles
+	the jumps in the try part and then call mergeFinallyBlocks.
+
 2001-08-08  Jochen Hoenicke  <jochen@gnu.org>
 	More Documentation updates.
 	* build.xml: Release rules.
@@ -304,7 +357,7 @@
 	type can't be intersected, return tObject as common super type.
 
 2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
-	Applied patch from Java 1.1 tree:
+	Applied patch from Jode 1.1 tree:
 
 	* jode/expr/Expression.java (updateParentTypes): Call setType,
 	instead of merging the types.  Other childs want to know about the
@@ -317,7 +370,7 @@
 	innermost.
 
 2001-07-14  Jochen Hoenicke  <jochen@gnu.org>
-	Applied patches from the Java 1.1 tree:	
+	Applied patches from the Jode 1.1 tree:	
 
 	* jode/decompiler/TabbedPrintWriter.java: Better gnu style handling:
 	(openBraceClass) (closeBraceClass)
