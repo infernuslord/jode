@@ -18,7 +18,7 @@
  */
 
 package jode.bytecode;
-import jode.GlobalOptions/*XXX*/;
+import jode.GlobalOptions;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.ByteArrayInputStream;
@@ -1079,6 +1079,10 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
     public int getMaxLocals() {
         return maxLocals;
+    }
+
+    public MethodInfo getMethodInfo() {
+	return methodInfo;
     }
 
     public Instruction getFirstInstr() {
