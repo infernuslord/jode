@@ -18,9 +18,11 @@
  */
 
 package jode.bytecode;
-import java.util.Vector;
-import java.util.Enumeration;
-import jode.type.Type;
+///#ifdef JDK12
+///import java.lang.ref.WeakReference;
+///import java.lang.ref.ReferenceQueue;
+///#endif
+import java.util.*;
 
 /**
  * This class represents a field or method reference
@@ -32,26 +34,52 @@ public class Reference {
     /**
      * The class info.
      */
-    String className;
+    final String className;
     /**
      * The member name.  Don't make this a MethodInfo, since the clazz
      * may not be readable.
      */
-    String memberName;
+    final String memberName;
     /**
      * The member type.
      */
-    String memberType;
+    final String memberType;
     /**
      * The cached hash code
      */
-    int cachedHashCode;
+    final int cachedHashCode;
 
-    public Reference(String className, String name, String type) {
+///#ifdef JDK12
+///    private static final Map references = new WeakHashMap();
+///#else
+    private static final Hashtable references = new Hashtable();
+///#endif
+
+    public static Reference getReference(String className, 
+					 String name, String type) {
+	Reference reference = new Reference(className, name, type);
+///#ifdef JDK12
+///	WeakReference ref = (WeakReference) references.get(reference);
+///	Reference cachedRef = (ref == null) ? null : (Reference) ref.get();
+///#else
+	Reference cachedRef = (Reference) references.get(reference);
+///#endif
+        if (cachedRef == null) {
+///#ifdef JDK12
+///	    references.put(reference, new WeakReference(reference));
+///#else
+            references.put(reference, reference);
+///#endif
+	    return reference;
+        }
+	return cachedRef;
+    }
+
+    private Reference(String className, String name, String type) {
 	this.className = className.intern();
 	this.memberName = name.intern();
 	this.memberType = type.intern();
-	cachedHashCode = 
+	this.cachedHashCode = 
 	    className.hashCode() ^ name.hashCode() ^ type.hashCode();
     }
 
@@ -67,18 +95,6 @@ public class Reference {
 	return memberType;
     }
 	
-    public void setClazz(String name) {
-	className = name;
-    }
-
-    public void setName(String name) {
-	memberName = name;
-    }
-
-    public void setType(String type) {
-	memberType = type;
-    }
-	
     public String toString() {
 	return className + " " + memberName + " " + memberType;
     }
@@ -86,7 +102,8 @@ public class Reference {
     public boolean equals(Object o) {
 	if (o instanceof Reference) {
 	    Reference other = (Reference) o;
-	    return other.className.equals(className)
+	    return other.cachedHashCode == cachedHashCode
+		&& other.className.equals(className)
 		&& other.memberName.equals(memberName)
 		&& other.memberType.equals(memberType);
 	}
