@@ -33,6 +33,7 @@ public abstract class Identifier {
     private boolean preserved = false;
 
     private String alias = null;
+    private boolean wasAliased = false;
 
     public Identifier(String alias) {
 	this.alias = alias;
@@ -156,11 +157,14 @@ public abstract class Identifier {
 	if (isPreserved()) {
 	    if (Obfuscator.isDebugging)
 		Obfuscator.err.println(toString() + " is preserved");
-	} else if (isRepresentative()
-		   && renameRule != Obfuscator.RENAME_NONE) {
+	} else if (renameRule != Obfuscator.RENAME_NONE) {
+	    Identifier rep = getRepresentative();
+	    if (rep.wasAliased)
+		return;
+	    rep.wasAliased = true;
 
 	    if (renameRule == Obfuscator.RENAME_UNIQUE)
-		setAlias("xxx" + serialnr++);
+		rep.setAlias("xxx" + serialnr++);
 	    else {
 		StringBuffer newAlias = new StringBuffer();
 	    next_alias:
@@ -194,7 +198,7 @@ public abstract class Identifier {
 			newAlias.append(renameRule == Obfuscator.RENAME_WEAK
 					&& newAlias.length() == 0 ? "A": "0");
 		    } while (false);
-		    Identifier ptr = this;
+		    Identifier ptr = rep;
 		    while (ptr != null) {
 			if (ptr.conflicting(newAlias.toString(), 
 					    renameRule 
@@ -202,7 +206,7 @@ public abstract class Identifier {
 			    continue next_alias;
 			ptr = ptr.right;
 		    }
-		    alias = newAlias.toString();
+		    setAlias(newAlias.toString());
 		    return;
 		}
 	    }
