@@ -53,7 +53,7 @@ public class Interpreter implements Opcodes {
 	throws InterpreterException, InvocationTargetException {
 	if ((GlobalOptions.debuggingFlags 
 	     & GlobalOptions.DEBUG_INTERPRT) != 0)
-	    System.err.println("Interpreting "+code.getMethodInfo());
+	    GlobalOptions.err.println("Interpreting "+code.getMethodInfo());
 	Value[] stack = new Value[code.getMaxStack()];
 	for (int i=0; i< stack.length; i++)
 	    stack[i] = new Value();
