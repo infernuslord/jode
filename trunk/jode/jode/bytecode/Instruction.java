@@ -167,7 +167,6 @@ public class Instruction implements Opcodes{
      * Removes this instruction (as if it would be replaced by a nop).
      */
     public void removeInstruction() {
-	try{
 	/* remove from chained list */
 	if (prevByAddr != null)
 	    prevByAddr.nextByAddr = nextByAddr;
@@ -228,23 +227,50 @@ public class Instruction implements Opcodes{
 		i--;
 	    }
 	}
-	} catch (Exception ex) {
-	    ex.printStackTrace();
-	    System.err.println(getDescription()+ " "
-			       + Integer.toHexString(hashCode()));
-	    if (succs != null) {
-		System.err.print("\tsuccs: "+succs[0]);
-		for (int i = 1; i < succs.length; i++)
-		    System.err.print(", "+succs[i]);
-		System.err.println();
+
+	/* adjust local variable table and line number table */
+	LocalVariableInfo[] lvt = codeinfo.getLocalVariableTable();
+	if (lvt != null) {
+	    for (int i=0; i< lvt.length; i++) {
+		if (lvt[i].start == this)
+		    lvt[i].start = nextByAddr;
+		if (lvt[i].end == this)
+		    lvt[i].end = prevByAddr;
+		if (lvt[i].start == null
+		    || lvt[i].end == null
+		    || lvt[i].end.nextByAddr == lvt[i].start) {
+		    /* Remove the local variable info.
+		     * This is very seldom, so we can make it slow */
+		    LocalVariableInfo[] newLVT = 
+			new LocalVariableInfo[lvt.length - 1];
+		    System.arraycopy(lvt, 0, newLVT, 0, i);
+		    System.arraycopy(lvt, i+1, newLVT, i, 
+				     newLVT.length - i);
+		    lvt = newLVT;
+		    codeinfo.setLocalVariableTable(newLVT);
+		    i--;
+		}
 	    }
-	    if (preds != null) {
-		System.err.print("\tpreds: " + preds[0]);
-		for (int i=1; i < preds.length; i++)
-		    System.err.print(", " + preds[i]);
-		System.err.println();
+	}
+	LineNumber[] lnt = codeinfo.getLineNumberTable();
+	if (lnt != null) {
+	    for (int i=0; i< lnt.length; i++) {
+		if (lnt[i].start == this)
+		    lnt[i].start = nextByAddr;
+		if (lnt[i].start == null
+		    || (i+1 < lnt.length && lnt[i].start == lnt[i+1].start)) {
+		    /* Remove the line number.
+		     * This is very seldom, so we can make it slow */
+		    LineNumber[] newLNT = 
+			new LineNumber[lnt.length - 1];
+		    System.arraycopy(lnt, 0, newLNT, 0, i);
+		    System.arraycopy(lnt, i+1, newLNT, i, 
+				     newLNT.length - i);
+		    lnt = newLNT;
+		    codeinfo.setLineNumberTable(newLNT);
+		    i--;
+		}
 	    }
-	    codeinfo.dumpCode(System.err);
 	}
     }
 
