@@ -29,17 +29,29 @@ import java.util.Hashtable;
  * null.  It is always garanteed that topType is an Array or an Object
  * and that bottomType is null or an Array or an Object. <p>
  *
+ * The hintType gives a hint which type it probably is.  It is used to
+ * generate the type declaration.
+ *
  * @author Jochen Hoenicke
  * @date 98/08/06
  */
 public class RangeType extends Type {
     final Type bottomType;
     final Type topType;
+    final Type hintType;
+
+    public RangeType(Type bottomType, Type topType, Type hintType) {
+        super(TC_RANGE);
+	this.bottomType = bottomType;
+	this.topType    = topType;
+	this.hintType   = hintType;
+    }
 
     public RangeType(Type bottomType, Type topType) {
         super(TC_RANGE);
 	this.bottomType = bottomType;
 	this.topType    = topType;
+	this.hintType   = bottomType.isValidType() ? bottomType : topType;
     }
 
     public Type getBottom() {
@@ -48,6 +60,10 @@ public class RangeType extends Type {
 
     public Type getTop() {
         return topType;
+    }
+
+    public Type getHint() {
+	return hintType.getHint();
     }
 
     /**
@@ -107,18 +123,17 @@ public class RangeType extends Type {
     public String toString()
     {
         if (jode.Decompiler.isTypeDebugging)
-            return "<" + bottomType + "-" + topType + ">";
-        if (topType.isClassType() || !bottomType.isValidType())
-            return topType.toString();
-        else
-            return bottomType.toString();
+            return "<" + bottomType + "-" + hintType + "-" + topType + ">";
+	return hintType.toString();
     }
 
     public String getDefaultName() {
-        if (topType.isClassType() || !bottomType.isValidType())
-            return topType.getDefaultName();
-        else
-            return bottomType.getDefaultName();
+	return hintType.getDefaultName();
+    }
+
+    public int hashCode() {
+	int hashcode = topType.hashCode();
+	return (hashcode << 16 | hashcode >>> 16) ^ bottomType.hashCode();
     }
 
     public boolean equals(Object o) {
