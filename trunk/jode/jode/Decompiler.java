@@ -18,8 +18,13 @@
  */
 
 package jode;
+import java.io.*;
 
 public class Decompiler {
+    public final static String version = "0.99";
+    public final static String email = "jochen@gnu.org";
+    public final static String copyright = 
+	"Jode Copyright 1998,1999 Jochen Hoenicke <"+email+">";
     public static boolean isVerbose = false;
     public static boolean isDebugging = false;
     public static boolean isTypeDebugging = false;
@@ -34,20 +39,27 @@ public class Decompiler {
     public static int importClassLimit = 3;
 
     public static void usage() {
-        System.err.println("use: jode [-v][--imm][--debug][--analyze][--flow]"
-                           +"[--type][--inout][--lvt][--check]"
-                           +"[--import pkglimit clslimit][--cp classpath]"
+	System.err.println("Version: " + version);
+        System.err.println("use: jode [-v][--dest <destdir>]"
+			   +"[--imm][--debug][--analyze][--flow]"
+			   +"[--type][--inout][--lvt][--check]"
+                           +"[--import <pkglimit> <clslimit>]"
+			   +"[--cp <classpath>]"
                            +" class1 [class2 ...]");
     }
 
     public static void main(String[] params) {
         int i;
         String classPath = System.getProperty("java.class.path");
+	File destDir = null;
+	System.err.println(copyright);
         for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
                 isVerbose = true;
             else if (params[i].equals("--imm"))
                 immediateOutput = true;
+	    else if (params[i].equals("--dest"))
+		destDir = new File(params[++i]);
             else if (params[i].equals("--debug"))
                 isDebugging = true;
             else if (params[i].equals("--type"))
@@ -84,8 +96,24 @@ public class Decompiler {
             return;
         }
         JodeEnvironment env = new JodeEnvironment(classPath);
-        for (; i< params.length; i++)
-            env.doClass(params[i]);
+	TabbedPrintWriter writer = null;
+	if (destDir == null)
+	    writer = new TabbedPrintWriter(System.out, "    ");
+        for (; i< params.length; i++) {
+	    try {
+		if (destDir != null) {
+		    File file = new File
+			(destDir, 
+			 params[i].replace('.', File.separatorChar)+".java");
+		    writer = new TabbedPrintWriter
+			(new FileOutputStream(file), "    ");
+		}
+		env.doClass(params[i], writer);
+	    } catch (IOException ex) {
+		System.out.println("Can't write source of "+params[i]+".");
+		System.out.println("Make sure that all directories exist.");
+		ex.printStackTrace();
+	    }
+	}
     }
 }
-
