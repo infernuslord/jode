@@ -187,6 +187,8 @@ public class CodeVerifier implements Opcodes {
 	    GlobalOptions.err.println("isOfType("+t1+","+t2+")");
 	if (t1.equals(t2))
 	    return true;
+	if (t2.getTypeCode() == Type.TC_UNKNOWN)
+	    return true;
 	if (t1.getTypeCode() == Type.TC_INTEGER
 	    && t2.getTypeCode() == Type.TC_INTEGER)
 	    return true;
@@ -198,16 +200,19 @@ public class CodeVerifier implements Opcodes {
 	    return (t1.getTypeCode() == Type.TC_CLASS
 		    || t1.getTypeCode() == Type.TC_ARRAY
 		    || t1.getTypeCode() == -Type.TC_CLASS);
-	if ((t1.getTypeCode() == Type.TC_CLASS
-	     || t1.getTypeCode() == Type.TC_ARRAY)
-	    && (t2.getTypeCode() == Type.TC_CLASS
-		|| t2.getTypeCode() == Type.TC_ARRAY)) {
-	    if (t1.getTypeCode() == Type.TC_ARRAY) {
-		if (t2.getTypeCode() == Type.TC_CLASS)
-		    return (((ClassInterfacesType)t2).getClazz()
-			    == ClassInfo.javaLangObject);
+	if (t1.getTypeCode() == Type.TC_ARRAY) {
+	    if (t2.getTypeCode() == Type.TC_CLASS)
+		return (((ClassInterfacesType)t2).getClazz()
+			== ClassInfo.javaLangObject);
+	    else if (t2.getTypeCode() == Type.TC_ARRAY) {
 		Type e1 = ((ArrayType)t1).getElementType();
 		Type e2 = ((ArrayType)t2).getElementType();
+		if (e2.getTypeCode() == Type.TC_UNKNOWN)
+		    return true;
+
+		/* Note that short[] is not compatible to int[],
+		 * therefore this extra check.
+		 */
 		if ((e1.getTypeCode() == Type.TC_CLASS
 		     || e1.getTypeCode() == Type.TC_ARRAY
 		     || e1.equals(Type.tUObject))
@@ -215,10 +220,11 @@ public class CodeVerifier implements Opcodes {
 			|| e2.getTypeCode() == Type.TC_ARRAY
 			|| e2.equals(Type.tUObject)))
 		    return isOfType(e1, e2);
-		return false;
-	    } else {
-		if (t2.getTypeCode() == Type.TC_ARRAY)
-		    return false;
+	    }
+	    return false;
+	}
+	if (t1.getTypeCode() == Type.TC_CLASS) {
+	    if (t2.getTypeCode() == Type.TC_CLASS) {
 		ClassInfo c1 = ((ClassInterfacesType) t1).getClazz();
 		ClassInfo c2 = ((ClassInterfacesType) t2).getClazz();
 		return c2.superClassOf(c1);
@@ -229,6 +235,10 @@ public class CodeVerifier implements Opcodes {
 
     public Type mergeType(Type t1, Type t2) {
 	if (t1.equals(t2))
+	    return t1;
+	if (t1.getTypeCode() == Type.TC_UNKNOWN)
+	    return t2;
+	if (t2.getTypeCode() == Type.TC_UNKNOWN)
 	    return t1;
 	if (t1.getTypeCode() == Type.TC_INTEGER
 	    && t2.getTypeCode() == Type.TC_INTEGER)
@@ -241,15 +251,20 @@ public class CodeVerifier implements Opcodes {
 	    return (t1.getTypeCode() == Type.TC_CLASS
 		    || t1.getTypeCode() == Type.TC_ARRAY
 		    || t1.getTypeCode() == -Type.TC_CLASS) ? t1 : Type.tError;
-	if ((t1.getTypeCode() == Type.TC_CLASS
-	     || t1.getTypeCode() == Type.TC_ARRAY)
-	    && (t2.getTypeCode() == Type.TC_CLASS
-		|| t2.getTypeCode() == Type.TC_ARRAY)) {
-	    if (t1.getTypeCode() == Type.TC_ARRAY) {
-		if (t2.getTypeCode() == Type.TC_CLASS)
-		    return Type.tObject;
+	if (t1.getTypeCode() == Type.TC_ARRAY) {
+	    if (t2.getTypeCode() == Type.TC_CLASS)
+		return Type.tObject;
+	    else if (t2.getTypeCode() == Type.TC_ARRAY) {
 		Type e1 = ((ArrayType)t1).getElementType();
 		Type e2 = ((ArrayType)t2).getElementType();
+
+		if (e1.getTypeCode() == Type.TC_UNKNOWN)
+		    return t2;
+		if (e2.getTypeCode() == Type.TC_UNKNOWN)
+		    return t1;
+		/* Note that short[] is not compatible to int[],
+		 * therefore this extra check.
+		 */
 		if ((e1.getTypeCode() == Type.TC_CLASS
 		     || e1.getTypeCode() == Type.TC_ARRAY
 		     || e1.equals(Type.tUObject))
@@ -258,9 +273,13 @@ public class CodeVerifier implements Opcodes {
 			|| e2.equals(Type.tUObject)))
 		    return Type.tArray(mergeType(e1, e2));
 		return Type.tObject;
-	    } else {
-		if (t2.getTypeCode() == Type.TC_ARRAY)
-		    return Type.tObject;
+	    }
+	    return Type.tError;
+	}
+	if (t1.getTypeCode() == Type.TC_CLASS) {
+	    if (t2.getTypeCode() == Type.TC_ARRAY)
+		return Type.tObject;
+	    if (t2.getTypeCode() == Type.TC_CLASS) {
 		ClassInfo c1 = ((ClassInterfacesType) t1).getClazz();
 		ClassInfo c2 = ((ClassInterfacesType) t2).getClazz();
 		if (c1.superClassOf(c2))
@@ -419,7 +438,8 @@ public class CodeVerifier implements Opcodes {
 		    || !isOfType(arrType, Type.tArray(Type.tBoolean))))
 		throw new VerifyException(instr.getDescription());
 	    
-	    Type elemType = (arrType.equals(Type.tUObject) ? Type.tUObject
+	    Type elemType = (arrType.equals(Type.tUObject) 
+			     ? types[instr.opcode - opc_iaload]
 			     :((ArrayType)arrType).getElementType());
 	    result.push(elemType);
 	    if (((1 << instr.opcode - opc_iaload) & 0xa) != 0)
@@ -827,8 +847,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_arraylength: {
-	    if (result.pop().getTypeCode()
-		!= Type.TC_ARRAY)
+	    if (!isOfType(result.pop(), Type.tArray(Type.tUnknown)))
 		throw new VerifyException(instr.getDescription());
 	    result.push(Type.tInt);
 	    break;
