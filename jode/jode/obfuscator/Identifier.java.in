@@ -175,24 +175,24 @@ public abstract class Identifier {
 		GlobalOptions.err.println(toString() + " is preserved");
 	} else {
 	    Identifier rep = getRepresentative();
-	    if (rep.wasAliased)
-		return;
-	    rep.wasAliased = true;
+	    if (!rep.wasAliased) {
+		rep.wasAliased = true;
 
-	    // set alias to empty string, so it won't conflict!
-	    rep.alias = "";
-	    Iterator aliases = renameRule.generateNames(this);
-	next_alias:
-	    for (;;) {
-		String newAlias = (String) aliases.next();
-		Identifier ptr = rep;
-		while (ptr != null) {
-		    if (ptr.conflicting(newAlias))
-			continue next_alias;
-		    ptr = ptr.right;
+		// set alias to empty string, so it won't conflict!
+		rep.alias = "";
+		Iterator aliases = renameRule.generateNames(this);
+	    next_alias:
+		for (;;) {
+		    String newAlias = (String) aliases.next();
+		    Identifier ptr = rep;
+		    while (ptr != null) {
+			if (ptr.conflicting(newAlias))
+			    continue next_alias;
+			ptr = ptr.right;
+		    }
+		    setAlias(newAlias.toString());
+		    break;
 		}
-		setAlias(newAlias.toString());
-		break;
 	    }
 	}
 	for (Iterator i = getChilds(); i.hasNext(); )
@@ -204,7 +204,17 @@ public abstract class Identifier {
 	    && (Main.stripping & Main.STRIP_UNREACH) != 0) 
 	    return;
 
-	table.put(getFullAlias(), getName());
+	if (getAlias().length() != 0) {
+	    String name = getName();
+	    Identifier outer = getParent();
+	    while (outer != null && outer.getAlias().length() == 0) {
+		if (outer.getName().length() > 0)
+		    name = outer.getName() + "." + name;
+		outer = outer.getParent();
+	    }
+	    table.put(getFullAlias(), name);
+	}
+
 	for (Iterator i = getChilds(); i.hasNext(); )
 	    ((Identifier)i.next()).writeTable(table);
     }
