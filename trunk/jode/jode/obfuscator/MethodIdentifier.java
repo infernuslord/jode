@@ -28,11 +28,15 @@ import java.util.Hashtable;
 public class MethodIdentifier extends Identifier implements Opcodes {
     ClassIdentifier clazz;
     MethodInfo info;
-    CodeInfo codeinfo;
     /**
      * The exceptions that can be thrown by this method
      */
     String[] exceptions;
+
+    /**
+     * The byte code of this method, or null if there isn't any.
+     */
+    BytecodeInfo bytecode;
 
     public MethodIdentifier(ClassIdentifier clazz, MethodInfo info) {
 	super(info.getName());
@@ -46,8 +50,8 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    if (codeattr != null) {
 		DataInputStream stream = new DataInputStream
 		    (new ByteArrayInputStream(codeattr.getContents()));
-		codeinfo = new CodeInfo();
-		codeinfo.read(clazz.info.getConstantPool(), stream);
+		bytecode = new BytecodeInfo();
+		bytecode.read(clazz.info.getConstantPool(), stream);
 	    }
 	    if (exceptionsattr != null)
 		readExceptions(exceptionsattr);
@@ -64,109 +68,20 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     }
 
     /**
-     * Skips the specified number of bytes in the input stream.  This calls
-     * skip as long until the bytes are all skipped.
-     * @param is the inputstream to skip.
-     * @param count the number of bytes to skip.
-     */
-    private final static void skip(InputStream is, long count) 
-	throws IOException {
-	while (count > 0) {
-	    long skipped = is.skip(count);
-	    if (skipped == 0)
-		throw new EOFException("Can't skip.");
-	    count -= skipped;
-	}
-    }
-
-    /**
      * Reads the opcodes out of the code info and determine its 
      * references
      * @return an enumeration of the references.
      */
-    public void analyzeCode() throws IOException{
-	ConstantPool cp = clazz.info.getConstantPool();
-	byte[] code = codeinfo.getCode();
-	DataInputStream stream = 
-	    new DataInputStream(new ByteArrayInputStream(code));
-	int addr = 0;
-	while (stream.available() > 0) {
-	    int opcode = stream.readUnsignedByte();
-	    switch (opcode) {
-	    case opc_wide: {
-		switch (opcode = stream.readUnsignedByte()) {
-		case opc_iload: case opc_lload: 
-		case opc_fload: case opc_dload: case opc_aload:
-		case opc_istore: case opc_lstore: 
-		case opc_fstore: case opc_dstore: case opc_astore:
-		case opc_ret:
-		    skip(stream, 2);
-		    addr+=4;
-		    break;
-				
-		case opc_iinc:
-		    skip(stream, 4);
-		    addr+=6;
-		    break;
-		default:
-		    throw new ClassFormatError("Invalid wide opcode "+opcode);
-		}
-		break;
-	    }
-	    case opc_ret:
-		skip(stream, 1);
-		addr+=2;
-		break;
-	    case opc_sipush:
-	    case opc_ldc_w:
-	    case opc_ldc2_w:
-	    case opc_iinc:
-	    case opc_ifnull: case opc_ifnonnull:
-	    case opc_putstatic:
-	    case opc_putfield:
-		skip(stream, 2);
-		addr+=3;
-		break;
-	    case opc_jsr_w:
-	    case opc_goto_w:
-		skip(stream, 4);
-		addr+=5;
-		break;
-	    case opc_tableswitch: {
-		int length = 7-(addr % 4);
-		skip(stream, length);
-		int low  = stream.readInt();
-		int high = stream.readInt();
-		skip(stream, 4*(high-low+1));
-		addr += 9 + length + 4*(high-low+1);
-		break;
-	    }
-	    case opc_lookupswitch: {
-		int length = 7-(addr % 4);
-		skip(stream, length);
-		int npairs = stream.readInt();
-		skip(stream, 8*npairs);
-		addr += 5 + length + 8*npairs;
-		break;
-	    }
-			
-	    case opc_getstatic:
-	    case opc_getfield: {
-		int ref = stream.readUnsignedShort();
-		String[] names = cp.getRef(ref);
-		clazz.bundle.reachableIdentifier
-		    (names[0].replace('/','.')+"."+names[1]+"."+names[2],
-		     false);
-		addr += 3;
-		break;
-	    }
+    public void analyzeCode() throws IOException {
+	for (Instruction instr = bytecode.getFirstInstr();
+	     instr != null; instr = instr.nextByAddr) {
+	    switch (instr.opcode) {
 	    case opc_new:
 	    case opc_anewarray:
 	    case opc_checkcast:
 	    case opc_instanceof:
 	    case opc_multianewarray: {
-		int ref = stream.readUnsignedShort();
-		String clName = cp.getClassName(ref).replace('/','.');
+		String clName = (String) instr.objData;
 		if (clName.charAt(0) == '[') {
 		    int i;
 		    for (i=0; i< clName.length(); i++)
@@ -180,46 +95,21 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    clName = clName.substring(i+1, index);
 		}
 		clazz.bundle.reachableIdentifier(clName, false);
-		addr += 3;
-		if (opcode == opc_multianewarray) {
-		    skip(stream, 1);
-		    addr ++;
-		}
 		break;
 	    }
+	    case opc_getstatic:
+	    case opc_getfield:
 	    case opc_invokespecial:
 	    case opc_invokestatic:
 	    case opc_invokeinterface:
 	    case opc_invokevirtual: {
-		int ref = stream.readUnsignedShort();
-		String[] names = cp.getRef(ref);
+		String[] names = (String[]) instr.objData;
 		clazz.bundle.reachableIdentifier
 		    (names[0].replace('/','.')+"."+names[1]+"."+names[2],
-		     opcode == opc_invokevirtual 
-		     || opcode == opc_invokeinterface);
-		addr += 3;
-
-		if (opcode == opc_invokeinterface) {
-		    skip(stream, 2);
-		    addr += 2;
-		}
+		     instr.opcode == opc_invokevirtual 
+		     || instr.opcode == opc_invokeinterface);
 		break;
 	    }
-
-	    default:
-		if (opcode == opc_newarray
-		    || (opcode >= opc_bipush && opcode <= opc_aload)
-		    || (opcode >= opc_istore && opcode <= opc_astore)) {
-		    skip(stream, 1);
-		    addr += 2;
-		} else if (opcode >= opc_ifeq && opcode <= opc_jsr) {
-		    skip(stream, 2);
-		    addr += 3;
-		} else if (opcode == opc_xxxunusedxxx
-			   || opcode >= opc_breakpoint)
-		    throw new ClassFormatError("Invalid opcode "+opcode);
-		else
-		    addr++;
 	    }
 	}
     }
@@ -254,7 +144,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    index = type.indexOf('L', end);
 	}
 
-	if (codeinfo != null) {
+	if (bytecode != null) {
 	    try {
 		analyzeCode();
 	    } catch (IOException ex) {
@@ -334,152 +224,95 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	out.write(buff, 0, length);
     }
 
-    public void transformCode(GrowableConstantPool gcp) {
-	ConstantPool cp = clazz.info.getConstantPool();
-	byte[] origcode = codeinfo.getCode();
-	ByteArrayOutputStream baos = new ByteArrayOutputStream();
-	DataOutputStream output = new DataOutputStream(baos);
-	DataInputStream input = new DataInputStream
-	    (new ByteArrayInputStream(origcode));
-	try {
-	    output.writeShort(codeinfo.getMaxStack());
-	    output.writeShort(codeinfo.getMaxLocals());
-	    output.writeInt(origcode.length);
-	    int addr = 0;
-	    while (input.available() > 0) {
-		int opcode = input.readUnsignedByte();
-		switch (opcode) {
-		case opc_wide: {
-		    output.writeByte(opcode);
-		    int wideopcode = input.readUnsignedByte();
-		    switch (wideopcode) {
-		    case opc_iload: case opc_lload: 
-		    case opc_fload: case opc_dload: case opc_aload:
-		    case opc_istore: case opc_lstore: 
-		    case opc_fstore: case opc_dstore: case opc_astore:
-		    case opc_ret:
-			output.writeByte(wideopcode);
-			copy(input, output, 2);
-			addr+=4;
-			break;
-			
-		    case opc_iinc:
-			output.writeByte(wideopcode);
-			copy(input, output, 4);
-			addr+=6;
-			break;
-		    default:
-			throw new ClassFormatError("Invalid wide opcode "
-						   +wideopcode);
-		    }
-		    break;
-		}
-		case opc_ret:
-		    output.writeByte(opcode);
-		    copy(input, output, 1);
-		    addr+=2;
+    /**
+     * This method does the code transformation.  This include
+     * <ul><li>new slot distribution for locals</li>
+     *     <li>obfuscating transformation of flow</li>
+     *     <li>renaming field, method and class references</li>
+     * </ul>
+     */
+    public void doCodeTransformations(GrowableConstantPool gcp) {
+        if (bytecode != null) {
+	    /* XXX This should be in a if (Obfuscator.distributeLocals) */
+	    LocalOptimizer localOpt = new LocalOptimizer(bytecode);
+	    localOpt.calcLocalInfo();
+	    localOpt.distributeLocals();
+	    if (Obfuscator.isDebugging)
+		localOpt.dumpLocals();
+
+	    for (Instruction instr = bytecode.getFirstInstr(); 
+		 instr != null; instr = instr.nextByAddr) {
+		switch (instr.opcode) {
+		case opc_ldc:
+		    gcp.reserveConstant(instr.objData);
 		    break;
 
-		case opc_ldc: {
-		    int index = input.readUnsignedByte();
-		    int newIndex = gcp.copyConstant(cp, index);
-		    output.writeByte(opcode);
-		    output.writeByte(newIndex);
-		    addr+=2;
-		    break;
-		}
-		case opc_ldc_w:
-		case opc_ldc2_w: {
-		    int index = input.readUnsignedShort();
-		    int newIndex = gcp.copyConstant(cp, index);
-		    output.writeByte(opcode);
-		    output.writeShort(newIndex);
-		    addr += 3;
-		    break;
-		}
-		
-		case opc_sipush:
-		case opc_iinc:
-		case opc_ifnull: case opc_ifnonnull:
-		    output.writeByte(opcode);
-		    copy(input, output, 2);
-		    addr+=3;
-		    break;
-		case opc_jsr_w:
-		case opc_goto_w:
-		    output.writeByte(opcode);
-		    copy(input, output, 4);
-		    addr+=5;
-		    break;
-		case opc_tableswitch: {
-		    output.writeByte(opcode);
-		    int length = 7-(addr % 4);
-		    copy(input, output, length);
-		    int low  = input.readInt();
-		    output.writeInt(low);
-		    int high = input.readInt();
-		    output.writeInt(high);
-		    copy(input, output, 4*(high-low+1));
-		    addr += 9 + length + 4*(high-low+1);
-		    break;
-		}
-		case opc_lookupswitch: {
-		    output.writeByte(opcode);
-		    int length = 7-(addr % 4);
-		    copy(input, output, length);
-		    int npairs = input.readInt();
-		    output.writeInt(npairs);
-		    copy(input, output, 8*npairs);
-		    addr += 5 + length + 8*npairs;
-		    break;
-		}
-		
-		case opc_getstatic:
-		case opc_getfield:
-		case opc_putstatic:
-		case opc_putfield: {
-		    int ref = input.readUnsignedShort();
-		    String[] names = cp.getRef(ref);
+		case opc_invokespecial:
+		case opc_invokestatic:
+		case opc_invokeinterface:
+		case opc_invokevirtual: {
+		    String[] names = (String[]) instr.objData;
 		    ClassIdentifier ci = (ClassIdentifier)
 			clazz.bundle.getIdentifier(names[0].replace('/','.'));
-
+		    
 		    if (ci != null) {
 			names[0] = ci.getFullAlias();
-			Identifier fi =  ci.getIdentifier(names[1], names[2]);
-			if (fi instanceof FieldIdentifier) {
-			    if (Obfuscator.shouldStrip
-				&& !((FieldIdentifier)fi).isReachable()) {
-				if (opcode != opc_putfield
-				    && opcode != opc_putstatic)
-				    throw new jode.AssertError
-					("reading not reachable field");
-				int stacksize = 
-				    (opcode == opc_putstatic) ? 0 : 1;
-				stacksize += jode.Type.tType
-				    (names[2]).stackSize();
-				if (stacksize == 3) {
-				    output.writeByte(opc_pop2);
-				    output.writeByte(opc_pop);
-				    output.writeByte(opc_nop);
-				} else if (stacksize == 2) {
-				    output.writeByte(opc_pop2);
-				    output.writeByte(opc_nop);
-				    output.writeByte(opc_nop);
-				} else {
-				    output.writeByte(opc_pop);
-				    output.writeByte(opc_nop);
-				    output.writeByte(opc_nop);
-				}
-				addr += 3;
-				break;
+			names[1] = 
+			    ((MethodIdentifier)
+			     ci.getIdentifier(names[1], names[2])).getAlias();
+		    }
+		    names[2] = clazz.bundle.getTypeAlias(names[2]);
+		    break;
+		}
+		case opc_getstatic:
+		case opc_getfield: {
+		    String[] names = (String[]) instr.objData;
+		    ClassIdentifier ci = (ClassIdentifier)
+			clazz.bundle.getIdentifier(names[0].replace('/','.'));
+		    if (ci != null) {
+			FieldIdentifier fi = (FieldIdentifier) 
+			    ci.getIdentifier(names[1], names[2]);
+			names[0] = ci.getFullAlias();
+			names[1] = fi.getAlias();
+		    }
+		    names[2] = clazz.bundle.getTypeAlias(names[2]);
+		    break;
+		}
+		case opc_putstatic:
+		case opc_putfield: {
+		    String[] names = (String[]) instr.objData;
+		    ClassIdentifier ci = (ClassIdentifier)
+			clazz.bundle.getIdentifier(names[0].replace('/','.'));
+		    if (ci != null) {
+			FieldIdentifier fi = (FieldIdentifier) 
+			    ci.getIdentifier(names[1], names[2]);
+			if (Obfuscator.shouldStrip && !fi.isReachable()) {
+			    /* Replace instruction with pop opcodes. */
+			    int stacksize = 
+				(instr.opcode 
+				 == Instruction.opc_putstatic) ? 0 : 1;
+			    stacksize += jode.Type.tType(names[2]).stackSize();
+			    if (stacksize == 3) {
+				/* Add a pop instruction after this opcode. */
+				Instruction second = new Instruction();
+				second.length = 1;
+				second.opcode = Instruction.opc_pop;
+				second.nextByAddr = instr.nextByAddr;
+				instr.nextByAddr = second;
+				second.nextByAddr.preds.removeElement(instr);
+				second.nextByAddr.preds.addElement(second);
+				stacksize--;
 			    }
-			    names[1] = ((FieldIdentifier) fi).getAlias();
+			    instr.objData = null;
+			    instr.intData = 0;
+			    instr.opcode = Instruction.opc_pop - 1 + stacksize;
+			    instr.length = 1;
+			} else {
+			    names[0] = ci.getFullAlias();
+			    names[1] = fi.getAlias();
 			}
 		    }
 		    names[2] = clazz.bundle.getTypeAlias(names[2]);
-		    output.writeByte(opcode);
-		    output.writeShort(gcp.putRef(cp.getTag(ref), names));
-		    addr += 3;
 		    break;
 		}
 		case opc_new:
@@ -487,200 +320,29 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		case opc_checkcast:
 		case opc_instanceof:
 		case opc_multianewarray: {
-		    int ref = input.readUnsignedShort();
-		    String clName = cp.getClassName(ref).replace('/','.');
+		    String clName = (String) instr.objData;
 		    if (clName.charAt(0) == '[') {
 			clName = clazz.bundle.getTypeAlias(clName);
 		    } else {
-			ClassIdentifier ci = (ClassIdentifier)
+			ClassIdentifier ci = (ClassIdentifier) 
 			    clazz.bundle.getIdentifier(clName);
 			if (ci != null)
 			    clName = ci.getFullAlias();
 		    }
-		    int newRef = gcp.putClassRef(clName);
-		    output.writeByte(opcode);
-		    output.writeShort(newRef);
-		    addr += 3;
-		    if (opcode == opc_multianewarray) {
-			copy(input, output, 1);
-			addr ++;
-		    }
+		    instr.objData = clName;
 		    break;
 		}
-		case opc_invokespecial:
-		case opc_invokestatic:
-		case opc_invokeinterface:
-		case opc_invokevirtual: {
-		    int ref = input.readUnsignedShort();
-		    String[] names = cp.getRef(ref);
-		    ClassIdentifier ci = (ClassIdentifier)
-			clazz.bundle.getIdentifier(names[0].replace('/','.'));
-
-		    if (ci != null) {
-			names[0] = ci.getFullAlias();
-			Identifier mi =  ci.getIdentifier(names[1], names[2]);
-			if (mi instanceof MethodIdentifier) {
-			    names[1] = ((MethodIdentifier)mi).getAlias();
-			}
-		    }
-		    names[2] = clazz.bundle.getTypeAlias(names[2]);
-		    output.writeByte(opcode);
-		    output.writeShort(gcp.putRef(cp.getTag(ref), names));
-		    addr += 3;
-		    if (opcode == opc_invokeinterface) {
-			copy(input, output, 2);
-			addr += 2;
-		    }
-		    break;
-		}
-		
-		default:
-		    output.writeByte(opcode);
-		    if (opcode == opc_newarray
-			|| (opcode >= opc_bipush && opcode <= opc_aload)
-			|| (opcode >= opc_istore && opcode <= opc_astore)) {
-			copy(input, output, 1);
-			addr += 2;
-		    } else if (opcode >= opc_ifeq && opcode <= opc_jsr) {
-			copy(input, output, 2);
-			addr += 3;
-		    } else if (opcode == opc_xxxunusedxxx
-			       || opcode >= opc_breakpoint)
-			throw new ClassFormatError("Invalid opcode "+opcode);
-		    else
-			addr++;
 		}
 	    }
-
-	    int[] handlers = codeinfo.getExceptionHandlers();
-	    output.writeShort(handlers.length / 4);
-	    for (int i=0; i< handlers.length; i += 4) {
-		output.writeShort(handlers[i]);
-		output.writeShort(handlers[i+1]);
-		output.writeShort(handlers[i+2]);
-		if (handlers[i+3] == 0)
-		    output.writeShort(0);
-		else {
-		    String clName 
-			= cp.getClassName(handlers[i+3]).replace('/','.');
-		    ClassIdentifier ci = (ClassIdentifier)
-			clazz.bundle.getIdentifier(clName);
+	
+	    Handler[] handlers = bytecode.getExceptionHandlers();
+	    for (int i=0; i< handlers.length; i++) {
+		if (handlers[i].type != null) {
+		    ClassIdentifier ci = (ClassIdentifier) 
+			clazz.bundle.getIdentifier(handlers[i].type);
 		    if (ci != null)
-			clName = ci.getFullAlias();
-		    output.writeShort(gcp.putClassRef(clName));
+		    handlers[i].type = ci.getFullAlias();
 		}
-	    }
-	    output.writeShort(0); // No Attributes;
-	    output.close();
-	} catch (IOException ex) {
-	    ex.printStackTrace(Obfuscator.err);
-	    code = null;
-	    return;
-	}
-	code = baos.toByteArray();
-    }
-
-    public void reserveSmallConstants(GrowableConstantPool gcp) {
-        if (codeinfo != null) {
-	    ConstantPool cp = clazz.info.getConstantPool();
-	    byte[] code = codeinfo.getCode();
-	    DataInputStream stream = 
-		new DataInputStream(new ByteArrayInputStream(code));
-	    try {
-		int addr = 0;
-		while (stream.available() > 0) {
-		    int opcode = stream.readUnsignedByte();
-		    switch (opcode) {
-
-		    case opc_ldc: {
-			int index = stream.readUnsignedByte();
-			gcp.copyConstant(cp, index);
-			addr += 2;
-			break;
-		    }
-
-		    case opc_wide: {
-			switch (opcode = stream.readUnsignedByte()) {
-			case opc_iload: case opc_lload: 
-			case opc_fload: case opc_dload: case opc_aload:
-			case opc_istore: case opc_lstore: 
-			case opc_fstore: case opc_dstore: case opc_astore:
-			case opc_ret:
-			    skip(stream, 2);
-			    addr+=4;
-			    break;
-				
-			case opc_iinc:
-			    skip(stream, 4);
-			    addr+=6;
-			    break;
-			default:
-			    throw new ClassFormatError("Invalid wide opcode "+opcode);
-			}
-			break;
-		    }
-		    case opc_tableswitch: {
-			int length = 7-(addr % 4);
-			skip(stream, length);
-			int low  = stream.readInt();
-			int high = stream.readInt();
-			skip(stream, 4*(high-low+1));
-			addr += 9 + length + 4*(high-low+1);
-			break;
-		    }
-		    case opc_lookupswitch: {
-			int length = 7-(addr % 4);
-			skip(stream, length);
-			int npairs = stream.readInt();
-			skip(stream, 8*npairs);
-			addr += 5 + length + 8*npairs;
-			break;
-		    }
-		    case opc_ret:
-			skip(stream, 1);
-			addr+=2;
-			break;
-		    case opc_sipush:
-		    case opc_ldc_w:
-		    case opc_ldc2_w:
-		    case opc_iinc:
-		    case opc_ifnull: case opc_ifnonnull:
-		    case opc_new:
-		    case opc_anewarray:
-		    case opc_checkcast:
-		    case opc_instanceof:
-			skip(stream, 2);
-			addr+=3;
-			break;
-		    case opc_multianewarray:
-			skip(stream, 3);
-			addr += 4;
-			break;
-		    case opc_jsr_w:
-		    case opc_goto_w:
-		    case opc_invokeinterface:
-			skip(stream, 4);
-			addr+=5;
-			break;
-		    default:
-			if (opcode == opc_newarray
-			    || (opcode >= opc_bipush && opcode <= opc_aload)
-			    || (opcode >= opc_istore && opcode <= opc_astore)) {
-			    skip(stream, 1);
-			    addr += 2;
-			} else if (opcode >= opc_ifeq && opcode <= opc_jsr
-				   || opcode >= opc_getstatic && opcode <= opc_invokestatic) {
-			    skip(stream, 2);
-			    addr += 3;
-			} else if (opcode == opc_xxxunusedxxx
-				   || opcode >= opc_breakpoint)
-			    throw new ClassFormatError("Invalid opcode "+opcode);
-			else
-			    addr++;
-		    }
-		}
-	    } catch (IOException ex) {
-		ex.printStackTrace(Obfuscator.err);
 	    }
 	}
     }
@@ -690,10 +352,20 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	descriptorIndex = gcp.putUTF(clazz.bundle.getTypeAlias(getType()));
 
 	codeIndex = 0;
-        if (codeinfo != null) {
-	    transformCode(gcp);
-	    if (code != null)
+        if (bytecode != null) {
+
+
+
+	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	    DataOutputStream output = new DataOutputStream(baos);
+	    try {
+		bytecode.writeCode(gcp, clazz.bundle, output);
+		output.close();
+		code = baos.toByteArray();
 		codeIndex = gcp.putUTF("Code");
+	    } catch (IOException ex) {
+		code = null;
+	    }
 	}
 	if (exceptions != null) {
 	    exceptionsIndex = gcp.putUTF("Exceptions");
