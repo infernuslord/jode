@@ -48,9 +48,9 @@ public class Conflicts
 	    
 	    void Inner() {
 		this.Inner.Inner();
-		jode.test.Conflicts.Inner.this.Inner.Inner();
+//  		jode.test.Conflicts.Inner.this.Inner.Inner();
 		this.Conflicts();
-		jode.test.Conflicts.Inner.this.Conflicts();
+//  		jode.test.Conflicts.Inner.this.Conflicts();
 	    }
 
 	    Blah() {
@@ -76,7 +76,7 @@ public class Conflicts
 	}
 
 	Conflicts Conflicts(Inner Conflicts) {
-	    Conflicts.this$0.Conflicts = 9;
+//  	    Conflicts.this$0.Conflicts = 9;
 	    return jode.test.Conflicts.this;
 	}
     }
