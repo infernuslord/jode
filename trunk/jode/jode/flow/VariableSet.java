@@ -29,7 +29,7 @@ import jode.LocalInfo;
  * Note that a variable set can contain LocalInfos that use the same
  * slot, but are different.
  */
-public class VariableSet implements Cloneable {
+public final class VariableSet implements Cloneable {
     LocalInfo[] locals;
     int count;
 
@@ -104,6 +104,14 @@ public class VariableSet implements Cloneable {
                 locals[i] = locals[--count];
     }
 
+    public LocalInfo elementAt(int i) {
+	return locals[i];
+    }
+    
+    public int size() {
+	return count;
+    }
+    
     /**
      * Removes everything from this variable set.  
      */
