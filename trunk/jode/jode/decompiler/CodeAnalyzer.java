@@ -57,10 +57,12 @@ public class CodeAnalyzer implements Analyzer {
         method = ma;
         env  = e;
 
-        AttributeInfo attr = code.findAttribute("LocalVariableTable");
-        if (attr != null)
-            lvt = new LocalVariableTable(bc.getMaxLocals(), 
-                                         method.classAnalyzer, attr);
+	if (Decompiler.useLVT) {
+	    AttributeInfo attr = code.findAttribute("LocalVariableTable");
+	    if (attr != null)
+		lvt = new LocalVariableTable(bc.getMaxLocals(), 
+					     method.classAnalyzer, attr);
+	}
 
 	int paramCount = method.getParamCount();
 	param = new LocalInfo[paramCount];
