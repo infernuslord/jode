@@ -23,6 +23,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.StringTokenizer;
 import java.util.Enumeration;
+import java.util.Hashtable;
 import jode.Decompiler;
 
 /**
@@ -220,17 +221,19 @@ public class SearchPath  {
     }
 
     /**
-     * Searches for a file in the search path.
-     * @param filename the filename. The path components should be separated
-     * by <code>/</code>.
-     * @return An InputStream for the file.
-     */
-    public Enumeration listClassFiles(final String dirName) {
+     * Searches for all files in the given directory.
+     * @param dirName the directory name. The path components should
+     * be separated by <code>/</code>.
+     * @return An enumeration with all files/directories in the given
+     * directory.  */
+    public Enumeration listFiles(final String dirName) {
         return new Enumeration() {
             int pathNr;
             Enumeration zipEnum;
             int fileNr;
+	    File currentDir;
             String[] files;
+	    Hashtable doneDirs = new Hashtable();
 
             public String findNextFile() {
                 while (true) {
@@ -240,9 +243,19 @@ public class SearchPath  {
                             String name = ze.getName();
                             if (name.startsWith(dirName)
                                 && name.endsWith(".class")) {
-                                name = name.substring(dirName.length()+1);
-                                if (name.indexOf('/') == -1)
+                                name = name.substring(dirName.length());
+				while (name.charAt(0) == '/')
+				    name = name.substring(1);
+				int slashIndex = name.indexOf('/');
+                                if (slashIndex == -1)
                                     return name;
+				else {
+				    String dir = name.substring(0, slashIndex);
+				    if (doneDirs.get(dir) == null) {
+					doneDirs.put(dir, dir);
+					return dir;
+				    }
+				}
                             }
                         }
                         zipEnum = null;
@@ -252,7 +265,11 @@ public class SearchPath  {
                             String name = files[fileNr++];
                             if (name.endsWith(".class")) {
                                 return name;
-                            }
+                            } else {
+				File f = new File(currentDir, name);
+				if (f.exists() && f.isDirectory())
+				    return name;
+			    }
                         }
                         files = null;
                     }
@@ -270,8 +287,10 @@ public class SearchPath  {
                             : dirName;
 			try {
 			    File f = new File(dirs[pathNr], localDirName);
-			    if (f.exists() && f.isDirectory())
+			    if (f.exists() && f.isDirectory()) {
+				currentDir = f;
 				files = f.list();
+			    }
 			} catch (SecurityException ex) {
 			    Decompiler.err.println("Warning: SecurityException"
 						   +" while accessing "
