@@ -584,12 +584,13 @@ public abstract class Opcodes {
             }
             case opc_ireturn: case opc_lreturn: 
             case opc_freturn: case opc_dreturn: case opc_areturn: {
-                Type retType = ca.getMethod().getReturnType();
+                /* Address -1 is interpreted as end of method */
+                Type retType = Type.tSubType(ca.getMethod().getReturnType());
 		return createBlock
-		    (ca, addr, 1, new ReturnBlock(new NopOperator(retType)));
+		    (ca, addr, 1, new ReturnBlock(new NopOperator(retType),
+                                                  new Jump(-1)));
             }
 	    case opc_return:
-                /* Address -1 is interpreted as end of method */
 		return createBlock
 		    (ca, addr, 1, new EmptyBlock(new Jump(-1)));
             case opc_getstatic:
@@ -662,7 +663,8 @@ public abstract class Opcodes {
             case opc_athrow:
                 return createBlock
 		    (ca, addr, 1, 
-                     new ThrowBlock(new NopOperator(Type.tUObject)));
+                     new ThrowBlock(new NopOperator(Type.tUObject),
+                                    new Jump(-1)));
             case opc_checkcast: {
                 CpoolClass cpcls = (CpoolClass) 
                     ca.method.classAnalyzer.getConstant
