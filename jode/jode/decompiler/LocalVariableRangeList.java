@@ -52,8 +52,21 @@ public class LocalVariableRangeList {
             before = after;
             after = after.next;
         }
-        if (after != null && li.start + li.length > after.start) 
+        if (after != null && li.start + li.length > after.start) {
+	    if (after.getType().equals(li.getType())
+		&& after.getName().equals(li.getName())) {
+		/* Same type, same name and overlapping range.
+		 * This is the same local: extend after to the common
+		 * range and don't add li.
+		 */
+		after.length += after.start - li.start;
+		after.start = li.start;
+		if (li.length > after.length)
+		    after.length = li.length;
+		return;
+	    }
             Decompiler.err.println("warning: non disjoint locals");
+	}
         li.next = after;
         if (before == null)
             list = li;
