@@ -58,6 +58,12 @@ public class CodeAnalyzer implements Analyzer {
         method = ma;
         env  = e;
 
+        LocalVarsAttr attr = 
+            (LocalVarsAttr) Attribute.get(bc, "LocalVariableTable");
+        if (attr != null)
+            lvt = new LocalVariableTable(bc.getMaxLocals(), 
+                                         method.classAnalyzer, attr);
+
 	int paramCount = method.getParamCount();
 	param = new jode.flow.VariableSet();
 	for (int i=0; i<paramCount; i++)
@@ -67,13 +73,6 @@ public class CodeAnalyzer implements Analyzer {
     void readCode(CodeAttr bincode) 
          throws ClassFormatError
     {
-
-        LocalVarsAttr attr = 
-            (LocalVarsAttr) Attribute.get(bincode, "LocalVariableTable");
-        if (attr != null)
-            lvt = new LocalVariableTable(bincode.getMaxLocals(), 
-                                         method.classAnalyzer, attr);
-
         byte[] code = bincode.getCode();
         FlowBlock[] instr = new FlowBlock[code.length];
 	int returnCount;
