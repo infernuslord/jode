@@ -24,7 +24,8 @@ public class Decompiler {
     public final static String version = "0.99";
     public final static String email = "jochen@gnu.org";
     public final static String copyright = 
-	"Jode Copyright 1998,1999 Jochen Hoenicke <"+email+">";
+	"Jode (c) 1998,1999 Jochen Hoenicke <"+email+">";
+    public static PrintStream err = System.err;
     public static boolean isVerbose = false;
     public static boolean isDebugging = false;
     public static boolean isTypeDebugging = false;
@@ -39,8 +40,8 @@ public class Decompiler {
     public static int importClassLimit = 3;
 
     public static void usage() {
-	System.err.println("Version: " + version);
-        System.err.println("use: jode [-v][--dest <destdir>]"
+	err.println("Version: " + version);
+        err.println("use: jode [-v][--dest <destdir>]"
 			   +"[--imm][--debug][--analyze][--flow]"
 			   +"[--type][--inout][--lvt][--check]"
                            +"[--import <pkglimit> <clslimit>]"
@@ -52,7 +53,7 @@ public class Decompiler {
         int i;
         String classPath = System.getProperty("java.class.path");
 	File destDir = null;
-	System.err.println(copyright);
+	err.println(copyright);
         for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
                 isVerbose = true;
@@ -86,7 +87,7 @@ public class Decompiler {
                 break;
             } else {
                 if (!params[i].startsWith("-h"))
-                    System.err.println("Unknown option: "+params[i]);
+                    err.println("Unknown option: "+params[i]);
                 usage();
                 return;
             }
@@ -110,9 +111,9 @@ public class Decompiler {
 		}
 		env.doClass(params[i], writer);
 	    } catch (IOException ex) {
-		System.out.println("Can't write source of "+params[i]+".");
-		System.out.println("Make sure that all directories exist.");
-		ex.printStackTrace();
+		err.println("Can't write source of "+params[i]+".");
+		err.println("Make sure that all directories exist.");
+		ex.printStackTrace(err);
 	    }
 	}
     }

@@ -130,7 +130,7 @@ public class CodeAnalyzer implements Analyzer {
                     = Opcodes.readOpcode(cpool, addr, stream, this);
 
                 if (jode.Decompiler.isVerbose && addr > mark) {
-                    System.err.print('.');
+                    Decompiler.err.print('.');
                     mark += 1000;
                 }
 
@@ -174,7 +174,7 @@ public class CodeAnalyzer implements Analyzer {
         }
 
         if (Decompiler.isVerbose)
-            System.err.print('-');
+            Decompiler.err.print('-');
             
         excHandlers.analyze();
 	methodHeader = instr[0];
