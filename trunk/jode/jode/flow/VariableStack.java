@@ -80,24 +80,12 @@ public class VariableStack {
     public Expression mergeIntoExpression(Expression expr, VariableSet used) {
 	/* assert expr.getOperandCount() == stackMap.length */
 
-	ComplexExpression parent = null;
-	Expression inner = expr;
-	while (inner instanceof ComplexExpression) {
-	    parent = (ComplexExpression)inner;
-	    inner = parent.getSubExpressions()[0];
-	}
-	Expression[] loads = new Expression[stackMap.length];
-	for (int i=0; i< stackMap.length; i++) {
+	for (int i = stackMap.length-1; i >= 0; i--) {
 	    if (!used.contains(stackMap[i]))
 		used.addElement(stackMap[i]);
-	    loads[i] = new LocalLoadOperator(stackMap[i].getType(),
-					     stackMap[i]);
+	    expr = expr.addOperand
+		(new LocalLoadOperator(stackMap[i].getType(), stackMap[i]));
 	}
-	Expression newExpr = new ComplexExpression((Operator)inner, loads);
-	if (parent != null)
-	    parent.setSubExpressions(0, newExpr);
-	else
-	    expr = newExpr;
 	return expr;
     }
 
@@ -152,5 +140,15 @@ public class VariableStack {
 	    return new VariableStack(newStack);
 	} else
 	    throw new jode.AssertError("Unknown SpecialBlock");
+    }
+
+    public String toString() {
+        StringBuffer result = new StringBuffer("[");
+        for (int i=0; i < stackMap.length; i++) {
+            if (i>0)
+                result.append(", ");
+            result.append(stackMap[i].getName());
+        }
+        return result.append("]").toString();
     }
 }
