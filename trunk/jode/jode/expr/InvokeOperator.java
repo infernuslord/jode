@@ -25,17 +25,19 @@ public final class InvokeOperator extends Operator {
     boolean staticFlag;
     boolean specialFlag;
     MethodType methodType;
+    String methodName;
     Type classType;
     CpoolRef field;
 
     public InvokeOperator(CodeAnalyzer codeAnalyzer,
                           boolean staticFlag, boolean specialFlag, 
                           CpoolRef field) {
-        super(Type.tError, 0);
+        super(Type.tUnknown, 0);
         methodType = new MethodType(field.getNameAndType().
                                     getType().getString());
+        methodName = field.getNameAndType().getName().getString();
         classType = Type.tClass(field.getCpoolClass().getName().getString());
-        setType(methodType.getReturnType());
+        this.type = methodType.getReturnType();
         this.codeAnalyzer  = codeAnalyzer;
         this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
@@ -54,6 +56,10 @@ public final class InvokeOperator extends Operator {
 
     public MethodType getMethodType() {
         return methodType;
+    }
+
+    public String getMethodName() {
+        return methodName;
     }
 
     public Type getClassType() {
@@ -87,7 +93,7 @@ public final class InvokeOperator extends Operator {
     }
 
     public boolean isConstructor() {
-        return field.getNameAndType().getName().getString().equals("<init>");
+        return methodName.equals("<init>");
     }
 
     public String toString(String[] operands) {
@@ -109,8 +115,7 @@ public final class InvokeOperator extends Operator {
         if (isConstructor())
             method = (object.length() == 0 ? "this" : object);
         else
-            method = (object.length() == 0 ? "" : object + ".")
-                + field.getNameAndType().getName().getString();
+            method = (object.length() == 0 ? "" : object + ".") + methodName;
 
         StringBuffer params = new StringBuffer();
         for (int i=0; i < methodType.getArgumentTypes().length; i++) {
