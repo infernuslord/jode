@@ -36,8 +36,7 @@ public abstract class Expression extends Instruction {
     public Expression negate() {
         Operator negop = 
             new UnaryOperator(Type.tBoolean, Operator.LOG_NOT_OP);
-        Expression[] e = { this };
-        return new ComplexExpression(negop, e);
+        return new ComplexExpression(negop, new Expression[] { this });
     }
 
     public Expression tryToCombine(Expression e) {

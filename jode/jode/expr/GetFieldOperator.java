@@ -54,8 +54,8 @@ public class GetFieldOperator extends Operator {
             /* shouldn't be called */
             throw new RuntimeException("Field is static");
         }
-        return Type.tSubType(Type.tClass(field.getCpoolClass()
-                                         .getName().getString()));
+        return Type.tClass(field.getCpoolClass()
+                           .getName().getString());
     }
 
     public void setOperandType(Type types[]) {

@@ -25,20 +25,34 @@ public class Decompiler {
     public static boolean isTypeDebugging = false;
     public static boolean isFlowDebugging = false;
     public static boolean debugInOut = false;
+    public static boolean debugAnalyze = false;
     public static boolean showLVT = false;
     public static boolean doChecks = false;
+    public static boolean immediateOutput = false;
     public static int importPackageLimit = 3;
     public static int importClassLimit = 3;
 
+    public static void usage() {
+        System.err.println("use: jode [-v][-imm][-debug][-analyze][-flow]"
+                           +"[-type][-inout][-lvt][-check]"
+                           +"[-import pkglimit clslimit]"
+                           +" class1 [class2 ...]");
+    }
+
     public static void main(String[] params) {
         JodeEnvironment env = new JodeEnvironment();
-        for (int i=0; i<params.length; i++) {
+        int i;
+        for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
                 isVerbose = true;
+            else if (params[i].equals("-imm"))
+                immediateOutput = true;
             else if (params[i].equals("-debug"))
                 isDebugging = true;
             else if (params[i].equals("-type"))
                 isTypeDebugging = true;
+            else if (params[i].equals("-analyze"))
+                debugAnalyze = true;
             else if (params[i].equals("-flow"))
                 isFlowDebugging = true;
             else if (params[i].equals("-inout"))
@@ -50,8 +64,20 @@ public class Decompiler {
             else if (params[i].equals("-import")) {
                 importPackageLimit = Integer.parseInt(params[++i]);
                 importClassLimit = Integer.parseInt(params[++i]);
-            } else
-                env.doClass(params[i]);
+            } else if (params[i].equals("--")) {
+                i++;
+                break;
+            } else {
+                if (!params[i].startsWith("-h"))
+                    System.err.println("Unknown option: "+params[i]);
+                usage();
+                return;
+            }
         }
+        if (i == params.length)
+            usage();
+        else 
+            for (; i< params.length; i++)
+                env.doClass(params[i]);
     }
 }

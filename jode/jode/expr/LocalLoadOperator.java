@@ -26,6 +26,7 @@ implements LocalVarOperator {
     public LocalLoadOperator(Type type, LocalInfo local) {
         super(type, "");
         this.local = local;
+        local.setType(type);
         local.setOperator(this);
     }
 
@@ -47,6 +48,10 @@ implements LocalVarOperator {
     }
 
     public void updateType() {
+        if (Decompiler.isTypeDebugging)
+            System.err.println("local "+local.getName()+" changed: "
+                               +type+" to "+local.getType()
+                               +" in "+parent);
         super.setType(local.getType());
         if (parent != null)
             parent.updateType();

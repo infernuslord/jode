@@ -66,8 +66,7 @@ public class BinaryOperator extends Operator {
 
     public void setOperandType(Type[] inputTypes) {
         operandType = operandType
-            .intersection(inputTypes[0])
-            .intersection(inputTypes[1]);
+            .intersection(inputTypes[0]).intersection(inputTypes[1]);
         type = operandType;
     }
 

@@ -24,6 +24,8 @@ import jode.flow.StructuredBlock;
 import jode.flow.RawTryCatchBlock;
 
 import java.util.Stack;
+import java.util.Vector;
+import java.util.Enumeration;
 import java.io.DataInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -39,6 +41,7 @@ public class CodeAnalyzer implements Analyzer {
     MethodAnalyzer method;
     public JodeEnvironment env;
 
+    Vector allLocals = new Vector();
     jode.flow.VariableSet param;
     LocalVariableTable lvt;
     
@@ -72,35 +75,31 @@ public class CodeAnalyzer implements Analyzer {
         } catch (IOException ex) {
             throw new ClassFormatError(ex.toString());
         }
+
+        short[] handlers = gnu.bytecode.Spy.getExceptionHandlers(bincode);
+        for (int i=0; i<handlers.length; i += 4) {
+            FlowBlock startBlock = instr[handlers[i + 0]];
+
+            Type type = null;
+            if (handlers[i + 3 ] != 0) {
+                CpoolClass cpcls = (CpoolClass)
+                    method.classAnalyzer.getConstant(handlers[i + 3]);
+                type = Type.tClass(cpcls.getName().getString());
+            }
+
+            instr[handlers[i + 0]] =             
+                new RawTryCatchBlock(type,
+                                     new Jump(instr[handlers[i + 1]]),
+                                     new Jump(instr[handlers[i + 2]])
+                                     ).chainTo(instr[handlers[i + 0]]);
+        }
+
         for (int addr=0; addr<instr.length; ) {
             instr[addr].resolveJumps(instr);
             addr = instr[addr].getNextAddr();
         }
 	methodHeader = instr[0];
         methodHeader.makeStartBlock();
-
-        short[] handlers = gnu.bytecode.Spy.getExceptionHandlers(bincode);
-        for (int i=0; i<handlers.length; i += 4) {
-            StructuredBlock tryBlock = instr[handlers[i + 0]].getBlock();
-            while (tryBlock instanceof RawTryCatchBlock
-                   && (((RawTryCatchBlock) tryBlock).getCatchAddr()
-                       > handlers[i + 2])) {
-
-                tryBlock = ((RawTryCatchBlock)tryBlock).getTryBlock();
-            }
-            
-            Type type = null;
-
-            if (handlers[i + 3 ] != 0) {
-                CpoolClass cpcls = (CpoolClass)
-                    method.classAnalyzer.getConstant(handlers[i + 3]);
-                type = Type.tClass(cpcls.getName().getString());
-            }
-            
-            new RawTryCatchBlock(type, tryBlock, 
-                                 new Jump(instr[handlers[i + 1]]),
-                                 new Jump(instr[handlers[i + 2]]));
-        }
 
 	int paramCount = method.getParamCount();
 	param = new jode.flow.VariableSet();
@@ -124,10 +123,12 @@ public class CodeAnalyzer implements Analyzer {
     }
 
     public LocalInfo getLocalInfo(int addr, int slot) {
-        if (lvt != null)
-            return lvt.getLocal(slot).getInfo(addr);
-        else
-            return new LocalInfo(slot);
+        LocalInfo li = (lvt != null)
+            ? lvt.getLocal(slot).getInfo(addr)
+            : new LocalInfo(slot);
+        if (!allLocals.contains(li))
+            allLocals.addElement(li);
+        return li;
     }
 
     public LocalInfo getParamInfo(int slot) {
@@ -137,6 +138,12 @@ public class CodeAnalyzer implements Analyzer {
     public void analyze()
     {
         methodHeader.analyze();
+        Enumeration enum = allLocals.elements();
+        while (enum.hasMoreElements()) {
+            LocalInfo li = (LocalInfo)enum.nextElement();
+            if (!li.isShadow())
+                li.getType().useType();
+        }
     }
 
     public void useClass(Class clazz) 

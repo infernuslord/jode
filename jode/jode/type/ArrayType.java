@@ -101,6 +101,10 @@ public class ArrayType extends Type {
             :      tError;
     }
 
+    public boolean isClassType() {
+        return elementType.isClassType();
+    }
+
     /**
      * Marks this type as used, so that the class is imported.
      */

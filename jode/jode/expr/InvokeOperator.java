@@ -75,10 +75,10 @@ public final class InvokeOperator extends Operator {
     public Type getOperandType(int i) {
         if (!staticFlag) {
             if (i == 0)
-                return Type.tSubType(getClassType());
+                return getClassType();
             i--;
         }
-        return Type.tSubType(methodType.getArgumentTypes()[i]);
+        return methodType.getArgumentTypes()[i];
     }
 
     public void setOperandType(Type types[]) {
@@ -97,19 +97,14 @@ public final class InvokeOperator extends Operator {
                ? ""
                : codeAnalyzer.getTypeString(getClassType()))
             : (operands[0].equals("this") 
-               ? (specialFlag
-                  ? ( (field.getCpoolClass().getName().getString()
-                       .replace(java.io.File.separatorChar, '.')
-                       .equals(codeAnalyzer.getClazz()
-                                .getSuperclass().getName()))
-                      ? "super"
-                      : "((" + codeAnalyzer.getTypeString(getClassType())
-                      + ") this)" )
-                   : "")
-               : (specialFlag
-                  ? "((" + codeAnalyzer.getTypeString(getClassType())
-                  + ") " + operands[0]+")"
-                  : operands[0] ));
+               ? ((specialFlag &&
+                   (field.getCpoolClass().getName().getString()
+                    .replace(java.io.File.separatorChar, '.')
+                    .equals(codeAnalyzer.getClazz()
+                            .getSuperclass().getName())))
+                  ? "super"
+                  : "")
+               : operands[0]);
 
         int arg = staticFlag ? 0 : 1;
         String method;

@@ -45,17 +45,12 @@ public abstract class Operator extends Expression {
     };
 
     protected int operator;
-    protected Expression expression = null;
-    
+
     Operator (Type type, int op) {
         super(type);
         this.operator = op;
         if (type == null)
             throw new AssertError("type == null");
-    }
-
-    public void setExpression(Expression expr) {
-        expression = expr;
     }
 
     public Operator getOperator() {

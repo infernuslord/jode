@@ -46,6 +46,29 @@ public class ConstOperator extends NoArgOperator {
                 return "false";
             else if (value.equals("1"))
                 return "true";
+        } else if (parent != null) {
+            int opindex = parent.getOperator().getOperatorIndex();
+            if (opindex >= OPASSIGN_OP + ADD_OP
+                && opindex <  OPASSIGN_OP + ASSIGN_OP)
+                opindex -= OPASSIGN_OP;
+
+            if (opindex >= AND_OP && opindex < AND_OP + 3) {
+                /* For bit wise and/or/xor change representation.
+                 */
+                if (type.isOfType(Type.tUInt)) {
+                    int i = Integer.parseInt(value);
+                    if (i < -1) 
+                        return "~0x"+Integer.toHexString(-i-1);
+                    else
+                        return "0x"+Integer.toHexString(i);
+                } else if (type.equals(Type.tLong)) {
+                    long l = Long.parseLong(value);
+                    if (l < -1) 
+                        return "~0x"+Long.toHexString(-l-1);
+                    else
+                        return "0x"+Long.toHexString(l);
+                }
+            }
         }
         return value;
     }

@@ -25,7 +25,7 @@ public class NewArrayOperator extends SimpleOperator {
     public NewArrayOperator(Type arrayType, int dimensions) {
         super(arrayType, 0, dimensions);
         for (int i=0; i< dimensions; i++) {
-            operandTypes[i] = Type.tInt;
+            operandTypes[i] = Type.tUInt;
         }
     }
 

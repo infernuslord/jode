@@ -26,7 +26,7 @@ public abstract class StoreInstruction extends Operator {
 
     public StoreInstruction(Type type, int operator) {
         super(Type.tVoid, operator);
-        lvalueType = Type.tSubType(type);
+        lvalueType = type;
         lvCasts = lvalueType.toString();
     }
 
@@ -42,11 +42,9 @@ public abstract class StoreInstruction extends Operator {
 
     /**
      * Sets the type of the lvalue (and rvalue).
-     * @return true if the operand types changed
      */
-    public boolean setLValueType(Type type) {
-        this.lvalueType = type;
-        return false;
+    public void setLValueType(Type type) {
+        lvalueType = lvalueType.intersection(type);
     }
 
     public abstract String getLValueString(String[] operands);
@@ -64,16 +62,16 @@ public abstract class StoreInstruction extends Operator {
 
     public Type getOperandType(int i) {
         if (i == getLValueOperandCount())
-            return Type.tSubType(getLValueType());
+            return getLValueType();
         else
             return getLValueOperandType(i);
     }
 
     public void setOperandType(Type[] t) {
-        if (getLValueOperandCount() > 0)
+        int count = getLValueOperandCount();
+        if (count > 0)
             setLValueOperandType(t);
-        setLValueType(lvalueType.intersection
-		      (Type.tSuperType(t[getLValueOperandCount()])));
+        setLValueType(t[count]);
     }
 
     public int getOperandCount() {

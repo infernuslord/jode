@@ -36,6 +36,7 @@ public class FieldAnalyzer implements Analyzer {
     }
 
     public void analyze() {
+        Type.tType(field.getType()).useType();
         constantValue = 0;
         Attribute attribute = 
             Attribute.get(clazz.classType.getField(field.getName()), 

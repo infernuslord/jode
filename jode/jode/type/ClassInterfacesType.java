@@ -37,16 +37,15 @@ public class ClassInterfacesType extends Type {
     Class clazz;
     Class ifaces[];
 
-    public final static Class cObject = new Object().getClass();
+    public final static Class cObject = Object.class;
     
     public ClassInterfacesType(String clazzName) {
         super(TC_CLASS);
 	try {
             Class clazz = Class.forName(clazzName);
             if (clazz.isInterface()) {
-                this.clazz = cObject;
-                ifaces = new Class[1];
-                ifaces[0] = clazz;
+                this.clazz = null;
+                ifaces = new Class[] {clazz};
             } else {
                 this.clazz = clazz;
                 ifaces = new Class[0];
@@ -59,9 +58,8 @@ public class ClassInterfacesType extends Type {
     public ClassInterfacesType(Class clazz) {
         super(TC_CLASS);
         if (clazz.isInterface()) {
-            this.clazz = cObject;
-            ifaces = new Class[1];
-            ifaces[0] = clazz;
+            this.clazz = null;
+            ifaces = new Class[] { clazz };
         } else {
             this.clazz = clazz;
             ifaces = new Class[0];
@@ -172,8 +170,7 @@ public class ClassInterfacesType extends Type {
                 && bottom.ifaces[0] == ifaces.elementAt(0))
                 return bottom;
 
-            Class[] ifaceArray = 
-                new Class[ifaces.size()];
+            Class[] ifaceArray = new Class[ifaces.size()];
             ifaces.copyInto(ifaceArray);
             return tRange(bottom, create(clazz, ifaceArray));
         }
@@ -322,8 +319,9 @@ public class ClassInterfacesType extends Type {
     iface_loop:
         while (!allIfaces.isEmpty()) {
             Class iface = (Class) allIfaces.pop();
-            if (clazz != null && implementedBy(iface, clazz))
-                /* We can skip this, as clazz does already imply it.
+            if ((clazz != null && implementedBy(iface, clazz))
+                || ifaces.contains(iface))
+                /* We can skip this, as clazz or ifaces already imply it.
                  */
                 continue iface_loop;
 
@@ -351,6 +349,18 @@ public class ClassInterfacesType extends Type {
         return create(clazz, ifaceArray);
     }
 
+    /**
+     * Marks this type as used, so that the class is imported.
+     */
+    public void useType() {
+        if (!jode.Decompiler.isTypeDebugging) {
+            if (clazz != null && clazz != cObject)
+                env.useClass(clazz);
+            else if (ifaces.length > 0)
+                env.useClass(ifaces[0]);
+        }
+    }
+
     public String toString()
     {
         if (jode.Decompiler.isTypeDebugging) {
@@ -368,13 +378,19 @@ public class ClassInterfacesType extends Type {
             }
             return sb.append("}").toString();
         } else {
-            if (clazz != null)
+            if (clazz != null && clazz != cObject)
                 return env.classString(clazz);
             else if (ifaces.length > 0)
                 return env.classString(ifaces[0]);
+            else if (clazz == cObject)
+                return env.classString(clazz);
             else
                 return "{<error>}";
         }
+    }
+
+    public boolean isClassType() {
+        return true;
     }
 
     public boolean equals(Object o) {

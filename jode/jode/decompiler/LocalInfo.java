@@ -73,10 +73,22 @@ public class LocalInfo {
         } else {
             if (this != li) {
                 shadow = li;
+//                 System.err.println("combining "+name+"("+type+") and "
+//                                    +li.name+"("+li.type+")");
                 li.setType(type);
+
+
+                boolean needTypeUpdate = !li.type.equals(type);
+
                 java.util.Enumeration enum = operators.elements();
                 while (enum.hasMoreElements()) {
-                    shadow.operators.addElement(enum.nextElement());
+                    LocalVarOperator lvo = 
+                        (LocalVarOperator) enum.nextElement();
+                    if (needTypeUpdate) {
+//                 System.err.println("updating "+lvo+" in "+((Expression)lvo).parent);
+                        lvo.updateType();
+                    }
+                    shadow.operators.addElement(lvo);
                 }
 
                 /* Clear unused fields, to allow garbage collection.
@@ -151,11 +163,15 @@ public class LocalInfo {
     public Type setType(Type newType) {
         LocalInfo li = getLocalInfo();
         newType = li.type.intersection(newType);
+//         System.err.println(getName()+" setType, new: "+newType+" old: "+li.type);
         if (!li.type.equals(newType)) {
             li.type = newType;
             java.util.Enumeration enum = li.operators.elements();
-            while (enum.hasMoreElements())
-                ((LocalVarOperator)enum.nextElement()).updateType();
+            while (enum.hasMoreElements()) {
+                LocalVarOperator lvo = (LocalVarOperator) enum.nextElement();
+//                 System.err.println("updating "+lvo+" in "+((Expression)lvo).parent);
+                lvo.updateType();
+            }
         }
         return li.type;
     }

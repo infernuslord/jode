@@ -26,6 +26,7 @@ implements LocalVarOperator {
     public LocalStoreOperator(Type lvalueType, LocalInfo local, int operator) {
         super(lvalueType, operator);
         this.local = local;
+        local.setType(lvalueType);
         local.setOperator(this);
     }
 
@@ -47,19 +48,12 @@ implements LocalVarOperator {
     }
 
     public Type getLValueType() {
-// 	System.err.println("LocalStore.getType of "+local.getName()+": "+local.getType());
 	return local.getType();
     }
 
-    public boolean setLValueType(Type type) {
-// 	System.err.println("LocalStore.setType of "+local.getName()+": "+local.getType());
-	return super.setLValueType
-	    (local.setType(Type.tSuperType(type)));
+    public void setLValueType(Type type) {
+	local.setType(type);
     }
-
-//     public int getSlot() {
-//         return slot;
-//     }
 
     public boolean matches(Operator loadop) {
         return loadop instanceof LocalLoadOperator && 
