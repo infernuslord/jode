@@ -33,6 +33,12 @@ public class SearchPath  {
     File[] dirs;
     ZipFile[] zips;
     
+    /**
+     * Creates a new search path for the given path.
+     * @param path The path where we should search for files.  They
+     * should be separated by the system dependent pathSeparator.  The
+     * entries may also be zip or jar files.
+     */
     public SearchPath(String path) {
         StringTokenizer tokenizer = 
             new StringTokenizer(path, File.pathSeparator);
@@ -53,6 +59,12 @@ public class SearchPath  {
         }
     }
 
+    /**
+     * Searches for a file in the search path.
+     * @param filename the filename. The path components should be separated
+     * by <code>/</code>.
+     * @return An InputStream for the file.
+     */
     public InputStream getFile(String filename) throws IOException {
         for (int i=0; i<dirs.length; i++) {
             if (dirs[i] == null)
@@ -62,6 +74,9 @@ public class SearchPath  {
                 if (ze != null)
                     return zips[i].getInputStream(ze);
             } else {
+                if (java.io.File.separatorChar != '/')
+                    filename = filename
+                        .replace('/', java.io.File.separatorChar);
                 File f = new File(dirs[i], filename);
                 if (f.exists())
                     return new FileInputStream(f);
