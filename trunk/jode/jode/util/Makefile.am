@@ -8,7 +8,7 @@ JAVADEP = $(top_builddir)/javaDependencies.pl -subdir=$(subdir)\
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
 SUBSTCP = @SUBSTCP@
-BUILD_CLASSPATH = $(top_srcdir):$(top_builddir):$(CLASSPATH):$(CLASSLIB)
+FULL_CLASSPATH := $(shell $(SUBSTCP) $(top_srcdir):$(top_builddir):$(CLASSPATH):$(CLASSLIB))
 
 MY_JAVA_FILES = \
   ArrayEnum.java \
@@ -22,7 +22,7 @@ EXTRA_DIST = $(MY_JAVA_FILES)
 @QUOTE@-include Makefile.dep
 
 %.class: %.java
-	$(JAVAC) -classpath `$(SUBSTCP) $(BUILD_CLASSPATH):$(CLASSLIB)` -d $(top_builddir) $<
+	$(JAVAC) -classpath $(FULL_CLASSPATH) -d $(top_builddir) $<
 
 Makefile.dep: $(MY_JAVA_FILES:.java=.class)
 	$(JAVADEP) $^
