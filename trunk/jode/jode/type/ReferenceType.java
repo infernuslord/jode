@@ -27,6 +27,21 @@ import java.util.Stack;
  * This is an abstrace super class of all reference types.  Reference
  * types are ClassInterfacesType, ArrayType and NullType. <p>
  *
+ * To do intersection on range types, the reference types need three
+ * more operations: specialization, generalization and
+ * createRange. <p>
+ *
+ * specialization chooses all common sub type of two types.  It is
+ * used to find the bottom of the intersected interval. <p>
+ *
+ * generalization chooses the common super type of two types. It
+ * is used to find the top of the intersected interval. <p>
+ *
+ * When the new interval is created with <code>createRangeType</code>
+ * the bottom and top are adjusted so that they only consists of
+ * possible types.  It then decides, if it needs a range type, or if
+ * the reference types already represents all types.
+ *
  * @author Jochen Hoenicke 
  */
 public abstract class ReferenceType extends Type {
@@ -35,22 +50,31 @@ public abstract class ReferenceType extends Type {
     }
     
     /**
-     * Returns the specialized type of this and type. 
-     * The result should be the Type that extends both Types
-     * (this and type).  This correspondents to the common bottom Type
-     * in a range type.
+     * Returns the specialized type set of this and type.  The result
+     * should be a type set, so that every type, extends all types in
+     * type and this, iff it extends all types in the resulting type
+     * set.
      * @param type the other type.
-     * @return the specialized type.
-     */
-    public abstract Type getSpecializedType(Type typ);
+     * @return the specialized type.  */
+    public abstract Type getSpecializedType(Type type);
     /**
-     * Returns the generalized type of this and type.  The result
-     * should be the types that both types extends or implements. This
-     * correspondents to the common top Type in a range type.
+     * Returns the generalized type set of this and type.  The result
+     * should be a type set, so that every type, is extended/implemented
+     * by one type in this and one type in <code>type</code>, iff it is
+     * extended/implemented by one type in the resulting type set.
      * @param type the other type.
      * @return the generalized type
      */
-    public abstract Type getGeneralizedType(Type typ);
+    public abstract Type getGeneralizedType(Type type);
+    /**
+     * Creates a range type set of this and bottom.  The resulting type set
+     * contains all types, that extend all types in bottom and are extended
+     * by at least one type in this. <br>
+     * Note that a RangeType will do this, but we normalize the bottom and
+     * top set.
+     * @param bottom the bottom type.
+     * @return the range type set.
+     */
     public abstract Type createRangeType(ReferenceType bottom);
 
     /**
@@ -85,9 +109,7 @@ public abstract class ReferenceType extends Type {
 	return (this == tObject) ? tObject : tRange(tObject, this);
     }
 
-    public Type getSubType() {
-        return tRange(this, tNull);
-    }
+    public abstract Type getSubType();
 
     /**
      * Intersect this type with another type and return the new type.
