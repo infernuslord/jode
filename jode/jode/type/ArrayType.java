@@ -53,6 +53,10 @@ public class ArrayType extends Type {
         return tArray(elementType.getTop());
     }
 
+    public Type getHint() {
+	return tArray(elementType.getHint());
+    }
+
     static boolean implementsAllIfaces(ClassInfo[] otherIfaces) {
     big:
         for (int i=0; i < otherIfaces.length; i++) {

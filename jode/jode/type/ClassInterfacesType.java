@@ -80,6 +80,16 @@ public class ClassInterfacesType extends Type {
         return new ClassInterfacesType(clazz, ifaces);
     }
 
+    public Type getHint() {
+	if (ifaces.length == 0
+	    || (clazz == null && ifaces.length == 1))
+	    return this;
+	if (clazz != null)
+	    return Type.tClass(clazz.getName());
+	else 
+	    return Type.tClass(ifaces[0].getName());
+    }
+
     /**
      * Create the type corresponding to the range from bottomType to
      * this.  Checks if the given type range may be not empty.  This
