@@ -246,22 +246,31 @@ public class ConstantPool {
     public String toString(int i) {
 	switch (tags[i]) {
         case CLASS:
-            return "class "+toString(indices1[i]);
+            return "Class "+toString(indices1[i]);
         case STRING:
-            return "\""+toString(indices1[i])+"\"";
+            return "String \""+toString(indices1[i])+"\"";
         case INTEGER:
+            return "Int "+constants[i].toString();
         case FLOAT:
+            return "Float "+constants[i].toString();
         case LONG:
+            return "Long "+constants[i].toString();
         case DOUBLE:
+            return "Double "+constants[i].toString();
         case UTF8:
             return constants[i].toString();
         case FIELDREF:
+            return "Fieldref: "+toString(indices1[i])+"; "
+                + toString(indices2[i]);
         case METHODREF:
+            return "Methodref: "+toString(indices1[i])+"; "
+                + toString(indices2[i]);
         case INTERFACEMETHODREF:
-            return "Ref: "+toString(indices1[i])+": "
+            return "Interfaceref: "+toString(indices1[i])+"; "
                 + toString(indices2[i]);
         case NAMEANDTYPE:
-            return toString(indices1[i])+" "+toString(indices2[i]);
+            return "Name "+toString(indices1[i])
+		+"; Type "+toString(indices2[i]);
         default:
             return "unknown tag: "+tags[i];
 	}
@@ -274,7 +283,7 @@ public class ConstantPool {
     public String toString() {
         StringBuffer result = new StringBuffer("[ null");
         for (int i=1; i< count; i++) {
-            result.append(", ").append(toString(i));
+            result.append(", ").append(i).append(" = ").append(toString(i));
         }
         result.append(" ]");
         return result.toString();
