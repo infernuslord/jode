@@ -163,7 +163,7 @@ public class Type {
     }
 
     public static final Type tClass(String clazzname) {
-        clazzname = clazzname.replace(java.io.File.separatorChar, '.');
+        clazzname = clazzname.replace('/', '.');
         Object result = classHash.get(clazzname);
         if (result == null) {
             try {
