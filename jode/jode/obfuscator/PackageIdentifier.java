@@ -31,7 +31,6 @@ public class PackageIdentifier extends Identifier {
     PackageIdentifier parent;
     String name;
 
-    boolean willStrip = false;
     boolean loadOnDemand;
     Hashtable loadedClasses;
 
@@ -211,25 +210,6 @@ public class PackageIdentifier extends Identifier {
 	return className;
     }
 
-    public void strip() {
-	willStrip = true;
-	Enumeration enum = loadedClasses.elements();
-	while (enum.hasMoreElements()) {
-	    Identifier ident = (Identifier) enum.nextElement();
-	    if (ident.isReachable()) {
-		if (ident instanceof ClassIdentifier) {
-		    ((ClassIdentifier) ident).strip();
-		} else
-		    ((PackageIdentifier) ident).strip();
-	    } else {
-		if (Obfuscator.isDebugging)
-		    Obfuscator.err.println("Class/Package "
-					   + ident.getFullName()
-					   + " is not reachable");
-	    }
-	}
-    }
-
     public void buildTable(int renameRule) {
 	super.buildTable(renameRule);
 	Enumeration enum = loadedClasses.elements();
@@ -249,7 +229,7 @@ public class PackageIdentifier extends Identifier {
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
-	    if (!willStrip || ident.isReachable())
+	    if (!Obfuscator.shouldStrip || ident.isReachable())
 		ident.writeTable(out);
 	}
     }
@@ -276,8 +256,13 @@ public class PackageIdentifier extends Identifier {
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
-	    if (willStrip && !ident.isReachable())
+	    if (Obfuscator.shouldStrip && !ident.isReachable()) {
+		if (Obfuscator.isDebugging)
+		    Obfuscator.err.println("Class/Package "
+					   + ident.getFullName()
+					   + " is not reachable");
 		continue;
+	    }
 	    if (ident instanceof PackageIdentifier)
 		((PackageIdentifier) ident)
 		    .storeClasses(newDest);
@@ -309,13 +294,15 @@ public class PackageIdentifier extends Identifier {
     public boolean contains(String newAlias) {
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
-	    if (((Identifier)enum.nextElement()).getAlias().equals(newAlias))
+	    Identifier ident = (Identifier)enum.nextElement();
+	    if ((!Obfuscator.shouldStrip || ident.isReachable())
+		&& ident.getAlias().equals(newAlias))
 		return true;
 	}
 	return false;
     }
 
-    public boolean conflicting(String newAlias) {
+    public boolean conflicting(String newAlias, boolean strong) {
 	return parent.contains(newAlias);
     }
 }

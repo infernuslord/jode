@@ -16,7 +16,7 @@
  * $Id$
  */
 package jode.flow;
-import jode.TabbedPrintWriter;
+import jode.decompiler.TabbedPrintWriter;
 
 /**
  * A sequential block combines exactly two structured blocks to a new

@@ -258,11 +258,14 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	return info.getType().getTypeSignature();
     }
 
-    public boolean conflicting(String newAlias) {
-	String type = getType();
-	String paramType = type.substring(0, type.indexOf(')')+1);
-	return clazz.getMethod(newAlias, paramType) != null
-	    || clazz.containFieldAlias(newAlias, "");
+    public boolean conflicting(String newAlias, boolean strong) {
+	if (strong) {
+	    return clazz.getMethod(newAlias, getType()) != null;
+	} else {
+	    String type = getType();
+	    String paramType = type.substring(0, type.indexOf(')')+1);
+	    return clazz.getMethod(newAlias, paramType) != null;
+	}
     }
 
     public String toString() {

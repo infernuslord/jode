@@ -85,7 +85,7 @@ public class Jump {
      * dumpInstruction afterwards.
      * @param writer The tabbed print writer, where we print to.
      */
-    public void dumpSource(jode.TabbedPrintWriter writer)
+    public void dumpSource(jode.decompiler.TabbedPrintWriter writer)
         throws java.io.IOException
     {
         if (jode.Decompiler.debugInOut) {

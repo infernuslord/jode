@@ -17,7 +17,7 @@
  * $Id$
  */
 package jode.bytecode;
-import jode.TabbedPrintWriter;
+import jode.decompiler.TabbedPrintWriter;
 import java.io.*;
 import java.lang.reflect.Modifier;
 

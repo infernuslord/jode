@@ -16,7 +16,7 @@
  * $Id$
  */
 package jode.flow;
-import jode.TabbedPrintWriter;
+import jode.decompiler.TabbedPrintWriter;
 import jode.expr.Expression;
 import jode.expr.LocalVarOperator;
 

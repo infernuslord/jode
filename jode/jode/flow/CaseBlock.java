@@ -105,7 +105,7 @@ public class CaseBlock extends StructuredBlock {
     public void makeDeclaration(VariableSet done) {
         java.util.Enumeration enum = allUsed.elements();
         while (enum.hasMoreElements()) {
-            jode.LocalInfo li = (jode.LocalInfo) enum.nextElement();
+            jode.decompiler.LocalInfo li = (jode.decompiler.LocalInfo) enum.nextElement();
             if (!done.contains(li)) {
                 wantBraces = true;
                 break;
@@ -123,7 +123,7 @@ public class CaseBlock extends StructuredBlock {
             : new StructuredBlock[0];
     }
 
-    public void dumpInstruction(jode.TabbedPrintWriter writer) 
+    public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 
         throws java.io.IOException 
     {
 	if (isDefault) {

@@ -19,7 +19,7 @@
 
 package jode.expr;
 import jode.Type;
-import jode.CodeAnalyzer;
+import jode.decompiler.CodeAnalyzer;
 
 public class GetFieldOperator extends Operator {
     boolean staticFlag;

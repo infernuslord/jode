@@ -18,9 +18,9 @@
  */
 
 package jode.flow;
-import jode.TabbedPrintWriter;
 import jode.AssertError;
-import jode.LocalInfo;
+import jode.decompiler.TabbedPrintWriter;
+import jode.decompiler.LocalInfo;
 
 /**
  * A structured block is the building block of the source programm.
@@ -473,7 +473,7 @@ public abstract class StructuredBlock {
      * dumpInstruction afterwards.
      * @param writer The tabbed print writer, where we print to.
      */
-    public void dumpSource(jode.TabbedPrintWriter writer)
+    public void dumpSource(jode.decompiler.TabbedPrintWriter writer)
         throws java.io.IOException
     {
 	if (declare != null) {
@@ -499,7 +499,7 @@ public abstract class StructuredBlock {
      * @param writer The tabbed print writer, where we print to.
      * @param local  The local that should be declared.
      */
-    public void dumpDeclaration(jode.TabbedPrintWriter writer, LocalInfo local)
+    public void dumpDeclaration(jode.decompiler.TabbedPrintWriter writer, LocalInfo local)
         throws java.io.IOException
     {
 	writer.println(local.getType().toString() + " "
@@ -516,8 +516,8 @@ public abstract class StructuredBlock {
     public String toString() {
         try {
             java.io.StringWriter strw = new java.io.StringWriter();
-            jode.TabbedPrintWriter writer = 
-                new jode.TabbedPrintWriter(strw);
+            jode.decompiler.TabbedPrintWriter writer = 
+                new jode.decompiler.TabbedPrintWriter(strw);
             writer.println(super.toString());
             writer.tab();
             dumpSource(writer);

@@ -18,7 +18,7 @@
  */
 
 package jode.flow;
-import jode.TabbedPrintWriter;
+import jode.decompiler.TabbedPrintWriter;
 
 /**
  * This is the structured block for an empty block.

@@ -18,7 +18,7 @@
  */
 package jode.flow;
 import jode.Type;
-import jode.LocalInfo;
+import jode.decompiler.LocalInfo;
 
 /**
  * 
@@ -91,7 +91,7 @@ public class CatchBlock extends StructuredBlock {
      * @param writer The tabbed print writer, where we print to.
      * @param local  The local that should be declared.
      */
-    public void dumpDeclaration(jode.TabbedPrintWriter writer, LocalInfo local)
+    public void dumpDeclaration(jode.decompiler.TabbedPrintWriter writer, LocalInfo local)
         throws java.io.IOException
     {
         if (local != exceptionLocal) {
@@ -102,7 +102,7 @@ public class CatchBlock extends StructuredBlock {
         }
     }
 
-    public void dumpInstruction(jode.TabbedPrintWriter writer) 
+    public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 
         throws java.io.IOException {
 	writer.closeBraceContinue();
         writer.print("catch ("+exceptionType.toString() + " "

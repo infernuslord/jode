@@ -19,7 +19,7 @@
 
 package jode.expr;
 import jode.Type;
-import jode.LocalInfo;
+import jode.decompiler.LocalInfo;
 
 public interface LocalVarOperator {
     public boolean isRead();

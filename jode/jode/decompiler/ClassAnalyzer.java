@@ -17,20 +17,22 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.*;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.MethodInfo;
 import jode.bytecode.ConstantPool;
 import jode.bytecode.ClassFormatException;
-import jode.decompiler.Expression;
+import jode.expr.Expression;
 import jode.flow.TransformConstructors;
 
 import java.lang.reflect.Modifier;
 
 public class ClassAnalyzer implements Analyzer {
     JodeEnvironment env;
-    Analyzer[] analyzers;
+    FieldAnalyzer[] fields;
+    MethodAnalyzer[] methods;
     MethodAnalyzer staticConstructor;
     MethodAnalyzer[] constructors;
 
@@ -46,14 +48,14 @@ public class ClassAnalyzer implements Analyzer {
         this.env  = env;
     }
 
-    public boolean setFieldInitializer(String fieldName, Expression expr) {
-        for (int i=0; i< analyzers.length; i++) {
-            if (analyzers[i] instanceof FieldAnalyzer) {
-                FieldAnalyzer field = (FieldAnalyzer) analyzers[i];
-                if (field.getName().equals(fieldName))
-                    return field.setInitializer(expr);
-            }
+    public boolean setFieldInitializer(String fieldName, Type fieldType,
+				       Expression expr) {
+        for (int i=0; i< fields.length; i++) {
+	    if (fields[i].getName().equals(fieldName)
+		&& fields[i].getType().isOfType(fieldType))
+		return fields[i].setInitializer(expr);
         }
+	System.err.println("Can't find field "+fieldType+" "+fieldName+".");
         return false;
     }
 
@@ -65,37 +67,42 @@ public class ClassAnalyzer implements Analyzer {
         int numFields = 0;
         int i = 0;
         
-        FieldInfo[] fields = clazz.getFields();
-        MethodInfo[] methods = clazz.getMethods();
-        if (fields == null) {
+        FieldInfo[] finfos = clazz.getFields();
+        MethodInfo[] minfos = clazz.getMethods();
+        if (finfos == null) {
             /* This means that the class could not be loaded.
              * give up.
              */
             return;
         }
 
-        analyzers = new Analyzer[fields.length + 
-                                methods.length];
-        for (int j=0; j < fields.length; j++) {
-            analyzers[i] = new FieldAnalyzer(this, fields[j], env);
-            analyzers[i++].analyze();
+	fields = new FieldAnalyzer[finfos.length];
+	methods = new MethodAnalyzer[minfos.length];
+        for (int j=0; j < finfos.length; j++) {
+            fields[j] = new FieldAnalyzer(this, finfos[j], env);
+            fields[j].analyze();
         }
 
         staticConstructor = null;
         java.util.Vector constrVector = new java.util.Vector();
         for (int j=0; j < methods.length; j++) {
-            MethodAnalyzer analyzer = 
-                new MethodAnalyzer(this, methods[j], env);
-            analyzers[i++] = analyzer;
+            methods[j] = new MethodAnalyzer(this, minfos[j], env);
 
-            if (analyzer.isConstructor()) {
-                if (analyzer.isStatic())
-                    staticConstructor = analyzer;
+            if (methods[j].isConstructor()) {
+                if (methods[j].isStatic())
+                    staticConstructor = methods[j];
                 else
-                    constrVector.addElement(analyzer);
+                    constrVector.addElement(methods[j]);
             }
-            analyzer.analyze();
+	    // First analyze only synthetic methods.
+	    if (methods[j].isSynthetic())
+		methods[j].analyze();
         }
+        for (int j=0; j < methods.length; j++) {
+	    // Now analyze the remaining methods
+	    if (!methods[j].isSynthetic())
+		methods[j].analyze();
+	}
         constructors = new MethodAnalyzer[constrVector.size()];
         if (constructors.length > 0) {
             constrVector.copyInto(constructors);
@@ -115,7 +122,7 @@ public class ClassAnalyzer implements Analyzer {
 
     public void dumpSource(TabbedPrintWriter writer) throws java.io.IOException
     {
-        if (analyzers == null) {
+        if (fields == null) {
             /* This means that the class could not be loaded.
              * give up.
              */
@@ -148,8 +155,10 @@ public class ClassAnalyzer implements Analyzer {
 	writer.openBrace();
 	writer.tab();
 
-	for (int i=0; i< analyzers.length; i++)
-	    analyzers[i].dumpSource(writer);
+	for (int i=0; i< fields.length; i++)
+	    fields[i].dumpSource(writer);
+	for (int i=0; i< methods.length; i++)
+	    methods[i].dumpSource(writer);
 	writer.untab();
 	writer.closeBrace();
     }

@@ -17,7 +17,7 @@
  */
 
 package jode.flow;
-import jode.TabbedPrintWriter;
+import jode.decompiler.TabbedPrintWriter;
 
 /**
  * A TryBlock is created for each exception in the

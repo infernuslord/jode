@@ -17,11 +17,10 @@
  * $Id$
  */
 
-package jode.expr;
-import jode.CodeAnalyzer;
-import jode.LocalInfo;
+package jode.decompiler;
 import jode.Type;
 import jode.MethodType;
+import jode.expr.*;
 import jode.flow.*;
 import jode.bytecode.*;
 import java.io.*;
@@ -56,8 +55,8 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
     };
     
     private static StructuredBlock createNormal(CodeAnalyzer ca, 
-                                               int addr, int length, 
-                                               Expression instr)
+						int addr, int length, 
+						Expression instr)
     {
         return new InstructionBlock(instr, new Jump(addr+length));
     }

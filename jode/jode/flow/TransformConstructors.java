@@ -17,7 +17,8 @@
  * $Id$
  */
 package jode.flow;
-import jode.ClassAnalyzer;
+import jode.decompiler.ClassAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.expr.*;
 
 /**
@@ -28,7 +29,7 @@ public class TransformConstructors {
     
     public static void transform(ClassAnalyzer clazzAnalyzer,
                                  boolean isStatic, 
-                                 jode.MethodAnalyzer[] cons) {
+                                 MethodAnalyzer[] cons) {
         if (cons.length == 0)
             return;
 
@@ -132,7 +133,8 @@ public class TransformConstructors {
             }
 
 
-            if (!clazzAnalyzer.setFieldInitializer(pfo.getFieldName(), expr)) {
+            if (!clazzAnalyzer.setFieldInitializer(pfo.getFieldName(), 
+						   pfo.getFieldType(), expr)) {
 //                 Decompiler.err.println("setField failed");
                 break big_loop;
             }

@@ -19,7 +19,7 @@
 
 package jode.expr;
 import jode.Type;
-import jode.CodeAnalyzer;
+import jode.decompiler.CodeAnalyzer;
 
 public class ClassFieldOperator extends NoArgOperator {
     Type classType;

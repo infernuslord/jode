@@ -17,8 +17,8 @@
  * $Id$
  */
 package jode.flow;
-import jode.LocalInfo;
-import jode.TabbedPrintWriter;
+import jode.decompiler.LocalInfo;
+import jode.decompiler.TabbedPrintWriter;
 import jode.expr.Expression;
 
 /**

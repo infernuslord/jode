@@ -19,12 +19,13 @@
 
 package jode.expr;
 import jode.Type;
-import jode.CodeAnalyzer;
+import jode.decompiler.CodeAnalyzer;
 
 public class PutFieldOperator extends StoreInstruction {
     CodeAnalyzer codeAnalyzer;
     boolean staticFlag;
     String fieldName;
+    Type fieldType;
     Type classType;
 
     public PutFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag, 
@@ -33,6 +34,7 @@ public class PutFieldOperator extends StoreInstruction {
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
         this.fieldName = fieldName;
+	this.fieldType = type;
         this.classType = classType;
         if (staticFlag)
             classType.useType();
@@ -44,6 +46,10 @@ public class PutFieldOperator extends StoreInstruction {
 
     public String getFieldName() {
         return fieldName;
+    }
+
+    public Type getFieldType() {
+        return fieldType;
     }
 
     public boolean matches(Operator loadop) {

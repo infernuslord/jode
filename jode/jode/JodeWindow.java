@@ -3,6 +3,7 @@ import java.applet.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import jode.decompiler.TabbedPrintWriter;
 
 public class JodeWindow 
     implements ActionListener, Runnable

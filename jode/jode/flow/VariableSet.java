@@ -16,7 +16,7 @@
  * $Id$
  */
 package jode.flow;
-import jode.LocalInfo;
+import jode.decompiler.LocalInfo;
 
 /**
  * This class represents a set of Variables, which are mainly used in

@@ -20,7 +20,7 @@ package jode.flow;
 import jode.AssertError;
 import jode.Decompiler;
 import jode.Type;
-import jode.LocalInfo;
+import jode.decompiler.LocalInfo;
 import jode.expr.*;
 
 import java.util.Enumeration;
