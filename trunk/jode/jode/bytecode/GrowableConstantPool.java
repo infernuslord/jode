@@ -106,8 +106,15 @@ public class GrowableConstantPool extends ConstantPool {
 	return putConstant(UTF8, utf);
     }    
 
-    public int putClassRef(String name) {
+    public int putClassName(String name) {
 	name = name.replace('.','/');
+	return putIndexed(""+(char) CLASS + name,
+			  CLASS, putUTF(name), 0);
+    }
+
+    public int putClassType(String name) {
+	if (name.charAt(0) == 'L')
+	    name = name.substring(1, name.length()-1);
 	return putIndexed(""+(char) CLASS + name,
 			  CLASS, putUTF(name), 0);
     }
@@ -117,7 +124,7 @@ public class GrowableConstantPool extends ConstantPool {
 	String typeSig = ref.getType();
 	String nameAndType = ref.getName() + "/" + typeSig;
 
-	int classIndex = putClassRef(className);
+	int classIndex = putClassType(className);
 	int nameIndex  = putUTF(ref.getName());
 	int typeIndex  = putUTF(typeSig);
 	int nameTypeIndex = putIndexed("" + (char) NAMEANDTYPE + nameAndType,
