@@ -32,10 +32,9 @@ public class Applet extends java.applet.Applet {
     public void init() {
 	String cp = getParameter("classpath");
 	if (cp != null)
-	    jodeWin.setClasspath(cp);
+	    jodeWin.setClassPath(cp);
 	String cls = getParameter("class");
 	if (cls != null)
 	    jodeWin.setClass(cls);
     }
 }
-

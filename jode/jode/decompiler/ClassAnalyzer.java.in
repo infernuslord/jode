@@ -30,8 +30,7 @@ import jode.expr.Expression;
 import jode.expr.ThisOperator;
 import jode.flow.TransformConstructors;
 import jode.flow.StructuredBlock;
-import jode.flow.FlowBlock;
-import jode.flow.VariableSet;
+import jode.util.SimpleSet;
 
 import java.lang.reflect.Modifier;
 import java.util.NoSuchElementException;
@@ -43,14 +42,26 @@ import @COLLECTIONS@.Collection;
 import @COLLECTIONS@.Set;
 
 public class ClassAnalyzer 
-    implements Analyzer, Scope, Declarable, ClassDeclarer 
+    implements Scope, Declarable, ClassDeclarer
 {
     ImportHandler imports;
     ClassInfo clazz;
     ClassDeclarer parent;
+    ProgressListener progressListener;
+
+    /**
+     * The complexity for initi#alizing a class.
+     */
+    private static double INITIALIZE_COMPLEXITY = 0.03;
+    /**
+     * The minimal visible complexity.
+     */
+    private static double STEP_COMPLEXITY = 0.03;
+    double methodComplexity = 0.0;
+    double innerComplexity = 0.0;
 
     String name;
-    FlowBlock[] blockInitializers;
+    StructuredBlock[] blockInitializers;
     FieldAnalyzer[] fields;
     MethodAnalyzer[] methods;
     ClassAnalyzer[] inners;
@@ -169,8 +180,8 @@ public class ClassAnalyzer
     public void addBlockInitializer(int index,
 				    StructuredBlock initializer) {
 	if (blockInitializers[index] == null)
-	    blockInitializers[index] = new FlowBlock(null, 0);
-	blockInitializers[index].appendBlock(initializer, 0);
+	    blockInitializers[index] = initializer;
+	blockInitializers[index].appendBlock(initializer);
     }
 
     public void initialize() {
@@ -206,7 +217,7 @@ public class ClassAnalyzer
 
 	fields = new FieldAnalyzer[finfos.length];
 	methods = new MethodAnalyzer[minfos.length];
-	blockInitializers = new FlowBlock[finfos.length+1];
+	blockInitializers = new StructuredBlock[finfos.length+1];
         for (int j=0; j < finfos.length; j++)
             fields[j] = new FieldAnalyzer(this, finfos[j], imports);
 
@@ -221,6 +232,7 @@ public class ClassAnalyzer
                 else
                     constrVector.addElement(methods[j]);
             }
+	    methodComplexity += methods[j].getComplexity();
         }
 
         constructors = new MethodAnalyzer[constrVector.size()];
@@ -229,12 +241,25 @@ public class ClassAnalyzer
 	// initialize the inner classes.
 	for (int j=0; j < inners.length; j++) {
 	    inners[j].initialize();
+	    innerComplexity += inners[j].getComplexity();
 	}
     }
 
-    public void analyze() {
+    /**
+     * Gets the complexity of this class.  Must be called after it has
+     * been initialized.  This is used for a nice progress bar.
+     */
+    public double getComplexity() {
+	return (methodComplexity + innerComplexity);
+    }
+
+    public void analyze(ProgressListener pl, double done, double scale) {
 	if (GlobalOptions.verboseLevel > 0)
-	    GlobalOptions.err.println("Class " + clazz.getName());
+	    GlobalOptions.err.println("Class " + name);
+	double subScale = scale / methodComplexity;
+	if (pl != null)
+	    pl.updateProgress(done, name);
+
 	imports.useClass(clazz);
         if (clazz.getSuperclass() != null)
             imports.useClass(clazz.getSuperclass());
@@ -254,12 +279,37 @@ public class ClassAnalyzer
 	constrAna = null;
 	if (constructors.length > 0) {
 	    for (int j=0; j< constructors.length; j++)
-		constructors[j].analyze();
+		{
+		    if (pl != null) {
+			double constrCompl = constructors[j].getComplexity()
+			    * subScale;
+			if (constrCompl > STEP_COMPLEXITY)
+			    constructors[j].analyze(pl, done, constrCompl);
+			else {
+			    pl.updateProgress(done, name);
+			    constructors[j].analyze(null, 0.0, 0.0);
+			}
+			done += constrCompl;
+		    } else
+			constructors[j].analyze(null, 0.0, 0.0);
+		}
 	    constrAna = new TransformConstructors(this, false, constructors);
 	    constrAna.removeSynthInitializers();
         }
-	if (staticConstructor != null)
-	    staticConstructor.analyze();
+	if (staticConstructor != null) {
+	    if (pl != null) {
+		double constrCompl
+		    = staticConstructor.getComplexity() * subScale;
+		if (constrCompl > STEP_COMPLEXITY)
+		    staticConstructor.analyze(pl, done, constrCompl);
+		else {
+		    pl.updateProgress(done, name);
+		    staticConstructor.analyze(null, 0.0, 0.0);
+		}
+		done += constrCompl;
+	    } else
+		staticConstructor.analyze(null, 0.0, 0.0);
+	}
 
 	// If output should be immediate, we delay analyzation to output.
 	// Note that this may break anonymous classes, but the user
@@ -274,11 +324,24 @@ public class ClassAnalyzer
 	// Now analyze remaining methods.
         for (int j=0; j < methods.length; j++) {
 	    if (!methods[j].isConstructor())
-		methods[j].analyze();
+		if (pl != null) {
+		    double methodCompl = methods[j].getComplexity()
+			* subScale;
+		    if (methodCompl > STEP_COMPLEXITY)
+			methods[j].analyze(pl, done, methodCompl);
+		    else {
+			pl.updateProgress(done, methods[j].getName());
+			methods[j].analyze(null, 0.0, 0.0);
+		    }
+		    done += methodCompl;
+		} else
+		    methods[j].analyze(null, 0.0, 0.0);
 	}
     }
 
-    public void analyzeInnerClasses() {
+    public void analyzeInnerClasses(ProgressListener pl, 
+				    double done, double scale) {
+	double subScale = scale / innerComplexity;
 	// If output should be immediate, we delay analyzation to output.
 	// Note that this may break anonymous classes, but the user
 	// has been warned.
@@ -287,8 +350,23 @@ public class ClassAnalyzer
 
 	// Now analyze the inner classes.
 	for (int j=0; j < inners.length; j++) {
-	    inners[j].analyze();
-	    inners[j].analyzeInnerClasses();
+	    if (pl != null) {
+		double innerCompl = inners[j].getComplexity() * subScale;
+		if (innerCompl > STEP_COMPLEXITY) {
+		    double innerscale = subScale * inners[j].methodComplexity;
+		    inners[j].analyze(pl, done, innerscale);
+		    inners[j].analyzeInnerClasses(null, done + innerscale,
+						  innerCompl - innerscale);
+		} else {
+		    pl.updateProgress(done, inners[j].name);
+		    inners[j].analyze(null, 0.0, 0.0);
+		    inners[j].analyzeInnerClasses(null, 0.0, 0.0);
+		}
+		done += innerCompl;
+	    } else {
+		inners[j].analyze(null, 0.0, 0.0);
+		inners[j].analyzeInnerClasses(null, 0.0, 0.0);
+	    }
 	}
 
 	// Now analyze the method scoped classes.
@@ -325,14 +403,23 @@ public class ClassAnalyzer
 	dumpSource(writer);
     }
 
-    public void dumpBlock(TabbedPrintWriter writer) throws IOException
+    public void dumpBlock(TabbedPrintWriter writer)
+	throws IOException
     {
+	dumpBlock(writer, null, 0.0, 0.0);
+    }
+
+    public void dumpBlock(TabbedPrintWriter writer,
+			  ProgressListener pl, double done, double scale) 
+	throws IOException
+    {
+	double subScale = scale / getComplexity();
 	writer.pushScope(this);
 	boolean needFieldNewLine = false;
 	boolean needNewLine = false;
 	Set declared = null;
 	if ((Options.options & Options.OPTION_IMMEDIATE) != 0)
-	    declared = new VariableSet();
+	    declared = new SimpleSet();
 	for (int i=0; i< fields.length; i++) {
 	    if (blockInitializers[i] != null) {
 		if (needNewLine)
@@ -372,19 +459,29 @@ public class ClassAnalyzer
 
 	    if ((Options.options & Options.OPTION_IMMEDIATE) != 0) {
 		// We now do the analyzation we skipped before.
-		inners[i].analyze();
-		inners[i].analyzeInnerClasses();
+		inners[i].analyze(null, 0.0, 0.0);
+		inners[i].analyzeInnerClasses(null, 0.0, 0.0);
 		inners[i].makeDeclaration(declared);
 	    }
 
-	    inners[i].dumpSource(writer);
+	    if (pl != null) {
+		double innerCompl = inners[i].getComplexity() * subScale;
+		if (innerCompl > STEP_COMPLEXITY)
+		    inners[i].dumpSource(writer, pl, done, innerCompl);
+		else {
+		    pl.updateProgress(done, name);
+		    inners[i].dumpSource(writer);
+		}
+		done += innerCompl;
+	    } else
+		inners[i].dumpSource(writer);
 	    needNewLine = true;
 	}
 	for (int i=0; i< methods.length; i++) {
 	    if ((Options.options & Options.OPTION_IMMEDIATE) != 0) {
 		// We now do the analyzation we skipped before.
 		if (!methods[i].isConstructor())
-		    methods[i].analyze();
+		    methods[i].analyze(null, 0.0, 0.0);
 		methods[i].analyzeInnerClasses();
 		methods[i].makeDeclaration(declared);
 	    }
@@ -393,13 +490,28 @@ public class ClassAnalyzer
 		continue;
 	    if (needNewLine)
 		writer.println("");
-	    methods[i].dumpSource(writer);
+
+	    if (pl != null) {
+		double methodCompl = methods[i].getComplexity() * subScale;
+		pl.updateProgress(done, methods[i].getName());
+		methods[i].dumpSource(writer);
+		done += methodCompl;
+	    } else
+		methods[i].dumpSource(writer);
 	    needNewLine = true;
 	}
 	writer.popScope();
     }
 
-    public void dumpSource(TabbedPrintWriter writer) throws IOException
+    public void dumpSource(TabbedPrintWriter writer)
+	throws IOException
+    {
+	dumpSource(writer, null, 0.0, 0.0);
+    }
+
+    public void dumpSource(TabbedPrintWriter writer,
+			   ProgressListener pl, double done, double scale)
+	throws IOException
     {
         if (fields == null) {
             /* This means that the class could not be loaded.
@@ -449,7 +561,7 @@ public class ClassAnalyzer
 
 	writer.openBrace();
 	writer.tab();
-	dumpBlock(writer);
+	dumpBlock(writer, pl, done, scale);
 	writer.untab();
 	if (parent instanceof MethodAnalyzer) {
 	    /* This is a method scope class */
@@ -459,16 +571,27 @@ public class ClassAnalyzer
         clazz.dropInfo(clazz.KNOWNATTRIBS | clazz.UNKNOWNATTRIBS);
     }
 
-    public void dumpJavaFile(TabbedPrintWriter writer) throws IOException {
+    public void dumpJavaFile(TabbedPrintWriter writer)
+	throws IOException {    
+	dumpJavaFile(writer, null);
+    }
+
+    public void dumpJavaFile(TabbedPrintWriter writer, ProgressListener pl)
+	throws IOException {    
 	imports.init(clazz.getName());
 	LocalInfo.init();
 	initialize();
-	analyze();
-	analyzeInnerClasses();
-	makeDeclaration(new VariableSet());
-	
+	double done = 0.05;
+	double scale = (0.75) * methodComplexity 
+	    / (methodComplexity + innerComplexity);
+	analyze(pl, INITIALIZE_COMPLEXITY, scale);
+	done += scale;
+	analyzeInnerClasses(pl, done, 0.8 - done);
+	makeDeclaration(new SimpleSet());
 	imports.dumpHeader(writer);
-	dumpSource(writer);
+	dumpSource(writer, pl, 0.8, 0.2);
+	if (pl != null)
+	    pl.updateProgress(1.0, name);
     }
 
     public boolean isScopeOf(Object obj, int scopeType) {
