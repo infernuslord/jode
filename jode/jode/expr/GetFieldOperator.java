@@ -26,6 +26,7 @@ public class GetFieldOperator extends Operator {
     CodeAnalyzer codeAnalyzer;
     String fieldName;
     Type classType;
+    boolean needCast = false;
 
     public GetFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag,
                             Type classType, Type type, String fieldName) {
@@ -55,6 +56,8 @@ public class GetFieldOperator extends Operator {
     }
 
     public void setOperandType(Type types[]) {
+	if (!staticFlag)
+	    needCast = types[0].getTop().equals(Type.tUnknown);
     }
 
     public String toString(String[] operands) {
@@ -63,10 +66,12 @@ public class GetFieldOperator extends Operator {
                && codeAnalyzer.findLocal(fieldName) == null
                ? fieldName 
                : classType.toString() + "." + fieldName)
-            : (operands[0].equals("this")
-               && codeAnalyzer.findLocal(fieldName) == null
-               ? fieldName
-               : operands[0] + "." + fieldName);
+            : (operands[0].equals("null")
+	       ? "((" + classType + ") null)." + fieldName
+	       : (operands[0].equals("this")
+		  && codeAnalyzer.findLocal(fieldName) == null
+		  ? fieldName
+		  : operands[0] + "." + fieldName));
     }
 
     public boolean equals(Object o) {
