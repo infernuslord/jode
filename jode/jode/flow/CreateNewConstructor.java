@@ -20,6 +20,7 @@
 package jode.flow;
 import jode.InvokeOperator;
 import jode.Expression;
+import jode.ComplexExpression;
 import jode.ConstructorOperator;
 import jode.DupOperator;
 import jode.NewOperator;
@@ -85,9 +86,10 @@ public class CreateNewConstructor implements Transformation{
             return false;
         }
         ((InstructionContainer) flow.lastModified).setInstruction
-            (new Expression(new ConstructorOperator(constrCall.getClassType(), 
-                                                    constrCall.getField()),
-                            exprs));
+            (new ComplexExpression
+             (new ConstructorOperator(constrCall.getClassType(), 
+                                      constrCall.getField()),
+              exprs));
              
         flow.lastModified.replace(sequBlock, flow.lastModified);
         return true;

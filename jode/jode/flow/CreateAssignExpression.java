@@ -31,38 +31,34 @@ public class CreateAssignExpression implements Transformation{
         StoreInstruction store;
         BinaryOperator binop;
         InstructionContainer lastBlock;
-        SequentialBlock rhsBlock;
+        SequentialBlock opBlock;
         SequentialBlock sequBlock;
         try {
             InstructionBlock ib;
             lastBlock = (InstructionContainer) flow.lastModified;
             store = (StoreInstruction) lastBlock.getInstruction();
 
-            sequBlock = (SequentialBlock) lastBlock.outer;
-            if (sequBlock.subBlocks[1] != lastBlock)
+            opBlock = (SequentialBlock) lastBlock.outer;
+            if (opBlock.subBlocks[1] != lastBlock)
                 return false;
-            ib = (InstructionBlock) sequBlock.subBlocks[0];
+            ib = (InstructionBlock) opBlock.subBlocks[0];
 
-            binop = (BinaryOperator) ib.getInstruction();
-            if (binop.getOperator() <  binop.ADD_OP ||
-                binop.getOperator() >= binop.ASSIGN_OP)
+            ComplexExpression binopExpr = 
+                (ComplexExpression) ib.getInstruction();
+            binop = (BinaryOperator) binopExpr.getOperator();
+            if (binop.getOperatorIndex() <  binop.ADD_OP ||
+                binop.getOperatorIndex() >= binop.ASSIGN_OP)
                 return false;
 
-            sequBlock = (SequentialBlock) sequBlock.outer;
-            ib = (InstructionBlock) sequBlock.subBlocks[0];
-
-            rightHandSide = (Expression) ib.getInstruction();
+            rightHandSide = binopExpr.getSubExpressions()[1];
             if (rightHandSide.isVoid())
                 return false; /* XXX */
 
-            rhsBlock = (SequentialBlock) sequBlock.outer;
-            ib = (InstructionBlock) rhsBlock.subBlocks[0];
-
-            Operator load = (Operator) ib.getInstruction();
+            Operator load = (Operator) binopExpr.getSubExpressions()[0];
             if (!store.matches(load))
                 return false;
 
-            sequBlock = (SequentialBlock) rhsBlock.outer;
+            sequBlock = (SequentialBlock) opBlock.outer;
             ib = (InstructionBlock) sequBlock.subBlocks[0];
 
             DupOperator dup = (DupOperator) ib.getInstruction();
@@ -74,15 +70,15 @@ public class CreateAssignExpression implements Transformation{
         } catch (NullPointerException ex) {
             return false;
         }
-        ((InstructionBlock)rhsBlock.subBlocks[0])
+        ((InstructionBlock)opBlock.subBlocks[0])
             .setInstruction(rightHandSide);
-        rhsBlock.replace(sequBlock, rhsBlock);
+        opBlock.replace(sequBlock, opBlock);
 
-        store.setOperator(store.OPASSIGN_OP+binop.getOperator());
+        store.setOperatorIndex(store.OPASSIGN_OP+binop.getOperatorIndex());
         store.setLValueType(MyType.intersection(binop.getType(), 
                                                 store.getLValueType()));
         lastBlock.setInstruction(store);
-        lastBlock.replace(rhsBlock.subBlocks[1], lastBlock);
+        lastBlock.replace(opBlock.subBlocks[1], lastBlock);
         return true;
     }
 

@@ -20,6 +20,7 @@
 package jode.flow;
 import jode.Operator;
 import jode.Expression;
+import jode.ComplexExpression;
 
 /**
  * This transformation creates expressions.  It transforms
@@ -42,7 +43,7 @@ public class CreateExpression implements Transformation {
         Operator op;
         Expression exprs[];
         int params;
-        StructuredBlock block;
+        StructuredBlock sequBlock;
 
 //         try {
 //             System.err.println("Transformation on: "+flow.getLabel());
@@ -58,23 +59,23 @@ public class CreateExpression implements Transformation {
 //         }
 
         try {
-            SequentialBlock sequBlock;
-            block = flow.lastModified;
-            op = (Operator) ((InstructionContainer)block).getInstruction();
-            params  = op.getOperandCount();
+            op = (Operator) 
+                ((InstructionContainer)flow.lastModified).getInstruction();
+            params = op.getOperandCount();
+            if (params == 0)
+                return false;
             exprs = new Expression[params];
-            
-            for (int i = params-1; i>=0; i--) {
-                sequBlock = (SequentialBlock)block.outer;
-                if (i == params-1 &&
-                    sequBlock.getSubBlocks()[1] != block)
-                    return false;
 
-                block = sequBlock.getSubBlocks()[0];
+            sequBlock = flow.lastModified.outer;
+            if (sequBlock.getSubBlocks()[1] != flow.lastModified)
+                return false;
+            for (int i = params-1; i>=0; i--) {
+                InstructionBlock block = 
+                    (InstructionBlock) sequBlock.getSubBlocks()[0];
                 if (block.jump != null)
                     return false;
                 exprs[i] = 
-                    (Expression) ((InstructionBlock)block).getInstruction();
+                    (Expression) block.getInstruction();
                 if (exprs[i].isVoid()) {
 		    if (i == params-1)
 			return false;
@@ -90,7 +91,8 @@ public class CreateExpression implements Transformation {
                         setInstruction(e);
 		    exprs[i] = e;
 		}
-                block = sequBlock;
+                if (i > 0)
+                    sequBlock = (SequentialBlock)sequBlock.outer;
             }
         } catch (NullPointerException ex) {
             return false;
@@ -100,27 +102,9 @@ public class CreateExpression implements Transformation {
         if(jode.Decompiler.isVerbose && params > 0)
             System.err.print("x");
 
-//             try {
-//                 System.err.println("replacing: ");
-//                 jode.TabbedPrintWriter writer = 
-//                     new jode.TabbedPrintWriter(System.err, "    ");
-//                 writer.tab();
-//                 block.dumpSource(writer);
-//                 System.err.println("with: ");
-//                 flow.lastModified.dumpSource(writer);
-//             } catch (java.io.IOException ioex) {
-//             }
         ((InstructionContainer) flow.lastModified).setInstruction
-            (new Expression(op, exprs));
-        flow.lastModified.replace(block, flow.lastModified);
-//             try {
-//                 System.err.println("result: ");
-//                 jode.TabbedPrintWriter writer = 
-//                     new jode.TabbedPrintWriter(System.err, "    ");
-//                 writer.tab();
-//                 flow.lastModified.dumpSource(writer);
-//             } catch (java.io.IOException ioex) {
-//             }
+            (new ComplexExpression(op, exprs));
+        flow.lastModified.replace(sequBlock, flow.lastModified);
         return true;
     }
 }
