@@ -19,9 +19,8 @@
 
 package jode.swingui;
 import jode.GlobalOptions;
-import jode.decompiler.*;
-import jode.bytecode.ClassInfo;
-import jode.bytecode.SearchPath;
+import jode.decompiler.Decompiler;
+import jode.decompiler.ProgressListener;
 
 import @JAVAX_SWING@.*;
 import @JAVAX_SWING@.event.*;
@@ -33,6 +32,7 @@ import java.io.*;
 
 public class Main 
     implements ActionListener, Runnable, TreeSelectionListener {
+    Decompiler decompiler;
     JFrame frame;
     JTree classTree;
     JPanel statusLine;
@@ -47,7 +47,8 @@ public class Main
     boolean hierarchyTree;
 
     public Main(String classpath) {
-	setClasspath(classpath);
+        decompiler = new Decompiler();
+	setClassPath(classpath);
 	frame = new JFrame(GlobalOptions.copyright);
 	fillContentPane(frame.getContentPane());
 	addMenu(frame);
@@ -97,8 +98,8 @@ public class Main
 	rightPane.setDividerSize(4);
 	allPane.setDividerLocation(200);
 	allPane.setDividerSize(4);
-	GlobalOptions.err = new PrintWriter
-	    (new BufferedWriter(new AreaWriter(errorArea)), true);
+	decompiler.setErr(new PrintWriter
+	    (new BufferedWriter(new AreaWriter(errorArea)), true));
     }
 
     public synchronized void valueChanged(TreeSelectionEvent e) {
@@ -116,17 +117,24 @@ public class Main
 	    else
 		return;
 	    
-	    decompileThread = new Thread(this);
-	    decompileThread.setPriority(Thread.MIN_PRIORITY);
-	    sourcecodeArea.setText("Please wait, while decompiling...\n");
-	    decompileThread.start();
+	    startDecompiler();
 	}
     }
 
-    public synchronized void actionPerformed(ActionEvent e) {
-	if (e.getSource() == classTree && decompileThread == null) {
+    public void actionPerformed(ActionEvent e) {
+	if (e.getSource() == classTree)
+	    startDecompiler();
+    }
+
+    public synchronized void startDecompiler() {
+	if (decompileThread == null) {
 	    decompileThread = new Thread(this);
-	    sourcecodeArea.setText("Please wait, while decompiling...\n");
+	    decompileThread.setPriority(Thread.MIN_PRIORITY);
+	    
+	    progressBar.setMinimum(0);
+	    progressBar.setMaximum(1000);
+	    progressBar.setString("decompiling");
+	    progressBar.setStringPainted(true);
 	    decompileThread.start();
 	}
     }
@@ -140,6 +148,7 @@ public class Main
 	}
 
 	public void write(char[] b, int off, int len) throws IOException {
+	    /* Note that setText and append are thread safe! */
 	    if (!initialized) {
 		area.setText("");
 		initialized = true;
@@ -156,27 +165,51 @@ public class Main
 
     public void run() {
 	errorArea.setText("");
+	Writer writer = new BufferedWriter
+	    (new AreaWriter(sourcecodeArea), 1024);
 
-	ImportHandler imports = new ImportHandler();
+	ProgressListener progListener = new ProgressListener()
+	    {
+		public void updateProgress(final double progress, 
+					   final String detail) {
+		    SwingUtilities.invokeLater(new Runnable() 
+			{
+			    public void run() {
+				progressBar.setValue((int)(1000 * progress));
+				progressBar.setString(detail);
+			    }
+			});
+		}
+	    };
 	try {
-	    ClassInfo clazz = ClassInfo.forName(lastClassName);
-
-	    TabbedPrintWriter writer = 
-		new TabbedPrintWriter
-		(new BufferedWriter
-		 (new AreaWriter(sourcecodeArea), 1024), imports, false);
-	    ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
-	    clazzAna.dumpJavaFile(writer);
-	    writer.close();
+	    decompiler.decompile(lastClassName, writer, progListener);
 	} catch (Throwable t) {
-	    sourcecodeArea.setText("Didn't succeed.\n"
-				   +"Check the below area for more info.");
-	    t.printStackTrace(GlobalOptions.err);
+	    try {
+		writer.write("\nException while decompiling:");
+		PrintWriter pw = new PrintWriter(writer);
+		t.printStackTrace(pw);
+		pw.flush();
+	    } catch (IOException ex) {
+		/* Shouldn't happen, complain to stderr */
+		ex.printStackTrace();
+	    }
 	} finally {
+	    try {
+		writer.close();
+	    } catch (IOException ex) {
+		/* ignore */
+	    }
 	    synchronized(this) {
 		decompileThread = null;
 	    }
 	}
+	SwingUtilities.invokeLater(new Runnable()
+	    {
+		public void run() {
+		    progressBar.setValue(0);
+		    progressBar.setString("");
+		}
+	    });
     }
 
     public void addMenu(JFrame frame) {
@@ -233,14 +266,14 @@ public class Main
 		     null, currentClassPath);
 		if (newClassPath != null
 		    && !newClassPath.equals(currentClassPath))
-		    setClasspath(newClassPath);
+		    setClassPath(newClassPath);
 	    }
 	});
 	menu.add(item);
 	item = new JMenuItem("Reload classpath");
 	item.addActionListener(new ActionListener() {
 	    public void actionPerformed(ActionEvent ev) {
-		setClasspath(currentClassPath);
+		setClassPath(currentClassPath);
 	    }
 	});
 	menu.add(item);
@@ -248,11 +281,12 @@ public class Main
 	frame.setJMenuBar(bar);
     }
 
-    public void setClasspath(String classpath) {
+    public void setClassPath(String classpath) {
 	if (classpath == null || classpath.length() == 0)
 	    classpath = ".";
 	currentClassPath = classpath;
-	ClassInfo.setClassPath(classpath);
+	jode.bytecode.ClassInfo.setClassPath(classpath);
+	decompiler.setClassPath(classpath);
 	if (classTree != null)
 	    classTree.clearSelection();
 	if (packModel != null)
@@ -295,14 +329,13 @@ public class Main
     public static void main(String[] params) {
 	String cp = System.getProperty("java.class.path", "");
 	cp = cp.replace(File.pathSeparatorChar, 
-			SearchPath.altPathSeparatorChar);
+			Decompiler.altPathSeparatorChar);
 	for (int i=0; i<params.length; i++) {
 	    if (params[i].equals("--classpath"))
 		cp = params[++i];
 	    else
 		return;
 	}
-	GlobalOptions.verboseLevel = 1;
 	Main win = new Main(cp);
 	win.show();
     }
