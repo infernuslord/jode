@@ -40,6 +40,7 @@ import java.util.NoSuchElementException;
 
 public class PackagesTreeModel implements TreeModel {
     Map cachedChildrens = new HashMap();
+    Main main;
 
     class TreeElement implements Comparable {
 	String fullName;
@@ -89,6 +90,10 @@ public class PackagesTreeModel implements TreeModel {
     TreeElement root = new TreeElement("", "", false);
     Set listeners = new HashSet();
 
+    public PackagesTreeModel(Main main) {
+	this.main = main;
+    }
+
     public void rebuild() {
 	cachedChildrens.clear();
 	TreeModelListener[] ls;
@@ -99,6 +104,8 @@ public class PackagesTreeModel implements TreeModel {
 	TreeModelEvent ev = new TreeModelEvent(this, new Object[] { root });
 	for (int i=0; i< ls.length; i++)
 	    ls[i].treeStructureChanged(ev);
+
+	main.reselect();
     }
 
     public TreeElement[] getChildrens(TreeElement parent) {
@@ -158,7 +165,41 @@ public class PackagesTreeModel implements TreeModel {
     }
 
     public boolean isLeaf(Object node) {
-	return ((TreeElement)node).isLeaf();
+	return ((TreeElement) node).isLeaf();
+    }
+
+    public boolean isValidClass(Object node) {
+	return ((TreeElement) node).isLeaf();
+    }
+
+    public TreePath getPath(String fullName) {
+	if (fullName == null || fullName.length() == 0)
+	    return new TreePath(root);
+	int pos = -1;
+	int length = 2;
+	while ((pos = fullName.indexOf('.', pos+1)) != -1)
+	    length++;
+	TreeElement[] path = new TreeElement[length];
+	path[0] = root;
+	int i = 0;
+	pos = -1;
+    next_component:
+	while (pos < fullName.length()) {
+	    int start = pos+1;
+	    pos = fullName.indexOf('.', start);
+	    if (pos == -1)
+		pos = fullName.length();
+	    String component = fullName.substring(start, pos);
+	    TreeElement[] childs = getChildrens(path[i]);
+	    for (int j=0; j< childs.length; j++) {
+		if (childs[j].getName().equals(component)) {
+		    path[++i] = childs[j];
+		    continue next_component;
+		}
+	    }
+	    return null;
+	}
+	return new TreePath(path);
     }
 
     public String getFullName(Object node) {

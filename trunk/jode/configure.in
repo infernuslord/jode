@@ -202,6 +202,7 @@ jode/obfuscator/UniqueRenamer.java
 jode/obfuscator/WildCard.java
 jode/swingui/Main.java
 jode/swingui/PackagesTreeModel.java
+jode/swingui/HierarchyTreeModel.java
 jode/type/Type.java
 jode/util/SimpleSet.java
 jode/util/SimpleMap.java
