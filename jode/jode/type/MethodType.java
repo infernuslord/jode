@@ -58,6 +58,20 @@ public class MethodType extends Type {
         returnType = Type.tType(signature.substring(index+1));
     }
 
+    public MethodType(Class paramT[], Class returnT) {
+	super(TC_METHOD);
+	StringBuffer sig = new StringBuffer("(");
+	parameterTypes = new Type[paramT.length];
+	for (int i=0; i< paramT.length; i++) {
+	    parameterTypes[i] = Type.tType(paramT[i]);
+	    sig.append(parameterTypes[i].getTypeSignature());
+	}
+	sig.append(")");
+	returnType = Type.tType(returnT);
+	sig.append(returnType.getTypeSignature());
+	signature = sig.toString();
+    }
+
     public final int stackSize() {
 	int size = returnType.stackSize();
 	for (int i=0; i<parameterTypes.length; i++)
@@ -69,8 +83,19 @@ public class MethodType extends Type {
         return parameterTypes;
     }
 
+    public Class[] getParameterClasses() throws ClassNotFoundException {
+	Class[] paramClasses = new Class[parameterTypes.length];
+	for (int i = paramClasses.length; --i >= 0; )
+	    paramClasses[i] = parameterTypes[i].getTypeClass();
+        return paramClasses;
+    }
+
     public Type getReturnType() {
         return returnType;
+    }
+
+    public Class getReturnClass() throws ClassNotFoundException {
+	return returnType.getTypeClass();
     }
 
     public String getTypeSignature() {
