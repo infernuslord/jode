@@ -49,7 +49,7 @@ public class SpecialBlock extends StructuredBlock {
         this.type = type;
         this.count = count;
         this.depth = depth;
-        setJump(jump);
+	setJump(jump);
     }
 
     /**

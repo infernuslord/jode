@@ -54,6 +54,7 @@ public class TryBlock extends StructuredBlock {
         this.subBlocks = new StructuredBlock[] { bodyBlock };
         bodyBlock.outer = this;
         tryFlow.lastModified = this;
+	tryFlow.checkConsistent();
     }
 
     public void addCatchBlock(CatchBlock catchBlock) {

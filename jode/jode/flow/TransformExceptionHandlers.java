@@ -546,7 +546,7 @@ public class TransformExceptionHandlers {
              *      local_n = stack                                      |
              *      monitorexit local_x                                  |
              *      throw local_n                                        |
-             *  oprtional subroutine: <----------------------------------'
+             *  optional subroutine: <-----------------------------------'
              *    astore_n
              *    monitorexit local_x
              *    return_n
@@ -860,6 +860,7 @@ public class TransformExceptionHandlers {
                 Decompiler.err.println("analyzeCatch(" + trys[i].addr + ", "
                                    + endPCs[i] + ", " +catches[i].addr + ")");
             FlowBlock tryFlow = trys[i];
+            tryFlow.checkConsistent();
             while (tryFlow.analyze(tryFlow.addr, catches[i].addr));
 
             if (i == 0
@@ -888,8 +889,8 @@ public class TransformExceptionHandlers {
             tryFlow.checkConsistent();
             if (Decompiler.debugAnalyze)
                 Decompiler.err.println("analyzeCatch(" + tryFlow.addr + ", "
-                                   + (tryFlow.addr + tryFlow.length) + 
-                                   ") done.");
+				       + (tryFlow.addr + tryFlow.length) + 
+				       ") done.");
         }
     }
 }
