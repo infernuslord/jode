@@ -75,6 +75,9 @@ public class TransformConstructors implements OuterValueListener {
     boolean isStatic;
     MethodAnalyzer[] cons;
 
+    /**
+     * @see jode.decompiler.ClassAnalyzer#outerValues
+     */
     Expression[] outerValues;
     /**
      * The minimal first slot number after the outerValues.  This is because
@@ -159,7 +162,7 @@ public class TransformConstructors implements OuterValueListener {
      */
     public int getOuterValueIndex(int slot) {
 	int ovSlot = 1; // slot of first outerValue
-	for (int i=0; i< outerValues.length; i++) {
+	for (int i=0; i < outerValues.length; i++) {
 	    if (ovSlot == slot)
 		return i;
 	    ovSlot += outerValues[i].getType().stackSize();
@@ -167,7 +170,10 @@ public class TransformConstructors implements OuterValueListener {
 	return -1;
     }
 
-    public boolean checkAnonymousConstructor(MethodAnalyzer constr,
+    /**
+     * This will be
+     */
+    private boolean checkAnonymousConstructor(MethodAnalyzer constr,
 					     InstructionBlock superBlock) {
 
 	if (clazzAnalyzer.getName() != null)
@@ -288,7 +294,7 @@ public class TransformConstructors implements OuterValueListener {
 	 * The outerValues[0] parameter is the normal this of the
 	 * surrounding method (but what is the surrounding method?
 	 * That can't be determined in some cases).  If the
-	 * surrounding method is static, the outerValues[0] parameter
+s	 * surrounding method is static, the outerValues[0] parameter
 	 * disappears!
 	 *
 	 * Move optional super to method constructor$?
@@ -531,6 +537,8 @@ public class TransformConstructors implements OuterValueListener {
     }
 
     public void initSyntheticFields() {
+	if ((Decompiler.options & Decompiler.OPTION_CONTRAFO) == 0)
+	    return;
 	if (isStatic)
 	    return;
 
@@ -831,8 +839,16 @@ public class TransformConstructors implements OuterValueListener {
     }
 
     /**
-     * This does the transformations.  It will set the field initializers
-     * and removing the initializers from all constructors.
+     * This does the normal constructor transformations.
+     *
+     * javac copies the field initializers to each constructor.  This
+     * will undo the transformation:  it will tell the fields about the
+     * initial value and removes the initialization from all constructors.
+     *
+     * There are of course many checks necessary: All field
+     * initializers must be equal in all constructors, and there
+     * mustn't be locals that used in field initialization (except
+     * outerValue - locals).
      */
     public void transform() {
         if (cons.length == 0)

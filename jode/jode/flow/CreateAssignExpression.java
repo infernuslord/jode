@@ -81,6 +81,7 @@ public class CreateAssignExpression {
 	Operator expr = (Operator) ib.getInstruction();
 	if (expr.getFreeOperandCount() != lvalueCount)
 	    return false;
+	Type rvalueType = expr.getType();
 	
 	SpecialBlock dup = null;
         
@@ -176,6 +177,7 @@ public class CreateAssignExpression {
 	    dup.removeBlock();
         ib.setInstruction(rightHandSide);
         
+	store.getLValue().setType(rvalueType);
         store.makeOpAssign(store.OPASSIGN_OP + opIndex);
 
         if (isAssignOp)
