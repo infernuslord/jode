@@ -49,10 +49,11 @@ public class MethodInfo extends BinaryInfo {
     protected void readAttribute(String name, int length, ConstantPool cp,
 				 DataInputStream input, 
 				 int howMuch) throws IOException {
-	if (name.equals("Code")) {
+	if ((howMuch & ALL_ATTRIBUTES) != 0 && name.equals("Code")) {
 	    bytecode = new BytecodeInfo(this);
 	    bytecode.read(cp, input);
-	} else if (name.equals("Exceptions")) {
+	} else if ((howMuch & ALL_ATTRIBUTES) != 0 
+		   && name.equals("Exceptions")) {
 	    int count = input.readUnsignedShort();
 	    exceptions = new String[count];
 	    for (int i=0; i< count; i++)
@@ -151,6 +152,10 @@ public class MethodInfo extends BinaryInfo {
 	output.writeShort(constantPool.putUTF8(name));
 	output.writeShort(constantPool.putUTF8(typeSig));
         writeAttributes(constantPool, output);
+    }
+
+    public ClassInfo getClazzInfo() {
+	return clazzInfo;
     }
 
     public String getName() {
