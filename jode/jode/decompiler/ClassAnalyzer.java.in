@@ -124,8 +124,7 @@ public class ClassAnalyzer
 		&& fields[i].getType().equals(fieldType))
 		return i;
         }
-	throw new NoSuchElementException
-	    ("Field "+fieldType+" "+clazz.getName()+"."+fieldName);
+	return -1;
     }
     
     public MethodAnalyzer getMethod(String methodName, MethodType methodType) {
