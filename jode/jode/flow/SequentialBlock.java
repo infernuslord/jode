@@ -160,6 +160,31 @@ public class SequentialBlock extends StructuredBlock {
     }
     
     /**
+     * Propagate the used set.  Sequential blocks are special, because
+     * they "use" everything the first block uses.  This is, because
+     * the first block can't declare something that is only visible in
+     * the first block.
+     *
+     * @return all locals that are used in this block or in some sub
+     * block (this is <i>not</i> the used set).
+     */
+    public VariableSet propagateUsage() {
+        VariableSet allUse = (VariableSet) used.clone();
+	VariableSet childUse0 = subBlocks[0].propagateUsage();
+	VariableSet childUse1 = subBlocks[1].propagateUsage();
+	/* All variables used somewhere inside both sub blocks, are
+	 * used in this block, too.  
+	 * Also the variables used in first block are used in this
+	 * block two. (Note that subBlocks[0].used != childUse0)
+	 */
+	used.unionExact(childUse0.intersectExact(childUse1));
+	used.unionExact(subBlocks[0].used);
+	allUse.unionExact(childUse0);
+	allUse.unionExact(childUse1);
+        return allUse;
+    }
+
+    /**
      * Make the declarations, i.e. initialize the declare variable
      * to correct values.  This will declare every variable that
      * is marked as used, but not done.
@@ -167,12 +192,10 @@ public class SequentialBlock extends StructuredBlock {
      */
     public void makeDeclaration(VariableSet done) {
 	super.makeDeclaration(done);
-	if (subBlocks[0] instanceof InstructionBlock) {
-	    /* Special case: If the first block is an InstructionBlock,
-	     * it can declare the variable it writes to in a special way.
+	if (subBlocks[0] instanceof InstructionBlock)
+	    /* A instruction block my declare a variable for us.
 	     */
 	    ((InstructionBlock) subBlocks[0]).checkDeclaration(this.declare);
-	}
     }
 
     public void dumpInstruction(TabbedPrintWriter writer)
