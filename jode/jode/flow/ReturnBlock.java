@@ -39,7 +39,7 @@ public class ReturnBlock extends InstructionContainer {
      * @return true if this block should be sorrounded by braces.
      */
     public boolean needsBraces() {
-        return false;
+        return declare != null && !declare.isEmpty();
     }
 
     /**

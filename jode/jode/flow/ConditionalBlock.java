@@ -49,8 +49,7 @@ public class ConditionalBlock extends InstructionContainer {
      * Returns all sub block of this structured block.
      */
     public StructuredBlock[] getSubBlocks() {
-        StructuredBlock[] result = { trueBlock };
-        return result;
+        return new StructuredBlock[] { trueBlock };
     }
 
     /**

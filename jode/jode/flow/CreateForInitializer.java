@@ -19,6 +19,8 @@
 
 package jode.flow;
 import jode.Instruction;
+import jode.Expression;
+import jode.StoreInstruction;
 
 public class CreateForInitializer implements Transformation {
 
@@ -41,7 +43,11 @@ public class CreateForInitializer implements Transformation {
 
             initializer = 
                 ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
-
+            
+            if (!(initializer instanceof Expression)
+                || !( ((Expression)initializer).getOperator() 
+                      instanceof StoreInstruction))
+                return false;
         } catch (ClassCastException ex) {
             return false;
         } catch (NullPointerException ex) {

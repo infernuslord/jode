@@ -60,8 +60,7 @@ public class JsrBlock extends StructuredBlock {
      * Returns all sub block of this structured block.
      */
     public StructuredBlock[] getSubBlocks() {
-	StructuredBlock[] result = { innerBlock };
-	return result;
+	return new StructuredBlock[] { innerBlock };
     }
 
     public void dumpInstruction(jode.TabbedPrintWriter writer) 

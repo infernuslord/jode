@@ -81,11 +81,9 @@ public class CaseBlock extends StructuredBlock {
      * Returns all sub block of this structured block.
      */
     public StructuredBlock[] getSubBlocks() {
-	if (subBlock != null) {
-	    StructuredBlock[] result = { subBlock };
-	    return result;
-	}
-	return new StructuredBlock[0];
+        return (subBlock != null) 
+            ? new StructuredBlock[] { subBlock }
+            : new StructuredBlock[0];
     }
 
     public void dumpInstruction(jode.TabbedPrintWriter writer) 

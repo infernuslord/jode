@@ -278,7 +278,7 @@ public abstract class StructuredBlock {
      * @param jump The jump that should be moved, may be null.
      */
     public void moveJump(Jump jump) {
-	removeJump();
+        removeJump();
         this.jump = jump;
         if (jump != null) {
             jump.prev.jump = null;
@@ -458,5 +458,19 @@ public abstract class StructuredBlock {
      */
     public abstract void dumpInstruction(TabbedPrintWriter writer)
         throws java.io.IOException;
+
+    public String toString() {
+        try {
+            java.io.StringWriter strw = new java.io.StringWriter();
+            jode.TabbedPrintWriter writer = 
+                new jode.TabbedPrintWriter(strw, "    ");
+            writer.println(super.toString());
+            writer.tab();
+            dumpSource(writer);
+            return strw.toString();
+        } catch (java.io.IOException ex) {
+            return super.toString();
+        }
+    }
 }
 
