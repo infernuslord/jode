@@ -197,7 +197,16 @@ public class CodeAnalyzer implements Analyzer {
             if (!li.isShadow())
                 li.getType().useType();
         }
-        methodHeader.makeDeclaration(new jode.flow.VariableSet(param));
+	for (int i=0; i < param.length; i++) {
+	    for (int j=0; j < i; j++) {
+		if (param[j].getName().equals(param[i].getName())) {
+		    /* A name conflict happened. */
+		    param[i].makeNameUnique();
+		    break; /* j */
+		}
+	    }
+	}
+	methodHeader.makeDeclaration(new jode.flow.VariableSet(param));
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
