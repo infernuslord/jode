@@ -146,7 +146,7 @@ public class CreateAssignExpression {
                 || !store.matches((Operator) simple))
                 return false;
 
-	    rhsType = lastExpr.getOperator().getOperandType(1);
+	    rhsType = Type.tString;
             
             /* ... and remove it. */
             if (lastExpr.getParent() != null) {
