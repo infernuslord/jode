@@ -91,7 +91,7 @@ public class CodeVerifier implements Opcodes {
 	
 	public final void need(int count) throws VerifyException {
 	    if (stackHeight < count)
-		throw new VerifyException("stack overflow");
+		throw new VerifyException("stack underflow");
 	}
 	
 	public final void push(Type type) throws VerifyException {
@@ -412,9 +412,12 @@ public class CodeVerifier implements Opcodes {
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
-	case opc_pop: case opc_pop2:
-	    result.stackHeight -= instr.opcode - (opc_pop-1);
+	case opc_pop: case opc_pop2: {
+	    int count = instr.opcode - (opc_pop-1);
+	    result.need(count);
+	    result.stackHeight -= count;
 	    break;
+	}
 	case opc_dup: case opc_dup_x1: case opc_dup_x2: {
 	    int depth = instr.opcode - opc_dup;
 	    result.reserve(1);
@@ -672,7 +675,7 @@ public class CodeVerifier implements Opcodes {
 	}
 	case opc_getfield: {
 	    Reference ref = (Reference) instr.objData;
-	    Type classType = Type.tClass(ref.getClazz());
+	    Type classType = Type.tType(ref.getClazz());
 	    if (!isOfType(result.pop(), classType))
 		throw new VerifyException(instr.getDescription());
 	    Type type = Type.tType(ref.getType());
@@ -699,7 +702,7 @@ public class CodeVerifier implements Opcodes {
 		throw new VerifyException(instr.getDescription());
 	    if (!isOfType(result.pop(), type))
 		throw new VerifyException(instr.getDescription());
-	    Type classType = Type.tClass(ref.getClazz());
+	    Type classType = Type.tType(ref.getClazz());
 	    if (!isOfType(result.pop(), classType))
 		throw new VerifyException(instr.getDescription());
 	    break;
@@ -724,10 +727,14 @@ public class CodeVerifier implements Opcodes {
 		if (!(clazz instanceof UninitializedClassType))
 		    throw new VerifyException(instr.getDescription());
 		UninitializedClassType uct = (UninitializedClassType) clazz;
-		ClassInfo refCi = ClassInfo.forName(ref.getClazz());
-		if (refCi != uct.classType
-		    && (!uct.maySuper
-			|| refCi != uct.classType.getSuperclass()))
+		String refClazz = ref.getClazz();
+		if (refClazz.charAt(0) != 'L')
+		    throw new VerifyException(instr.getDescription());
+		refClazz = refClazz.substring(1, refClazz.length()-1)
+		    .replace('/','.');
+		if (!uct.classType.getName().equals(refClazz)
+		    && (!uct.maySuper || !(uct.classType.getSuperclass()
+					   .getName().equals(refClazz))))
 		    throw new VerifyException(instr.getDescription());
 		Type newType = Type.tClass(uct.classType);
 		for (int i=0; i< result.stackHeight; i++)
@@ -737,7 +744,7 @@ public class CodeVerifier implements Opcodes {
 		    if (result.locals[i] == clazz)
 			result.locals[i] = newType;
 	    } else if (instr.opcode != opc_invokestatic) {
-		Type classType = Type.tClass(ref.getClazz());
+		Type classType = Type.tType(ref.getClazz());
 		if (!isOfType(result.pop(), classType))
 		    throw new VerifyException(instr.getDescription());
 	    }
@@ -750,7 +757,9 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_new: {
-	    ClassInfo ci = ClassInfo.forName((String) instr.objData);
+	    String clName = (String) instr.objData;
+	    ClassInfo ci = ClassInfo.forName
+		(clName.substring(1, clName.length()-1).replace('/','.'));
 	    result.stack[result.stackHeight++] = 
 		new UninitializedClassType(ci, false);
 	    break;
@@ -769,7 +778,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_checkcast: {
-	    Type classType = Type.tClassOrArray((String) instr.objData);
+	    Type classType = Type.tType((String) instr.objData);
 	    if (!isOfType(result.pop(), Type.tUObject))
 		throw new VerifyException(instr.getDescription());
 	    result.push(classType);
