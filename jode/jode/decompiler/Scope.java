@@ -34,6 +34,9 @@ public interface Scope {
     public final int AMBIGUOUSNAME = 4;
     public final int LOCALNAME     = 5;
 
+    public final int NOSUPERMETHODNAME = 12;
+    public final int NOSUPERFIELDNAME  = 13;
+
     public final int CLASSSCOPE    = 1;
     public final int METHODSCOPE   = 2;
 
