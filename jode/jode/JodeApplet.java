@@ -24,12 +24,7 @@ import java.awt.event.*;
 import java.io.*;
 
 public class JodeApplet extends Applet {
-    JodeWindow jodeWin;
-
-    public JodeApplet() {
-	jodeWin = new JodeWindow(this);
-    }
-
+    JodeWindow jodeWin = new JodeWindow(this);
 
 ///#ifdef AWT10
 ///    public boolean action(Event e, Object arg) {

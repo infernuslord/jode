@@ -120,7 +120,6 @@ public class ClassInfo extends BinaryInfo {
     }
     
     public static ClassInfo forName(String name) {
-//          name = name.replace('/', '.');
 	if (name == null
 	    || name.indexOf(';') != -1
 	    || name.indexOf('[') != -1
@@ -574,7 +573,7 @@ public class ClassInfo extends BinaryInfo {
 		if (name.equals("java.lang.Object"))
 		    superclass = null;
 		else
-		    superclass = ClassInfo.forName("java.lang.Object");
+		    superclass = javaLangObject;
 		interfaces = new ClassInfo[0];
 	    }
 	    if ((howMuch & METHODS) != 0)
