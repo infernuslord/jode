@@ -1,0 +1,9 @@
+#!/bin/sh
+
+echo '#!/bin/sh' > co.all
+echo co -u *.java flow/*.java gb/*.java >> co.all
+echo javac -d \$HOME/java -g gb/*.java Decompiler.java >> co.all
+
+cd ..
+tar -cvzf jode.tar.gz jode/co.all jode/maketar \
+          jode/RCS jode/flow/RCS jode/gb/RCS jode/test/*.java
