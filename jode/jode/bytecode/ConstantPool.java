@@ -1,4 +1,4 @@
-/* jode.bytecode.ConstantPool Copyright (C) 1998 Jochen Hoenicke.
+/* ConstantPool Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *
  * $Id$
  */
+
 package jode.bytecode;
 import java.io.*;
 import jode.Type;
@@ -90,7 +91,7 @@ public class ConstantPool {
 		indices2[i] = stream.readUnsignedShort();
 		break;
 	    case UTF8:
-		constants[i] = stream.readUTF();
+		constants[i] = stream.readUTF().intern();
 		break;
 	    default:
 		throw new ClassFormatException("unknown constant tag");
@@ -112,20 +113,23 @@ public class ConstantPool {
         return (String)constants[i];
     }
 
-    public String[] getRef(int i) throws ClassFormatException {
+    public Reference getRef(int i) throws ClassFormatException {
         if (i == 0)
             return null;
         if (tags[i] != FIELDREF
             && tags[i] != METHODREF && tags[i] != INTERFACEMETHODREF)
             throw new ClassFormatException("Tag mismatch");
-        int classIndex = indices1[i];
-        int nameTypeIndex = indices2[i];
-        if (tags[nameTypeIndex] != NAMEANDTYPE)
-            throw new ClassFormatException("Tag mismatch");
-        return new String[] {
-            getClassName(classIndex), 
-            getUTF8(indices1[nameTypeIndex]), getUTF8(indices2[nameTypeIndex])
-        };
+	if (constants[i] == null) {
+	    int classIndex = indices1[i];
+	    int nameTypeIndex = indices2[i];
+	    if (tags[nameTypeIndex] != NAMEANDTYPE)
+		throw new ClassFormatException("Tag mismatch");
+	    constants[i] = new Reference
+		(getClassName(classIndex), 
+		 getUTF8(indices1[nameTypeIndex]), 
+		 getUTF8(indices2[nameTypeIndex]));
+	}
+	return (Reference) constants[i];
     }
 
     public Object getConstant(int i) throws ClassFormatException {
@@ -148,7 +152,7 @@ public class ConstantPool {
             return null;
         if (tags[i] != CLASS)
             throw new ClassFormatException("Tag mismatch");
-        return getUTF8(indices1[i]);
+        return getUTF8(indices1[i]).replace('/', '.');
     }
 
     public String toString(int i) {
