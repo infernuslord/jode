@@ -19,9 +19,14 @@
 
 package jode.obfuscator;
 import jode.GlobalOptions;
-import jode.Obfuscator;
 import java.io.*;
-import java.util.Hashtable;
+///#ifdef JDK12
+///import java.util.Map;
+///import java.util.Iterator;
+///#else
+import jode.util.Map;
+import jode.util.Iterator;
+///#endif
 
 public abstract class Identifier {
     /**
@@ -120,10 +125,15 @@ public abstract class Identifier {
 	return left == null;
     }
 
+    public final boolean wasAliased() {
+	return getRepresentative().wasAliased;
+    }
+
     public final void setAlias(String name) {
 	if (name != null) {
-	    getRepresentative().wasAliased = true;
-	    getRepresentative().alias = name;
+	    Identifier rep = getRepresentative();
+	    rep.wasAliased = true;
+	    rep.alias = name;
 	}
     }
 
@@ -159,71 +169,40 @@ public abstract class Identifier {
     }
 
     static int serialnr = 0;
-    public void buildTable(int renameRule) {
+
+    public void buildTable(Renamer renameRule) {
 	if (isPreserved()) {
 	    if (GlobalOptions.verboseLevel > 4)
 		GlobalOptions.err.println(toString() + " is preserved");
-	} else if (renameRule != Obfuscator.RENAME_NONE) {
+	} else {
 	    Identifier rep = getRepresentative();
 	    if (rep.wasAliased)
 		return;
 	    rep.wasAliased = true;
 
-	    if (renameRule == Obfuscator.RENAME_UNIQUE)
-		rep.setAlias("xxx" + serialnr++);
-	    else {
-		StringBuffer newAlias = new StringBuffer();
-	    next_alias:
-		for (;;) {
-		okay:
-		    do {
-			for (int pos = 0; pos < newAlias.length(); pos++) {
-			    char c = newAlias.charAt(pos);
-			    if (renameRule == Obfuscator.RENAME_WEAK) {
-				if (c == '9') {
-				    newAlias.setCharAt(pos, 'A');
-				    break okay;
-				} else if (c == 'Z') {
-				    newAlias.setCharAt(pos, 'a');
-				    break okay;
-				} else if (c != 'z') {
-				    newAlias.setCharAt(pos, (char)(c+1));
-				    break okay;
-				}
-				newAlias.setCharAt(pos, pos == 0 ? 'A': '0');
-			    } else {
-				while (c++ < 126) {
-				    if (Character.isJavaIdentifierPart(c)) {
-					newAlias.setCharAt(pos, c);
-					break okay;
-				    }
-				}
-				newAlias.setCharAt(pos, '0');
-			    }
-			}
-			newAlias.append(renameRule == Obfuscator.RENAME_WEAK
-					&& newAlias.length() == 0 ? "A": "0");
-		    } while (false);
-		    Identifier ptr = rep;
-		    while (ptr != null) {
-			if (ptr.conflicting(newAlias.toString(), 
-					    renameRule 
-					    == Obfuscator.RENAME_STRONG))
-			    continue next_alias;
-			ptr = ptr.right;
-		    }
-		    setAlias(newAlias.toString());
-		    return;
+	    // set alias to empty string, so it won't conflict!
+	    alias = "";
+	    String newAlias = null;
+	next_alias:
+	    for (;;) {
+		newAlias = renameRule.generateName(this, newAlias);
+		Identifier ptr = rep;
+		while (ptr != null) {
+		    if (ptr.conflicting(newAlias))
+			continue next_alias;
+		    ptr = ptr.right;
 		}
+		setAlias(newAlias.toString());
+		return;
 	    }
 	}
     }
 
-    public void writeTable(Hashtable table) {
+    public void writeTable(Map table) {
 	table.put(getFullAlias(), getName());
     }
 
-    public void readTable(Hashtable table) {
+    public void readTable(Map table) {
 	Identifier rep = getRepresentative();
 	if (!rep.wasAliased) {
 	    String newAlias = (String) table.get(getFullName());
@@ -234,13 +213,21 @@ public abstract class Identifier {
 	}
     }
 
-    public abstract void applyPreserveRule(int preserveRule);
+    public void applyPreserveRule(IdentifierMatcher preserveRule) {
+	if (preserveRule.matches(this)) {
+	    setReachable();
+	    setPreserved();
+	}
+	for (Iterator i = getChilds(); i.hasNext(); )
+	    ((Identifier)i.next()).applyPreserveRule(preserveRule);
+    }
+    public abstract Iterator getChilds();
     public abstract Identifier getParent();
     public abstract String getName();
     public abstract String getType();
     public abstract String getFullName();
     public abstract String getFullAlias();
-    public abstract boolean conflicting(String newAlias, boolean strong);
+    public abstract boolean conflicting(String newAlias);
 
     /**
      * This is called by ClassBundle when it a class is added with
