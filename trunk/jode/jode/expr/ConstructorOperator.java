@@ -43,7 +43,6 @@ public class ConstructorOperator extends Operator
     MethodType methodType;
     Type classType;
     CodeAnalyzer codeAnalyzer;
-    boolean removedCheckNull = false;
 
     public ConstructorOperator(Type classType, MethodType methodType, 
 			       CodeAnalyzer codeAna, boolean isVoid) {
@@ -113,21 +112,6 @@ public class ConstructorOperator extends Operator
     }
 
     public Expression simplify() {
-	InnerClassInfo outer = getOuterClassInfo();
-	if (outer != null && outer.outer != null && outer.name != null
-	    && !Modifier.isStatic(outer.modifiers)
-	    && (Decompiler.options & Decompiler.OPTION_INNER) != 0) {
-	    if (subExpressions.length == 0) {
-		System.err.println("outer: "+outer.outer+","+outer.inner+","+outer.name);
-	    }
-
-	    if (subExpressions[0] instanceof CheckNullOperator) {
-		CheckNullOperator cno = (CheckNullOperator) subExpressions[0];
-		cno.removeLocal();
-		subExpressions[0] = cno.subExpressions[0];
-		removedCheckNull = true;
-	    }
-	}
 	return super.simplify();
     }
 
@@ -138,8 +122,7 @@ public class ConstructorOperator extends Operator
 	return null;
     }
 
-    public InnerClassInfo getOuterClassInfo() {
-	ClassInfo ci = getClassInfo();
+    public InnerClassInfo getOuterClassInfo(ClassInfo ci) {
 	if (ci != null && ci.getName().indexOf('$') >= 0) {
 	    InnerClassInfo[] outers = ci.getOuterClasses();
 	    if (outers != null)
@@ -151,9 +134,9 @@ public class ConstructorOperator extends Operator
     public void checkAnonymousClasses() {
 	if ((Decompiler.options & Decompiler.OPTION_ANON) == 0)
 	    return;
-	InnerClassInfo outer = getOuterClassInfo();
+	ClassInfo clazz = getClassInfo();
+	InnerClassInfo outer = getOuterClassInfo(clazz);
 	if (outer != null && (outer.outer == null || outer.name == null)) {
-	    ClassInfo clazz = getClassInfo();
 	    codeAnalyzer.addAnonymousConstructor(this);
 
 	    if (outer.name == null) {
@@ -165,90 +148,155 @@ public class ConstructorOperator extends Operator
 	}
     }
 
+    /**
+     * We add the named method scoped classes to the declarables, and
+     * only fillDeclarables on the parameters we will print.
+     */
 ///#ifdef JDK12
 ///    public void fillDeclarables(Set used) {
 ///#else
     public void fillDeclarables(SimpleSet used) {
 ///#endif
-	if ((Decompiler.options & Decompiler.OPTION_ANON) == 0)
-	    return;
-	InnerClassInfo outer = getOuterClassInfo();
-	if (outer != null && outer.outer == null && outer.name != null) {
-	    ClassAnalyzer anonymousClass 
-		= codeAnalyzer.getAnonymousClass(getClassInfo());
-	    used.add(anonymousClass);
+	ClassInfo clazz = getClassInfo();
+	InnerClassInfo outer = getOuterClassInfo(clazz);
+	ClassAnalyzer anonymousClass = null;
+	int arg = 0;
+	int length = subExpressions.length;
+	boolean jikesAnonymousInner = false;
+
+	if ((Decompiler.options & Decompiler.OPTION_ANON) != 0
+	    && outer != null && (outer.outer == null || outer.name == null)) {
+	    anonymousClass = codeAnalyzer.getAnonymousClass(clazz);
+	    if (outer.name != null) {
+		/* This is a named method scope class, declare it */
+		used.add(anonymousClass);
+	    } else {
+		/* This is an anonymous class */
+		ClassInfo superClazz = clazz.getSuperclass();
+		ClassInfo[] interfaces = clazz.getInterfaces();
+		if (interfaces.length == 1
+		    && (superClazz == null
+			|| superClazz == ClassInfo.javaLangObject)) {
+		    clazz = interfaces[0];
+		} else {
+		    clazz = (superClazz != null
+			 ? superClazz : ClassInfo.javaLangObject);
+		}
+		outer = getOuterClassInfo(clazz);
+		arg += anonymousClass.getOuterValues().length;
+		jikesAnonymousInner = anonymousClass.isJikesAnonymousInner();
+	    }
 	}
+	if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
+	    && outer != null && outer.outer != null && outer.name != null
+	    && !Modifier.isStatic(outer.modifiers)) {
+
+	    Expression outerExpr = jikesAnonymousInner 
+			   ? subExpressions[--length]
+			   : subExpressions[arg++];
+	    if (outerExpr instanceof CheckNullOperator) {
+		CheckNullOperator cno = (CheckNullOperator) outerExpr;
+		outerExpr = cno.subExpressions[0];
+	    }
+	    outerExpr.fillDeclarables(used);
+	}
+	for (int i=arg; i < length; i++)
+	    subExpressions[i].fillDeclarables(used);
     }
 
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 
 	int arg = 0;
-	Type object = classType;
-	InnerClassInfo outer = getOuterClassInfo();
-	if (outer != null && outer.outer != null && outer.name != null
-	    && !Modifier.isStatic(outer.modifiers)
-	    && (Decompiler.options & Decompiler.OPTION_INNER) != 0) {
-	    if (subExpressions.length == 0) {
-		System.err.println("outer: "+outer.outer+","+outer.inner+","+outer.name);
-	    }
-
-	    Expression outExpr = subExpressions[arg++];
-	    if (!removedCheckNull && !(outExpr instanceof ThisOperator))
-		writer.print("MISSING CHECKNULL");
-	    if (outExpr instanceof ThisOperator) {
-		Scope scope = writer.getScope
-		    (((ThisOperator) outExpr).getClassInfo(), 
-		     Scope.CLASSSCOPE);
-		if (writer.conflicts(outer.name, scope, Scope.CLASSNAME)) {
-		    outExpr.dumpExpression(writer, 950);
-		    writer.print(".");
-		}
-	    } else {
-		int minPriority = 950; /* field access */
-		if (outExpr.getType() instanceof NullType) {
-		    writer.print("((");
-		    writer.printType(Type.tClass
-				     (ClassInfo.forName(outer.outer)));
-		    writer.print(") ");
-		    outExpr.dumpExpression(writer, 700);
-		    writer.print(")");
-		} else 
-		    outExpr.dumpExpression(writer, 950);
-		writer.print(".");
-	    }
-	}
+	int length = subExpressions.length;
+	boolean jikesAnonymousInner = false;
+	ClassInfo clazz = getClassInfo();
+	InnerClassInfo outer = getOuterClassInfo(clazz);
 
 	ClassAnalyzer anonymousClass = null;
 	boolean dumpBlock = false;
-	if ((Decompiler.options & Decompiler.OPTION_ANON) != 0
+	if ((Decompiler.options & 
+	     (Decompiler.OPTION_ANON | Decompiler.OPTION_CONTRAFO)) != 0
 	    && codeAnalyzer.hasAnalyzedAnonymous()
 	    && outer != null && (outer.outer == null || outer.name == null)) {
 	    anonymousClass = codeAnalyzer.getAnonymousClass(getClassInfo());
-	    if (anonymousClass.getName() == null) {
+	    jikesAnonymousInner = anonymousClass.isJikesAnonymousInner();
+
+	    if (outer.name == null) {
 		/* This is an anonymous class */
-		ClassInfo clazz = anonymousClass.getClazz();
 		ClassInfo superClazz = clazz.getSuperclass();
 		ClassInfo[] interfaces = clazz.getInterfaces();
 		if (interfaces.length == 1
 		    && (superClazz == null
 			|| superClazz == ClassInfo.javaLangObject)) {
-		    object = Type.tClass(interfaces[0]);
+		    clazz = interfaces[0];
 		} else {
 		    if (interfaces.length > 0) {
 			writer.print("too many supers in ANONYMOUS ");
 		    }
-		    object = (superClazz != null 
-			      ? Type.tClass(superClazz) : Type.tObject);
+		    clazz = (superClazz != null
+			     ? superClazz : ClassInfo.javaLangObject);
 		}
+		outer = getOuterClassInfo(clazz);
 		dumpBlock = true;
+		if (jikesAnonymousInner
+		    && outer.outer == null && outer.name != null) {
+		    Expression thisExpr = subExpressions[--length];
+		    if (thisExpr instanceof CheckNullOperator) {
+			CheckNullOperator cno = (CheckNullOperator) thisExpr;
+			thisExpr = cno.subExpressions[0];
+		    }
+		    if (!(thisExpr instanceof ThisOperator)
+			|| (((ThisOperator) thisExpr).getClassInfo() 
+			    != codeAnalyzer.getClazz()))
+			writer.print("ILLEGAL ANON CONSTR");
+		}
 	    }
 	    arg += anonymousClass.getOuterValues().length;
 	}
+
+	if (outer != null && outer.outer != null && outer.name != null
+	    && !Modifier.isStatic(outer.modifiers)
+	    && (Decompiler.options & 
+		(Decompiler.OPTION_INNER | Decompiler.OPTION_CONTRAFO)) != 0) {
+
+	    Expression outerExpr = jikesAnonymousInner 
+			   ? subExpressions[--length]
+			   : subExpressions[arg++];
+	    if (outerExpr instanceof CheckNullOperator) {
+		CheckNullOperator cno = (CheckNullOperator) outerExpr;
+		outerExpr = cno.subExpressions[0];
+	    } else if (!(outerExpr instanceof ThisOperator))
+		if (!jikesAnonymousInner)
+		    // Bug in jikes: it doesn't do a check null.
+		    // We don't complain here.
+		    writer.print("MISSING CHECKNULL ");
+	    if (outerExpr instanceof ThisOperator) {
+		Scope scope = writer.getScope
+		    (((ThisOperator) outerExpr).getClassInfo(), 
+		     Scope.CLASSSCOPE);
+		if (writer.conflicts(outer.name, scope, Scope.CLASSNAME)) {
+		    outerExpr.dumpExpression(writer, 950);
+		    writer.print(".");
+		}
+	    } else {
+		if (outerExpr.getType() instanceof NullType) {
+		    writer.print("((");
+		    writer.printType(Type.tClass
+				     (ClassInfo.forName(outer.outer)));
+		    writer.print(") ");
+		    outerExpr.dumpExpression(writer, 700);
+		    writer.print(")");
+		} else 
+		    outerExpr.dumpExpression(writer, 950);
+		writer.print(".");
+	    }
+	}
+
 	writer.print("new ");
-	writer.printType(object);
+	writer.printType(Type.tClass(clazz));
 	writer.print("(");
-        for (int i = arg; i < methodType.getParameterTypes().length; i++) {
+        for (int i = arg; i < length; i++) {
             if (i>arg)
 		writer.print(", ");
             subExpressions[i].dumpExpression(writer, 0);
