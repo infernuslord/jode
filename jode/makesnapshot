@@ -10,16 +10,13 @@ echo 'rm -f *.class */*.class' >> compile
 echo 'jasmin -d .. jvm/Interpreter.j' >> compile
 echo \$COMPILER \$FLAGS -d .. Decompiler.java Obfuscator.java JodeApplet.java swingui/MainWindow.java >> compile
 chmod a+x compile
+./compile jikes -g
 
 cd ..
-tar -cvzf jode/jode-RCS-`date +"%Y%m%d"`.tar.gz \
+DATE=`date +"%Y%m%d"`
+tar -cvzf jode/jode-RCS-$DATE.tar.gz \
     jode/co.all jode/compile jode/RCS jode/*/RCS
 
-./compile jikes -g
-tar -cvzf jode/jode-`date +"%Y%m%d"`.tar.gz
-    jode/COPYING jode/*.html jode/jcpp \
-    jode/*.java jode/*/*.java jode/*.class jode/*/*.class
-
-zip jode/jode-`date +"%Y%m%d`.zip \
+zip jode/jode-$DATE.zip \
     jode/COPYING jode/*.html jode/jcpp \
     jode/*.java jode/*/*.java jode/*.class jode/*/*.class
