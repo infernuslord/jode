@@ -20,6 +20,7 @@
 package jode.obfuscator;
 import jode.bytecode.*;
 import jode.AssertError;
+import jode.GlobalOptions;
 import jode.type.MethodType;
 import jode.type.Type;
 
@@ -60,6 +61,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
     }
 
     public BytecodeInfo stripCode() {
+	try {
 	int poppush[] = new int[2];
 	Instruction instr = bytecode.getFirstInstr(); 
 	while (instr != null) {
@@ -278,6 +280,10 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 		instr = instr.nextByAddr;
 		continue;
 	    }
+	}
+	} catch (RuntimeException ex) {
+	    ex.printStackTrace(GlobalOptions.err);
+	    bytecode.dumpCode(GlobalOptions.err);
 	}
 	return bytecode;
     }
