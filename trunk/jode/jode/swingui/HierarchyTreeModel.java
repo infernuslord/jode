@@ -19,6 +19,7 @@
 
 package jode.swingui;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.ClassPath;
 
 ///#def JAVAX_SWING javax.swing
 import javax.swing.JProgressBar;
@@ -40,7 +41,7 @@ import java.util.Set;
 import java.util.HashSet;
 ///#enddef
 
-
+import java.io.IOException;
 import java.util.Enumeration;
 import java.util.NoSuchElementException;
 
@@ -95,12 +96,19 @@ public class HierarchyTreeModel implements TreeModel, Runnable {
     private TreeElement handleClass(HashMap classes, ClassInfo clazz) {
 	if (clazz == null)
 	    return root;
+
 	TreeElement elem = (TreeElement) classes.get(clazz);
 	if (elem != null)
 	    return elem;
 
 	elem = new TreeElement(clazz.getName());
 	classes.put(clazz, elem);
+
+	try {
+	    clazz.load(ClassInfo.HIERARCHY);
+	} catch (IOException ex) {
+	    clazz.guess(ClassInfo.HIERARCHY);
+	}
 
 	if (!clazz.isInterface()) {
 	    ClassInfo superClazz = clazz.getSuperclass();
@@ -116,20 +124,20 @@ public class HierarchyTreeModel implements TreeModel, Runnable {
 
     public int readPackage(int depth, HashMap classes, String packageName, 
 			   int count) {
+	ClassPath classPath = main.getClassPath();
 	if (depth++ >= MAX_PACKAGE_LEVEL)
 	    return count;
 	String prefix = packageName.length() == 0 ? "" : packageName + ".";
-	Enumeration enum = 
-	    ClassInfo.getClassesAndPackages(packageName);
+	Enumeration enum = classPath.listClassesAndPackages(packageName);
 	while (enum.hasMoreElements()) {
 	    //insert sorted and remove double elements;
 	    String name = (String)enum.nextElement();
 	    String fqn = prefix + name;
-	    if (ClassInfo.isPackage(fqn)) {
+	    if (classPath.isPackage(fqn)) {
 		count = readPackage(depth, classes, fqn, count);
 	    } else {
 		TreeElement elem = handleClass
-		    (classes, main.getClassPath().getClassInfo(fqn));
+		    (classes, classPath.getClassInfo(fqn));
 		if (progressBar != null)
 		    progressBar.setValue(++count);
 
@@ -140,17 +148,17 @@ public class HierarchyTreeModel implements TreeModel, Runnable {
     }
 
     public int countClasses(int depth, String packageName) {
+	ClassPath classPath = main.getClassPath();
 	if (depth++ >= MAX_PACKAGE_LEVEL)
 	    return 0;
 	int number = 0;
 	String prefix = packageName.length() == 0 ? "" : packageName + ".";
-	Enumeration enum = 
-	    ClassInfo.getClassesAndPackages(packageName);
+	Enumeration enum = classPath.listClassesAndPackages(packageName);
 	while (enum.hasMoreElements()) {
 	    //insert sorted and remove double elements;
 	    String name = (String)enum.nextElement();
 	    String fqn = prefix + name;
-	    if (ClassInfo.isPackage(fqn)) {
+	    if (classPath.isPackage(fqn)) {
 		number += countClasses(depth, fqn);
 	    } else {
 		number++;
