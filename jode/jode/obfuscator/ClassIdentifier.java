@@ -57,11 +57,25 @@ public class ClassIdentifier extends Identifier {
 	}
     }
 
+    public void preserveMatchingIdentifier(WildCard wildcard) {
+	System.err.println("preserve "+getFullName()+"; "+wildcard);
+	String fullName = getFullName() + ".";
+	for (int i=0; i< identifiers.length; i++) {
+	    if (wildcard.matches(fullName + identifiers[i].getName())
+		|| wildcard.matches(fullName + identifiers[i].getName()
+				    + "." +identifiers[i].getType())) {
+		System.err.println("preserving "+identifiers[i]);
+		setPreserved();
+		identifiers[i].setPreserved();
+		identifiers[i].setReachable();
+	    }		
+	}
+    }
+
     public void preserveIdentifier(String name, String typeSig) {
 	for (int i=0; i< identifiers.length; i++) {
-	    if (WildCard.matches(name, identifiers[i].getName())
-		&& (typeSig == null
-		    || WildCard.matches(typeSig, identifiers[i].getType())))
+	    if (name.equals(identifiers[i].getName())
+		&& typeSig.equals(identifiers[i].getType()))
 		identifiers[i].setPreserved();
 	}
     }
@@ -79,10 +93,8 @@ public class ClassIdentifier extends Identifier {
 				    boolean isVirtual) {
 //  	if (!isVirtual || (info.getModifiers() & Modifier.ABSTRACT) == 0) {
 	    for (int i=0; i< identifiers.length; i++) {
-		if (WildCard.matches(name, identifiers[i].getName())
-		    && (typeSig == null
-			|| WildCard.matches(typeSig, 
-					    identifiers[i].getType())))
+		if (name.equals(identifiers[i].getName())
+		    && typeSig.equals(identifiers[i].getType()))
 		    identifiers[i].setReachable();
 	    }
 //  	}
@@ -401,7 +413,10 @@ public class ClassIdentifier extends Identifier {
      * @return the full qualified name, excluding trailing dot.
      */
     public String getFullName() {
-	return pack.getFullName() + getName();
+	if (pack.parent == null)
+	    return getName();
+	else 
+	    return pack.getFullName() + "." + getName();
     }
 
     /**

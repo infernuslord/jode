@@ -43,14 +43,20 @@ public class PackageIdentifier extends Identifier {
 	this.bundle = bundle;
 	this.parent = parent;
 	this.name = name;
-	this.loadOnDemand = loadOnDemand;
 	this.loadedClasses = new Hashtable();
-	if (loadOnDemand && !Obfuscator.shouldStrip) {
+	if (loadOnDemand)
+	    setLoadOnDemand();
+    }
+
+    public void setLoadOnDemand() {
+	if (loadOnDemand)
+	    return;
+	loadOnDemand = true;
+	if (!Obfuscator.shouldStrip) {
 	    // Load all classes and packages now, so they don't get stripped
 	    Vector v = new Vector();
 	    Enumeration enum = 
-		ClassInfo.getClassesAndPackages(parent.getFullName()
-						+getName());
+		ClassInfo.getClassesAndPackages(getFullName());
 	    while (enum.hasMoreElements()) {
 		//insert sorted and remove double elements;
 		String subclazz = (String)enum.nextElement();
@@ -70,7 +76,10 @@ public class PackageIdentifier extends Identifier {
 	    enum = v.elements();
 	    while (enum.hasMoreElements()) {
 		String subclazz = (String) enum.nextElement();
-		String fullname = getFullName() + subclazz;
+		String fullname = getFullName();
+		fullname = (fullname.length() > 0)
+		    ? fullname + "."+ subclazz
+		    : subclazz;
 		if (ClassInfo.isPackage(fullname)) {
 		    Identifier ident = new PackageIdentifier
 			(bundle, this, subclazz, true);
@@ -111,12 +120,15 @@ public class PackageIdentifier extends Identifier {
 	if (index == -1) {
 	    Identifier ident = (Identifier) loadedClasses.get(name);
 	    if (ident == null) {
-		String fullname = getFullName() + name;
+		String fullname = getFullName();
+		fullname = (fullname.length() > 0)
+		    ? fullname + "."+ name
+		    : name;
 		if (ClassInfo.isPackage(fullname)) {
 		    ident = new PackageIdentifier(bundle, this, name, true);
 		    loadedClasses.put(name, ident);
 		} else if (!ClassInfo.exists(fullname)) {
-		    System.err.println("Warning: Can't find class "+fullname);
+		    Obfuscator.err.println("Warning: Can't find class "+fullname);
 		} else {
 		    ident = new ClassIdentifier(bundle, this, name, 
 						ClassInfo.forName(fullname));
@@ -144,20 +156,91 @@ public class PackageIdentifier extends Identifier {
 	}
     }
 
-    public Identifier loadClasses(String packageOrClass) {
-	int index = packageOrClass.indexOf('.');
-	if (index == -1) {
-	    return loadClass(packageOrClass);
-	} else {
-	    String subpack = packageOrClass.substring(0, index);
-	    PackageIdentifier pack = (PackageIdentifier)
-		loadedClasses.get(subpack);
-	    if (pack == null) {
-		pack = new PackageIdentifier(bundle, this, 
-					     subpack, loadOnDemand);
-		loadedClasses.put(subpack, pack);
+    public void loadMatchingClasses(WildCard wildcard) {
+	String component = wildcard.getNextComponent(getFullName());
+	if (component != null) {
+	    Identifier ident = (Identifier) loadedClasses.get(component);
+	    if (ident == null) {
+		String fullname = getFullName();
+		fullname = (fullname.length() > 0)
+		    ? fullname + "."+ name
+		    : name;
+		if (ClassInfo.isPackage(fullname)) {
+		    ident = new PackageIdentifier(bundle, this, 
+						  component, loadOnDemand);
+		    loadedClasses.put(component, ident);
+		} else if (!ClassInfo.exists(fullname)) {
+		    Obfuscator.err.println("Warning: Can't find class "+fullname);
+		} else if (wildcard.matches(fullname)) {
+		    if (Obfuscator.verboseLevel > 1)
+			Obfuscator.err.println("loading Class " +fullname);
+		    ident = new ClassIdentifier(bundle, this, name, 
+						ClassInfo.forName(fullname));
+		    loadedClasses.put(name, ident);
+		    ((ClassIdentifier) ident).initClass();
+		    if (bundle.preserveRule != -1)
+			ident.applyPreserveRule(bundle.preserveRule);
+		}
 	    }
-	    return pack.loadClasses(packageOrClass.substring(index+1));
+	    if (ident instanceof PackageIdentifier) {
+		if (wildcard.matches(ident.getFullName())) {
+		    if (Obfuscator.verboseLevel > 0)
+			Obfuscator.err.println("loading Package " +ident.getFullName());
+		    ((PackageIdentifier) ident).setLoadOnDemand();
+		}
+
+		if (wildcard.startsWith(ident.getFullName()+"."))
+		    ((PackageIdentifier) ident).loadMatchingClasses(wildcard);
+	    }
+	} else {
+	    String fullname = getFullName();
+	    if (fullname.length() > 0)
+		fullname += ".";
+	    /* Load all matching classes and packages */
+	    Enumeration enum = 
+		ClassInfo.getClassesAndPackages(getFullName());
+	    while (enum.hasMoreElements()) {
+		String subclazz = (String)enum.nextElement();
+		if (loadedClasses.contains(subclazz))
+		    continue;
+		String subFull = fullname + subclazz;
+		
+		if (wildcard.matches(subFull)) {
+		    if (ClassInfo.isPackage(subFull)) {
+			if (Obfuscator.verboseLevel > 0)
+			    Obfuscator.err.println("loading Package " +subFull);
+			Identifier ident = new PackageIdentifier
+			    (bundle, this, subclazz, true);
+			loadedClasses.put(subclazz, ident);
+		    } else {
+			if (Obfuscator.verboseLevel > 1)
+			    Obfuscator.err.println("loading Class " +subFull);
+			ClassIdentifier ident = new ClassIdentifier
+			    (bundle, this, 
+			     subclazz, ClassInfo.forName(subFull));
+			loadedClasses.put(subclazz, ident);
+			((ClassIdentifier) ident).initClass();
+			if (bundle.preserveRule != -1)
+			    ident.applyPreserveRule(bundle.preserveRule);
+		    }
+		} else if (ClassInfo.isPackage(subFull)
+			   && wildcard.startsWith(subFull + ".")) {
+		    Identifier ident = new PackageIdentifier
+			(bundle, this, subclazz, loadOnDemand);
+		    loadedClasses.put(subclazz, ident);
+		}
+	    }
+	    enum = loadedClasses.elements();
+	    while (enum.hasMoreElements()) {
+		Identifier ident = (Identifier) enum.nextElement();
+		if (ident instanceof PackageIdentifier) {
+		    if (wildcard.matches(ident.getFullName()))
+			((PackageIdentifier) ident).setLoadOnDemand();
+		    
+		    if (wildcard.startsWith(ident.getFullName()+"."))
+			((PackageIdentifier) ident).loadMatchingClasses(wildcard);
+		}
+	    }
 	}
     }
 
@@ -196,45 +279,94 @@ public class PackageIdentifier extends Identifier {
 	}
     }
 
-    public void preserveIdentifier(String fqn) {
-	int index = fqn.indexOf('.');
-	String component = index == -1 ? fqn : fqn.substring(0, index);
-	Identifier ident = getIdentifier(component);
-	if (ident == null)
-	    return;
-	ident.setReachable();
-	ident.setPreserved();
-	if (index == -1)
-	    return;
-
-	if (ident instanceof PackageIdentifier)
-	    ((PackageIdentifier) ident).preserveIdentifier
-		(fqn.substring(index+1));
-	else {
-	    String method = fqn.substring(index+1);
-	    index = method.indexOf('.');
-	    if (index == -1) {
-		((ClassIdentifier) ident).reachableIdentifier
-		    (method, null, false);
-		((ClassIdentifier) ident).preserveIdentifier
-		    (method, null);
-	    } else {
-		((ClassIdentifier) ident).reachableIdentifier
-		    (method.substring(0, index), method.substring(index+1), 
-		     false);
-		((ClassIdentifier) ident).preserveIdentifier
-		    (method.substring(0, index), method.substring(index+1));
+    public void preserveMatchingIdentifier(WildCard wildcard) {
+	String component = wildcard.getNextComponent(getFullName());
+	if (component != null) {
+	    Identifier ident = (Identifier) loadedClasses.get(component);
+	    if (ident == null && loadOnDemand) {
+		String fullname = getFullName();
+		fullname = (fullname.length() > 0)
+		    ? fullname + "."+ component
+		    : component;
+		if (ClassInfo.isPackage(fullname)) {
+		    ident = new PackageIdentifier(bundle, this, 
+						  component, loadOnDemand);
+		    loadedClasses.put(component, ident);
+		} else if (!ClassInfo.exists(fullname)) {
+		    Obfuscator.err.println("Warning: Can't find class "+fullname);
+		} else {
+		    ident = new ClassIdentifier(bundle, this, name, 
+						ClassInfo.forName(fullname));
+		    loadedClasses.put(name, ident);
+		    ((ClassIdentifier) ident).initClass();
+		    if (bundle.preserveRule != -1)
+			ident.applyPreserveRule(bundle.preserveRule);
+		}
+	    }
+	    if (wildcard.startsWith(ident.getFullName()+".")) {
+		if (ident instanceof PackageIdentifier)
+		    ((PackageIdentifier) ident)
+			.preserveMatchingIdentifier(wildcard);
+		else
+		    ((ClassIdentifier) ident)
+			.preserveMatchingIdentifier(wildcard);
+	    }
+	} else {
+	    String fullname = getFullName();
+	    if (fullname.length() > 0)
+		fullname += ".";
+	    if (loadOnDemand) {
+		/* Load all matching classes and packages */
+		Enumeration enum = 
+		    ClassInfo.getClassesAndPackages(getFullName());
+		while (enum.hasMoreElements()) {
+		    String subclazz = (String)enum.nextElement();
+		    if (loadedClasses.contains(subclazz))
+			continue;
+		    String subFull = fullname + subclazz;
+		    
+		    if (wildcard.startsWith(subFull + ".")) {
+			if (ClassInfo.isPackage(subFull)) {
+			    Identifier ident = new PackageIdentifier
+				(bundle, this, subclazz, true);
+			    loadedClasses.put(subclazz, ident);
+			} else {
+			    ClassIdentifier ident = new ClassIdentifier
+				(bundle, this, 
+				 subclazz, ClassInfo.forName(subFull));
+			    loadedClasses.put(subclazz, ident);
+			    ((ClassIdentifier) ident).initClass();
+			    if (bundle.preserveRule != -1)
+				ident.applyPreserveRule(bundle.preserveRule);
+			}
+		    } 
+		}
+	    }
+	    Enumeration enum = loadedClasses.elements();
+	    while (enum.hasMoreElements()) {
+		Identifier ident = (Identifier) enum.nextElement();
+		if (wildcard.startsWith(ident.getFullName()+".")) {
+		    if (ident instanceof PackageIdentifier)
+			((PackageIdentifier) ident)
+			    .preserveMatchingIdentifier(wildcard);
+		    else
+			((ClassIdentifier) ident)
+			    .preserveMatchingIdentifier(wildcard);
+		}
 	    }
 	}
     }
 
     /**
-     * @return the full qualified name, including trailing dot.
+     * @return the full qualified name.
      */
     public String getFullName() {
-	if (parent != null)
-	    return parent.getFullName() + getName() + ".";
-	else
+	if (parent != null) {
+	    if (parent.getFullName().length() > 0)
+		return parent.getFullName() + "." + getName();
+	    else 
+		return getName();
+	} else
 	    return "";
     }
 
