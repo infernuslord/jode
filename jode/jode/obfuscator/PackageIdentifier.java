@@ -129,7 +129,9 @@ public class PackageIdentifier extends Identifier {
 		    ident = new PackageIdentifier(bundle, this, name, true);
 		    loadedClasses.put(name, ident);
 		} else if (!ClassInfo.exists(fullname)) {
-		    GlobalOptions.err.println("Warning: Can't find class "+fullname);
+		    GlobalOptions.err.println("Warning: Can't find class "
+					      + fullname);
+		    Thread.dumpStack();
 		} else {
 		    ident = new ClassIdentifier(bundle, this, name, 
 						ClassInfo.forName(fullname));
@@ -171,7 +173,8 @@ public class PackageIdentifier extends Identifier {
 						  component, loadOnDemand);
 		    loadedClasses.put(component, ident);
 		} else if (!ClassInfo.exists(fullname)) {
-		    GlobalOptions.err.println("Warning: Can't find class "+fullname);
+		    GlobalOptions.err.println("Warning: Can't find class "
+					      +fullname);
 		} else if (wildcard.matches(fullname)) {
 		    if (GlobalOptions.verboseLevel > 1)
 			GlobalOptions.err.println("loading Class " +fullname);
@@ -294,7 +297,8 @@ public class PackageIdentifier extends Identifier {
 						  component, loadOnDemand);
 		    loadedClasses.put(component, ident);
 		} else if (!ClassInfo.exists(fullname)) {
-		    GlobalOptions.err.println("Warning: Can't find class "+fullname);
+		    GlobalOptions.err.println("Warning: Can't find class "
+					      + fullname);
 		} else {
 		    ident = new ClassIdentifier(bundle, this, name, 
 						ClassInfo.forName(fullname));
