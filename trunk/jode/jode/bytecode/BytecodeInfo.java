@@ -1120,4 +1120,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
     public void setLineNumberTable(LineNumber[] newLnt) {
 	lnt = newLnt;
     }
+
+    public String toString() {
+        return "Bytecode "+methodInfo;
+    }
 }
