@@ -1,4 +1,4 @@
-/* jode.bytecode.ClassInfo Copyright (C) 1997-1998 Jochen Hoenicke.
+/* ClassInfo Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,10 +16,15 @@
  *
  * $Id$
  */
+
 package jode.bytecode;
 import jode.MethodType;
 import java.io.*;
 import java.util.*;
+///#ifdef JDK12
+///import java.lang.ref.WeakReference;
+///import java.lang.ref.ReferenceQueue;
+///#endif
 import java.lang.reflect.Modifier;
 
 /**
@@ -36,7 +41,12 @@ public class ClassInfo extends BinaryInfo {
     private String name;
 
     private static SearchPath classpath;
-    private static Hashtable classes = new Hashtable(); // XXX - weak map
+///#ifdef JDK12
+///    private static final Map classes = new HashMap();
+///    private static final ReferenceQueue queue = new ReferenceQueue();
+///#else
+    private static final Hashtable classes = new Hashtable();
+///#endif
 
     private int status = 0;
 
@@ -51,9 +61,23 @@ public class ClassInfo extends BinaryInfo {
     
     public static void setClassPath(String path) {
         classpath = new SearchPath(path);
+///#ifdef JDK12
+///	java.lang.ref.Reference died;
+///	while ((died = queue.poll()) != null) {
+///	    classes.values().remove(died);
+///	}
+///	Iterator i = classes.values().iterator();
+///	while (i.hasNext()) {
+///	    ClassInfo ci = (ClassInfo) ((WeakReference)i.next()).get();
+///	    if (ci == null) {
+///		i.remove();
+///		continue;
+///	    }
+///#else
 	Enumeration enum = classes.elements();
 	while (enum.hasMoreElements()) {
 	    ClassInfo ci = (ClassInfo) enum.nextElement();
+///#endif
 	    ci.status = 0;
 	    ci.superclass = null;
 	    ci.fields = null;
@@ -93,10 +117,23 @@ public class ClassInfo extends BinaryInfo {
         if (name == null)
             return null;
         name = name.replace('/', '.');
-        ClassInfo clazz = (ClassInfo) classes.get(name);
+///#ifdef JDK12
+///	java.lang.ref.Reference died;
+///	while ((died = queue.poll()) != null) {
+///	    classes.values().remove(died);
+///	}
+///	WeakReference ref = (WeakReference) classes.get(name);
+///	ClassInfo clazz = (ref == null) ? null : (ClassInfo) ref.get();
+///#else
+	ClassInfo clazz = (ClassInfo) classes.get(name);
+///#endif
         if (clazz == null) {
             clazz = new ClassInfo(name);
+///#ifdef JDK12
+///            classes.put(name, new WeakReference(clazz, queue));
+///#else
             classes.put(name, clazz);
+///#endif
         }
         return clazz;
     }
