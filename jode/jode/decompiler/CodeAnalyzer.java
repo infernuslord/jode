@@ -399,10 +399,21 @@ public class CodeAnalyzer implements Analyzer, Scope {
 	analyzedAnonymous = true;
     }
     public void analyzeAnonymousClasses() {
+	boolean hasAnonymous = false;
         Enumeration enum = anonAnalyzers.elements();
 	while (enum.hasMoreElements()) {
 	    ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    if (classAna.getName() == null)
+		hasAnonymous = true;
 	    classAna.analyze();
+	}
+	if (hasAnonymous) {
+	    /* We have to simplify again
+	     * XXX This is because the ConstructorOperator should remove
+	     * the CheckNullOperator, but where is only known after
+	     * analyzing inner classes.
+	     */
+	    methodHeader.simplify();
 	}
     }
 
