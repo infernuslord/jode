@@ -188,7 +188,9 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 	throws InterpreterException, NegativeArraySizeException {
 	Class clazz;
 	try {
-	    clazz = Class.forName(type);
+	    /* get the base class (strip leading "[") */
+	    clazz = Type.tType(type.substring(dimensions.length))
+		.getTypeClass();
 	} catch (ClassNotFoundException ex) {
 	    throw new InterpreterException
 		("Class "+ex.getMessage()+" not found");
