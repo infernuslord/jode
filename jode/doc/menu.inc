@@ -4,6 +4,7 @@ $menu =
            "Project page" , "sflink", "project/",
            "Applet"       , "selflink", "applet",
            "Download"     , "selflink", "download",
+           "FAQ"          , "selflink", "faq",
            "Feedback"     , "selflink", "feedback",
 	   "Documentation", "selflink", "usage",
            "License"      , "selflink", "license",

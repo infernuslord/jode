@@ -2,7 +2,7 @@
 if (! $extension) {
   $extension = "php";
 }
-$version="1.0.93";
+$version="1.1";
 
 function selflink($link) {
   global $extension;
@@ -25,7 +25,7 @@ function sflink($link) {
 <html>
 <head>
 <title>Java Optimize and Decompile Environment (JODE)</title>
-<meta name="date" content="2000-06-30">
+<meta name="date" content="2001-05-29">
 <meta name="description" content="JODE - Java Optimize and Decompile Environment.">
 <meta name="author" content="Jochen Hoenicke">
 <meta name="keywords" content="jode, java, decompiler, obfuscator, deobfuscator, reverse engineering, free, GPL">
@@ -42,7 +42,7 @@ body { color:#000000; background-color: #FFFFFF; }
 
 <body text=#000000 bgcolor=#FFFFFF>
 
-<table cellpadding=4 cellspacing=1 width=100%
+<table cellpadding=4 cellspacing=1 width="100%"
   ><tr
     ><td align="left"
       ><img src="jode-logo.gif" alt="JODE" width=286 height=110

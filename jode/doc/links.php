@@ -2,7 +2,7 @@
 <h1><i>JODE</i> Links</h1>
 <h3>Other decompilers</h3>
 <ul>
-<li><a href="http://dmoz.org/Computers/Programming/Languages/Java/Development_Tools/Translators/Decompilers_and_Disassemblers/">The Open Directory list</a></li>
+<li><a href="http://dmoz.org/Computers/Programming/Languages/Java/Decompilers_and_Disassemblers/">The Open Directory list</a></li>
 <li>A list of decompilers can be found at <a href="http://www.meurrens.org/ip-Links/Java/CodeEngineering/#tocDecompilersToJava">Marc Meurren's list</a>
 </li>
 <li>A very fast decompiler is <a
@@ -15,7 +15,7 @@ Dyer.
 </ul>
 <h3>Other obfuscators</h3>
 <ul>
-<li><a href="http://dmoz.org/Computers/Programming/Languages/Java/Development_Tools/Obfuscators/">The Open Directory list</a></li>
+<li><a href="http://dmoz.org/Computers/Programming/Languages/Java/Obfuscators/">The Open Directory list</a></li>
 <li><a href="http://www.sbktech.org/hashjava_old.html">Hashjava</a> is another free obfuscator.  It is no longer maintained, though, since its successor was commercialized.</li>
 <li><a href="http://www.zelix.com/klassmaster/index.html">Zelix
 Klassmaster</a> does a very good flow optimization and also decrypts
@@ -27,6 +27,19 @@ strings.  But <i>JODE</i>'s deobfuscator can undo both.</li>
 <li><i>JODE</i> is used by the <a
 href="http://jedit.standmed.com/plugins/JavaInsight">JavaInsight plugin</a> for
 <a href="http://jedit.sourceforge.net/">jEdit</a>.</li>
+</ul>
+<h3>Software Directories</h3>
+<ul>
+<li>Get everything and anything for Linux at the
+     <a href="http://www.linux-directory.com" target="_top"
+     ><IMG SRC="http://www.linux-directory.com/button_88x31.gif" 
+     WIDTH=88 HEIGHT=31 BORDER=0 ALT="Linux Directory"></a>.
+</li>
+<li>A great place for developing free software is
+     <a href="http://sourceforge.net"><img
+      src="http://sourceforge.net/sflogo.php?group_id=3790&type=1"
+      border=0 width=88 height=31 alt="SourceForge"></a>
+</li>
 </ul>
 <h3>Miscellanous packages needed to run JODE</h3>
 <dl>

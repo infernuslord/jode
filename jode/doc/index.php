@@ -1,16 +1,16 @@
 <?php require("header.inc"); ?> 
 
 <P><i>JODE</i> is a java package containing a decompiler and an
-optimizer for java.  This package is freely available under the GPL
-(see <?php selflink("license") ?>license</a>).<p>
+optimizer for java.  This package is <?php selflink("license")
+?>freely available</a> under the GNU GPL.<p>
 
-<P>The decompiler takes <tt>class</tt> files as input and produces
-something similar to the original <tt>java</tt> file.  Of course this
-can't be perfect: There is no way to produce the comments or the names
-of local variables (except when compiled with debuging) and there are
-often more ways to write the same thing.  But <i>JODE</i> does its job
-quite well, so you should give it a try: <? selflink("applet") ?>start
-the applet</a>.</P>
+<P>The decompiler reads in <tt>class</tt> files and produces something
+similar to the original <tt>java</tt> file.  Of course this can't be
+perfect: There is no way to produce the comments or the names of local
+variables (except when compiled with debuging) and there are often
+more ways to write the same thing.  However, <i>JODE</i> does its job quite
+well, so you should give it a try and <? selflink("applet") ?>start the
+applet</a>.</P>
 
 <P>The optimizer transforms <tt>class</tt> files in various ways with
 can be controlled by a script file. It supports the following
@@ -28,13 +28,22 @@ fields</li>
 <h2>News</h2>
 
 <ul>
+<li><i>JODE</i> 1.1 is out. With support for javac v8 (jdk 1.3). </li>
 <li><i>JODE</i> is now hosted by <a href="http://sourceforge.net/">SourceForge</a>.</li>
-<li>The latest <?php sflink("cvs/") ?>CVS</a> version breaks long lines</li>
-<li>I can now decompile <b>inner and anonymous</b> classes.</li>
+<li>Now long lines are automatically broken.</li>
+<li><b>Inner and anonymous</b> classes are automatically decompiled.</li>
 <li>The optimizer (aka obfuscator) can be customized via a small
 config file</li>
-<li>Jode is <tt>autoconf</tt>igured.</li>
 </ul>
+
+<h2>Known bugs of the decompiler</h2>
+
+<p>Some jdk1.3 synthetic access functions aren't understood.  The
+   produced source contains access$xxx functions, but it still compiles.</p>
+
+<p>There may be other bugs, that cause Exceptions or invalid code.
+   If you have such a problems don't hesitate to issue a bug report.
+   Please include the <code>class</code> file if possible.</p>
 
 <h2>Limitations</h2>
 
@@ -55,15 +64,4 @@ the code should still be compileable.  This does especially happen
 when you compile with <tt>`-O'</tt> flag and javac has inlined some
 methods. </p>
 
-<p>Sometimes this program may exit with an <code>Exception</code> or
-produce incorrect code.  Most time the code can't be compiled, so that
-it can be easily spotted.  If you have one of these problems (except
-those that occur on some of the <code>jode.test</code> files, I would
-be very interested in a bug report (including the <code>class</code>
-file, if possible). </p>
-
-<p>Sometimes <i>JODE</i> generates some GOTO expression and labels.
-This shouldn't happen any more with code produced by javac or jikes.
-But some flow obfuscator may provoke this.  In that case you can run
-the Obfuscator first (to optimize away the flow obfuscation ;-).</p>
 <?php require("footer.inc"); ?>
