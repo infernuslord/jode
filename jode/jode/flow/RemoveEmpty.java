@@ -69,11 +69,8 @@ public class RemoveEmpty implements Transformation {
             
             StructuredBlock block = lastBlock.outer.getSubBlocks()[0];
             block.replace(block.outer, block);
-            if (block.jump == null)
-		/*XXX can this happen */
+            if (lastBlock.jump != null)
                 block.moveJump(lastBlock.jump);
-            else
-                lastBlock.removeJump();
             flow.lastModified = block;
             return true;
         }

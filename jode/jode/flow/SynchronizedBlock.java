@@ -80,18 +80,15 @@ public class SynchronizedBlock extends StructuredBlock {
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-        boolean needsBrace = bodyBlock.needsBraces();
         if (!isEntered)
             writer.print("/* missing monitorenter */");
         writer.println("synchronized ("
                        + (object != null 
                           ? object.simplify().toString()
-                          : local.getName()) + ")"
-                       + (needsBrace ? " {" :""));
+                          : local.getName()) + ") {");
         writer.tab();
         bodyBlock.dumpSource(writer);
         writer.untab();
-        if (needsBrace)
-            writer.println("}");
+        writer.println("}");
     }
 }

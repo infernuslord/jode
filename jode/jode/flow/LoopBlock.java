@@ -185,7 +185,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         writer.untab();
         if (type == DOWHILE)
             writer.println((needBrace?"} ": "")+
-                           "while ("+cond.simplify().toString()+")");
+                           "while ("+cond.simplify().toString()+");");
         else if (needBrace)
             writer.println("}");
     }
@@ -223,16 +223,16 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     /**
      * Replace all breaks to this block with a continue to this block.
      */
-    public void replaceBreakContinue() {
+    public void replaceBreakContinue(BreakableBlock block) {
         java.util.Stack todo = new java.util.Stack();
-        todo.push(this);
+        todo.push(block);
         while (!todo.isEmpty()) {
             StructuredBlock[] subs = 
                 ((StructuredBlock)todo.pop()).getSubBlocks();
             for (int i=0; i<subs.length; i++) {
                 if (subs[i] instanceof BreakBlock) {
                     BreakBlock breakblk = (BreakBlock) subs[i];
-                    if (breakblk.breaksBlock == this) {
+                    if (breakblk.breaksBlock == block) {
                         new ContinueBlock(this, breakblk.label != null)
                             .replace(breakblk, null);
                     }

@@ -33,31 +33,37 @@ public class CompleteSynchronized implements Transformation {
      */
     public boolean transform(FlowBlock flow) {
 
-        SynchronizedBlock synBlock;
+        if (!(flow.lastModified instanceof SynchronizedBlock)
+            || flow.lastModified.outer == null)
+            return false;
+
+        /* If the program is well formed, the following succeed */
+
+        SynchronizedBlock synBlock = (SynchronizedBlock) flow.lastModified;
         try {
-            synBlock = (SynchronizedBlock) flow.lastModified;
-
-            SequentialBlock sequBlock = 
-                (SequentialBlock) synBlock.outer;
-
+            SequentialBlock sequBlock = (SequentialBlock) synBlock.outer;
+            
             ComplexExpression monenter = (ComplexExpression)
                 ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
-
+                                              
             if (!(monenter.getOperator() instanceof MonitorEnterOperator)
                 || ((LocalLoadOperator) monenter.getSubExpressions()[0]).
                 getLocalInfo() != synBlock.local.getLocalInfo())
                 return false;
+
         } catch (ClassCastException ex) {
-            return false;
-        } catch (NullPointerException ex) {
             return false;
         }
 
         if (jode.Decompiler.isVerbose)
-            System.err.print("f");
+            System.err.print('s');
 
         synBlock.isEntered = true;
         synBlock.replace(synBlock.outer, synBlock);
+
+        /* Is there another expression? */
+        if (synBlock.outer == null)
+            return false;
 
         Expression object;
         try {
@@ -74,8 +80,6 @@ public class CompleteSynchronized implements Transformation {
             object = assign.getSubExpressions()[0];
 
         } catch (ClassCastException ex) {
-            return true;
-        } catch (NullPointerException ex) {
             return true;
         }
 

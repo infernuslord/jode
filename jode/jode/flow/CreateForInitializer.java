@@ -30,32 +30,33 @@ public class CreateForInitializer implements Transformation {
      */
     public boolean transform(FlowBlock flow) {
 
-        LoopBlock forBlock;
+        if (!(flow.lastModified instanceof LoopBlock)
+            || flow.lastModified.outer == null)
+            return false;
+
+        LoopBlock forBlock = (LoopBlock) flow.lastModified;
+        if (forBlock.type != forBlock.FOR || forBlock.init != null)
+            return false;
+ 
+        /* The following succeed, with high probability */
+        
         Instruction initializer;
         try {
-            forBlock = (LoopBlock) flow.lastModified;
-
-            if (forBlock.type != forBlock.FOR || forBlock.init != null)
-                return false;
-
             SequentialBlock sequBlock = 
                 (SequentialBlock) forBlock.outer;
 
             initializer = 
                 ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
             
-            if (!(initializer instanceof Expression)
-                || !( ((Expression)initializer).getOperator() 
-                      instanceof StoreInstruction))
+            if (!( ((Expression)initializer).getOperator() 
+                   instanceof StoreInstruction))
                 return false;
         } catch (ClassCastException ex) {
-            return false;
-        } catch (NullPointerException ex) {
             return false;
         }
 
         if (jode.Decompiler.isVerbose)
-            System.err.print("f");
+            System.err.print('f');
 
         forBlock.init = initializer;
         forBlock.replace(forBlock.outer, forBlock);
