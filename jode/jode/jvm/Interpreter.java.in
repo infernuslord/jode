@@ -71,22 +71,7 @@ public class Interpreter implements Opcodes {
 	if (!code.getMethodInfo().isStatic())
 	    locals[slot++].setObject(cls);
 	for (int i=0; i< myParamTypes.length; i++) {
-	    char type = myParamTypes[i].charAt(0);
-	    switch ("ZBSC".indexOf(type)) {
-	    case 0:
-		locals[slot].setInt(((Boolean) params[i])
-				    .booleanValue() ? 1 : 0);
-		break;
-	    case 1: case 2:
-		locals[slot].setInt(((Number) params[i]).intValue());
-		break;
-	    case 3:
-		locals[slot].setInt(((Character) params[i]).charValue());
-		break;
-	    default:
-		locals[slot].setObject(params[i]);
-		break;
-	    }
+	    locals[slot].setObject(params[i]);
 	    slot += TypeSignature.getTypeSize(myParamTypes[i]);
 	}
 	return locals;
@@ -611,25 +596,7 @@ public class Interpreter implements Opcodes {
 			: instr.getSuccs()[pos];
 		    break;
 		}
-		case opc_ireturn: {
-		    Object result = stack[--stacktop].objectValue();
-		    String retType = TypeSignature
-			.getReturnType(code.getMethodInfo().getType());
-		    switch ("ZBSC".indexOf(retType.charAt(0))) {
-		    case 0: // boolean
-			return new Boolean(((Integer)result).intValue() != 0);
-		    case 1: // byte
-			return new Byte(((Integer)result).byteValue());
-		    case 2: // short
-			return new Short(((Integer)result).shortValue());
-		    case 3: // char
-			return new Character((char) 
-					     ((Integer)result).intValue());
-		    default: // integer
-			return result;
-		    }
-		}
-		case opc_freturn: case opc_areturn:
+		case opc_ireturn: case opc_freturn: case opc_areturn:
 		    return stack[--stacktop].objectValue();
 		case opc_lreturn: case opc_dreturn:
 		    return stack[stacktop -= 2].objectValue();
@@ -638,24 +605,7 @@ public class Interpreter implements Opcodes {
 		case opc_getstatic: {
 		    Reference ref = instr.getReference();
 		    Object result = env.getField(instr.getReference(), null);
-		    char type = ref.getType().charAt(0);
-		    switch ("ZBSC".indexOf(type)) {
-		    case 0:
-			stack[stacktop].setInt(((Boolean) result)
-					       .booleanValue() ? 1 : 0);
-			break;
-		    case 1: case 2:
-			stack[stacktop].setInt(((Number) result)
-					       .intValue());
-			break;
-		    case 3:
-			stack[stacktop].setInt(((Character) result)
-					       .charValue());
-			break;
-		    default:
-			stack[stacktop].setObject(result);
-			break;
-		    }
+		    stack[stacktop].setObject(result);
 		    stacktop += TypeSignature.getTypeSize(ref.getType());
 		    break;
 		}
@@ -666,24 +616,7 @@ public class Interpreter implements Opcodes {
 			throw new InvocationTargetException
 			    (new NullPointerException());
 		    Object result = env.getField(instr.getReference(), cls);
-		    char type = ref.getType().charAt(0);
-		    switch ("ZBSC".indexOf(type)) {
-		    case 0:
-			stack[stacktop].setInt(((Boolean) result)
-					       .booleanValue() ? 1 : 0);
-			break;
-		    case 1: case 2:
-			stack[stacktop].setInt(((Number) result)
-					       .intValue());
-			break;
-		    case 3:
-			stack[stacktop].setInt(((Character) result)
-					       .charValue());
-			break;
-		    default:
-			stack[stacktop].setObject(result);
-			break;
-		    }
+		    stack[stacktop].setObject(result);
 		    stacktop += TypeSignature.getTypeSize(ref.getType());
 		    break;
 		}
@@ -691,22 +624,6 @@ public class Interpreter implements Opcodes {
 		    Reference ref = instr.getReference();
 		    stacktop -= TypeSignature.getTypeSize(ref.getType());
 		    Object value = stack[stacktop].objectValue();
-		    int type = "ZBSC".indexOf(ref.getType().charAt(0));
-		    switch(type) {
-		    case 0: // boolean
-			value = new Boolean(((Integer)value).intValue() != 0);
-			break;
-		    case 1: // byte
-			value = new Byte(((Integer)value).byteValue());
-			break;
-		    case 2: // short
-			value = new Short(((Integer)value).shortValue());
-			break;
-		    case 3: // char
-			value = new Character((char) 
-					      ((Integer)value).intValue());
-			break;
-		    }
 		    env.putField(instr.getReference(), null, value);
 		    break;
 		}
@@ -714,22 +631,6 @@ public class Interpreter implements Opcodes {
 		    Reference ref = instr.getReference();
 		    stacktop -= TypeSignature.getTypeSize(ref.getType());
 		    Object value = stack[stacktop].objectValue();
-		    int type = "ZBSC".indexOf(ref.getType().charAt(0));
-		    switch(type) {
-		    case 0: // boolean
-			value = new Boolean(((Integer)value).intValue() != 0);
-			break;
-		    case 1: // byte
-			value = new Byte(((Integer)value).byteValue());
-			break;
-		    case 2: // short
-			value = new Short(((Integer)value).shortValue());
-			break;
-		    case 3: // char
-			value = new Character((char)
-					      ((Integer)value).intValue());
-			break;
-		    }
 		    Object cls = stack[--stacktop].objectValue();
 		    if (cls == null)
 			throw new InvocationTargetException
@@ -747,33 +648,17 @@ public class Interpreter implements Opcodes {
 		    Object[] args = new Object[paramTypes.length];
 		    for (int i = paramTypes.length - 1; i >= 0; i--) {
 			stacktop -= TypeSignature.getTypeSize(paramTypes[i]);
-			Object value = stack[stacktop].objectValue();
-			int type = "ZBSC".indexOf(paramTypes[i].charAt(0));
-			switch(type) {
-			case 0: // boolean
-			    value = new Boolean(((Integer)value)
-						.intValue() != 0);
-			    break;
-			case 1: // byte
-			    value = new Byte(((Integer)value).byteValue());
-			    break;
-			case 2: // short
-			    value = new Short(((Integer)value).shortValue());
-			    break;
-			case 3: // char
-			    value = new Character((char)
-						  ((Integer)value).intValue());
-			    break;
-			}
-			args[i] = value;
+			args[i] = stack[stacktop].objectValue();
 		    }
 		
 		    Object result = null;
-		    if (ref.getName().equals("<init>")) {
+		    if (opcode == opc_invokespecial
+			&& ref.getName().equals("<init>")
+			&& stack[--stacktop].getNewObject() != null) {
 			NewObject newObj = stack[--stacktop].getNewObject();
-//  			if (!newObj.getType().equals(ref.getClazz()))
-//  			    throw new InterpreterException
-//  				("constructor called on wrong type");
+			if (!newObj.getType().equals(ref.getClazz()))
+			    throw new InterpreterException
+				("constructor doesn't match new");
 			newObj.setObject(env.invokeConstructor(ref, args));
 		    } else if (opcode == opc_invokestatic) {
 			result = env.invokeMethod(ref, false, null, args);
@@ -787,27 +672,10 @@ public class Interpreter implements Opcodes {
 		    }
 		    String retType
 			= TypeSignature.getReturnType(ref.getType());
-		    char type = retType.charAt(0);
-		    switch ("ZBSCV".indexOf(type)) {
-		    case 0:
-			stack[stacktop].setInt(((Boolean) result)
-					       .booleanValue() ? 1 : 0);
-			break;
-		    case 1: case 2:
-			stack[stacktop].setInt(((Number) result)
-					       .intValue());
-			break;
-		    case 3:
-			stack[stacktop].setInt(((Character) result)
-					       .charValue());
-			break;
-		    case 4: // Void
-			break;
-		    default:
+		    if (!retType.equals("V")) {
 			stack[stacktop].setObject(result);
-			break;
+			stacktop += TypeSignature.getTypeSize(retType);
 		    }
-		    stacktop += TypeSignature.getTypeSize(retType);
 		    break;
 		}
 		case opc_new: {

@@ -1191,41 +1191,39 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	case opc_invokevirtual: {
 	    canonizeReference(instr);
 	    Reference ref = instr.getReference();
-	    MethodType mt = (MethodType) Type.tType(ref.getType());
 	    boolean constant = true;
 	    int size = 0;
 	    Object   cls = null;
-	    Object[] args = new Object[mt.getParameterTypes().length];
+	    String[] paramTypes 
+		= TypeSignature.getParameterTypes(ref.getType());
+	    Object[] args = new Object[paramTypes.length];
 	    ConstValue clsValue = null;
-	    ConstValue[] argValues = 
-		new ConstValue[mt.getParameterTypes().length];
-	    for (int i=mt.getParameterTypes().length-1; i >=0; i--) {
-		size += mt.getParameterTypes()[i].stackSize();
-		argValues[i] = info.getStack(size);
-		if (argValues[i].value != ConstValue.VOLATILE)
-		    args[i] = argValues[i].value;
+	    ConstValue[] argValues = new ConstValue[paramTypes.length];
+
+	    for (int i = paramTypes.length - 1; i >= 0; i--) {
+		size += TypeSignature.getTypeSize(paramTypes[i]);
+		Object value = (argValues[i] = info.getStack(size)).value;
+		if (value != ConstValue.VOLATILE)
+		    arg[i] = value;
 		else
 		    constant = false;
 	    }
+	    
 	    if (opcode != opc_invokestatic) {
 		size++;
 		clsValue = info.getStack(size);
 		cls = clsValue.value;
-		if (cls == ConstValue.VOLATILE
-		    || cls == null
-		    || !cls.getClass().getName().equals(ref.getClazz()))
+		if (cls == ConstValue.VOLATILE || cls == null)
 		    constant = false;
 	    }
-	    Type retType = mt.getReturnType();
-	    if (retType == Type.tVoid) {
+	    String retType = TypeSignature.getReturnType(ref.getType());
+	    if (retType.equals("V")) {
 		handleReference(ref, opcode == opc_invokevirtual 
 				|| opcode == opc_invokeinterface);
 		mergeInfo(instr.getNextByAddr(), info.pop(size));
 		break;
 	    }
-	    if (constant
-		&& retType != Type.tString
-		&& retType.getTypeSignature().length() != 1) {
+	    if (constant && !runtime.isWhite(retType)) {
 		/* This is not a valid constant type */
 		constant = false;
 	    }

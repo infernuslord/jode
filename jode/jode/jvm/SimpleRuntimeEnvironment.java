@@ -20,9 +20,7 @@
 package jode.jvm;
 import jode.AssertError;
 import jode.bytecode.Reference;
-import jode.type.Type;
-import jode.type.IntegerType;
-import jode.type.MethodType;
+import jode.bytecode.TypeSignature;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -32,17 +30,40 @@ import java.lang.reflect.InvocationTargetException;
 
 public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 
-    public Class findClazz(String clName) throws ClassNotFoundException {
-	if (clName.charAt(0) == 'L')
-	    clName = clName.substring(1, clName.length()-1);
-	return Class.forName(clName.replace('/','.'));
+    public static Object fromReflectType(String typeSig, Object value) {
+	switch(typeSig.charAt(0)) {
+	case 'Z':
+	    return new Integer(((Boolean) value).booleanValue() ? 1 : 0);
+	case 'B': 
+	case 'S':
+	    return new Integer(((Number) value).intValue());
+	case 'C':
+	    return new Integer(((Character) value).charValue());
+	default:
+	    return value;
+	}
+    }
+
+    public static Object toReflectType(String typeSig, Object value) {
+	switch(typeSig.charAt(0)) {
+	case 'Z':
+	    return new Boolean(((Integer)value).intValue() != 0);
+	case 'B':
+	    return new Byte(((Integer)value).byteValue());
+	case 'S':
+	    return new Short(((Integer)value).shortValue());
+	case 'C':
+	    return new Character((char) ((Integer)value).intValue());
+	default:
+	    return value;
+	}
     }
 
     public Object getField(Reference ref, Object obj)
 	throws InterpreterException {
 	Field f;
 	try {
-	    Class clazz = findClazz(ref.getClazz());
+	    Class clazz = TypeSignature.getClass(ref.getClazz());
 	    try {
 		f = clazz.getField(ref.getName());
 	    } catch (NoSuchFieldException ex) {
@@ -59,17 +80,18 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 		(ref+": Security exception");
 	}
 	try {
-	    return f.get(obj);
+	    return fromReflectType(ref.getType(), f.get(obj));
 	} catch (IllegalAccessException ex) {
 	    throw new InterpreterException
 		("Field " + ref + " not accessible");
 	}
     }
+
     public void putField(Reference ref, Object obj, Object value)
 	throws InterpreterException {
 	Field f;
 	try {
-	    Class clazz = findClazz(ref.getClazz());
+	    Class clazz = TypeSignature.getClass(ref.getClazz());
 	    try {
 		f = clazz.getField(ref.getName());
 	    } catch (NoSuchFieldException ex) {
@@ -86,7 +108,7 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 		(ref+": Security exception");
 	}
 	try {
-	    f.set(obj, value);
+	    f.set(obj, toReflectType(ref.getType(), value));
 	} catch (IllegalAccessException ex) {
 	    throw new InterpreterException
 		("Field " + ref + " not accessible");
@@ -97,9 +119,14 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 	throws InterpreterException, InvocationTargetException {
 	Constructor c;
 	try {
-	    Class clazz = findClazz(ref.getClazz());
-	    MethodType mt = (MethodType) Type.tType(ref.getType());
-	    Class[] paramTypes = mt.getParameterClasses();
+	    String[] paramTypeSigs
+		= TypeSignature.getParameterTypes(ref.getType());
+	    Class clazz = TypeSignature.getClass(ref.getClazz());
+	    Class[] paramTypes = new Class[paramTypeSigs.length];
+	    for (int i=0; i< paramTypeSigs.length; i++) {
+		params[i] = toReflectType(paramTypeSigs[i], params[i]);
+		paramTypes[i] = TypeSignature.getClass(paramTypeSigs[i]);
+	    }
 	    try {
 		c = clazz.getConstructor(paramTypes);
 	    } catch (NoSuchMethodException ex) {
@@ -130,14 +157,20 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
     public Object invokeMethod(Reference ref, boolean isVirtual, 
 			       Object cls, Object[] params) 
 	throws InterpreterException, InvocationTargetException {
-	Method m;
 	if (!isVirtual && cls != null) /*XXX*/
 	    throw new InterpreterException
 		("Can't invoke nonvirtual Method " + ref + ".");
-	MethodType mt = (MethodType) Type.tType(ref.getType());
+
+	Method m;
 	try {
-	    Class clazz = findClazz(ref.getClazz());
-	    Class[] paramTypes = mt.getParameterClasses();
+	    String[] paramTypeSigs
+		= TypeSignature.getParameterTypes(ref.getType());
+	    Class clazz = TypeSignature.getClass(ref.getClazz());
+	    Class[] paramTypes = new Class[paramTypeSigs.length];
+	    for (int i=0; i< paramTypeSigs.length; i++) {
+		params[i] = toReflectType(paramTypeSigs[i], params[i]);
+		paramTypes[i] = TypeSignature.getClass(paramTypeSigs[i]);
+	    }
 	    try {
 		m = clazz.getMethod(ref.getName(), paramTypes);
 	    } catch (NoSuchMethodException ex) {
@@ -153,8 +186,9 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 	    throw new InterpreterException
 		(ref+": Security exception");
 	}
+	String retType = TypeSignature.getReturnType(ref.getType());
 	try {
-	    return m.invoke(cls, params);
+	    return fromReflectType(retType, m.invoke(cls, params));
 	} catch (IllegalAccessException ex) {
 	    throw new InterpreterException
 		("Method " + ref + " not accessible");
@@ -178,8 +212,7 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 	Class clazz;
 	try {
 	    /* get the base class (strip leading "[") */
-	    clazz = Type.tType(type.substring(dimensions.length))
-		.getTypeClass();
+	    clazz = TypeSignature.getClass(type.substring(dimensions.length));
 	} catch (ClassNotFoundException ex) {
 	    throw new InterpreterException
 		("Class "+ex.getMessage()+" not found");
@@ -189,10 +222,10 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 
     public void enterMonitor(Object obj)
 	throws InterpreterException {
-	throw new InterpreterException("monitorenter not implemented");
+	throw new InterpreterException("monitor not implemented");
     }
     public void exitMonitor(Object obj)
 	throws InterpreterException {
-	throw new InterpreterException("monitorenter not implemented");
+	throw new InterpreterException("monitor not implemented");
     }
 }

@@ -55,6 +55,11 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
     public static boolean isWhite(Reference ref) {
 	return whiteList.containsKey(ref);
     }
+
+    public static boolean isWhiteType(String retTypeSig) {
+	return retTypeSig.length() != 1;
+	    && !whiteList.contains(retTypeSig);
+    }
 ///#endif
 
     static {
