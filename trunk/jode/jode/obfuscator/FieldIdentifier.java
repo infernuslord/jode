@@ -65,9 +65,12 @@ public class FieldIdentifier extends Identifier{
 	return "MethodIdentifier "+getFullName()+"."+getType();
     }
 
-    public boolean conflicting(String newAlias) {
-	return clazz.containFieldAlias(newAlias, "")
-	    || (clazz.getMethod(newAlias, "") != null);
+    public boolean conflicting(String newAlias, boolean strong) {
+	if (strong) {
+	    return clazz.containFieldAlias(newAlias, getType());
+	} else {
+	    return clazz.containFieldAlias(newAlias, "");
+	}
     }
 
     int nameIndex;

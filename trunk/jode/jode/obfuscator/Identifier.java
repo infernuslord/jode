@@ -194,7 +194,9 @@ public abstract class Identifier {
 		    } while (false);
 		    Identifier ptr = this;
 		    while (ptr != null) {
-			if (ptr.conflicting(newAlias.toString()))
+			if (ptr.conflicting(newAlias.toString(), 
+					    renameRule 
+					    == Obfuscator.RENAME_STRONG))
 			    continue next_alias;
 			ptr = ptr.right;
 		    }
@@ -215,5 +217,5 @@ public abstract class Identifier {
     public abstract String getType();
     public abstract String getFullName();
     public abstract String getFullAlias();
-    public abstract boolean conflicting(String newAlias);
+    public abstract boolean conflicting(String newAlias, boolean strong);
 }

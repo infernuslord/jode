@@ -18,7 +18,7 @@
  */
 
 package jode.expr;
-import jode.CodeAnalyzer;
+import jode.decompiler.CodeAnalyzer;
 import jode.MethodType;
 import jode.Type;
 import jode.bytecode.ClassInfo;

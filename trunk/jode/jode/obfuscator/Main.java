@@ -27,6 +27,8 @@ public class Obfuscator {
     public static boolean isVerbose = false;
     public static boolean isDebugging = false;
 
+    public static boolean shouldStrip = true;
+
     public static PrintStream err = System.err;
     public static final int PRESERVE_NONE = 0;
     public static final int PRESERVE_PUBLIC = Modifier.PUBLIC;
@@ -83,7 +85,6 @@ public class Obfuscator {
 
         Vector preservedIdents = new Vector();
 
-        boolean strip = true;
         int preserveRule = PRESERVE_NONE;
         int rename       = RENAME_WEAK;
         String table = null;
@@ -95,7 +96,7 @@ public class Obfuscator {
             else if (params[i].equals("-debug"))
                 isDebugging = true;
             else if (params[i].equals("-nostrip"))
-                strip = false;
+                shouldStrip = false;
 
             else if (params[i].equals("-sourcepath"))
                 sourcePath = params[++i];
@@ -157,9 +158,6 @@ public class Obfuscator {
         bundle.setPreserved(preserveRule, preservedIdents);
 
 	err.println("Renaming methods");
-        if (strip)
-            bundle.strip();
-
         if (rename != RENAME_TABLE)
             bundle.buildTable(rename);
         else

@@ -17,8 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
 import java.lang.reflect.Modifier;
+import jode.*;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.AttributeInfo;
 import jode.bytecode.ClassFormatException;
@@ -67,6 +68,10 @@ public class FieldAnalyzer implements Analyzer {
 
     public String getName() {
         return fieldName;
+    }
+
+    public Type getType() {
+	return type;
     }
 
     public boolean setInitializer(Expression expr) {

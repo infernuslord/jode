@@ -17,8 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
 import java.io.*;
+import jode.Decompiler;
 
 public class TabbedPrintWriter {
     boolean atbol;

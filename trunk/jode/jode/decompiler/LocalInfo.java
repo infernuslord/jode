@@ -17,9 +17,11 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
 import java.util.Enumeration;
 import java.util.Vector;
+import jode.Decompiler;
+import jode.Type;
 import jode.expr.LocalVarOperator;
 
 /**

@@ -17,7 +17,7 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
 
 public interface Analyzer {
     public void analyze();

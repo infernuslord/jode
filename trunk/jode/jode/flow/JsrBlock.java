@@ -63,7 +63,7 @@ public class JsrBlock extends StructuredBlock {
 	return new StructuredBlock[] { innerBlock };
     }
 
-    public void dumpInstruction(jode.TabbedPrintWriter writer) 
+    public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 
         throws java.io.IOException 
     {
 	writer.println("JSR");

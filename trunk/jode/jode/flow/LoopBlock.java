@@ -18,9 +18,9 @@
  */
 
 package jode.flow;
-import jode.TabbedPrintWriter;
+import jode.decompiler.TabbedPrintWriter;
 import jode.Type;
-import jode.LocalInfo;
+import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
 import jode.expr.ConstOperator;
 import jode.expr.LocalStoreOperator;

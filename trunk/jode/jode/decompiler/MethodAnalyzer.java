@@ -17,10 +17,11 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
 import jode.bytecode.MethodInfo;
 import jode.bytecode.AttributeInfo;
 import jode.bytecode.CodeInfo;
+import jode.*;
 
 import java.lang.reflect.Modifier;
 import java.io.*;
@@ -30,6 +31,7 @@ public class MethodAnalyzer implements Analyzer {
     CodeAnalyzer code = null;
     ClassAnalyzer classAnalyzer;
     boolean isConstructor;
+    boolean isSynthetic;
     int modifiers;
     String methodName;
     MethodType methodType;
@@ -44,6 +46,7 @@ public class MethodAnalyzer implements Analyzer {
         this.methodName = minfo.getName();
         this.isConstructor = 
             methodName.equals("<init>") || methodName.equals("<clinit>");
+	this.isSynthetic = (minfo.findAttribute("Synthetic") != null);
         
         AttributeInfo codeattr = minfo.findAttribute("Code");
         if (codeattr != null) {
@@ -91,6 +94,10 @@ public class MethodAnalyzer implements Analyzer {
         return methodType.isStatic();
     }
 
+    public boolean isSynthetic() {
+	return isSynthetic;
+    }
+
     public int getParamCount() {
         int count = isStatic() ? 0 : 1;
         Type[] paramTypes = methodType.getParameterTypes();
@@ -130,7 +137,7 @@ public class MethodAnalyzer implements Analyzer {
         if (!isConstructor)
             methodType.getReturnType().useType();
 
-	if (!Decompiler.immediateOutput) {
+	if (!Decompiler.immediateOutput || isSynthetic) {
 	    if (Decompiler.isVerbose)
 		Decompiler.err.print(methodName+": ");
 	    code.analyze();

@@ -19,6 +19,8 @@
 
 package jode;
 import java.util.*;
+import jode.decompiler.TabbedPrintWriter;
+import jode.decompiler.ClassAnalyzer;
 import jode.bytecode.ClassInfo;
 import java.io.IOException;
 

@@ -216,21 +216,10 @@ public class ClassIdentifier extends Identifier {
 	preserveIdentifier("<init>", null);
     }
 
-    public void strip() {
-	willStrip = true;
-	if (Obfuscator.isDebugging) {
-	    for (int i=0; i < identifiers.length; i++) {
-		if (!identifiers[i].isReachable())
-		    Obfuscator.err.println(identifiers[i].toString()
-					   + " is stripped");
-	    }
-	}
-    }
-
     public void buildTable(int renameRule) {
 	super.buildTable(renameRule);
 	for (int i=0; i < identifiers.length; i++)
-	    if (!willStrip || identifiers[i].isReachable())
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
 		identifiers[i].buildTable(renameRule);
     }
 
@@ -238,7 +227,7 @@ public class ClassIdentifier extends Identifier {
 	if (getName() != getAlias())
 	    out.println("" + getFullAlias() + " = " + getName());
 	for (int i=0; i < identifiers.length; i++)
-	    if (!willStrip || identifiers[i].isReachable())
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
 		identifiers[i].writeTable(out);
     }
 
@@ -295,7 +284,7 @@ public class ClassIdentifier extends Identifier {
 	GrowableConstantPool gcp = new GrowableConstantPool();
 
 	for (int i=fieldCount; i < identifiers.length; i++)
-	    if (!willStrip || identifiers[i].isReachable())
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
 		((MethodIdentifier)identifiers[i]).reserveSmallConstants(gcp);
 
 	int[] hierarchyInts;
@@ -316,13 +305,13 @@ public class ClassIdentifier extends Identifier {
 	int methods = 0;
 
 	for (int i=0; i<fieldCount; i++) {
-	    if (!willStrip || identifiers[i].isReachable()) {
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable()) {
 		((FieldIdentifier)identifiers[i]).fillConstantPool(gcp);
 		fields++;
 	    }
 	}
 	for (int i=fieldCount; i < identifiers.length; i++) {
-	    if (!willStrip || identifiers[i].isReachable()) {
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable()) {
 		((MethodIdentifier)identifiers[i]).fillConstantPool(gcp);
 		methods++;
 	    }
@@ -341,13 +330,22 @@ public class ClassIdentifier extends Identifier {
 	    out.writeShort(hierarchyInts[i]);
 	
 	out.writeShort(fields);
-	for (int i=0; i<fieldCount; i++)
-	    if (!willStrip || identifiers[i].isReachable())
+	for (int i=0; i<fieldCount; i++) {
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
 		((FieldIdentifier)identifiers[i]).write(out);
+	    else if (Obfuscator.isDebugging)
+		Obfuscator.err.println(identifiers[i].toString()
+				       + " is stripped");
+	}
+		
 	out.writeShort(methods);
-	for (int i=fieldCount; i < identifiers.length; i++)
-	    if (!willStrip || identifiers[i].isReachable())
+	for (int i=fieldCount; i < identifiers.length; i++) {
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
 		((MethodIdentifier)identifiers[i]).write(out);
+	    else if (Obfuscator.isDebugging)
+		Obfuscator.err.println(identifiers[i].toString()
+				       + " is stripped");
+	}
 
 	out.writeShort(0); // no attributes;
     }
@@ -439,7 +437,7 @@ public class ClassIdentifier extends Identifier {
 
     public boolean containFieldAlias(String fieldName, String typeSig) {
 	for (int i=0; i < fieldCount; i++) {
-	    if ((!willStrip || identifiers[i].isReachable())
+	    if ((!Obfuscator.shouldStrip || identifiers[i].isReachable())
 		&& identifiers[i].getAlias().equals(fieldName)
 		&& identifiers[i].getType().startsWith(typeSig))
 		return true;
@@ -501,7 +499,7 @@ public class ClassIdentifier extends Identifier {
 
     public Object getMethod(String methodName, String paramType) {
 	for (int i=fieldCount; i< identifiers.length; i++) {
-	    if ((!willStrip || identifiers[i].isReachable())
+	    if ((!Obfuscator.shouldStrip || identifiers[i].isReachable())
 		&& identifiers[i].getAlias().equals(methodName)
 		&& identifiers[i].getType().startsWith(paramType))
 		return identifiers[i];
@@ -539,7 +537,7 @@ public class ClassIdentifier extends Identifier {
 	return null;
     }
 
-    public boolean conflicting(String newAlias) {
+    public boolean conflicting(String newAlias, boolean strong) {
 	return pack.contains(newAlias);
     }
 }

@@ -19,6 +19,7 @@
 
 package jode;
 import java.io.*;
+import jode.decompiler.TabbedPrintWriter;
 
 public class Decompiler {
     public final static String version = "0.99";

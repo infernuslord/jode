@@ -2,6 +2,7 @@ package jode;
 import java.applet.*;
 import java.awt.*;
 import java.io.*;
+import jode.decompiler.TabbedPrintWriter;
 
 public class JodeAppletOneZero extends Applet implements Runnable {
 

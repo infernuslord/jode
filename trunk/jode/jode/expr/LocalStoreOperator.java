@@ -19,7 +19,7 @@
 
 package jode.expr;
 import jode.Type;
-import jode.LocalInfo;
+import jode.decompiler.LocalInfo;
 
 public class LocalStoreOperator extends StoreInstruction 
 implements LocalVarOperator {

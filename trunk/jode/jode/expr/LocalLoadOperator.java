@@ -20,7 +20,7 @@
 package jode.expr;
 import jode.Decompiler;
 import jode.Type;
-import jode.LocalInfo;
+import jode.decompiler.LocalInfo;
 
 public class LocalLoadOperator extends ConstOperator 
 implements LocalVarOperator {

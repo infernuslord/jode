@@ -67,10 +67,6 @@ public class ClassBundle {
 	}
     }
 
-    public void strip() {
-	basePackage.strip();
-    }
-
     public void buildTable(int renameRule) {
 	basePackage.buildTable(renameRule);
     }

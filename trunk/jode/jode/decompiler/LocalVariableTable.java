@@ -17,10 +17,12 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import java.io.*;
+import jode.Decompiler;
+import jode.Type;
 import jode.bytecode.AttributeInfo;
 import jode.bytecode.ConstantPool;
-import java.io.*;
 
 public class LocalVariableTable {
     LocalVariableRangeList[] locals;

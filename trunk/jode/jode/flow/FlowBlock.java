@@ -19,7 +19,10 @@
 
 package jode.flow;
 import java.util.*;
-import jode.*;
+import jode.Decompiler;
+import jode.AssertError;
+import jode.decompiler.TabbedPrintWriter;
+import jode.decompiler.CodeAnalyzer;
 import jode.expr.Expression;
 import jode.expr.CombineableOperator;
 

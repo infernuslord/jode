@@ -18,7 +18,7 @@
  */
 
 package jode.flow;
-import jode.TabbedPrintWriter;
+import jode.decompiler.TabbedPrintWriter;
 
 /**
  * This is a block which contains a comment/description of what went 

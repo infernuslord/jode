@@ -19,7 +19,7 @@
 
 package jode.expr;
 import jode.Type;
-import jode.LocalInfo;
+import jode.decompiler.LocalInfo;
 
 /**
  * This is a pseudo operator, which represents the check against null

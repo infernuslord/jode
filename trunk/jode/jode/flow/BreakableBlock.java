@@ -16,7 +16,7 @@
  * $Id$
  */
 package jode.flow;
-import jode.TabbedPrintWriter;
+import jode.decompiler.TabbedPrintWriter;
 
 /**
  * This is a structured block, that supports break.  

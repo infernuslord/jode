@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Decompiler;
+import jode.Type;
 
 public class LocalVariableRangeList {
 

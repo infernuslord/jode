@@ -17,7 +17,7 @@
  * $Id$
  */
 package jode.flow;
-import jode.LocalInfo;
+import jode.decompiler.LocalInfo;
 
 /** 
  * This block represents a ret instruction.  A ret instruction is
@@ -46,7 +46,7 @@ public class RetBlock extends StructuredBlock {
 	gen.addElement(local);
     }
 
-    public void dumpInstruction(jode.TabbedPrintWriter writer) 
+    public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 
         throws java.io.IOException 
     {
 	writer.println("RET "+local);
