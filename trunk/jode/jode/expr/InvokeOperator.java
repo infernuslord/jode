@@ -170,9 +170,9 @@ public final class InvokeOperator extends Operator
 		} catch (IOException ex) {
 		    classInfo.guess(ClassInfo.OUTERCLASS);
 		}
+		checkAnonymousClasses();
 	    }
 	}
-	checkAnonymousClasses();
     }
 
     public final boolean isStatic() {
@@ -200,8 +200,7 @@ public final class InvokeOperator extends Operator
 	    || (Options.options & Options.OPTION_ANON) == 0)
 	    return;
 	if (classInfo != null
-	    && classInfo.isMethodScoped()
-	    && classInfo.getClassName() == null)
+	    && classInfo.isMethodScoped())
 	    methodAnalyzer.addAnonymousConstructor(this);
     }
 
@@ -581,6 +580,7 @@ public final class InvokeOperator extends Operator
 	if (getMethodAnalyzer() != null) {
 	    SyntheticAnalyzer synth = getMethodAnalyzer().getSynthetic();
 	    if (synth != null) {
+		int unifyParam = synth.getUnifyParam();
 		Expression op = null;
 		switch (synth.getKind()) {
 		case SyntheticAnalyzer.ACCESSGETFIELD:
@@ -610,9 +610,9 @@ public final class InvokeOperator extends Operator
 					    synth.getReference());
 		    break;
 		case SyntheticAnalyzer.ACCESSCONSTRUCTOR:
-		    if (subExpressions[1] instanceof ConstOperator
+		    if (subExpressions[unifyParam] instanceof ConstOperator
 			&& ((ConstOperator) 
-			    subExpressions[1]).getValue() == null) {
+			    subExpressions[unifyParam]).getValue() == null) {
 			op = new InvokeOperator(methodAnalyzer, CONSTRUCTOR, 
 						synth.getReference());
 		    }
@@ -622,8 +622,9 @@ public final class InvokeOperator extends Operator
 		if (op != null) {
 		    if (subExpressions != null) {
 			for (int i=subExpressions.length; i-- > 0; ) {
-			    if (i == 1 && synth.getKind() 
-				== SyntheticAnalyzer.ACCESSCONSTRUCTOR)
+			    if (synth.getKind() 
+				== SyntheticAnalyzer.ACCESSCONSTRUCTOR
+				&& i == unifyParam)
 				// skip the null param.
 				continue;
 			    op = op.addOperand(subExpressions[i]);
