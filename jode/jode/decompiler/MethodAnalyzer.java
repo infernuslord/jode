@@ -18,9 +18,12 @@
  */
 
 package jode.decompiler;
+import jode.bytecode.ClassInfo;
 import jode.bytecode.MethodInfo;
 import jode.jvm.SyntheticAnalyzer;
 import jode.type.*;
+import jode.expr.Expression;
+import jode.expr.ThisOperator;
 import jode.AssertError;
 import jode.Decompiler;
 import jode.GlobalOptions;
@@ -41,7 +44,10 @@ public class MethodAnalyzer implements Analyzer {
     Type[] exceptions;
 
     SyntheticAnalyzer synth;
-    
+
+    boolean isJikesConstructor;
+    boolean isImplicitAnonymousConstructor;
+
     public MethodAnalyzer(ClassAnalyzer cla, MethodInfo minfo,
                           ImportHandler imports) {
         this.classAnalyzer = cla;
@@ -95,6 +101,14 @@ public class MethodAnalyzer implements Analyzer {
 	return minfo.isSynthetic();
     }
 
+    public final void setJikesConstructor(boolean value) {
+	isJikesConstructor = value;
+    }
+
+    public final void setAnonymousConstructor(boolean value) {
+	isImplicitAnonymousConstructor = value;
+    }
+
     public final SyntheticAnalyzer getSynthetic() {
 	return synth;
     }
@@ -111,19 +125,19 @@ public class MethodAnalyzer implements Analyzer {
 
 	int offset = 0;
 	if (!isStatic()) {
-	    LocalInfo clazz = code.getParamInfo(0);
-	    clazz.setType(Type.tClass(classAnalyzer.getClazz()));
-	    clazz.setName("this");
+	    ClassInfo classInfo = classAnalyzer.getClazz();
+	    LocalInfo thisLocal = code.getParamInfo(0);
+	    thisLocal.setExpression(new ThisOperator(classInfo, true));
 	    offset++;
 	}
 
-	if (isConstructor()
-	    && classAnalyzer.getParent() instanceof ClassAnalyzer
-	    && !classAnalyzer.isStatic()) {
-	    ClassAnalyzer parent = (ClassAnalyzer) classAnalyzer.getParent();
-	    LocalInfo clazz = code.getParamInfo(1);
-	    clazz.setType(Type.tClass(parent.getClazz()));
-	    clazz.setName("this$-1");
+	if (isConstructor() && !isStatic()
+	    && classAnalyzer.outerValues != null) {
+	    Expression[] outerValues = classAnalyzer.outerValues;
+	    for (int i=0; i< outerValues.length; i++) {
+		LocalInfo local = code.getParamInfo(offset+i);
+		local.setExpression(outerValues[i]);
+	    }
 	}
         
 	Type[] paramTypes = methodType.getParameterTypes();
@@ -146,31 +160,85 @@ public class MethodAnalyzer implements Analyzer {
 		GlobalOptions.err.println("");
 	}
     }
-    
-    public void dumpSource(TabbedPrintWriter writer) 
-         throws IOException
+
+    public LocalInfo getParamInfo(int i) {
+	if (code == null)
+	    return null;
+	return code.getParamInfo(i);
+    }
+
+    public void analyzeAnonymousClasses() 
+      throws ClassFormatError
     {
+	if (code == null)
+	    return;
+
+	code.analyzeAnonymousClasses();
+    }
+
+    public boolean skipWriting() {
 	if (synth != null) {
 	    // We don't need this class anymore (hopefully?)
 	    if (synth.getKind() == synth.GETCLASS)
-		return;
+		return true;
 	    if (synth.getKind() >= synth.ACCESSGETFIELD
 		&& synth.getKind() <= synth.ACCESSSTATICMETHOD
 		&& (Decompiler.options & Decompiler.OPTION_INNER) != 0
 		&& (Decompiler.options & Decompiler.OPTION_ANON) != 0)
-		return;
+		return true;
 	}
-	
-	if (isConstructor && classAnalyzer.constructors.length == 1
-	    && (methodType.getParameterTypes().length == 0
-		|| (methodType.getParameterTypes().length == 1
-		    && classAnalyzer.parent instanceof ClassAnalyzer))
-	    && getMethodHeader() != null
-	    && getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock
-	    && getMethodHeader().hasNoJumps())
+
+	if (isConstructor && isJikesConstructor) {
+	    // This is the first empty part of a jikes constructor
+	    return true;
+	}
+
+	boolean declareAsConstructor = isConstructor;
+	int skipParams = 0;
+	if (isConstructor() && !isStatic()
+	    && classAnalyzer.outerValues != null)
+	    skipParams = classAnalyzer.outerValues.length;
+
+	if (isJikesConstructor) {
+	    // This is the real part of a jikes constructor
+	    declareAsConstructor = true;
+	    skipParams = 1;
+	}
+
+	if (declareAsConstructor
+	    && classAnalyzer.constructors.length == 1) {
+
 	    // If this is the only constructor and it is empty and
 	    // takes no parameters, this is the default constructor.
-	    return;
+	    if (methodType.getParameterTypes().length == skipParams
+		&& getMethodHeader() != null
+		&& getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock
+		&& getMethodHeader().hasNoJumps())
+		return true;
+
+	    // if this is an anonymous class and this is the only
+	    // constructor and it only does a super call with the given
+	    // parameters, this is constructor is implicit.
+	    if (isImplicitAnonymousConstructor)
+		return true;
+	}
+	return false;
+    }
+    
+    public void dumpSource(TabbedPrintWriter writer) 
+         throws IOException
+    {
+	boolean declareAsConstructor = isConstructor;
+	int skipParams = 0;
+	if (isConstructor() && !isStatic()
+	    && classAnalyzer.outerValues != null)
+	    skipParams = classAnalyzer.outerValues.length;
+
+	if (isJikesConstructor) {
+	    // This is the real part of a jikes constructor
+	    declareAsConstructor = true;
+	    skipParams = 1;
+	}
 
 	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0
 	    && code != null) {
@@ -188,8 +256,6 @@ public class MethodAnalyzer implements Analyzer {
             && getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock)
             return;
 
-        writer.println();
-
 	if (minfo.isDeprecated()) {
 	    writer.println("/**");
 	    writer.println(" * @deprecated");
@@ -203,7 +269,7 @@ public class MethodAnalyzer implements Analyzer {
         if (isConstructor && isStatic())
             writer.print(""); /* static block */
         else { 
-            if (isConstructor)
+            if (declareAsConstructor)
 		writer.print(classAnalyzer.getName());
             else {
                 writer.printType(getReturnType());
@@ -211,14 +277,8 @@ public class MethodAnalyzer implements Analyzer {
 	    }
             writer.print("(");
             Type[] paramTypes = methodType.getParameterTypes();
-            int offset = isStatic()?0:1;
-
-	    int start = 0;
-	    if (isConstructor()
-		&& classAnalyzer.getParent() instanceof ClassAnalyzer) {
-		start++;
-		offset++;
-	    }
+            int offset = skipParams + (isStatic() ? 0 : 1);
+	    int start = skipParams;
 
 	    LocalInfo[] param = new LocalInfo[paramTypes.length];
             for (int i=start; i<paramTypes.length; i++) {
