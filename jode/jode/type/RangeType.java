@@ -23,23 +23,49 @@ import jode.GlobalOptions;
 import java.util.Hashtable;
 
 /**
- * This class represents an object type which isn't fully known.  
- * The real object type lies in a range of types between topType
- * and bottomType. <p>
+ * This class represents a set of reference types.  The set contains
+ * all types that are castable to all the bottom types by a widening
+ * cast and to which one of the top types can be casted to by a
+ * widening cast. <br>
  *
- * For a totally unknown type topType is tObject and bottomType is
- * null.  It is always garanteed that topType is an Array or an Object
- * and that bottomType is null or an Array or an Object. <p>
+ * For a totally unknown reference type bottomType is tObject and
+ * topType is tNull.  The bottomType is always guaranteed to be not
+ * tNull.  And all topTypes must be castable to all bottom types with
+ * a widening cast. <br>
  *
- * The hintType gives a hint which type it probably is.  It is used to
- * generate the type declaration.
+ * To do intersection on range types, the reference types need three
+ * more operations: specialization, generalization and
+ * createRange. <p>
+ *
+ * specialization chooses all common sub type of two types.  It is
+ * used to find the bottom of the intersected interval. <p>
+ *
+ * generalization chooses the common super type of two types. It
+ * is used to find the top of the intersected interval. <p>
+ *
+ * When the new interval is created with <code>createRangeType</code>
+ * the bottom and top are adjusted so that they only consists of
+ * possible types.  It then decides, if it needs a range type, or if
+ * the reference types already represents all types.
  *
  * @author Jochen Hoenicke
- * @date 98/08/06
- */
+ * @see ReferenceType
+ * @date 98/08/06 */
 public class RangeType extends Type {
+    /**
+     * The bottom type set.  All types in this range type can be casted
+     * to all bottom types by a widening cast.  
+     */
     final ReferenceType bottomType;
+    /**
+     * The top type set.  For each type in this range type, there is a 
+     * top type, that can be casted to this type.
+     */
     final ReferenceType topType;
+
+    /**
+     * Create a new range type with the given bottom and top set.
+     */
     public RangeType(ReferenceType bottomType, 
 		     ReferenceType topType) {
         super(TC_RANGE);
@@ -49,53 +75,63 @@ public class RangeType extends Type {
 	this.topType    = topType;
     }
 
+    /**
+     * Returns the bottom type set.  All types in this range type can
+     * be casted to all bottom types by a widening cast.
+     * @return the bottom type set 
+     */
     public ReferenceType getBottom() {
         return bottomType;
     }
 
+    /**
+     * Returns the top type set.  For each type in this range type,
+     * there is a top type, that can be casted to this type.  
+     * @return the top type set
+     */
     public ReferenceType getTop() {
         return topType;
     }
 
+    
+    /**
+     * Returns the hint type of this range type set.  This returns the
+     * singleton set containing only the first top type, except if it
+     * is null and there is a unique bottom type, in which case it returns
+     * the bottom type.
+     * @return the hint type.  
+     */
     public Type getHint() {
 	return topType == tNull && bottomType.equals(bottomType.getHint()) 
 	    ? bottomType.getHint(): topType.getHint();
     }
 
+    /**
+     * Returns the canonic type of this range type set.  This returns the
+     * singleton set containing only the first top type.
+     * @return the canonic type.  
+     */
+    public Type getCanonic() {
+	return topType.getCanonic();
+    }
+
+    /**
+     * The set of super types of this type.  This is the set of
+     * super types of the top type.
+     * @return the set of super types.
+     */
     public Type getSuperType() {
 	return topType.getSuperType();
     }
 
+    /**
+     * The set of sub types of this type.  This is the set of
+     * sub types of the bottom types.
+     * @return the set of super types.
+     */
     public Type getSubType() {
-        return bottomType.getSubType();
+	return tRange(bottomType, tNull);
     }
-
-//      /**
-//       * Create the type corresponding to the range from bottomType to this.
-//       * @param bottomType the start point of the range
-//       * @return the range type, or tError if not possible.
-//       */
-//      public ReferenceType createRangeType(ReferenceType bottomType) {
-//          throw new AssertError("createRangeType called on RangeType");
-//      }
-
-//      /**
-//       * Returns the common sub type of this and type.
-//       * @param type the other type.
-//       * @return the common sub type.
-//       */
-//      public ReferenceType getSpecializedType(ReferenceType type) {
-//          throw new AssertError("getSpecializedType called on RangeType");
-//      }
-
-//      /**
-//       * Returns the common super type of this and type.
-//       * @param type the other type.
-//       * @return the common super type.
-//       */
-//      public Type getGeneralizedType(Type type) {
-//          throw new AssertError("getGeneralizedType called on RangeType");
-//      }
 	    
     /**
      * Checks if we need to cast to a middle type, before we can cast from
@@ -122,13 +158,11 @@ public class RangeType extends Type {
 
     public String toString()
     {
-	if (topType == tNull)
-	    return "<" + bottomType + "-NULL>";
 	return "<" + bottomType + "-" + topType + ">";
     }
 
     public String getDefaultName() {
-	throw new AssertError("getDefaultName() not called on Hint");
+	throw new AssertError("getDefaultName() called on range");
     }
 
     public int hashCode() {
