@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.0//EN">
+<html>
+<head>
+<title>Java Optimize and Decompile Environment (JODE)</title>
+<meta name="robots" content="noindex">
+<meta name="date" content="1999-10-24">
+</head>
+
+<body>
+<table cellpadding=4 cellspacing=1 width=100%>
+<tr>
+<td></td>
+<td> <img src="jode-logo.gif" alt="JODE" width=286 height=110></td>
+</tr>
+<tr>
+<td valign="top">
+<B><a href="http://www.informatik.uni-oldenburg.de/~delwi">Homepage</a></B>
+<br><br>
+<a href="jode.html">
+<B>Jode</B></a>
+<ul>
+<li><a href="applet.html">Test It Online</a></li>
+<li>Download</li>
+<li><a href="usage.html">Usage</a></li>
+<li><a href="license.html">License</a></li>
+<li><a href="history.html">History</a></li>
+</ul>
+</td>
+<td>
+<h2>Download</h2>
+The simplest way is to get it in precompiled form.  I have two jar
+archives:
+
+<ul>
+<li><a href="jode-@VERSION@-1.1.jar">jode-@VERSION@-1.1.jar</a> is for
+JDK&nbsp;1.1.  It already contains gnu.getopt, but you need to
+download the <a
+href="http://java.sun.com/beans/infobus/#DOWNLOAD_COLLECTIONS">collection
+classes</a>.  If you want to use the swing interface, you have to
+download <a href="http://java.sun.com/products/jfc/index.html#download-swing">swing</a> separately. </li> <li><a
+href="jode-@VERSION@-1.2.jar">jode-@VERSION@-1.2.jar</a> is for
+JDK&nbsp;1.2.  It already contains gnu.getopt, so you don't need any
+other package.</li>
+</ul>
+
+<a href="jode-@VERSION@.tar.gz">jode-@VERSION@.tar.gz</a> is the source
+code.  You need many unix tools to compile this file.  It also works
+under windows with <a
+href="http://sourceware.cygnus.com/cygwin/">cygwin</a> and unzip.</li>
+
+<h2>Other packages you may need</h2>
+
+<dl>
+<dt>CYGWIN (unix tools for win95/NT)</dt>
+<dd>
+   <a href="http://sourceware.cygnus.com/cygwin/">http://sourceware.cygnus.com/cygwin/</a>
+</dd>
+<dt>JDK 1.1:</dt>
+<dd>
+   <a href="http://java.sun.com/products/jdk/1.1/index.htm">http://java.sun.com/products/jdk/1.1/index.htm</a>
+</dd>
+<dt>Collection classes and Swing for JDK 1.1:<dt>
+<dd>
+   <a href="http://java.sun.com/beans/infobus/#DOWNLOAD_COLLECTIONS">http://java.sun.com/beans/infobus/#DOWNLOAD_COLLECTIONS</a>
+   <a href="http://java.sun.com/products/jfc/index.html#download-swing">http://java.sun.com/products/jfc/index.html#download-swing</a>
+</dd>
+<dt>JDK 1.2:</dt>
+<dd>
+   <a href="http://java.sun.com/products/jdk/1.2/index.html">http://java.sun.com/products/jdk/1.2/index.html</a>
+</dd>
+<dt>Getopt:</dt>
+<dd>
+   <a href="http://www.urbanophile.com/arenn/hacking/download.html#getopt">http://www.urbanophile.com/arenn/hacking/download.html#getopt</a>
+</dd>
+</dl>
+</td>
+</table>
+
+<hr>
+
+<p><A HREF="mailto:Jochen.Hoenicke@Informatik.Uni-Oldenburg.DE">
+http://www.informatik.uni-oldenburg.de/~delwi/jode/download.html</A>, last
+updated on <em>24-Okt-1999</em>.</p>
+
+</body>
+</html>
+
