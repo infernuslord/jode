@@ -325,28 +325,33 @@ public abstract class AbstractList extends AbstractCollection implements List {
     throw new UnsupportedOperationException();
   }
 
-  public List subList(final int fromIndex, final int toIndex) {
+  private static class SubList extends AbstractList {
 
     // Note that within this class two fields called modCount are inherited -
-    // one from the superclass, and one from the outer class. These are
+    // one from the superclass, and one from the backing class. These are
     // explicitly disambiguated in the code by referring to "this.modCount"
-    // and "AbstractList.this.modCount".
+    // and "backing.modCount".
     // The code uses both these two fields and *no other* to provide fail-fast
     // behaviour. For correct operation, the two fields should contain equal
-    // values. Therefore, if this.modCount != AbstractList.this.modCount, there
+    // values. Therefore, if this.modCount != backing.modCount, there
     // has been a concurrent modification. This is all achieved purely by using
     // the modCount field, precisely according to the docs of AbstractList.
     // See the methods upMod and checkMod.
 
-    return new AbstractList() {
+    // Jikes doesn't want to access outer instance with AbstractList.this,
+    // since this is an AbstractList, too.  I therefor changed class to static
+    // and do it by hand.  This makes it a lot clearer by the way.
+    private AbstractList backing;
+    private final int offset;
+    private int size;
 
-      private final int offset = fromIndex;
-      private int size = toIndex - fromIndex;
-
-      { // This is an instance initializer, called whenever this anonymous
-        // class is instantiated.
-        upMod();
-      }
+    SubList(AbstractList backing, int fromIndex, int toIndex) {
+      this.backing = backing;
+      this.offset = fromIndex;
+      this.size = toIndex - fromIndex;
+      
+      upMod();
+    }
 
       /**
        * This method checks the two modCount fields to ensure that there has
@@ -358,7 +363,7 @@ public abstract class AbstractList extends AbstractCollection implements List {
        *   concurrent modification.
        */
       private void checkMod() {
-        if (this.modCount != AbstractList.this.modCount) {
+        if (modCount != backing.modCount) {
           throw new ConcurrentModificationException();
         }
       }
@@ -370,7 +375,7 @@ public abstract class AbstractList extends AbstractCollection implements List {
        * Note that since this method is private, it will be inlined.
        */
       private void upMod() {
-        this.modCount = AbstractList.this.modCount;
+        modCount = backing.modCount;
       }
 
       /**
@@ -414,7 +419,7 @@ public abstract class AbstractList extends AbstractCollection implements List {
         checkBoundsInclusive(index);
 
         return new ListIterator() {
-          ListIterator i = AbstractList.this.listIterator(index + offset);
+          ListIterator i = backing.listIterator(index + offset);
           int position = index;
 
           public boolean hasNext() {
@@ -498,7 +503,7 @@ public abstract class AbstractList extends AbstractCollection implements List {
       public Object set(int index, Object o) {
         checkMod();
         checkBoundsExclusive(index);
-        o = AbstractList.this.set(index + offset, o);
+        o = backing.set(index + offset, o);
         upMod();
         return o;
       }
@@ -506,13 +511,13 @@ public abstract class AbstractList extends AbstractCollection implements List {
       public Object get(int index) {
         checkMod();
         checkBoundsExclusive(index);
-        return AbstractList.this.get(index + offset);
+        return backing.get(index + offset);
       }
 
       public void add(int index, Object o) {
         checkMod();
         checkBoundsInclusive(index);
-        AbstractList.this.add(index + offset, o);
+        backing.add(index + offset, o);
         upMod();
         size++;
       }
@@ -520,7 +525,7 @@ public abstract class AbstractList extends AbstractCollection implements List {
       public Object remove(int index) {
         checkMod();
         checkBoundsExclusive(index);
-        Object o = AbstractList.this.remove(index + offset);
+        Object o = backing.remove(index + offset);
         upMod();
         size--;
         return o;
@@ -532,7 +537,7 @@ public abstract class AbstractList extends AbstractCollection implements List {
         checkBoundsInclusive(toIndex2);
 
         // this call will catch the toIndex2 < fromIndex2 condition
-        AbstractList.this.removeRange(offset + fromIndex2, offset + toIndex2);
+        backing.removeRange(offset + fromIndex2, offset + toIndex2);
         upMod();
         size -= toIndex2 - fromIndex2;
       }
@@ -540,12 +545,16 @@ public abstract class AbstractList extends AbstractCollection implements List {
       public boolean addAll(int index, Collection c) {
         checkMod();
         checkBoundsInclusive(index);
-        int s = AbstractList.this.size();
-        boolean result = AbstractList.this.addAll(offset + index, c);
+        int s = backing.size();
+        boolean result = backing.addAll(offset + index, c);
         upMod();
-        size += AbstractList.this.size() - s;
+        size += backing.size() - s;
         return result;
       }
-    };
   }
+
+  public List subList(final int fromIndex, final int toIndex) {
+    return new SubList(this, fromIndex, toIndex);
+  }
+
 }
