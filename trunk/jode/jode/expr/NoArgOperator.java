@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.AssertError;
 
 public abstract class NoArgOperator extends Operator {
 

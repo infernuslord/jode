@@ -23,6 +23,7 @@ import jode.bytecode.FieldInfo;
 import jode.bytecode.MethodInfo;
 import jode.bytecode.ConstantPool;
 import jode.bytecode.ClassFormatException;
+import jode.decompiler.Expression;
 import jode.flow.TransformConstructors;
 
 import java.lang.reflect.Modifier;

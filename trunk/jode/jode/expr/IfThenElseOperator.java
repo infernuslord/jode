@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 public class IfThenElseOperator extends SimpleOperator {
     public IfThenElseOperator(Type type) {
@@ -42,7 +43,7 @@ public class IfThenElseOperator extends SimpleOperator {
         case 2:
             return 200;
         default:
-            throw new AssertError("ifthenelse with operand "+i);
+            throw new jode.AssertError("ifthenelse with operand "+i);
         }
     }
 

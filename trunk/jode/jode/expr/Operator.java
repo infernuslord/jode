@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 public abstract class Operator extends Expression {
     public final static int ADD_OP     =  1;
@@ -50,7 +51,7 @@ public abstract class Operator extends Expression {
         super(type);
         this.operator = op;
         if (type == null)
-            throw new AssertError("type == null");
+            throw new jode.AssertError("type == null");
     }
 
     public Operator getOperator() {

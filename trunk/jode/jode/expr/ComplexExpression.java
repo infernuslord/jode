@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Decompiler;
+import jode.Type;
 
 public class ComplexExpression extends Expression {
     Operator     operator;
@@ -26,9 +28,9 @@ public class ComplexExpression extends Expression {
     public ComplexExpression(Operator op, Expression[] sub) {
         super(Type.tUnknown);
         if (sub.length != op.getOperandCount())
-            throw new AssertError ("Operand count mismatch: "+
-                                   sub.length + " != " + 
-                                   op.getOperandCount());
+            throw new jode.AssertError ("Operand count mismatch: "+
+                                        sub.length + " != " + 
+                                        op.getOperandCount());
         operator = op;
         operator.parent = this;
         subExpressions = sub;

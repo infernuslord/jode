@@ -18,11 +18,7 @@
  */
 
 package jode.flow;
-import jode.MonitorEnterOperator;
-import jode.ComplexExpression;
-import jode.LocalLoadOperator;
-import jode.LocalStoreOperator;
-import jode.Expression;
+import jode.decompiler.*;
 
 public class CompleteSynchronized {
 

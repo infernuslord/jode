@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.MethodType;
 
 public class ConstructorOperator extends Operator {
     MethodType methodType;

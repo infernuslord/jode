@@ -18,10 +18,7 @@
  */
 
 package jode.flow;
-import jode.Operator;
-import jode.NopOperator;
-import jode.Expression;
-import jode.ComplexExpression;
+import jode.decompiler.*;
 
 /**
  * This transformation creates expressions.  It transforms

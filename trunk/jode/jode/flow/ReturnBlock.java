@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.TabbedPrintWriter;
-import jode.Expression;
+import jode.decompiler.Expression;
 
 /**
  * This is the structured block for an Return block.

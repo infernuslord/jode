@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.ArrayType;
 
 public class NewArrayOperator extends SimpleOperator {
     String baseTypeString;

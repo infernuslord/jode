@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 public abstract class StoreInstruction extends Operator {
 
@@ -43,7 +44,7 @@ public abstract class StoreInstruction extends Operator {
      */
     public void makeNonVoid() {
         if (type != Type.tVoid)
-            throw new AssertError("already non void");
+            throw new jode.AssertError("already non void");
         type = lvalueType;
         if (parent != null && parent.getOperator() == this)
             parent.type = lvalueType;

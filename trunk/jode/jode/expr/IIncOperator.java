@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.LocalInfo;
 
 public class IIncOperator extends NoArgOperator 
 implements LocalVarOperator {
@@ -62,7 +64,7 @@ implements LocalVarOperator {
      */
     public void makeNonVoid() {
         if (type != Type.tVoid)
-            throw new AssertError("already non void");
+            throw new jode.AssertError("already non void");
         type = local.getType();
     }
 

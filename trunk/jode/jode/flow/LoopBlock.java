@@ -19,11 +19,11 @@
 
 package jode.flow;
 import jode.TabbedPrintWriter;
-import jode.Expression;
-import jode.ConstOperator;
 import jode.Type;
 import jode.LocalInfo;
-import jode.LocalStoreOperator;
+import jode.decompiler.Expression;
+import jode.decompiler.ConstOperator;
+import jode.decompiler.LocalStoreOperator;
 
 /**
  * This is the structured block for an Loop block.

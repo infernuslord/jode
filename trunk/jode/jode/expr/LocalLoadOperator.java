@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.LocalInfo;
 
 public class LocalLoadOperator extends ConstOperator 
 implements LocalVarOperator {
@@ -42,17 +44,12 @@ implements LocalVarOperator {
         return false;
     }
 
-//     public void setLocalInfo(LocalInfo local) {
-//         local.setType(type);
-// 	this.local = local;
-//     }
-
     public LocalInfo getLocalInfo() {
 	return local.getLocalInfo();
     }
 
     public void updateType() {
-        if (Decompiler.isTypeDebugging)
+        if (jode.Decompiler.isTypeDebugging)
             System.err.println("local "+local.getName()+" changed: "
                                +type+" to "+local.getType()
                                +" in "+parent);

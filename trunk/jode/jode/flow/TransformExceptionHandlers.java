@@ -20,13 +20,8 @@ package jode.flow;
 import jode.AssertError;
 import jode.Type;
 import jode.LocalInfo;
-import jode.ComplexExpression;
-import jode.LocalStoreOperator;
-import jode.NopOperator;
-import jode.MonitorExitOperator;
-import jode.LocalLoadOperator;
-import jode.Expression;
-import jode.PopOperator;
+import jode.decompiler.*;
+
 import java.util.Enumeration;
 
 /**
@@ -180,10 +175,9 @@ public class TransformExceptionHandlers {
                 local.setName("exception");
                 firstInstr.removeBlock();
 
-            } else if (instr instanceof jode.LocalStoreOperator) {
+            } else if (instr instanceof LocalStoreOperator) {
                 /* The exception is stored in a local variable */
-                local = 
-                    ((jode.LocalStoreOperator) instr).getLocalInfo();
+                local = ((LocalStoreOperator) instr).getLocalInfo();
                 firstInstr.removeBlock();
             }
         }

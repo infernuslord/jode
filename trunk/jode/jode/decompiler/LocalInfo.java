@@ -20,6 +20,7 @@
 package jode;
 import java.util.Enumeration;
 import java.util.Vector;
+import jode.decompiler.LocalVarOperator;
 
 /**
  * The LocalInfo represents a local variable of a method.
@@ -87,8 +88,7 @@ public class LocalInfo {
                         (LocalVarOperator) enum.nextElement();
                     if (needTypeUpdate) {
                         if (Decompiler.isTypeDebugging)
-                            System.err.println("updating " + lvo + " in "
-                                               + ((Expression)lvo).parent);
+                            System.err.println("updating " + lvo);
                         lvo.updateType();
                     }
                     shadow.operators.addElement(lvo);
@@ -191,8 +191,7 @@ public class LocalInfo {
             while (enum.hasMoreElements()) {
                 LocalVarOperator lvo = (LocalVarOperator) enum.nextElement();
                 if (Decompiler.isTypeDebugging)
-                    System.err.println("updating "+lvo+" in "
-                                       + ((Expression)lvo).parent);
+                    System.err.println("updating "+lvo);
                 lvo.updateType();
             }
         }

@@ -19,11 +19,8 @@
 
 package jode.flow;
 import jode.Type;
-import jode.Expression;
-import jode.ConstOperator;
-import jode.ComplexExpression;
-import jode.IfThenElseOperator;
-import jode.CompareUnaryOperator;
+import jode.decompiler.*;
+
 import java.util.Enumeration;
 import java.util.Vector;
 

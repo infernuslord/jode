@@ -16,11 +16,11 @@
  * $Id$
  */
 package jode.flow;
-import jode.Expression;
 import jode.TabbedPrintWriter;
 import jode.LocalInfo;
-import jode.LocalStoreOperator;
-import jode.ComplexExpression;
+import jode.decompiler.ComplexExpression;
+import jode.decompiler.Expression;
+import jode.decompiler.LocalStoreOperator;
 
 /**
  * This is the structured block for atomic instructions.

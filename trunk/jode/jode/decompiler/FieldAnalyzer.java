@@ -22,6 +22,8 @@ import java.lang.reflect.Modifier;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.AttributeInfo;
 import jode.bytecode.ClassFormatException;
+import jode.decompiler.Expression;
+import jode.decompiler.ConstOperator;
 
 public class FieldAnalyzer implements Analyzer {
     ClassAnalyzer clazz;

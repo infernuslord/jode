@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 /**
  * A NopOperator takes one or zero arguments and returns it again.  It

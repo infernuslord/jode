@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.TabbedPrintWriter;
+import jode.decompiler.Expression;
 
 /**
  * This is the structured block for an empty block.
@@ -27,7 +28,7 @@ public class SwitchBlock extends InstructionContainer
 implements BreakableBlock {
     CaseBlock[] caseBlocks;
 
-    public SwitchBlock(jode.Expression instr,
+    public SwitchBlock(Expression instr,
 		       int[] cases, int[] dests) {
 	super(instr);
         this.caseBlocks = new CaseBlock[dests.length];

@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 public class CompareToIntOperator extends SimpleOperator {
     public CompareToIntOperator(Type type, int lessGreater) {

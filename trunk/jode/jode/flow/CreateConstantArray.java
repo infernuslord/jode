@@ -18,12 +18,7 @@
  */
 
 package jode.flow;
-import jode.Expression;
-import jode.ComplexExpression;
-import jode.ArrayStoreOperator;
-import jode.NewArrayOperator;
-import jode.ConstantArrayOperator;
-import jode.ConstOperator;
+import jode.decompiler.*;
 import jode.Type;
 
 public class CreateConstantArray {

@@ -19,10 +19,8 @@
 
 package jode.flow;
 import java.util.Vector;
-import jode.Expression;
-import jode.ComplexExpression;
+import jode.decompiler.*;
 import jode.Type;
-import jode.BinaryOperator;
 
 public class CombineIfGotoExpressions {
 

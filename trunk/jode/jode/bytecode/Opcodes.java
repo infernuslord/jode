@@ -17,10 +17,14 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.CodeAnalyzer;
+import jode.LocalInfo;
+import jode.Type;
+import jode.MethodType;
+import jode.bytecode.ConstantPool;
 import jode.flow.*;
 import java.io.*;
-import jode.bytecode.ConstantPool;
 
 /**
  * This is an abstract class which creates flow blocks for the
