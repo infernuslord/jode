@@ -25,7 +25,7 @@ public class CreateConstantArray implements Transformation {
                 if (!MyType.isOfType(indexop.getType(), MyType.tUInt))
                     return null;
                 int index = Integer.parseInt(indexop.getValue());
-                if (index > 0 && consts == null) {
+                if (index >= 0 && consts == null) {
                     lastindex = index;
                     consts = new Expression[lastindex+1];
                 } else if (index < 0 || index > lastindex)
