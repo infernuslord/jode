@@ -17,7 +17,7 @@
  * $Id$
  */
 
-package jode.flow;
+package jode.util;
 import java.util.Dictionary;
 import java.util.Enumeration;
 
