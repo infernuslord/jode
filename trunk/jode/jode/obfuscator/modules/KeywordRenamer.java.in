@@ -33,12 +33,11 @@ public class KeywordRenamer implements Renamer, OptionHandler {
 	    "class", "interface", "implements", "extends",
 	    "instanceof", "new",
 	    "int", "boolean", "long", "float", "double", "short", 
-	    "Object", "String", "Thread",
 	    "public", "protected", "private", 
 	    "static", "synchronized", "strict", "transient", "abstract",
 	    "volatile", "final",
 	    /* Not really keywords, but very confusing anyway. */
-	    "Object", "String", "Runnable", "StringBuffer", "Vector"
+	    "Object", "String", "Thread", "Runnable", "StringBuffer", "Vector"
 	};
 	backup = new StrongRenamer();
     }
