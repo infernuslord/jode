@@ -21,6 +21,7 @@ package jode.decompiler;
 import java.io.*;
 import java.util.Stack;
 import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.InnerClassInfo;
 import jode.type.*;
@@ -162,8 +163,9 @@ public class TabbedPrintWriter {
 	    Scope scope = (Scope) scopes.elementAt(ptr);
 	    if (scope == inScope)
 		return false;
-	    if (scope.conflicts(name, context))
+	    if (scope.conflicts(name, context)) {
 		return true;
+	    }
 	}
 	return false;
     }
@@ -211,11 +213,7 @@ public class TabbedPrintWriter {
 	for (int i=0; i< outers.length; i++) {
 	    if (outers[i].name == null)
 		return "ANONYMOUS CLASS";
-	    Scope scope = getScope
-		(ClassInfo.forName(outers[i].outer == null 
-				   ? outers[i].inner : outers[i].outer),
-		 outers[i].outer == null 
-		 ? Scope.METHODSCOPE : Scope.CLASSSCOPE);
+	    Scope scope = getScope(info, Scope.METHODSCOPE);
 	    if (scope != null && 
 		!conflicts(outers[i].name, scope, scopeType)) {
  		StringBuffer sb = new StringBuffer(outers[i].name);
