@@ -63,7 +63,6 @@ public class CreateCheckNull {
 
 	LocalInfo li = new LocalInfo();
 	ic.setInstruction(new CheckNullOperator(Type.tUObject, li));
-	ic.used.addElement(li);
 	last.replace(last.outer);
         return true;
     }
@@ -94,7 +93,6 @@ public class CreateCheckNull {
 	LocalInfo li = new LocalInfo();
 	InstructionContainer ic = 
 	    new InstructionBlock(new CheckNullOperator(Type.tUObject, li));
-	ic.used.addElement(li);
 	ifBlock.flowBlock.removeSuccessor(ifBlock.thenBlock.jump);
 	ic.moveJump(ifBlock.jump);
 	if (last == ifBlock) {

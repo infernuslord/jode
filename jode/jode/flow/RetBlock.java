@@ -35,7 +35,6 @@ public class RetBlock extends StructuredBlock {
 
     public RetBlock(LocalInfo local) {
 	this.local = local;
-	used.addElement(local);
     }
 
     /**
@@ -57,6 +56,13 @@ public class RetBlock extends StructuredBlock {
 	if (!stack.isEmpty())
 	    throw new IllegalArgumentException("stack is not empty at RET");
 	return null;
+    }
+
+    public VariableSet propagateUsage() {
+	if (used == null)
+	    used = new VariableSet(); /*XXX*/
+	used.addElement(local);
+	return super.propagateUsage();
     }
 
     public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 

@@ -112,7 +112,7 @@ public class ConditionalBlock extends InstructionContainer {
 
     public void removePush() {
 	if (stack != null)
-	    instr = stack.mergeIntoExpression(instr, used);
+	    instr = stack.mergeIntoExpression(instr);
 	trueBlock.removePush();
     }
 

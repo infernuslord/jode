@@ -125,10 +125,17 @@ public class IfThenElseBlock extends StructuredBlock {
     
     public void removePush() {
 	if (condStack != null)
-	    cond = condStack.mergeIntoExpression(cond, used);
+	    cond = condStack.mergeIntoExpression(cond);
         thenBlock.removePush();
 	if (elseBlock != null)
 	    elseBlock.removePush();
+    }
+
+    public VariableSet propagateUsage() {
+	if (used == null)
+	    used = new VariableSet(); /*XXX*/
+	cond.fillInGenSet(null, used);
+	return super.propagateUsage();
     }
 
     /**

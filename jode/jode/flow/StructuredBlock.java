@@ -64,9 +64,9 @@ public abstract class StructuredBlock {
 
     /**
      * The variable set containing all variables that are used in
-     * this block.
+     * this block.  You must set this, before calling super.propagateUsage.
      */
-    VariableSet used = new VariableSet();
+    VariableSet used;
 
     /**
      * The variable set containing all variables we must declare.
@@ -210,16 +210,16 @@ public abstract class StructuredBlock {
      * will be moved to this block (may be this).  
      */
     void moveDefinitions(StructuredBlock from, StructuredBlock sub) {
-        while (from != sub && from != this) {
-            used.unionExact(from.used);
-            from.used.removeAllElements();
-            StructuredBlock[] subs = from.getSubBlocks();
-            if (subs.length == 0)
-                return;
-            for (int i=0; i<subs.length - 1; i++)
-                moveDefinitions(subs[i], sub);
-            from = subs[subs.length-1];
-        }
+//          while (from != sub && from != this) {
+//              used.unionExact(from.used);
+//              from.used.removeAllElements();
+//              StructuredBlock[] subs = from.getSubBlocks();
+//              if (subs.length == 0)
+//                  return;
+//              for (int i=0; i<subs.length - 1; i++)
+//                  moveDefinitions(subs[i], sub);
+//              from = subs[subs.length-1];
+//          }
     }
 
     /**
@@ -349,6 +349,8 @@ public abstract class StructuredBlock {
      * block (this is <i>not</i> the used set).  
      */
     public VariableSet propagateUsage() {
+	if (used == null)
+	    used = new VariableSet(); /*XXX*/
         StructuredBlock[] subs = getSubBlocks();
         VariableSet allUse = (VariableSet) used.clone();
         for (int i=0; i<subs.length; i++) {

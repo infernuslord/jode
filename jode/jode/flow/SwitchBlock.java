@@ -120,7 +120,7 @@ implements BreakableBlock {
 
     public void removePush() {
 	if (exprStack != null)
-	    instr = exprStack.mergeIntoExpression(instr, used);
+	    instr = exprStack.mergeIntoExpression(instr);
 	super.removePush();
     }
 
@@ -183,6 +183,13 @@ implements BreakableBlock {
         return getNextFlowBlock();
     }
 
+    public VariableSet propagateUsage() {
+	if (used == null)
+	    used = new VariableSet(); /*XXX*/
+	instr.fillInGenSet(null, used);
+	return super.propagateUsage();
+    }
+
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
@@ -191,7 +198,9 @@ implements BreakableBlock {
             writer.println(label+":");
             writer.tab();
         }
-        writer.print("switch ("+instr+")");
+        writer.print("switch (");
+	instr.dumpExpression(writer);
+	writer.print(")");
 	writer.openBrace();
 	for (int i=0; i < caseBlocks.length; i++)
 	    caseBlocks[i].dumpSource(writer);

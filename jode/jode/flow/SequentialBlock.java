@@ -168,7 +168,9 @@ public class SequentialBlock extends StructuredBlock {
      * block (this is <i>not</i> the used set).
      */
     public VariableSet propagateUsage() {
-        VariableSet allUse = (VariableSet) used.clone();
+	if (used == null)
+	    used = new VariableSet();/*XXX*/
+        VariableSet allUse = new VariableSet();
 	VariableSet childUse0 = subBlocks[0].propagateUsage();
 	VariableSet childUse1 = subBlocks[1].propagateUsage();
 	/* All variables used somewhere inside both sub blocks, are

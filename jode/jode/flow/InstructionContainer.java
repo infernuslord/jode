@@ -33,19 +33,16 @@ public abstract class InstructionContainer extends StructuredBlock {
 
     public InstructionContainer(Expression instr) {
         this.instr = instr;
-	if (instr != null)
-	    instr.fillInGenSet(null, used);
     }
 
     public InstructionContainer(Expression instr, Jump jump) {
 	this(instr);
         setJump(jump);
-    }
-
-    public void setJump(Jump jump) {
-	super.setJump(jump);
-	jump.gen.add(used);
-	jump.kill.add(used);
+	if (instr != null) {
+	    VariableSet gen = new VariableSet();
+	    instr.fillInGenSet(null, jump.gen);
+	    instr.fillInGenSet(null, jump.kill);
+	}
     }
 
     /** 
@@ -70,6 +67,14 @@ public abstract class InstructionContainer extends StructuredBlock {
     public void fillInGenSet(VariableSet in, VariableSet gen) {
 	if (instr != null)
 	    instr.fillInGenSet(in, gen);
+    }
+
+    public VariableSet propagateUsage() {
+	if (used == null)
+	    used = new VariableSet(); /*XXX*/
+	if (instr != null)
+	    instr.fillInGenSet(null, used);
+	return super.propagateUsage();
     }
 
     public boolean doTransformations() {

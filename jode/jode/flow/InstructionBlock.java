@@ -77,13 +77,12 @@ public class InstructionBlock extends InstructionContainer {
 
     public void removePush() {
 	if (stack != null)
-	    instr = stack.mergeIntoExpression(instr, used);
+	    instr = stack.mergeIntoExpression(instr);
 	if (pushedLocal != null) {
 	    Expression store = new StoreInstruction
 		(new LocalStoreOperator
 		 (pushedLocal.getType(), pushedLocal)).addOperand(instr);
 	    instr = store;
-	    used.addElement(pushedLocal);
 	}
 	super.removePush();
     }

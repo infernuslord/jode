@@ -314,7 +314,6 @@ public class TransformExceptionHandlers {
 					store.getSubExpressions()[1];
 				    ret.setInstruction(expr);
                                     ret.replace(ret.outer);
-                                    ret.used.removeElement(local);
                                 }
                             } catch(ClassCastException ex) {
                                 /* didn't succeed */
