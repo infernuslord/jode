@@ -21,7 +21,6 @@ package jode.obfuscator;
 import jode.AssertError;
 import jode.GlobalOptions;
 import jode.bytecode.*;
-import jode.type.Type;
 
 import @COLLECTIONS@.Collections;
 import @COLLECTIONS@.Iterator;
