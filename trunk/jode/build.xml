@@ -167,7 +167,7 @@
   <target name="release" depends="release-bin,release-bin11,release-src,release-javadoc"/>
 
   <target name="release-bindist" depends="build">
-    <jar jarfile="${distdir}/jode.jar">
+    <jar jarfile="${distdir}/jode.jar" compress="true" manifest="${basedir}/MANIFEST.MF">
 	<fileset dir="${build}" includes="**/*.class"/>
 	<fileset dir="${props}" includes="**/*.properties"/>
     </jar>

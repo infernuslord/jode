@@ -284,7 +284,7 @@ public class Main
 	menu = new JMenu(bundle.getString("menu.file"));
 	menu.setMnemonic('f');
 	
-	this.saveMenuItem = new JMenuItem(bundle.getString("menu.save"));
+	this.saveMenuItem = new JMenuItem(bundle.getString("menu.file.save"));
 	this.saveMenuItem.setMnemonic('s');
 	this.saveMenuItem.setEnabled(false);
 	this.saveMenuItem.addActionListener(new ActionListener() {
@@ -317,7 +317,7 @@ public class Main
                         p.print(sourcecodeArea.getText());
                         p.close();
                     } catch (Exception e) {
-                        errorArea.setText(bundle.getString("menu.save.ex"));
+                        errorArea.setText(bundle.getString("menu.file.save.ex"));
                     }
                 }
             });
