@@ -22,7 +22,7 @@ import jode.Type;
 import jode.MethodType;
 
 public class ConstructorOperator extends Operator 
-    implements CombineableOperator {
+    implements MatchableOperator {
     MethodType methodType;
     Type classType;
 
@@ -41,13 +41,6 @@ public class ConstructorOperator extends Operator
      */
     public boolean hasSideEffects(Expression expr) {
 	return expr.containsConflictingLoad(this);
-    }
-
-    /**
-     * Makes a non void expression out of this invoke instruction.
-     */
-    public void makeNonVoid() {
-	throw new jode.AssertError("already non void");
     }
 
     /**
