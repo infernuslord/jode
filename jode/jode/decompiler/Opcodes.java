@@ -373,7 +373,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return createNormal(ca, instr,
                                 new MonitorExitOperator());
         case opc_multianewarray: {
-            Type type = Type.tClassOrArray((String) instr.objData);
+            Type type = Type.tType((String) instr.objData);
 	    type.useType();
             int dimension = instr.intData;
             return createNormal(ca, instr, 
