@@ -23,6 +23,7 @@ import jode.*;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.AttributeInfo;
 import jode.bytecode.ClassFormatException;
+import jode.bytecode.ConstantPool;
 import jode.expr.Expression;
 import jode.expr.ConstOperator;
 
@@ -34,6 +35,7 @@ public class FieldAnalyzer implements Analyzer {
     String fieldName;
     Expression constant;
     boolean isSynthetic;
+    boolean analyzedSynthetic = false;
     
     public FieldAnalyzer(ClassAnalyzer cla, FieldInfo fd, 
                          JodeEnvironment e)
@@ -56,10 +58,14 @@ public class FieldAnalyzer implements Analyzer {
                     throw new AssertError("ConstantValue attribute"
                                           + " has wrong length");
                 int index = (contents[0] & 0xff) << 8 | (contents[1] & 0xff);
-                constant = new ConstOperator
-                    (type.intersection(cla.getConstantPool()
-                                       .getConstantType(index)),
-                     cla.getConstantPool().getConstantString(index));
+		ConstantPool cpool = cla.getConstantPool();
+		if (cpool.getConstantType(index).equals(Type.tInt))
+		    constant = new ConstOperator(cpool.getConstantInt(index));
+		else
+		    constant = new ConstOperator
+			(cpool.getConstantType(index), 
+			 cpool.getConstantString(index));
+		constant.setType(type);
                 constant.makeInitializer();
             } catch (ClassFormatException ex) {
                 ex.printStackTrace(Decompiler.err);
@@ -80,6 +86,10 @@ public class FieldAnalyzer implements Analyzer {
 	return isSynthetic;
     }
 
+    public void analyzedSynthetic() {
+	analyzedSynthetic = true;
+    }
+
     public boolean setInitializer(Expression expr) {
         expr.makeInitializer();
         if (constant != null)
@@ -95,7 +105,7 @@ public class FieldAnalyzer implements Analyzer {
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException 
     {
-	if (isSynthetic)
+	if (analyzedSynthetic)
 	    return; /*XXX*/
 	String modif = Modifier.toString(modifiers);
 	if (modif.length() > 0)
