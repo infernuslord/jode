@@ -598,8 +598,8 @@ public abstract class StructuredBlock {
     public void dumpDeclaration(jode.decompiler.TabbedPrintWriter writer, LocalInfo local)
         throws java.io.IOException
     {
-	writer.println(local.getType().getHint().toString() + " "
-                       + local.getName().toString() + ";");
+	writer.printType(local.getType().getHint());
+	writer.print(" " + local.getName().toString() + ";");
     }
 
     /**
