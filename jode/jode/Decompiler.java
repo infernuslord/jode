@@ -42,6 +42,8 @@ public class Decompiler {
     public static boolean doChecks = false;
     public static boolean prettyLocals = false;
     public static boolean immediateOutput = false;
+    public static boolean highlevelTrafos = true;
+    public static boolean undoOptimizations = true;
     public static int outputStyle = SUN_STYLE;
     public static int importPackageLimit = 3;
     public static int importClassLimit = 3;
