@@ -129,6 +129,13 @@ public class FlowBlock {
     FlowBlock prevByAddr;
 
     /**
+     * The stack map.  This tells how many objects are on stack at
+     * begin of the flow block, and to what locals they are maped.
+     * @see mapStackToLocal
+     */
+    VariableStack stackMap;
+
+    /**
      * The default constructor.  Creates a new flowblock containing
      * only the given structured block.
      */
@@ -152,14 +159,22 @@ public class FlowBlock {
     }
 
     /**
-     * This method optimizes the jumps to successor.
-     * @param jumps The list of jumps with that successor.  
-     * @return The remaining jumps, that couldn't be optimized.
+     * This method resolves some of the jumps to successor.
+     * @param jumps The list of jumps with that successor.
+     * @param succ  The successing flow block.
+     * @return The remaining jumps, that couldn't be resolved.
      */
-    public Jump optimizeJumps(Jump jumps, FlowBlock succ) {
+    public Jump resolveSomeJumps(Jump jumps, FlowBlock succ) {
+	/* We will put all jumps that we can not resolve into this
+	 * linked list.
+	 */
         Jump remainingJumps = null;
 
         if (lastModified.jump == null) {
+	    /* This can happen if lastModified is a breakable block, and
+	     * there is no break to it yet.  We give lastModified this jump
+	     * as successor since many other routines rely on this.
+	     */
             Jump lastJump = new Jump(succ);
             lastModified.setJump(lastJump);
             remainingJumps = lastJump;
@@ -185,7 +200,7 @@ public class FlowBlock {
             Jump jump = jumps;
             jumps = jumps.next;
 
-            /* if the jump is the jump of the lastModified, skip it.
+            /* if the jump is the jump of lastModified, skip it.
              */
             if (jump.prev == lastModified) {
                 jump.next = remainingJumps;
@@ -366,12 +381,14 @@ public class FlowBlock {
                     sb = sb.outer;
                 
 
-                /* if this is a unconditional jump at the end of a
+                /* if this is an unconditional jump at the end of a
 		 * then block belonging to a if-then block without
-		 * else part, but a single jump, then replace the
-		 * if-then block with a if-then-else block with an
-		 * empty block as else block that jumps and move the
-		 * unconditional jump to the if.  
+		 * else part, and the if block has a jump then replace
+		 * the if-then block with a if-then-else block with an
+		 * else block that contains only the jump and move the
+		 * unconditional jump to the if.  (The jump in the else
+		 * block will later probably be replaced with a break,
+		 * continue or return statement.)
 		 */
                 if (sb instanceof IfThenElseBlock) {
                     IfThenElseBlock ifBlock = (IfThenElseBlock) sb;
@@ -440,9 +457,17 @@ public class FlowBlock {
 
                         surrounder.setJump(new Jump(succ));
                         surrounder.jump.next = jumps;
+			/* consider this jump again */
                         jumps = surrounder.jump;
-                        break;
+			continue next_jump;
                     }
+		    if (succ == END_OF_METHOD) {
+			/* If the jump can be replaced by a return
+			 * we won't do labeled breaks, so we must 
+			 * stop here
+			 */
+			break;
+		    }
                 }
             }
             jump.next = remainingJumps;
@@ -764,16 +789,16 @@ public class FlowBlock {
         /* Update the in/out-Vectors now */
         updateInOut(succ, jumps);
         if (Decompiler.isFlowDebugging)
-            Decompiler.err.println("before Optimize: "+this);
+            Decompiler.err.println("before Resolve: "+this);
 
         /* Try to eliminate as many jumps as possible.
          */
-        jumps = optimizeJumps(jumps, succ);
+        jumps = resolveSomeJumps(jumps, succ);
         if (Decompiler.isFlowDebugging)
             Decompiler.err.println("before Remaining: "+this);
         resolveRemaining(jumps);
         if (Decompiler.isFlowDebugging)
-            Decompiler.err.println("after Optimize: "+this);
+            Decompiler.err.println("after Resolve: "+this);
 
         /* Now unify the blocks.
          */
@@ -931,7 +956,7 @@ public class FlowBlock {
             
             /* Try to eliminate as many jumps as possible.
              */
-            jumps = optimizeJumps(jumps, this);
+            jumps = resolveSomeJumps(jumps, this);
             
             LoopBlock whileBlock = 
                 new LoopBlock(LoopBlock.WHILE, LoopBlock.TRUE);
@@ -1024,7 +1049,7 @@ public class FlowBlock {
             
         /* Try to eliminate as many jumps as possible.
          */
-        jumps = optimizeJumps(jumps, END_OF_METHOD);
+        jumps = resolveSomeJumps(jumps, END_OF_METHOD);
             
     next_jump:
         for (; jumps != null; jumps = jumps.next) {
@@ -1223,7 +1248,7 @@ public class FlowBlock {
      * regions.  Only blocks whose address lies in the given address
      * range are considered and it is taken care of, that the switch
      * is never leaved. <p>
-     * The current flow block must contain the switch block as lastModified
+     * The current flow block must contain the switch block as lastModified.
      * @param start the start of the address range.
      * @param end the end of the address range.
      */
@@ -1242,7 +1267,7 @@ public class FlowBlock {
                     break;
                 else if (nextFlow.addr >= start) {
                     
-                   /* First analyze the nextFlow block.  It may
+		    /* First analyze the nextFlow block.  It may
                      * return early after a T2 trafo so call it
                      * until nothing more is possible.  
                      */
@@ -1280,8 +1305,9 @@ public class FlowBlock {
                         updateInOut(nextFlow, jumps);
 
                         lastJumps = 
-                            lastFlow.optimizeJumps(lastJumps, nextFlow);
+                            lastFlow.resolveSomeJumps(lastJumps, nextFlow);
                         lastFlow.resolveRemaining(lastJumps);
+			switchBlock.caseBlocks[last].isFallThrough = true;
                     } else
                         updateInOut(nextFlow, jumps);
                     
@@ -1380,6 +1406,73 @@ public class FlowBlock {
         successors.put(jump.destination, jump);
     }
 
+    /** 
+     * This is called after the analysis is completely done.  It
+     * will remove all PUSH/stack_i expressions, (if the bytecode
+     * is correct).
+     * @return false if the bytecode isn't correct and stack mapping
+     * didn't worked.
+     */
+    public final boolean mapStackToLocal() {
+	try {
+	    return mapStackToLocal(VariableStack.EMPTY);
+	} catch (RuntimeException ex) {
+	    Decompiler.err.println("Can't resolve all PUSHes, "
+				   +"this is probably illegal bytecode:");
+	    ex.printStackTrace();
+	    return false;
+	}
+    }
+
+    /** 
+     * This is called after the analysis is completely done.  It
+     * will remove all PUSH/stack_i expressions, (if the bytecode
+     * is correct).
+     * @param initialStack the stackmap at begin of the flow block
+     * @return false if the bytecode isn't correct and stack mapping
+     * didn't worked.
+     */
+    public boolean mapStackToLocal(VariableStack initialStack) {
+	if (stackMap != null) {
+	    stackMap.merge(initialStack);
+	} else
+	    stackMap = initialStack;
+
+	if (block.mapStackToLocal(initialStack) == null) {
+	    // bytecode is not correct!  Give up!
+	    stackMap = null;
+	    return false;
+	}
+
+	Enumeration enum = successors.elements();
+	while (enum.hasMoreElements()) {
+	    Jump jumps = (Jump) enum.nextElement();
+	    VariableStack stack;
+	    FlowBlock succ = jumps.destination;
+	    stack = succ.stackMap;
+	    for (/**/; jumps != null; jumps = jumps.next) {
+		stack = VariableStack.merge(stack, jumps.stackMap);
+	    }
+	    if (succ.stackMap == null)
+		if (!succ.mapStackToLocal(stack))
+		    return false;
+	}
+	return true;
+    }
+
+    public void removePush() {
+	if (stackMap == null) 
+	    /* already done or mapping didn't succeed */
+	    return;
+	stackMap = null;
+	block.removePush();
+	Enumeration enum = successors.keys();
+	while (enum.hasMoreElements()) {
+	    FlowBlock succ = (FlowBlock)enum.nextElement();
+	    succ.removePush();
+	}
+    }
+
     public void makeDeclaration(VariableSet param) {
 	in.merge(param);
 	in.subtract(param);
@@ -1388,8 +1481,7 @@ public class FlowBlock {
     }
 
     /**
-     * Mark this block and all successing blocks as reachable.
-     */
+     * Mark this block and all successing blocks as reachable.  */
     public void markReachable() {
 	if (reachable) {
 	    // This block was already checked.  This prevents infinite
