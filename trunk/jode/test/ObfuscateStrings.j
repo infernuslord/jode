@@ -2,7 +2,7 @@
 ; string obfuscating method.  Maybe I will use it in the Obfuscator
 ; some day, but probably the decompiler will handle those string, too.
 
-.class public jode/test/ObfuscateStrings
+.class public ObfuscateStrings
 .super java/lang/Object
 
 .method private static obf(Ljava/lang/String;)Ljava/lang/String;

@@ -1,7 +1,7 @@
 ; This class contains evil stack operations, that make it very hard to 
 ; produce correct code.
 
-.class public jode/test/StackOps
+.class public StackOps
 .super java/lang/Object
 
 .method public static concatSwaped(ZLjava/lang/String;Ljava/lang/String;)Ljava/lang/String;

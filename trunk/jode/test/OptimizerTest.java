@@ -5,7 +5,6 @@
  *  java jode.Obfuscator --dest tmp.zip --preserve 'jode.test.OptimizerTest.test.(*)*' jode
  * </pre>
  */
-package jode.test;
 
 public class OptimizerTest {
     String blah, blub;

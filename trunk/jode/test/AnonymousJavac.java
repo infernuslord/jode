@@ -17,7 +17,6 @@
  * $Id$
  */
 
-package jode.test;
 
 import java.util.Vector;
 

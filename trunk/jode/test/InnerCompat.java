@@ -17,7 +17,6 @@
  * $Id$
  */
 
-package jode.test;
 
 public class InnerCompat {
     int x;

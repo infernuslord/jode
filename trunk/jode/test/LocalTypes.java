@@ -17,7 +17,6 @@
  * $Id$
  */
 
-package jode.test;
 
 class A {
 }

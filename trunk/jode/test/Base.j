@@ -1,4 +1,4 @@
-.class public jode/test/Base
+.class public Base
 .super java/lang/Object
 
 .field public static test I
