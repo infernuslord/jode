@@ -183,7 +183,6 @@ public class ClassIdentifier extends Identifier {
     public void analyze() {
 	if (Obfuscator.isVerbose)
 	    Obfuscator.err.println("Reachable: "+this);
-	reachableIdentifier("<clinit>", "()V", false);
     }
 
     public void initClass() {
@@ -223,8 +222,14 @@ public class ClassIdentifier extends Identifier {
 	for (int i=0; i< minfos.length; i++) {
 	    identifiers[fieldCount + i]
 		= new MethodIdentifier(this, minfos[i]);
-	    if (identifiers[i].getName().equals("<init>"))
-		identifiers[i].setPreserved();
+	    if (identifiers[fieldCount + i].getName().equals("<clinit>")) {
+		/* If there is a static initializer, it is automagically
+		 * reachable (even if this class wouldn't be otherwise).
+		 */
+		identifiers[fieldCount + i].setPreserved();
+		identifiers[fieldCount + i].setReachable();
+	    } else if (identifiers[fieldCount + i].getName().equals("<init>"))
+		identifiers[fieldCount + i].setPreserved();
 	}
 
 	ClassInfo[] ifaces = info.getInterfaces();
@@ -245,8 +250,6 @@ public class ClassIdentifier extends Identifier {
 	    }
 	    initSuperClasses(info.getSuperclass());
 	}
-	preserveIdentifier("<clinit>", "()V");
-	preserveIdentifier("<init>", null);
     }
 
     public void buildTable(int renameRule) {
