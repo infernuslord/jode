@@ -3,6 +3,11 @@
 	
 	* net/sf/jode/decompiler/Main.java:  Main-window will be centered on startup
 	
+	* build.xml:
+	(release): Added MANIFEST.MF to target and enabled compressed jar-file
+	
+	* MANIFEST.MF: Added this file to be able to create an executable jar-file
+	
 2002-06-11  Jochen Hoenicke  <jochen@gnu.org>
 
 	* net/sf/jode/decompiler/Main.java:  New option keep-alive.  With
