@@ -144,7 +144,12 @@ public class InstructionBlock extends InstructionContainer {
 	} else {
 	    if (instr.getType() != Type.tVoid)
 		writer.print("PUSH ");
-	    instr.dumpExpression(writer);
+
+	    try {
+		instr.dumpExpression(writer);
+	    } catch (RuntimeException ex) {
+		writer.print("(RUNTIME ERROR IN EXPRESSION)");
+	    }
 	}
 	writer.println(";");
     }
