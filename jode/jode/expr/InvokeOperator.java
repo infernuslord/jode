@@ -21,7 +21,7 @@ package jode.expr;
 import java.lang.reflect.Modifier;
 
 import jode.Decompiler;
-import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
@@ -29,31 +29,120 @@ import jode.GlobalOptions;
 import jode.bytecode.*;
 import jode.jvm.*;
 import jode.type.*;
-import java.lang.reflect.InvocationTargetException;
 import jode.decompiler.Scope;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.Hashtable;
 
 public final class InvokeOperator extends Operator 
     implements MatchableOperator {
-    CodeAnalyzer codeAnalyzer;
+    MethodAnalyzer methodAnalyzer;
     boolean staticFlag;
     boolean specialFlag;
     MethodType methodType;
     String methodName;
     Type classType;
+    Type[] hints;
 
-    public InvokeOperator(CodeAnalyzer codeAnalyzer,
+    private final static Hashtable hintTypes = new Hashtable();
+
+    static {
+	/* Fill the hint type hashtable.  For example, the  first
+	 * parameter of String.indexOf should be hinted as char, even
+	 * though the formal parameter is an int.
+	 * First hint is hint of return value (even if void)
+	 * other hints are that of the parameters in order
+	 */
+	Type tCharHint = new IntegerType(IntegerType.IT_I, IntegerType.IT_C);
+	Type[] hintC   = new Type[] { tCharHint };
+	Type[] hint0C  = new Type[] { null, tCharHint };
+	Type[] hint0C0 = new Type[] { null, tCharHint, null };
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/String;", "indexOf", "(I)I"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/String;", "indexOf", "(II)I"),
+		      hint0C0);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/String;", "lastIndexOf", "(I)I"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/String;", "lastIndexOf", "(II)I"),
+		      hint0C0);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/io/Writer;", "write", "(I)V"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/io/BufferedWriter;", "write", "(I)V"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/io/CharArrayWriter;", "write", "(I)V"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/io/FilterWriter;", "write", "(I)V"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/io/OutputStreamWriter;", "write", "(I)V"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/io/PipedWriter;", "write", "(I)V"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/io/PrintWriter;", "write", "(I)V"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/io/StringWriter;", "write", "(I)V"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/io/PushbackReader;", "unread", "(I)V"),
+		      hint0C);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/Reader;", "read", "()I"),
+		      hintC);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/BufferedReader;", "read", "()I"),
+		      hintC);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/CharArrayReader;", "read", "()I"),
+		      hintC);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/FilterReader;", "read", "()I"),
+		      hintC);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/InputStreamReader;", "read", "()I"),
+		      hintC);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/LineNumberReader;", "read", "()I"),
+		      hintC);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/PipedReader;", "read", "()I"),
+		      hintC);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/PushBackReader;", "read", "()I"),
+		      hintC);
+	hintTypes.put(Reference.getReference
+		      ("Ljava/lang/StringReader;", "read", "()I"),
+		      hintC);
+    }
+
+
+    public InvokeOperator(MethodAnalyzer methodAnalyzer,
 			  boolean staticFlag, boolean specialFlag, 
 			  Reference reference) {
         super(Type.tUnknown, 0);
         this.methodType = Type.tMethod(reference.getType());
         this.methodName = reference.getName();
         this.classType = Type.tType(reference.getClazz());
-        this.type = methodType.getReturnType();
-        this.codeAnalyzer  = codeAnalyzer;
+	this.hints = (Type[]) hintTypes.get(reference);
+	if (hints != null && hints[0] != null)
+	    this.type = hints[0];
+	else
+	    this.type = methodType.getReturnType();
+        this.methodAnalyzer  = methodAnalyzer;
 	this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
         if (staticFlag)
-            codeAnalyzer.useType(classType);
+            methodAnalyzer.useType(classType);
 	initOperands((staticFlag ? 0 : 1) 
 		     + methodType.getParameterTypes().length);
     }
@@ -84,9 +173,13 @@ public final class InvokeOperator extends Operator
 	    subExpressions[offset++].setType(Type.tSubType(getClassType()));
         }
 	Type[] paramTypes = methodType.getParameterTypes();
-	for (int i=0; i < paramTypes.length; i++)
-	    subExpressions[offset++].setType(Type.tSubType(paramTypes[i]));
+	for (int i=0; i < paramTypes.length; i++) {
+	    Type pType = (hints != null && hints[i+1] != null) 
+		? hints[i+1] : paramTypes[i];
+	    subExpressions[offset++].setType(Type.tSubType(pType));
+	}
     }
+
     public void updateType() {
     }
 
@@ -106,13 +199,12 @@ public final class InvokeOperator extends Operator
      * allow super class
      */
     public boolean isThis() {
-	return getClassInfo() == codeAnalyzer.getClazz();
+	return getClassInfo() == methodAnalyzer.getClazz();
     }
 
-    public InnerClassInfo getOuterClassInfo() {
-	ClassInfo clazz = getClassInfo();
-	if (clazz != null) {
-	    InnerClassInfo[] outers = clazz.getOuterClasses();
+    public InnerClassInfo getOuterClassInfo(ClassInfo ci) {
+	if (ci != null) {
+	    InnerClassInfo[] outers = ci.getOuterClasses();
 	    if (outers != null)
 		return outers[0];
 	}
@@ -126,15 +218,15 @@ public final class InvokeOperator extends Operator
     public boolean isOuter() {
 	if (classType instanceof ClassInterfacesType) {
 	    ClassInfo clazz = ((ClassInterfacesType) classType).getClassInfo();
-	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
+	    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
 	    while (true) {
 		if (clazz == ana.getClazz())
 		    return true;
 		if (ana.getParent() == null)
 		    break;
-		if (ana.getParent() instanceof CodeAnalyzer
+		if (ana.getParent() instanceof MethodAnalyzer
 		    && (Decompiler.options & Decompiler.OPTION_ANON) != 0)
-		    ana = ((CodeAnalyzer) ana.getParent())
+		    ana = ((MethodAnalyzer) ana.getParent())
 			.getClassAnalyzer();
 		else if (ana.getParent() instanceof ClassAnalyzer
 			 && (Decompiler.options 
@@ -150,7 +242,7 @@ public final class InvokeOperator extends Operator
 
     public MethodAnalyzer getMethodAnalyzer() {
 	if (classType instanceof ClassInterfacesType) {
-	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
+	    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
 	    while (true) {
 		if (((ClassInterfacesType) classType).getClassInfo() 
 		    == ana.getClazz()) {
@@ -158,8 +250,8 @@ public final class InvokeOperator extends Operator
 		}
 		if (ana.getParent() == null)
 		    return null;
-		if (ana.getParent() instanceof CodeAnalyzer)
-		    ana = ((CodeAnalyzer) ana.getParent())
+		if (ana.getParent() instanceof MethodAnalyzer)
+		    ana = ((MethodAnalyzer) ana.getParent())
 			.getClassAnalyzer();
 		else if (ana.getParent() instanceof ClassAnalyzer)
 		    ana = (ClassAnalyzer) ana.getParent();
@@ -177,7 +269,7 @@ public final class InvokeOperator extends Operator
     public boolean isSuperOrThis() {
 	if (classType instanceof ClassInterfacesType) {
 	    return ((ClassInterfacesType) classType).getClassInfo()
-		.superClassOf(codeAnalyzer.getClazz());
+		.superClassOf(methodAnalyzer.getClazz());
 	}
 	return false;
     }
@@ -210,10 +302,10 @@ public final class InvokeOperator extends Operator
 				   Object cls, Object[] params) 
 	    throws InterpreterException, InvocationTargetException {
 	    if (ref.getClazz().equals
-		("L"+codeAnalyzer.getClazz().getName().replace('.','/')+";")) {
+		("L"+methodAnalyzer.getClazz().getName().replace('.','/')+";")) {
 		MethodType mt = (MethodType) Type.tType(ref.getType());
-		BytecodeInfo info = codeAnalyzer.getClassAnalyzer()
-		    .getMethod(ref.getName(), mt).getCode().getBytecodeInfo();
+		BytecodeInfo info = methodAnalyzer.getClassAnalyzer()
+		    .getMethod(ref.getName(), mt).getBytecodeInfo();
 		Value[] locals = new Value[info.getMaxLocals()];
 		for (int i=0; i< locals.length; i++)
 		    locals[i] = new Value();
@@ -232,12 +324,12 @@ public final class InvokeOperator extends Operator
     }
 
     public ConstOperator deobfuscateString(ConstOperator op) {
-	ClassAnalyzer clazz = codeAnalyzer.getClassAnalyzer();
-	CodeAnalyzer ca = clazz.getMethod(methodName, methodType).getCode();
-	if (ca == null)
+	ClassAnalyzer clazz = methodAnalyzer.getClassAnalyzer();
+	MethodAnalyzer ma = clazz.getMethod(methodName, methodType);
+	if (ma == null)
 	    return null;
 	Environment env = new Environment();
-	BytecodeInfo info = ca.getBytecodeInfo();
+	BytecodeInfo info = ma.getBytecodeInfo();
 	Value[] locals = new Value[info.getMaxLocals()];
 	for (int i=0; i< locals.length; i++)
 	    locals[i] = new Value();
@@ -265,23 +357,33 @@ public final class InvokeOperator extends Operator
             && getMethodName().equals("append")
             && getMethodType().getParameterTypes().length == 1) {
 
-            Expression e = subExpressions[0].simplifyStringBuffer();
-            if (e == null)
+            Expression firstOp = subExpressions[0].simplifyStringBuffer();
+            if (firstOp == null)
                 return null;
             
 	    subExpressions[1] = subExpressions[1].simplifyString();
 
-            if (e == EMPTYSTRING
+            if (firstOp == EMPTYSTRING
 		&& subExpressions[1].getType().isOfType(Type.tString))
                 return subExpressions[1];
 	    
-	    if (e instanceof StringAddOperator
-		&& ((Operator)e).getSubExpressions()[0] == EMPTYSTRING)
-		e = ((Operator)e).getSubExpressions()[1];
+	    if (firstOp instanceof StringAddOperator
+		&& ((Operator)firstOp).getSubExpressions()[0] == EMPTYSTRING)
+		firstOp = ((Operator)firstOp).getSubExpressions()[1];
 
+	    Expression secondOp = subExpressions[1];
+	    Type[] paramTypes = new Type[] {
+		Type.tStringBuffer, secondOp.getType().getCanonic()
+	    };
+	    if (needsCast(1, paramTypes)) {
+		Type castType = methodType.getParameterTypes()[0];
+		Operator castOp = new ConvertOperator(castType, castType);
+		castOp.addOperand(secondOp);
+		secondOp = castOp;
+	    }
 	    Operator result = new StringAddOperator();
-	    result.addOperand(subExpressions[1]);
-	    result.addOperand(e);
+	    result.addOperand(secondOp);
+	    result.addOperand(firstOp);
 	    return result;
         }
         return null;
@@ -347,29 +449,29 @@ public final class InvokeOperator extends Operator
 		Operator op = null;
 		switch (synth.getKind()) {
 		case SyntheticAnalyzer.ACCESSGETFIELD:
-		    op = new GetFieldOperator(codeAnalyzer, false,
+		    op = new GetFieldOperator(methodAnalyzer, false,
 					      synth.getReference());
 		    break;
 		case SyntheticAnalyzer.ACCESSGETSTATIC:
-		    op = new GetFieldOperator(codeAnalyzer, true,
+		    op = new GetFieldOperator(methodAnalyzer, true,
 					      synth.getReference());
 		    break;
 		case SyntheticAnalyzer.ACCESSPUTFIELD:
 		    op = new StoreInstruction
-			(new PutFieldOperator(codeAnalyzer, false,
+			(new PutFieldOperator(methodAnalyzer, false,
 					      synth.getReference()));
 		    break;
 		case SyntheticAnalyzer.ACCESSPUTSTATIC:
 		    op = new StoreInstruction
-			(new PutFieldOperator(codeAnalyzer, true,
+			(new PutFieldOperator(methodAnalyzer, true,
 					      synth.getReference()));
 		    break;
 		case SyntheticAnalyzer.ACCESSMETHOD:
-		    op = new InvokeOperator(codeAnalyzer, false, 
+		    op = new InvokeOperator(methodAnalyzer, false, 
 					    false, synth.getReference());
 		    break;
 		case SyntheticAnalyzer.ACCESSSTATICMETHOD:
-		    op = new InvokeOperator(codeAnalyzer, true, 
+		    op = new InvokeOperator(methodAnalyzer, true, 
 					    false, synth.getReference());
 		    break;
 		}
@@ -384,6 +486,64 @@ public final class InvokeOperator extends Operator
 	    }
 	}
 	return null;
+    }
+
+    public boolean needsCast(int param, Type[] paramTypes) {
+	Type realClassType;
+	if (staticFlag) 
+	    realClassType = classType;
+	else {
+	    if (param == 0)
+		return paramTypes[0] instanceof NullType;
+	    realClassType = paramTypes[0];
+	}
+
+	if (!(realClassType instanceof ClassInterfacesType)) {
+	    /* Arrays don't have overloaded methods, all okay */
+	    return false;
+	}
+	ClassInfo clazz = ((ClassInterfacesType) realClassType).getClassInfo();
+	int offset = staticFlag ? 0 : 1;
+	
+	Type[] myParamTypes = methodType.getParameterTypes();
+	if (myParamTypes[param-offset].equals(paramTypes[param])) {
+	    /* Type at param is okay. */
+	    return false;
+	}
+	/* Now check if there is a conflicting method in this class or
+	 * a superclass.  */
+	while (clazz != null) {
+	    MethodInfo[] methods = clazz.getMethods();
+	next_method:
+	    for (int i=0; i< methods.length; i++) {
+		if (!methods[i].getName().equals(methodName))
+		    /* method name doesn't match*/
+		    continue next_method;
+
+		Type[] otherParamTypes
+		    = Type.tMethod(methods[i].getType()).getParameterTypes();
+		if (otherParamTypes.length != myParamTypes.length) {
+		    /* parameter count doesn't match*/
+		    continue next_method;
+		}
+
+		if (myParamTypes[param-offset].isOfType
+		    (Type.tSubType(otherParamTypes[param-offset]))) {
+		    /* cast to myParamTypes cannot resolve any conflicts. */
+		    continue next_method;
+		}
+		for (int p = offset; p < paramTypes.length; p++) {
+		    if (!paramTypes[p]
+			.isOfType(Type.tSubType(otherParamTypes[p-offset])))
+			/* No conflict here */
+			continue next_method;
+		}
+		/* There is a conflict that can be resolved by a cast. */
+		return true;
+	    }
+	    clazz = clazz.getSuperclass();
+	}	    
+	return false;
     }
 
     public Expression simplify() {
@@ -406,15 +566,65 @@ public final class InvokeOperator extends Operator
 	boolean opIsThis = !staticFlag
 	    && subExpressions[0] instanceof ThisOperator;
         int arg = 1;
+	int length = subExpressions.length;
+	ClassInfo clazz = getClassInfo();
+	InnerClassInfo outer = getOuterClassInfo(clazz);
+
+	Type[] paramTypes = new Type[subExpressions.length];
+	for (int i=0; i< subExpressions.length; i++)
+	    paramTypes[i] = subExpressions[i].getType().getCanonic();
 
 	if (isConstructor()) {
-	    InnerClassInfo outer = getOuterClassInfo();
+	    boolean jikesAnonymousInner = false;
+	    if ((Decompiler.options & 
+		 (Decompiler.OPTION_ANON | Decompiler.OPTION_CONTRAFO)) != 0
+		&& outer != null
+		&& (outer.outer == null || outer.name == null)) {
+		ClassAnalyzer anonymousClass = methodAnalyzer.getClassAnalyzer(clazz);
+		jikesAnonymousInner = anonymousClass.isJikesAnonymousInner();
+		
+		if (outer.name == null) {
+		    writer.print("SUPER IS ANONYMOUS?");
+		    outer = null;
+		}
+		/* XXX check outerValues */
+		arg += anonymousClass.getOuterValues().length;
+	    }
+
 	    if (outer != null && outer.outer != null && outer.name != null
 		&& !Modifier.isStatic(outer.modifiers)
 		&& (Decompiler.options & Decompiler.OPTION_INNER) != 0) {
-		Expression outerInstance = subExpressions[arg++];
-		if (!(outerInstance instanceof ThisOperator)) {
-		    outerInstance.dumpExpression(writer, 0);
+		Expression outerExpr = jikesAnonymousInner 
+		    ? subExpressions[--length]
+		    : subExpressions[arg++];
+		if (outerExpr instanceof CheckNullOperator) {
+		    CheckNullOperator cno = (CheckNullOperator) outerExpr;
+		    outerExpr = cno.subExpressions[0];
+		} else if (!(outerExpr instanceof ThisOperator)) {
+		    if (!jikesAnonymousInner)
+			// Bug in jikes: it doesn't do a check null.
+			// We don't complain here.
+			writer.print("MISSING CHECKNULL ");
+		}
+
+		if (outerExpr instanceof ThisOperator) {
+		    Scope scope = writer.getScope
+			(((ThisOperator) outerExpr).getClassInfo(), 
+			 Scope.CLASSSCOPE);
+		    if (writer.conflicts(outer.name, scope, Scope.CLASSNAME)) {
+			outerExpr.dumpExpression(writer, 950);
+			writer.print(".");
+		    }
+		} else {
+		    if (outerExpr.getType() instanceof NullType) {
+			writer.print("((");
+			writer.printType(Type.tClass
+					 (ClassInfo.forName(outer.outer)));
+			writer.print(") ");
+			outerExpr.dumpExpression(writer, 700);
+			writer.print(")");
+		    } else 
+			outerExpr.dumpExpression(writer, 950);
 		    writer.print(".");
 		}
 	    }
@@ -422,7 +632,7 @@ public final class InvokeOperator extends Operator
 	if (specialFlag) {
 	    if (opIsThis
 		&& (((ThisOperator)subExpressions[0]).getClassInfo()
-		    == codeAnalyzer.getClazz())) {
+		    == methodAnalyzer.getClazz())) {
 		if (isThis()) {
 		    /* XXX check if this is a private or final method. */
 		} else {
@@ -438,6 +648,7 @@ public final class InvokeOperator extends Operator
 		    writer.print("(NON VIRTUAL ");
 		    writer.printType(classType);
 		    writer.print(")");
+		    paramTypes[0] = classType;
 		    minPriority = 700;
 		}
 		subExpressions[0].dumpExpression(writer, minPriority);
@@ -468,12 +679,13 @@ public final class InvokeOperator extends Operator
 		    writer.print("this.");
 		}
 	    } else {
-		if (subExpressions[0].getType() instanceof NullType) {
+		if (needsCast(0, paramTypes)){
 		    writer.print("((");
 		    writer.printType(classType);
 		    writer.print(") ");
 		    subExpressions[0].dumpExpression(writer, 700);
 		    writer.print(")");
+		    paramTypes[0] = classType;
 		} else 
 		    subExpressions[0].dumpExpression(writer, 950);
 	    }
@@ -489,12 +701,22 @@ public final class InvokeOperator extends Operator
 	}
 	writer.print("(");
 	boolean first = true;
-	while (arg < subExpressions.length) {
+	int offset = staticFlag ? 0 : 1;
+	while (arg < length) {
             if (!first)
 		writer.print(", ");
 	    else
 		first = false;
-            subExpressions[arg++].dumpExpression(writer, 0);
+	    int priority = 0;
+	    if (needsCast(arg, paramTypes)) {
+		Type castType = methodType.getParameterTypes()[arg-offset];
+		writer.print("(");
+		writer.printType(castType);
+		writer.print(")");
+		paramTypes[arg] = castType;
+		priority = 700;
+	    }
+            subExpressions[arg++].dumpExpression(writer, priority);
         }
         writer.print(")");
     }
