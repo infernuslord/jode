@@ -73,7 +73,7 @@ public class ClassInterfacesType extends Type {
         this.ifaces = ifaces;
     }
 
-    private static Type create(ClassInfo clazz, ClassInfo[] ifaces) {
+    static Type create(ClassInfo clazz, ClassInfo[] ifaces) {
         /* Make sure that every {java.lang.Object} equals tObject */
         if (ifaces.length == 0 && clazz == null) 
             return tObject;
@@ -171,7 +171,7 @@ public class ClassInterfacesType extends Type {
         }
     }
 
-    private boolean implementsAllIfaces(ClassInfo[] otherIfaces) {
+    boolean implementsAllIfaces(ClassInfo[] otherIfaces) {
     big:
         for (int i=0; i < otherIfaces.length; i++) {
             ClassInfo iface = otherIfaces[i];
@@ -196,8 +196,8 @@ public class ClassInterfacesType extends Type {
         int code = type.typecode;
         if (code == TC_UNKNOWN)
             return this;
-        if ((code == TC_ARRAY || code == TC_UCLASS) && this == tObject)
-            return type;
+        if (code == TC_ARRAY)
+	    return type.getSpecializedType(this);
         if (code != TC_CLASS)
             return tError;
 
@@ -219,9 +219,10 @@ public class ClassInterfacesType extends Type {
         else
             return tError;
 
-        /* Most time one of the two classes is already more specialized.
-         * Optimize for this case.
-         */
+        /* Most times (99.9999999%) one of the two classes is already
+         * more specialized.  Optimize for this case. (I know of one
+         * class where this doesn't succeed at one intersection) 
+	 */
         if (clazz == this.clazz 
             && implementsAllIfaces(other.ifaces))
             return this;
@@ -285,8 +286,8 @@ public class ClassInterfacesType extends Type {
         int code = type.typecode;
         if (code == TC_UNKNOWN)
             return this;
-        if (code == TC_ARRAY || code == TC_UCLASS)
-            return tObject;
+	if (code == TC_ARRAY)
+	    return type.getGeneralizedType(this);
         if (code != TC_CLASS)
             return tError;
         ClassInterfacesType other = (ClassInterfacesType) type;
@@ -424,6 +425,47 @@ public class ClassInterfacesType extends Type {
             else
                 return env.classString("java.lang.Object");
         }
+    }
+
+    /**
+     * Checks if we need to cast to a middle type, before we can cast from
+     * fromType to this type.
+     * @return the middle type, or null if it is not necessary.
+     */
+    public Type getCastHelper(Type fromType) {
+	Type topType = fromType.getTop();
+	switch (topType.getTypeCode()) {
+	case TC_ARRAY:
+	    if (clazz == null
+		&& ArrayType.implementsAllIfaces(this.ifaces))
+		return null;
+	    else
+		return tObject;
+	case TC_CLASS:
+	    ClassInterfacesType top = (ClassInterfacesType) topType;
+	    if (top.clazz == null || clazz == null
+		|| clazz.superClassOf(top.clazz)
+		|| top.clazz.superClassOf(clazz))
+		return null;
+	    ClassInfo superClazz = clazz.getSuperclass();
+	    while (superClazz != null
+		   && !superClazz.superClassOf(top.clazz)) {
+		superClazz = superClazz.getSuperclass();
+	    }
+	    return tClass(superClazz.getName());
+	case TC_UNKNOWN:
+	    return null;
+	}
+	return tObject;
+    }
+
+    /**
+     * Checks if this type represents a valid type instead of a list
+     * of minimum types.
+     */
+    public boolean isValidType() {
+	return ifaces.length == 0
+	    || (clazz == null && ifaces.length == 1);
     }
 
     public boolean isClassType() {
