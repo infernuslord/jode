@@ -196,24 +196,38 @@ public class MethodAnalyzer implements Analyzer {
         else { 
             if (isConstructor)
                 writer.print(imports.getClassString(classAnalyzer.getClazz()));
-            else
-                writer.print(getReturnType().toString()
-			     + " " + methodName);
+            else {
+                writer.printType(getReturnType());
+		writer.print(" " + methodName);
+	    }
             writer.print("(");
             Type[] paramTypes = methodType.getParameterTypes();
             int offset = isStatic()?0:1;
+
+	    LocalInfo[] param = new LocalInfo[paramTypes.length];
+            for (int i=0; i<paramTypes.length; i++) {
+                if (code == null) {
+                    param[i] = new LocalInfo(offset);
+                    param[i].setType(paramTypes[i]);
+		    param[i].guessName();
+		    for (int j=0; j < i; j++) {
+			if (param[j].getName().equals(param[i].getName())) {
+			    /* A name conflict happened. */
+			    param[i].makeNameUnique();
+			    break; /* j */
+			}
+		    }
+                } else {
+                    param[i] = code.getParamInfo(offset);
+		    offset++;
+		}
+            }
+
             for (int i=0; i<paramTypes.length; i++) {
                 if (i>0)
                     writer.print(", ");
-                LocalInfo li;
-                if (code == null) {
-                    li = new LocalInfo(offset);
-                    li.setType(paramTypes[i]);
-                    li.makeNameUnique();
-                } else
-                    li = code.getParamInfo(offset);
-                writer.print(li.getType().toString()+" "+li.getName());
-                offset++;
+                writer.printType(param[i].getType());
+		writer.print(" "+param[i].getName());
             }
             writer.print(")");
         }
@@ -223,7 +237,7 @@ public class MethodAnalyzer implements Analyzer {
             for (int i= 0; i< exceptions.length; i++) {
                 if (i > 0)
                     writer.print(", ");
-                writer.print(exceptions[i].toString());
+                writer.printType(exceptions[i]);
             }
         }
         if (code != null) {
