@@ -37,4 +37,4 @@ eval $COMPILER $FLAGS -d .. \
    Decompiler.java obfuscator/Main.java JodeApplet.java swingui/Main.java
 
 cd ..
-zip $HOME/jode-$DATE.zip jode
+zip -r $HOME/jode-$DATE.zip jode
