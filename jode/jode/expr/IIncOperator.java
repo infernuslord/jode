@@ -85,4 +85,3 @@ public class IIncOperator extends Operator
 	writer.print(getOperatorString() + value);
     }
 }
-
