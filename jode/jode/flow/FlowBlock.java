@@ -1421,15 +1421,15 @@ public class FlowBlock {
      * didn't worked.
      */
     public final boolean mapStackToLocal() {
-	try {
+//  	try {
 	    mapStackToLocal(VariableStack.EMPTY);
 	    return true;
-	} catch (RuntimeException ex) {
-	    Decompiler.err.println("Can't resolve all PUSHes, "
-				   +"this is probably illegal bytecode:");
-	    ex.printStackTrace(Decompiler.err);
-	    return false;
-	}
+//  	} catch (RuntimeException ex) {
+//  	    Decompiler.err.println("Can't resolve all PUSHes, "
+//  				   +"this is probably illegal bytecode:");
+//  	    ex.printStackTrace(Decompiler.err);
+//  	    return false;
+//  	}
     }
 
     /** 
@@ -1450,6 +1450,8 @@ public class FlowBlock {
 	    Jump jumps = (Jump) enum.nextElement();
 	    VariableStack stack;
 	    FlowBlock succ = jumps.destination;
+	    if (succ == END_OF_METHOD)
+		continue;
 	    stack = succ.stackMap;
 	    for (/**/; jumps != null; jumps = jumps.next) {
 		if (jumps.stackMap == null)
@@ -1552,6 +1554,9 @@ public class FlowBlock {
             java.io.StringWriter strw = new java.io.StringWriter();
             TabbedPrintWriter writer = new TabbedPrintWriter(strw);
             writer.println(super.toString() + ": "+addr+"-"+(addr+length));
+	    if (Decompiler.debugInOut) {
+		writer.println("in: "+in);
+	    }
             writer.tab();
             block.dumpSource(writer);
             return strw.toString();
