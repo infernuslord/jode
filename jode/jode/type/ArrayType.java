@@ -39,7 +39,6 @@ public class ArrayType extends ReferenceType {
 
     public ArrayType(Type elementType) {
         super(TC_ARRAY);
-	typecode = TC_ARRAY;
         this.elementType = elementType;
     }
 
@@ -220,6 +219,10 @@ public class ArrayType extends ReferenceType {
 
     public String getTypeSignature() {
 	return "["+elementType.getTypeSignature();
+    }
+
+    public Class getTypeClass() throws ClassNotFoundException {
+	return Class.forName("["+elementType.getTypeSignature());
     }
 
     public String toString() {
