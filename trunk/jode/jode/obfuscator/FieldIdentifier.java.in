@@ -44,7 +44,7 @@ public class FieldIdentifier extends Identifier{
      * The FieldChangeListener that should be notified if a 
      * write to this field is found.
      */
-    private Collection fieldListeners = new HashSet();
+    private Collection fieldListeners;
 
     public FieldIdentifier(ClassIdentifier clazz, FieldInfo info) {
 	super(info.getName());
@@ -106,6 +106,8 @@ public class FieldIdentifier extends Identifier{
     public void addFieldListener(Identifier ident) {
 	if (ident == null)
 	    throw new NullPointerException();
+	if (fieldListeners == null)
+	    fieldListeners = new HashSet();
 	if (!fieldListeners.contains(ident))
 	    fieldListeners.add(ident);
     }
@@ -115,6 +117,9 @@ public class FieldIdentifier extends Identifier{
 	    return;
 
 	notConstant = true;
+	if (fieldListeners == null)
+	    return;
+
 	for (Iterator i = fieldListeners.iterator(); i.hasNext(); )
 	    Main.getClassBundle().analyzeIdentifier((Identifier) i.next());
 	fieldListeners = null;
