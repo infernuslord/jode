@@ -1554,8 +1554,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    break;
 
 	case opc_lshl: case opc_lshr: case opc_lushr:
-	    iter.set(new Instruction(opc_pop2));
-	    iter.add(new Instruction(opc_pop));
+	    iter.set(new Instruction(opc_pop));
+	    iter.add(new Instruction(opc_pop2));
 	    break;
 	case opc_putstatic:
 	case opc_putfield:
