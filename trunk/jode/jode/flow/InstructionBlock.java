@@ -24,6 +24,7 @@ import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
 import jode.expr.StoreInstruction;
 import jode.expr.LocalStoreOperator;
+import jode.util.SimpleSet;
 
 /**
  * This is the structured block for atomic instructions.
@@ -100,7 +101,7 @@ public class InstructionBlock extends InstructionContainer {
      * variable.  In that case mark this as declaration and return the 
      * variable.
      */
-    public void checkDeclaration(VariableSet declareSet) {
+    public void checkDeclaration(SimpleSet declareSet) {
         if (instr instanceof StoreInstruction
 	    && (((StoreInstruction)instr).getLValue() 
 		instanceof LocalStoreOperator)) {
@@ -114,7 +115,7 @@ public class InstructionBlock extends InstructionContainer {
 		 */
 		isDeclaration = true;
 		storeOp.getSubExpressions()[1].makeInitializer();
-		declareSet.removeElement(local);
+		declareSet.remove(local);
 	    }
 	}
     }
@@ -125,7 +126,7 @@ public class InstructionBlock extends InstructionContainer {
      * is marked as used, but not done.
      * @param done The set of the already declare variables.
      */
-    public void makeDeclaration(VariableSet done) {
+    public void makeDeclaration(SimpleSet done) {
 	super.makeDeclaration(done);
 	checkDeclaration(declare);
     }
@@ -133,16 +134,18 @@ public class InstructionBlock extends InstructionContainer {
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-	if (instr.getType() != Type.tVoid)
-	    writer.print("PUSH ");
-        else if (isDeclaration) {
+        if (isDeclaration) {
+	    StoreInstruction store = (StoreInstruction) instr;
             LocalInfo local = 
-		((LocalStoreOperator) ((StoreInstruction) instr).getLValue())
-		.getLocalInfo();
-	    writer.printType(local.getType().getHint());
-	    writer.print(" ");
+		((LocalStoreOperator) store.getLValue()).getLocalInfo();
+	    local.dumpDeclaration(writer);
+	    writer.print(" = ");
+	    store.getSubExpressions()[1].dumpExpression(writer);
+	} else {
+	    if (instr.getType() != Type.tVoid)
+		writer.print("PUSH ");
+	    instr.dumpExpression(writer);
 	}
-	instr.dumpExpression(writer);
 	writer.println(";");
     }
 }

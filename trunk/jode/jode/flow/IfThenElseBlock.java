@@ -22,6 +22,7 @@ import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 import jode.expr.Expression;
 import jode.type.Type;
+import jode.util.SimpleSet;
 
 /**
  * An IfThenElseBlock is the structured block representing an if
@@ -131,9 +132,9 @@ public class IfThenElseBlock extends StructuredBlock {
 	    elseBlock.removePush();
     }
 
-    public VariableSet getUsed() {
-	used = new VariableSet();
-	cond.fillInGenSet(null, used);
+    public SimpleSet getDeclarables() {
+	SimpleSet used = new SimpleSet();
+	cond.fillDeclarables(used);
 	return used;
     }
 

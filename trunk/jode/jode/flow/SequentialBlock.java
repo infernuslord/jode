@@ -22,6 +22,7 @@ import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.LocalInfo;
 import jode.expr.LocalStoreOperator;
 import jode.expr.StoreInstruction;
+import jode.util.SimpleSet;
 
 /**
  * A sequential block combines exactly two structured blocks to a new
@@ -167,22 +168,23 @@ public class SequentialBlock extends StructuredBlock {
      * @return all locals that are used in this block or in some sub
      * block (this is <i>not</i> the used set).
      */
-    public VariableSet propagateUsage() {
-	used = new VariableSet();
-        VariableSet allUse = new VariableSet();
-	VariableSet childUse0 = subBlocks[0].propagateUsage();
-	VariableSet childUse1 = subBlocks[1].propagateUsage();
+    public SimpleSet propagateUsage() {
+	used = getDeclarables();
+        SimpleSet allUse = new SimpleSet();
+	SimpleSet childUse0 = subBlocks[0].propagateUsage();
+	SimpleSet childUse1 = subBlocks[1].propagateUsage();
 	/* All variables used somewhere inside both sub blocks, are
 	 * used in this block, too.  
 	 * Also the variables used in first block are used in this
 	 * block, except when it can be declared locally.  (Note that
 	 * subBlocks[0].used != childUse0) */
-	used.unionExact(subBlocks[0].used);
+	used.addAll(subBlocks[0].used);
 	if (subBlocks[0] instanceof LoopBlock)
 	    ((LoopBlock) subBlocks[0]).removeLocallyDeclareable(used);
-	used.unionExact(childUse0.intersectExact(childUse1));
-	allUse.unionExact(childUse0);
-	allUse.unionExact(childUse1);
+	allUse.addAll(childUse0);
+	allUse.addAll(childUse1);
+	childUse0.retainAll(childUse1);
+	used.addAll(childUse0);
         return allUse;
     }
 
@@ -192,7 +194,7 @@ public class SequentialBlock extends StructuredBlock {
      * is marked as used, but not done.
      * @param done The set of the already declare variables.
      */
-    public void makeDeclaration(VariableSet done) {
+    public void makeDeclaration(SimpleSet done) {
 	super.makeDeclaration(done);
 	if (subBlocks[0] instanceof InstructionBlock)
 	    /* An instruction block may declare a variable for us.

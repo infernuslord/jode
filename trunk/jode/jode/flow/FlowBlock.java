@@ -27,6 +27,7 @@ import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
 import jode.expr.CombineableOperator;
 import jode.util.SimpleDictionary;
+import jode.util.SimpleSet;
 
 /**
  * A flow block is the structure of which the flow graph consists.  A
@@ -1489,14 +1490,19 @@ public class FlowBlock {
 	    nextByAddr.removeOnetimeLocals();
     }
 
-    public void makeDeclaration(VariableSet param) {
-	in.merge(param);
-	in.subtract(param);
+    public void mergeParams(LocalInfo[] param) {
+	VariableSet paramSet = new VariableSet(param);
+	in.merge(paramSet);
+	in.subtract(paramSet);
+    }
+
+    public void makeDeclaration(LocalInfo[] param) {
 	block.propagateUsage();
-	Enumeration enum = param.elements();
-	while (enum.hasMoreElements())
-	    ((LocalInfo) enum.nextElement()).guessName();
-	block.makeDeclaration(param);
+	SimpleSet declared = new SimpleSet();
+	for (int i=0; i < param.length; i++) {
+	    declared.add(param[i]);
+	}
+	block.makeDeclaration(declared);
     }
 
     public void simplify() {

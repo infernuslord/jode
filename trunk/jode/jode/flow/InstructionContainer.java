@@ -21,6 +21,7 @@ package jode.flow;
 import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
 import jode.expr.LocalVarOperator;
+import jode.util.SimpleSet;
 
 /**
  * This is a method for block containing a single instruction.
@@ -69,10 +70,10 @@ public abstract class InstructionContainer extends StructuredBlock {
 	    instr.fillInGenSet(in, gen);
     }
 
-    public VariableSet getUsed() {
-	used = new VariableSet();
+    public SimpleSet getDeclarables() {
+	SimpleSet used = new SimpleSet();
 	if (instr != null)
-	    instr.fillInGenSet(null, used);
+	    instr.fillDeclarables(used);
 	return used;
     }
 

@@ -21,6 +21,7 @@ package jode.flow;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 import jode.expr.Expression;
+import jode.util.SimpleSet;
 
 /**
  * This class represents a synchronized structured block.
@@ -70,12 +71,12 @@ public class SynchronizedBlock extends StructuredBlock {
         return true;
     }
 
-    public VariableSet getUsed() {
-	VariableSet used = new VariableSet();
+    public SimpleSet getDeclarables() {
+	SimpleSet used = new SimpleSet();
 	if (object != null)
-	    object.fillInGenSet(null, used);
+	    object.fillDeclarables(used);
 	else
-	    used.addElement(local);
+	    used.add(local);
 	return used;
     }
 
@@ -84,10 +85,12 @@ public class SynchronizedBlock extends StructuredBlock {
     {
         if (!isEntered)
             writer.println("MISSING MONITORENTER");
-        writer.print("synchronized ("
-		     + (object != null 
-			? object.toString()
-			: local.getName()) + ")");
+        writer.print("synchronized (");
+	if (object != null)
+	    object.dumpExpression(writer);
+	else
+	    writer.print(local.getName());
+	writer.print(")");
 	writer.openBrace();
         writer.tab();
         bodyBlock.dumpSource(writer);
