@@ -1,40 +1,41 @@
-/* 
- * GetFieldOperator (c) 1998 Jochen Hoenicke
+/* GetFieldOperator Copyright (C) 1998-1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
 
 package jode.expr;
 import jode.Type;
+import jode.bytecode.Reference;
 import jode.decompiler.CodeAnalyzer;
 
 public class GetFieldOperator extends Operator {
     boolean staticFlag;
     CodeAnalyzer codeAnalyzer;
-    String fieldName;
+    Reference ref;
     Type classType;
     boolean needCast = false;
 
     public GetFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag,
-                            Type classType, Type type, String fieldName) {
-        super(type, 0);
+			    Reference ref) {
+        super(Type.tType(ref.getType()), 0);
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
-        this.classType = classType;
-        this.fieldName = fieldName;
+        this.classType = Type.tClass(ref.getClazz());
+	this.ref = ref;
         if (staticFlag)
             classType.useType();
     }
@@ -61,6 +62,7 @@ public class GetFieldOperator extends Operator {
     }
 
     public String toString(String[] operands) {
+	String fieldName = ref.getName();
         return staticFlag
             ? (classType.equals(Type.tClass(codeAnalyzer.getClazz().getName()))
                && codeAnalyzer.findLocal(fieldName) == null
@@ -76,7 +78,6 @@ public class GetFieldOperator extends Operator {
 
     public boolean equals(Object o) {
 	return o instanceof GetFieldOperator
-	    && ((GetFieldOperator)o).classType.equals(classType)
-	    && ((GetFieldOperator)o).fieldName.equals(fieldName);
+	    && ((GetFieldOperator)o).ref.equals(ref);
     }
 }
