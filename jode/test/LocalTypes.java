@@ -141,5 +141,20 @@ public class LocalTypes {
             }
 	}
     }
+
+    public void castTests() {
+	System.err.println(null instanceof int[]);
+	System.err.println(((Object)new int[4]) instanceof byte[]);
+	System.err.println(((Object)new byte[4]) instanceof int[]);
+	System.err.println(((Object)new int[4]) instanceof LocalTypes);
+	System.err.println(((Object)new int[4]) instanceof int[][]);
+	System.err.println(new Object[4] instanceof int[][]);
+	System.err.println(new int[5][4] instanceof java.io.Serializable[]);
+	System.err.println(((Object)this) instanceof RuntimeException);
+	System.err.println(((RuntimeException)(Object)this).getMessage());
+	((java.io.PrintStream)null).println("Hallo");
+	((LocalTypes) null).a = new A();
+	((LocalTypes) null).b = new B();
+    }
 }
 
