@@ -37,14 +37,15 @@ import jode.expr.CombineableOperator;
  */
 public class FlowBlock {
 
-    static FlowBlock END_OF_METHOD = 
+    public static FlowBlock END_OF_METHOD = 
         new FlowBlock(null, Integer.MAX_VALUE, 0, new EmptyBlock());
 
-    static FlowBlock ILLEGAL = 
-        new FlowBlock(null, -1, 0, new DescriptionBlock("ILLEGAL BLOCK"));
+    public static FlowBlock NEXT_BY_ADDR = 
+        new FlowBlock(null, -1, 0, new DescriptionBlock("FALL THROUGH"));
 
     static {
         END_OF_METHOD.label = "END_OF_METHOD";
+	NEXT_BY_ADDR.label  = "NEXT_BY_ADDR";
     }
 
     /**
@@ -110,13 +111,6 @@ public class FlowBlock {
     Vector predecessors = new Vector();
 
     /**
-     * This is set if the block is reachable.  If this is false after
-     * marking the start block and the catch blocks as reachable, this
-     * block is dead code and may (must) be removed.
-     */
-    boolean reachable = false;
-    
-    /**
      * This is a pointer to the next flow block in byte code order.
      * It is null for the last flow block.
      */
@@ -136,6 +130,15 @@ public class FlowBlock {
     VariableStack stackMap;
 
     /**
+     * The default constructor.  Creates a new empty flowblock.
+     */
+    public FlowBlock(CodeAnalyzer code, int addr, int length) {
+	this.code = code;
+        this.addr = addr;
+        this.length = length;
+    }
+
+    /**
      * The default constructor.  Creates a new flowblock containing
      * only the given structured block.
      */
@@ -144,10 +147,18 @@ public class FlowBlock {
 	this.code = code;
         this.addr = addr;
         this.length = length;
+	setBlock(block);
+    }
+
+    public void setBlock(StructuredBlock block) {
+	if (this.block != null)
+	    throw new jode.AssertError("FlowBlock.setBlock called twice");
         this.block = block;
         lastModified = block;
         block.setFlowBlock(this);
         block.fillInGenSet(in, gen);
+        block.fillSuccessors();
+        checkConsistent();
     }
 
     public final int getNextAddr() {
@@ -589,27 +600,6 @@ public class FlowBlock {
 	} 
     }
 
-//     /**
-//      * Mark all predecessors of this block as illegal, i.e. change the
-//      * successor to the ILLEGAL block.
-//      */
-//     public void markPredecessorsIllegal() {
-// 	Enumeration preds = predecessors.elements();
-// 	while (preds.hasMoreElements()) {
-// 	    FlowBlock pred = (FlowBlock) preds.nextElement();
-// 	    Jump jump = (Jump)pred.successors.remove(this);
-// 	    for (/**/; jump.next != null; jump = jump.next)
-// 		jump.destination = ILLEGAL;
-	    
-// 	    jump.destination = ILLEGAL;
-// 	    jump.next = (Jump) pred.successors.get(jump.destination);
-// 	    if (jump.next == null)
-// 		ILLEGAL.predecessors.addElement(this);
-// 	    pred.successors.put(jump.destination, jump);
-// 	}
-// 	predecessors.removeAllElements();
-//     }
-
     /** 
      * Updates the in/out-Vectors of the structured block of the
      * successing flow block simultanous to a T1 transformation.
@@ -679,6 +669,7 @@ public class FlowBlock {
         if (!Decompiler.doChecks)
             return;
 
+	try {
         if (block.outer != null || block.flowBlock != this) {
             throw new AssertError("Inconsistency");
         }
@@ -717,8 +708,9 @@ public class FlowBlock {
                 if (jumps.destination != dest)
                     throw new AssertError("Inconsistency");
                     
-                if (jumps.prev.flowBlock != this ||
-                    jumps.prev.jump != jumps)
+                if (jumps.prev == null
+		    || jumps.prev.flowBlock != this 
+		    || jumps.prev.jump != jumps)
                     throw new AssertError("Inconsistency");
                     
             prev_loop:
@@ -736,6 +728,10 @@ public class FlowBlock {
                 }
             }
         }
+	} catch (AssertError err) {
+	    System.err.println("Inconsistency in: "+this);
+	    throw err;
+	}
     }
 
 
@@ -749,6 +745,7 @@ public class FlowBlock {
      * @param length the length of the structured block.
      */
     public void doSequentialT1(StructuredBlock succ, int length) {
+        checkConsistent();
 	if (Decompiler.isFlowDebugging) {
 	    Decompiler.err.println("merging sequentialBlock: "+this);
 	    Decompiler.err.println("and: "+succ);
@@ -758,14 +755,38 @@ public class FlowBlock {
 
         succIn.merge(lastModified.jump.gen);
         succIn.subtract(lastModified.jump.kill);
+
         succ.jump.gen.mergeGenKill(lastModified.jump.gen, succ.jump.kill);
         succ.jump.kill.add(lastModified.jump.kill);
         this.in.unionExact(succIn);
 
+	removeSuccessor(lastModified.jump);
         lastModified.removeJump();
         lastModified = lastModified.appendBlock(succ);
+	succ.fillSuccessors();
         this.length += length;
+        checkConsistent();
         doTransformations();
+    }
+
+    /**
+     * Append the given flowblock to the nextByAddr/prevByAddr chain.
+     * nextByAddr should be null, when calling this.
+     * @param flow The flowBlock to append
+     */
+    public void setNextByAddr(FlowBlock flow) {
+	Jump jumps = (Jump) successors.remove(NEXT_BY_ADDR);
+	if (jumps != null) {
+	    NEXT_BY_ADDR.predecessors.removeElement(this);
+	    for (Jump jump = jumps; jump != null; jump = jump.next)
+		jump.destination = flow;
+	    successors.put(flow, jumps);
+	    flow.predecessors.addElement(this);
+        }
+	checkConsistent();
+
+	nextByAddr = flow;
+	flow.prevByAddr = this;
     }
 
     /**
@@ -1154,6 +1175,7 @@ public class FlowBlock {
         if (Decompiler.debugAnalyze)
             Decompiler.err.println("analyze("+start+", "+end+")");
 
+	checkConsistent();
         boolean changed = false;
 
         while (true) {
@@ -1307,7 +1329,7 @@ public class FlowBlock {
                         lastJumps = 
                             lastFlow.resolveSomeJumps(lastJumps, nextFlow);
                         lastFlow.resolveRemaining(lastJumps);
-			switchBlock.caseBlocks[last].isFallThrough = true;
+			switchBlock.caseBlocks[last+1].isFallThrough = true;
                     } else
                         updateInOut(nextFlow, jumps);
                     
@@ -1342,37 +1364,6 @@ public class FlowBlock {
     }
     
     /**
-     * Resolves the destinations of all jumps.  This will also create
-     * the successors map.
-     */
-    public void resolveJumps(FlowBlock[] instr) {
-        Vector allJumps = new Vector();
-        block.fillSuccessors(allJumps);
-        Enumeration enum = allJumps.elements();
-        while (enum.hasMoreElements()) {
-            Jump jump = (Jump) enum.nextElement();
-            if (jump != null && jump.destination == null) {
-                if (jump.destAddr == -1) 
-                    jump.destination = END_OF_METHOD;
-                else if (jump.destAddr == instr.length)
-		    // In this case, the jump must belong to dead code.
-		    jump.destination = ILLEGAL;
-		else {
-                    jump.destination = instr[jump.destAddr];
-		    if (jump.destination == null)
-			throw new AssertError("Missing dest: "+jump.destAddr);
-		}
-                addSuccessor(jump);
-            }
-        }
-
-	if (getNextAddr() < instr.length) {
-	    nextByAddr = instr[getNextAddr()];
-	    nextByAddr.prevByAddr = this;
-	}
-    }
-
-    /**
      * Mark the flow block as first flow block in a method.
      */
     public void makeStartBlock() {
@@ -1387,7 +1378,7 @@ public class FlowBlock {
             destJumps = destJumps.next;
         }
         if (destJumps == null)
-            throw new AssertError(""+addr+": removing non existent jump: " + jump);
+            throw new AssertError(addr+": removing non existent jump: " + jump);
         if (prev != null)
             prev.next = destJumps.next;
         else {
@@ -1482,44 +1473,6 @@ public class FlowBlock {
     }
 
     /**
-     * Mark this block and all successing blocks as reachable.  */
-    public void markReachable() {
-	if (reachable) {
-	    // This block was already checked.  This prevents infinite
-	    // recursion.
-	    return;
-	}
-	reachable = true;
-	Enumeration succs = successors.keys();
-	while (succs.hasMoreElements())
-	    ((FlowBlock) succs.nextElement()).markReachable();
-    }
-
-    /**
-     * Removes dead code, i.e. merges the dead flow block with there 
-     * prevByAddr and removing their code completely. <br>
-     *
-     * Why is it necessary?  Because jikes actually generates a lot
-     * of dead code in try, catch and finally blocks.  This will break
-     * a lot of other code, e.g. checking that a catch handler has no
-     * entries or merging only adjacent blocks.
-     *
-     * @param flow The first flow block in this method.
-     */
-    public static void removeDeadCode(FlowBlock flow) {
-	while (flow.nextByAddr != null) {
-	    if (!flow.nextByAddr.reachable) {
-		Enumeration succs = flow.nextByAddr.successors.keys();
-		while (succs.hasMoreElements())
-		    ((FlowBlock) succs.nextElement()).predecessors
-			.removeElement(flow.nextByAddr);
-		flow.mergeAddr(flow.nextByAddr);
-	    } else
-		flow = flow.nextByAddr;
-	}
-    }
-
-    /**
      * Print the source code for this structured block.  This handles
      * everything that is unique for all structured blocks and calls
      * dumpInstruction afterwards.
@@ -1555,6 +1508,13 @@ public class FlowBlock {
     String label = null;
 
     /**
+     * Returns the address, where the code in this flow block starts.
+     */
+    public int getAddr() {
+	return addr;
+    }
+
+    /**
      * Returns the label of this block and creates a new label, if
      * there wasn't a label previously.
      */
@@ -1575,7 +1535,7 @@ public class FlowBlock {
         try {
             java.io.StringWriter strw = new java.io.StringWriter();
             TabbedPrintWriter writer = new TabbedPrintWriter(strw);
-            writer.println(super.toString());
+            writer.println(super.toString() + ": "+addr+"-"+(addr+length));
             writer.tab();
             block.dumpSource(writer);
             return strw.toString();
