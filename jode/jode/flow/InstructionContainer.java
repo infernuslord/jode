@@ -16,6 +16,7 @@
  * $Id$
  */
 package jode.flow;
+import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
 import jode.expr.LocalVarOperator;
 
@@ -23,6 +24,9 @@ import jode.expr.LocalVarOperator;
  * This is a method for block containing a single instruction.
  */
 public abstract class InstructionContainer extends StructuredBlock {
+    /**
+     * The instruction.
+     */
     Expression instr;
 
     public InstructionContainer(Expression instr) {
@@ -59,9 +63,9 @@ public abstract class InstructionContainer extends StructuredBlock {
     public boolean doTransformations() {
         StructuredBlock last = flowBlock.lastModified;
         return CreateNewConstructor.transform(this, last)
+            || CreateAssignExpression.transform(this, last)
             || CreateExpression.transform(this, last)
             || CreatePrePostIncExpression.transform(this, last)
-            || CreateAssignExpression.transform(this, last)
             || CreateIfThenElseOperator.create(this, last)
             || CreateConstantArray.transform(this, last)
 	    || CreateCheckNull.transformJavac(this, last);
@@ -71,7 +75,7 @@ public abstract class InstructionContainer extends StructuredBlock {
      * Get the contained instruction.
      * @return the contained instruction.
      */
-    public Expression getInstruction() {
+    public final Expression getInstruction() {
         return instr;
     }
 
@@ -79,7 +83,7 @@ public abstract class InstructionContainer extends StructuredBlock {
      * Set the contained instruction.
      * @param instr the new instruction.
      */
-    public void setInstruction(Expression instr) {
+    public final void setInstruction(Expression instr) {
         this.instr = instr;
     }
 }
