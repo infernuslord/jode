@@ -785,7 +785,7 @@ public class TransformExceptionHandlers {
                 succ.predecessors.removeElement(tryFlow);
                 /* Handle the jumps in the tryFlow.
                  */
-                jumps = tryFlow.optimizeJumps(jumps, succ);
+                jumps = tryFlow.resolveSomeJumps(jumps, succ);
                 tryFlow.resolveRemaining(jumps);
             }
 
