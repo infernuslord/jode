@@ -25,6 +25,7 @@ MY_JAVA_FILES = \
   MethodAnalyzer.java \
   Opcodes.java \
   OuterValueListener.java \
+  OuterValues.java \
   Scope.java \
   TabbedPrintWriter.java
 

@@ -21,7 +21,16 @@ package jode.decompiler;
 /**
  * Interface, that every one should implement who is interested in
  * outer value changes.
+ *
+ * outerValues
  */
 public interface OuterValueListener {
-    public void shrinkingOuterValues(ClassAnalyzer clazzAna, int newLength);
+    /**
+     * Tells that the guessed number of outerValues was too big and thus
+     * needs shrinking right now.
+     * @param clazzAna The clazzAnalyzer for which this info is.
+     * @param newCount The new number of outer values (not slot number)
+     * before the first parameter.
+     */
+    public void shrinkingOuterValues(OuterValues ov, int newCount);
 }
