@@ -46,6 +46,10 @@ public class NullType extends ClassInterfacesType {
 	return o == this;
     }
 
+    public Type getHint() {
+	return tNull;
+    }
+
     /**
      * Intersect this type with another type and return the new type.
      * @param type the other type.
