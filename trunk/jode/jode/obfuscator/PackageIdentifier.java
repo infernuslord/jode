@@ -19,15 +19,25 @@
 
 package jode.obfuscator;
 import jode.GlobalOptions;
-import jode.Obfuscator;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.MethodInfo;
 import java.lang.reflect.Modifier;
-import java.util.*;
 import java.io.*;
+import java.util.Vector;
+import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+///#ifdef JDK12
+///import java.util.Map;
+///import java.util.HashMap;
+///import java.util.Iterator;
+///#else
+import jode.util.Map;
+import jode.util.HashMap;
+import jode.util.Iterator;
+///#endif
 
 public class PackageIdentifier extends Identifier {
     ClassBundle bundle;
@@ -35,7 +45,7 @@ public class PackageIdentifier extends Identifier {
     String name;
 
     boolean loadOnDemand;
-    Hashtable loadedClasses;
+    Map loadedClasses;
 
     public PackageIdentifier(ClassBundle bundle, 
 			     PackageIdentifier parent,
@@ -44,7 +54,7 @@ public class PackageIdentifier extends Identifier {
 	this.bundle = bundle;
 	this.parent = parent;
 	this.name = name;
-	this.loadedClasses = new Hashtable();
+	this.loadedClasses = new HashMap();
 	if (loadOnDemand)
 	    setLoadOnDemand();
     }
@@ -61,7 +71,7 @@ public class PackageIdentifier extends Identifier {
 	if (loadOnDemand)
 	    return;
 	loadOnDemand = true;
-	if (!Obfuscator.shouldStrip) {
+	if ((Main.stripping & Main.STRIP_UNREACH) == 0) {
 	    // Load all classes and packages now, so they don't get stripped
 	    Vector v = new Vector();
 	    Enumeration enum = 
@@ -95,10 +105,10 @@ public class PackageIdentifier extends Identifier {
 		    loadedClasses.put(subclazz, ident);
 		} else {
 		    Identifier ident = new ClassIdentifier
-			(bundle, this, subclazz, ClassInfo.forName(fullname));
+			(this, subclazz, ClassInfo.forName(fullname));
 		    loadedClasses.put(subclazz, ident);
 		    ((ClassIdentifier) ident).initClass();
-		    if (bundle.preserveRule != -1)
+		    if (bundle.preserveRule != null)
 			ident.applyPreserveRule(bundle.preserveRule);
 		}
 	    }		
@@ -141,11 +151,11 @@ public class PackageIdentifier extends Identifier {
 					      + fullname);
 		    Thread.dumpStack();
 		} else {
-		    ident = new ClassIdentifier(bundle, this, name, 
+		    ident = new ClassIdentifier(this, name, 
 						ClassInfo.forName(fullname));
 		    loadedClasses.put(name, ident);
 		    ((ClassIdentifier) ident).initClass();
-		    if (bundle.preserveRule != -1)
+		    if (bundle.preserveRule != null)
 			ident.applyPreserveRule(bundle.preserveRule);
 		}
 	    }
@@ -155,9 +165,14 @@ public class PackageIdentifier extends Identifier {
 	    PackageIdentifier pack = 
 		(PackageIdentifier) loadedClasses.get(subpack);
 	    if (pack == null) {
-		pack = new PackageIdentifier(bundle, this, 
-					     subpack, loadOnDemand);
-		loadedClasses.put(subpack, pack);
+		String fullname = getFullName();
+		fullname = (fullname.length() > 0)
+		    ? fullname + "."+ subpack : subpack;
+		if (ClassInfo.isPackage(fullname)) {
+		    pack = new PackageIdentifier(bundle, this, 
+						 subpack, loadOnDemand);
+		    loadedClasses.put(subpack, pack);
+		}
 	    }
 	    
 	    if (pack != null)
@@ -174,30 +189,32 @@ public class PackageIdentifier extends Identifier {
 	    if (ident == null) {
 		String fullname = getFullName();
 		fullname = (fullname.length() > 0)
-		    ? fullname + "."+ name
-		    : name;
+		    ? fullname + "." + component
+		    : component;
 		if (ClassInfo.isPackage(fullname)) {
 		    ident = new PackageIdentifier(bundle, this, 
 						  component, loadOnDemand);
 		    loadedClasses.put(component, ident);
-		} else if (!ClassInfo.exists(fullname)) {
-		    GlobalOptions.err.println("Warning: Can't find class "
-					      +fullname);
-		} else if (wildcard.matches(fullname)) {
+		} else if (ClassInfo.exists(fullname)
+			   && wildcard.matches(fullname)) {
 		    if (GlobalOptions.verboseLevel > 1)
 			GlobalOptions.err.println("loading Class " +fullname);
-		    ident = new ClassIdentifier(bundle, this, name, 
+		    ident = new ClassIdentifier(this, component, 
 						ClassInfo.forName(fullname));
-		    loadedClasses.put(name, ident);
+		    loadedClasses.put(component, ident);
 		    ((ClassIdentifier) ident).initClass();
-		    if (bundle.preserveRule != -1)
+		    if (bundle.preserveRule != null)
 			ident.applyPreserveRule(bundle.preserveRule);
+		} else {
+		    GlobalOptions.err.println
+			("Warning: Can't find class/package " + fullname);
 		}
 	    }
 	    if (ident instanceof PackageIdentifier) {
 		if (wildcard.matches(ident.getFullName())) {
 		    if (GlobalOptions.verboseLevel > 0)
-			GlobalOptions.err.println("loading Package " +ident.getFullName());
+			GlobalOptions.err.println("loading Package "
+						  +ident.getFullName());
 		    ((PackageIdentifier) ident).setLoadOnDemand();
 		}
 
@@ -213,7 +230,7 @@ public class PackageIdentifier extends Identifier {
 		ClassInfo.getClassesAndPackages(getFullName());
 	    while (enum.hasMoreElements()) {
 		String subclazz = (String)enum.nextElement();
-		if (loadedClasses.contains(subclazz))
+		if (loadedClasses.containsKey(subclazz))
 		    continue;
 		String subFull = fullname + subclazz;
 		
@@ -228,11 +245,10 @@ public class PackageIdentifier extends Identifier {
 			if (GlobalOptions.verboseLevel > 1)
 			    GlobalOptions.err.println("loading Class " +subFull);
 			ClassIdentifier ident = new ClassIdentifier
-			    (bundle, this, 
-			     subclazz, ClassInfo.forName(subFull));
+			    (this, subclazz, ClassInfo.forName(subFull));
 			loadedClasses.put(subclazz, ident);
 			((ClassIdentifier) ident).initClass();
-			if (bundle.preserveRule != -1)
+			if (bundle.preserveRule != null)
 			    ident.applyPreserveRule(bundle.preserveRule);
 		    }
 		} else if (ClassInfo.isPackage(subFull)
@@ -242,9 +258,9 @@ public class PackageIdentifier extends Identifier {
 		    loadedClasses.put(subclazz, ident);
 		}
 	    }
-	    enum = loadedClasses.elements();
-	    while (enum.hasMoreElements()) {
-		Identifier ident = (Identifier) enum.nextElement();
+	    for (Iterator i = loadedClasses.values().iterator(); 
+		 i.hasNext(); ) {
+		Identifier ident = (Identifier) i.next();
 		if (ident instanceof PackageIdentifier) {
 		    if (wildcard.matches(ident.getFullName()))
 			((PackageIdentifier) ident).setLoadOnDemand();
@@ -256,10 +272,9 @@ public class PackageIdentifier extends Identifier {
 	}
     }
 
-    public void applyPreserveRule(int preserveRule) {
-	Enumeration enum = loadedClasses.elements();
-	while(enum.hasMoreElements())
-	    ((Identifier) enum.nextElement()).applyPreserveRule(preserveRule);
+    public void applyPreserveRule(ModifierMatcher preserveRule) {
+	for (Iterator i = loadedClasses.values().iterator(); i.hasNext(); )
+	    ((Identifier) i.next()).applyPreserveRule(preserveRule);
     }
 
     public void reachableIdentifier(String fqn, boolean isVirtual) {
@@ -298,21 +313,27 @@ public class PackageIdentifier extends Identifier {
 	    fullname = (fullname.length() > 0)
 		? fullname + "."+ component : component;
 	    Identifier ident = (Identifier) loadedClasses.get(component);
-	    if (ident == null && loadOnDemand) {
+	    if (ident == null) {
+		if (!loadOnDemand) {
+		    GlobalOptions.err.println
+			("Warning: Didn't load package/class "+ fullname);
+		    return;
+		}
 		if (ClassInfo.isPackage(fullname)) {
 		    ident = new PackageIdentifier(bundle, this, 
 						  component, loadOnDemand);
 		    loadedClasses.put(component, ident);
-		} else if (!ClassInfo.exists(fullname)) {
+		} else if (ClassInfo.exists(fullname)) {
+		    ident = new ClassIdentifier(this, component, 
+						ClassInfo.forName(fullname));
+		    loadedClasses.put(component, ident);
+		    ((ClassIdentifier) ident).initClass();
+		    if (bundle.preserveRule != null)
+			ident.applyPreserveRule(bundle.preserveRule);
+		} else {
 		    GlobalOptions.err.println("Warning: Can't find class "
 					      + fullname);
-		} else {
-		    ident = new ClassIdentifier(bundle, this, name, 
-						ClassInfo.forName(fullname));
-		    loadedClasses.put(name, ident);
-		    ((ClassIdentifier) ident).initClass();
-		    if (bundle.preserveRule != -1)
-			ident.applyPreserveRule(bundle.preserveRule);
+		    return;
 		}
 	    }
 	    if (wildcard.matches(fullname)) {
@@ -338,30 +359,30 @@ public class PackageIdentifier extends Identifier {
 		    ClassInfo.getClassesAndPackages(getFullName());
 		while (enum.hasMoreElements()) {
 		    String subclazz = (String)enum.nextElement();
-		    if (loadedClasses.contains(subclazz))
+		    if (loadedClasses.containsKey(subclazz))
 			continue;
 		    String subFull = fullname + subclazz;
 		    
 		    if (wildcard.startsWith(subFull)) {
 			if (ClassInfo.isPackage(subFull)) {
+			    System.err.println("is package: "+subFull);
 			    Identifier ident = new PackageIdentifier
 				(bundle, this, subclazz, true);
 			    loadedClasses.put(subclazz, ident);
 			} else {
 			    ClassIdentifier ident = new ClassIdentifier
-				(bundle, this, 
-				 subclazz, ClassInfo.forName(subFull));
+				(this, subclazz, ClassInfo.forName(subFull));
 			    loadedClasses.put(subclazz, ident);
 			    ((ClassIdentifier) ident).initClass();
-			    if (bundle.preserveRule != -1)
+			    if (bundle.preserveRule != null)
 				ident.applyPreserveRule(bundle.preserveRule);
 			}
 		    } 
 		}
 	    }
-	    Enumeration enum = loadedClasses.elements();
-	    while (enum.hasMoreElements()) {
-		Identifier ident = (Identifier) enum.nextElement();
+	    for (Iterator i = loadedClasses.values().iterator(); 
+		 i.hasNext(); ) {
+		Identifier ident = (Identifier) i.next();
 		if (wildcard.matches(ident.getFullName())) {
 		    if (GlobalOptions.verboseLevel > 1)
 			GlobalOptions.err.println("Preserving "+ident);
@@ -420,11 +441,11 @@ public class PackageIdentifier extends Identifier {
 	return className;
     }
 
-    public void buildTable(int renameRule) {
+    public void buildTable(Renamer renameRule) {
 	super.buildTable(renameRule);
-	Enumeration enum = loadedClasses.elements();
-	while (enum.hasMoreElements()) {
-	    Identifier ident = (Identifier) enum.nextElement();
+	loadOnDemand = false;
+	for (Iterator i = loadedClasses.values().iterator(); i.hasNext(); ) {
+	    Identifier ident = (Identifier) i.next();
 	    if (ident instanceof ClassIdentifier)
 		((ClassIdentifier) ident).buildTable(renameRule);
 	    else
@@ -433,9 +454,8 @@ public class PackageIdentifier extends Identifier {
     }
 
     public void doTransformations() {
-	Enumeration enum = loadedClasses.elements();
-	while (enum.hasMoreElements()) {
-	    Identifier ident = (Identifier) enum.nextElement();
+	for (Iterator i = loadedClasses.values().iterator(); i.hasNext(); ) {
+	    Identifier ident = (Identifier) i.next();
 	    if (ident instanceof ClassIdentifier) {
 		((ClassIdentifier) ident).doTransformations();
 	    } else
@@ -443,24 +463,24 @@ public class PackageIdentifier extends Identifier {
 	}
     }
 
-    public void readTable(Hashtable table) {
+    public void readTable(Map table) {
 	if (parent != null)
 	    setAlias((String) table.get(getFullName()));
-	Enumeration enum = loadedClasses.elements();
-	while (enum.hasMoreElements()) {
-	    Identifier ident = (Identifier) enum.nextElement();
-	    if (!Obfuscator.shouldStrip || ident.isReachable())
+	for (Iterator i = loadedClasses.values().iterator(); i.hasNext(); ) {
+	    Identifier ident = (Identifier) i.next();
+	    if ((Main.stripping & Main.STRIP_UNREACH) == 0
+		|| ident.isReachable())
 		ident.readTable(table);
 	}
     }
 
-    public void writeTable(Hashtable table) {
+    public void writeTable(Map table) {
 	if (parent != null)
 	    table.put(getFullAlias(), getName());
-	Enumeration enum = loadedClasses.elements();
-	while (enum.hasMoreElements()) {
-	    Identifier ident = (Identifier) enum.nextElement();
-	    if (!Obfuscator.shouldStrip || ident.isReachable())
+	for (Iterator i = loadedClasses.values().iterator(); i.hasNext(); ) {
+	    Identifier ident = (Identifier) i.next();
+	    if ((Main.stripping & Main.STRIP_UNREACH) == 0
+		|| ident.isReachable())
 		ident.writeTable(table);
 	}
     }
@@ -477,11 +497,15 @@ public class PackageIdentifier extends Identifier {
 	return "package";
     }
 
+    public Iterator getChilds() {
+	return loadedClasses.values().iterator();
+    }
+
     public void storeClasses(ZipOutputStream zip) {
-	Enumeration enum = loadedClasses.elements();
-	while (enum.hasMoreElements()) {
-	    Identifier ident = (Identifier) enum.nextElement();
-	    if (Obfuscator.shouldStrip && !ident.isReachable()) {
+	for (Iterator i = loadedClasses.values().iterator(); i.hasNext(); ) {
+	    Identifier ident = (Identifier) i.next();
+	    if ((Main.stripping & Main.STRIP_UNREACH) != 0
+		&& !ident.isReachable()) {
 		if (GlobalOptions.verboseLevel > 4)
 		    GlobalOptions.err.println("Class/Package "
 					   + ident.getFullName()
@@ -495,7 +519,8 @@ public class PackageIdentifier extends Identifier {
 		    String filename = ident.getFullAlias().replace('.','/')
 			+ ".class";
 		    zip.putNextEntry(new ZipEntry(filename));
-		    DataOutputStream out = new DataOutputStream(zip);
+		    DataOutputStream out = new DataOutputStream
+			(new BufferedOutputStream(zip));
 		    ((ClassIdentifier) ident).storeClass(out);
 		    out.flush();
 		    zip.closeEntry();
@@ -515,10 +540,10 @@ public class PackageIdentifier extends Identifier {
 	    GlobalOptions.err.println("Could not create directory "
 				   +newDest.getPath()+", check permissions.");
 	}
-	Enumeration enum = loadedClasses.elements();
-	while (enum.hasMoreElements()) {
-	    Identifier ident = (Identifier) enum.nextElement();
-	    if (Obfuscator.shouldStrip && !ident.isReachable()) {
+	for (Iterator i = loadedClasses.values().iterator(); i.hasNext(); ) {
+	    Identifier ident = (Identifier) i.next();
+	    if ((Main.stripping & Main.STRIP_UNREACH) != 0
+		&& !ident.isReachable()) {
 		if (GlobalOptions.verboseLevel > 4)
 		    GlobalOptions.err.println("Class/Package "
 					   + ident.getFullName()
@@ -538,7 +563,8 @@ public class PackageIdentifier extends Identifier {
 // 			return;
 // 		    }
 		    DataOutputStream out = new DataOutputStream
-			(new FileOutputStream(file));
+			(new BufferedOutputStream
+			 (new FileOutputStream(file)));
 		    ((ClassIdentifier) ident).storeClass(out);
 		    out.close();
 		} catch (java.io.IOException ex) {
@@ -554,18 +580,19 @@ public class PackageIdentifier extends Identifier {
 	return (parent == null) ? "base package" : getFullName();
     }
 
-    public boolean contains(String newAlias) {
-	Enumeration enum = loadedClasses.elements();
-	while (enum.hasMoreElements()) {
-	    Identifier ident = (Identifier)enum.nextElement();
-	    if ((!Obfuscator.shouldStrip || ident.isReachable())
+    public boolean contains(String newAlias, Identifier except) {
+	for (Iterator i = loadedClasses.values().iterator(); i.hasNext(); ) {
+	    Identifier ident = (Identifier)i.next();
+	    if (((Main.stripping & Main.STRIP_UNREACH) == 0
+		 || ident.isReachable())
+		&& ident != except
 		&& ident.getAlias().equals(newAlias))
 		return true;
 	}
 	return false;
     }
 
-    public boolean conflicting(String newAlias, boolean strong) {
-	return parent.contains(newAlias);
+    public boolean conflicting(String newAlias) {
+	return parent.contains(newAlias, this);
     }
 }
