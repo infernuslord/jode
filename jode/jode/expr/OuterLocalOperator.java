@@ -56,6 +56,11 @@ public class OuterLocalOperator extends Operator {
     public void updateType() {
     }
 
+    public boolean opEquals(Operator o) {
+        return (o instanceof OuterLocalOperator &&
+                ((OuterLocalOperator) o).local.getSlot() == local.getSlot());
+    }
+
     public Expression simplify() {
 	return super.simplify();
     }

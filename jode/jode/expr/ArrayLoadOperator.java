@@ -23,7 +23,6 @@ import jode.type.ArrayType;
 import jode.decompiler.TabbedPrintWriter;
 
 public class ArrayLoadOperator extends Operator {
-    String value;
 
     public ArrayLoadOperator(Type type) {
         super(type, 0);

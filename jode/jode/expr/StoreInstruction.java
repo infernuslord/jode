@@ -30,7 +30,7 @@ public class StoreInstruction extends Operator
     public StoreInstruction(LValueExpression lvalue) {
         super(Type.tVoid, ASSIGN_OP);
 	initOperands(2);
-	setSubExpressions(0, lvalue);
+	setSubExpressions(0, (Operator) lvalue);
     }
 
     public LValueExpression getLValue() {

@@ -23,15 +23,11 @@ import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 
-public class LocalStoreOperator extends LValueExpression 
-    implements LocalVarOperator {
-    LocalInfo local;
+public class LocalStoreOperator extends LocalVarOperator
+    implements LValueExpression {
 
     public LocalStoreOperator(Type lvalueType, LocalInfo local) {
-        super(lvalueType);
-        this.local = local;
-        local.setOperator(this);
-	initOperands(0);
+        super(lvalueType, local);
     }
 
     public boolean isRead() {
@@ -43,33 +39,10 @@ public class LocalStoreOperator extends LValueExpression
         return true;
     }
 
-    public void updateSubTypes() {
-	if (parent != null
-	    && (GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
-	    GlobalOptions.err.println("local type changed in: "+parent);
-        local.setType(type);
-    }
-
-    public void updateType() {
-	updateParentType(local.getType());
-    }
-
-    public LocalInfo getLocalInfo() {
-	return local.getLocalInfo();
-    }
-
     public boolean matches(Operator loadop) {
         return loadop instanceof LocalLoadOperator && 
             ((LocalLoadOperator)loadop).getLocalInfo().getSlot()
             == local.getSlot();
-    }
-
-    public int getPriority() {
-        return 1000;
-    }
-
-    public void dumpExpression(TabbedPrintWriter writer) {
-	writer.print(local.getName());
     }
 }
 

@@ -22,40 +22,14 @@ import jode.type.Type;
 import jode.type.ArrayType;
 import jode.decompiler.TabbedPrintWriter;
 
-public class ArrayStoreOperator extends LValueExpression {
+public class ArrayStoreOperator extends ArrayLoadOperator
+    implements LValueExpression {
 
     public ArrayStoreOperator(Type type) {
-        super(type);
-	initOperands(2);
+	super(type);
     }
 
     public boolean matches(Operator loadop) {
         return loadop instanceof ArrayLoadOperator;
-    }
-
-    public int getPriority() {
-        return 950;
-    }
-
-    public void updateSubTypes() {
-	subExpressions[0].setType(Type.tArray(type));
-	subExpressions[1].setType(Type.tSubType(Type.tInt));
-    }
-
-    public void updateType() {
-	Type subType = subExpressions[0].getType()
-	    .intersection(Type.tArray(type));
-	if (!(subType instanceof ArrayType))
-	    updateParentType(Type.tError);
-	else 
-	    updateParentType(((ArrayType)subType).getElementType());
-    }
-
-    public void dumpExpression(TabbedPrintWriter writer)
-	throws java.io.IOException {
-	subExpressions[0].dumpExpression(writer, 950);
-	writer.print("[");
-	subExpressions[1].dumpExpression(writer, 0);
-	writer.print("]");
     }
 }

@@ -33,7 +33,7 @@ public class PrePostFixOperator extends Operator {
         this.postfix = postfix;
 	setOperatorIndex(operatorIndex);
 	initOperands(1);
-	setSubExpressions(0, lvalue);
+	setSubExpressions(0, (Operator) lvalue);
     }
     
     public int getPriority() {
