@@ -18,7 +18,7 @@
  */
 
 package jode.decompiler;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 import jode.type.*;
 
@@ -32,6 +32,18 @@ public class ImportHandler {
     ClassAnalyzer main;
     String className;
     String pkg;
+
+    int importPackageLimit;
+    int importClassLimit;
+
+    public ImportHandler() {
+	this(3,3);
+    }
+    
+    public ImportHandler(int packageLimit, int classLimit) {
+	importPackageLimit = packageLimit;
+	importClassLimit = classLimit;
+    }
 
     /**
      * Checks if the className conflicts with a class imported from
@@ -88,12 +100,12 @@ public class ImportHandler {
             String importName = (String) enum.nextElement();
             Integer vote = (Integer) imports.get(importName);
             if (!importName.endsWith(".*")) {
-                if (vote.intValue() < Decompiler.importClassLimit)
+                if (vote.intValue() < importClassLimit)
                     continue;
                 int delim = importName.lastIndexOf(".");
                 Integer pkgvote = (Integer)
                     imports.get(importName.substring(0, delim)+".*");
-                if (pkgvote.intValue() >= Decompiler.importPackageLimit)
+                if (pkgvote.intValue() >= importPackageLimit)
                     continue;
 
                 /* This is a single Class import, that is not
@@ -102,7 +114,7 @@ public class ImportHandler {
                  */
                 classImports.addElement(importName);
             } else {
-                if (vote.intValue() < Decompiler.importPackageLimit)
+                if (vote.intValue() < importPackageLimit)
                     continue;
                 newImports.put(importName, dummyVote);
             }
@@ -134,7 +146,7 @@ public class ImportHandler {
         writer.println("/* "+ className 
 		       + " - Decompiled by JoDe (Jochen's Decompiler)");
 	writer.println(" * Send comments or bug reports to "
-		       + Decompiler.email);
+		       + GlobalOptions.email);
 	writer.println(" */");
         if (pkg.length() != 0)
             writer.println("package "+pkg+";");
@@ -150,7 +162,7 @@ public class ImportHandler {
     }
 
     public void error(String message) {
-        Decompiler.err.println(message);
+        GlobalOptions.err.println(message);
     }
 
     public void init(String className) {
@@ -177,7 +189,7 @@ public class ImportHandler {
 
             Integer pkgVote = (Integer) imports.get(pkgName+".*");
             if (pkgVote != null 
-                && pkgVote.intValue() >= Decompiler.importPackageLimit)
+                && pkgVote.intValue() >= importPackageLimit)
                 return;
 
             Integer i = (Integer) imports.get(name);
@@ -191,7 +203,7 @@ public class ImportHandler {
                 i = new Integer(1);
 
             } else {
-                if (i.intValue() >= Decompiler.importClassLimit)
+                if (i.intValue() >= importClassLimit)
                     return;
                 i = new Integer(i.intValue()+1);
             }
