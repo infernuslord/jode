@@ -320,7 +320,7 @@ public class Decompiler {
 		if (destZip != null) {
 		    writer.flush();
 		    destZip.putNextEntry(new ZipEntry(filename));
-		} else if (writer == null) {
+		} else if (destDir != null) {
 		    File file = new File (destDir, filename);
 		    File directory = new File(file.getParent());
 		    if (!directory.exists() && !directory.mkdirs()) {
