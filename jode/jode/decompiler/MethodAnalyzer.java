@@ -785,14 +785,13 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		    return false;
 		}
 		ov1 = ov[param];
+		sos.setLimit(ca1, param);
 
 		if (ov1 instanceof ThisOperator) {
 		    li1 = null;
 		    method1 = null;
 		    break;
 		}
-
-		sos.setLimit(ca1, param);
 		li1 = ((OuterLocalOperator) ov1).getLocalInfo();
 		method1 = li1.getMethodAnalyzer();
 		System.err.println("unifyLocalInfos: "+method1+"."+li1
@@ -832,6 +831,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    }
 
 	    ov2 = ov[param];
+	    sos.setLimit(ca2, param);
 	    if (ov2 instanceof ThisOperator) {
 		if (ov1.equals(ov2))
 		    return true;
@@ -841,7 +841,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		}
 	    }
 
-	    sos.setLimit(ca2, param);
 	    li2 = ((OuterLocalOperator) ov2).getLocalInfo();
 	    method2 = li2.getMethodAnalyzer();
 	    System.err.println("unifyLocalInfos: "+method1+"."+li1
