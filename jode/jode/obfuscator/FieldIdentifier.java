@@ -154,16 +154,12 @@ public class FieldIdentifier extends Identifier{
 	nameIndex = gcp.putUTF(getAlias());
 	descriptorIndex = gcp.putUTF(clazz.bundle.getTypeAlias(getType()));
 	constvalIndex = 0;
-        AttributeInfo attribute = info.findAttribute("ConstantValue");
-	if (attribute != null) {
-	    byte[] contents = attribute.getContents();
-	    if (contents.length != 2)
-		throw new ClassFormatError("ConstantValue attribute"
-					   + " has wrong length");
-	    int index = (contents[0] & 0xff) << 8 | (contents[1] & 0xff);
+	if (info.getConstant() != null) {
 	    constvalIndex = gcp.putUTF("ConstantValue");
-	    constvalcontentIndex = 
-		gcp.copyConstant(clazz.info.getConstantPool(), index);
+	    if (info.getType().stackSize() == 2)
+		constvalcontentIndex = gcp.putLongConstant(info.getConstant());
+	    else
+		constvalcontentIndex = gcp.putConstant(info.getConstant());
 	}
     }
 
