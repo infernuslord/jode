@@ -20,7 +20,8 @@
 package jode.jvm;
 import jode.AssertError;
 import jode.GlobalOptions;
-import jode.bytecode.BytecodeInfo;
+import jode.bytecode.BasicBlocks;
+import jode.bytecode.Block;
 import jode.bytecode.Handler;
 import jode.bytecode.Instruction;
 import jode.bytecode.Opcodes;
@@ -29,7 +30,10 @@ import jode.bytecode.TypeSignature;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
-import @COLLECTIONS@.Arrays;
+///#def COLLECTIONS java.util
+import java.util.Arrays;
+import java.util.Iterator;
+///#enddef
 
 /**
  * This class is a java virtual machine written in java :-).  Well not
@@ -59,16 +63,16 @@ public class Interpreter implements Opcodes {
 	this.env = env;
     }
 
-    private Value[] fillParameters(BytecodeInfo code, 
+    private Value[] fillParameters(BasicBlocks bb, 
 				   Object cls, Object[] params) {
-	Value[] locals = new Value[code.getMaxLocals()];
+	Value[] locals = new Value[bb.getMaxLocals()];
 	for (int i=0; i< locals.length; i++)
 	    locals[i] = new Value();
 
-	String myType = code.getMethodInfo().getType();
+	String myType = bb.getMethodInfo().getType();
 	String[] myParamTypes = TypeSignature.getParameterTypes(myType);
 	int slot = 0;
-	if (!code.getMethodInfo().isStatic())
+	if (!bb.getMethodInfo().isStatic())
 	    locals[slot++].setObject(cls);
 	for (int i=0; i< myParamTypes.length; i++) {
 	    locals[slot].setObject(params[i]);
@@ -77,24 +81,39 @@ public class Interpreter implements Opcodes {
 	return locals;
     }
 
-    public Object interpretMethod(BytecodeInfo code, 
+    public Object interpretMethod(BasicBlocks bb, 
 				  Object instance, Object[] myParams)
 	throws InterpreterException, InvocationTargetException {
 	if ((GlobalOptions.debuggingFlags 
 	     & GlobalOptions.DEBUG_INTERPRT) != 0)
-	    GlobalOptions.err.println("Interpreting "+code);
+	    GlobalOptions.err.println("Interpreting "+bb);
 
-	Value[] locals = fillParameters(code, instance, myParams);
-	Value[] stack = new Value[code.getMaxStack()];
+	Value[] locals = fillParameters(bb, instance, myParams);
+	Value[] stack = new Value[bb.getMaxStack()];
 	for (int i=0; i < stack.length; i++)
 	    stack[i] = new Value();
 
-	Instruction pc = (Instruction) code.getInstructions().get(0);
+	Block[] blocks = bb.getBlocks();
+	Block nextBlock = bb.getStartBlock();
+
 	int stacktop = 0;
+	Block[] succs = null;
+	Handler[] handlers = null;
+	Iterator iter = null;
+
 	big_loop:
 	for(;;) {
+	    if (iter == null || !iter.hasNext()) {
+		/* If block is over continue with the next block */
+		if (nextBlock == null)
+		    return Void.TYPE;
+		iter = nextBlock.getInstructions().iterator();
+		succs = nextBlock.getSuccs();
+		handlers = nextBlock.getCatchers();
+		nextBlock = succs.length > 0 ? succs[succs.length - 1] : null;
+	    }
 	    try {
-		Instruction instr = pc;
+		Instruction instr = (Instruction) iter.next();
 		if ((GlobalOptions.debuggingFlags 
 		     & GlobalOptions.DEBUG_INTERPRT) != 0) {
 		    GlobalOptions.err.println(instr.getDescription());
@@ -114,7 +133,6 @@ public class Interpreter implements Opcodes {
 			GlobalOptions.err.print(locals[i]+",");
 		    GlobalOptions.err.println("]");
 		}
-		pc = instr.getNextByAddr();
 		int opcode = instr.getOpcode();
 		switch (opcode) {
 		case opc_nop:
@@ -572,28 +590,26 @@ public class Interpreter implements Opcodes {
 		    int opc_mask = 1 << opcode;
 		    if (value > 0 && (opc_mask & CMP_GREATER_MASK) != 0
 			|| value < 0 && (opc_mask & CMP_LESS_MASK) != 0
-			|| value == 0 && (opc_mask & CMP_EQUAL_MASK) != 0)
-			pc = instr.getSingleSucc();
+			|| value == 0 && (opc_mask & CMP_EQUAL_MASK) != 0) {
+			nextBlock = succs[0];
+		    }
 		    break;
 		}
 		case opc_jsr:
 		case opc_jsr_w:
-		    stack[stacktop++].setObject(instr);
-		    /* fall through */
-		case opc_goto:
-		case opc_goto_w:
-		    pc = instr.getSingleSucc();
+		    stack[stacktop++].setObject(nextBlock);
+		    nextBlock = succs[0];
 		    break;
 		case opc_ret:
-		    pc = (Instruction)locals[instr.getLocalSlot()].objectValue();
+		    nextBlock
+			= (Block) locals[instr.getLocalSlot()].objectValue();
 		    break;
 		case opc_lookupswitch: {
 		    int value = stack[--stacktop].intValue();
 		    int[] values = instr.getValues();
 		    int pos = Arrays.binarySearch(values, value);
-		    pc = pos < 0
-			? instr.getSuccs()[values.length]
-			: instr.getSuccs()[pos];
+		    if (pos >= 0)
+			nextBlock = succs[pos];
 		    break;
 		}
 		case opc_ireturn: case opc_freturn: case opc_areturn:
@@ -734,16 +750,14 @@ public class Interpreter implements Opcodes {
 		    throw new AssertError("Invalid opcode "+opcode);
 		}
 	    } catch (InvocationTargetException ex) {
-		Handler[] handlers = code.getExceptionHandlers();
+		iter = null;
 		Throwable obj = ex.getTargetException();
-		for (int i=0; i< handlers.length; i++) {
-		    if (handlers[i].start.compareTo(pc) <= 0
-			&& handlers[i].end.compareTo(pc) >= 0
-			&& (handlers[i].type == null
-			    || env.instanceOf(obj, handlers[i].type))) {
+		for (int i=0; i < handlers.length; i++) {
+		    if (handlers[i].getType() == null
+			|| env.instanceOf(obj, handlers[i].getType())) {
 			stacktop = 0;
 			stack[stacktop++].setObject(obj);
-			pc = handlers[i].catcher;
+			nextBlock = handlers[i].getCatcher();
 			continue big_loop;
 		    }
 		}

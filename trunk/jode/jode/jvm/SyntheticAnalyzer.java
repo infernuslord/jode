@@ -19,7 +19,8 @@
 
 package jode.jvm;
 import jode.GlobalOptions;
-import jode.bytecode.BytecodeInfo;
+import jode.bytecode.BasicBlocks;
+import jode.bytecode.Block;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.Handler;
@@ -32,7 +33,9 @@ import jode.type.MethodType;
 
 import java.lang.reflect.Modifier;
 
-import @COLLECTIONS@.Iterator;
+///#def COLLECTIONS java.util
+import java.util.Iterator;
+///#enddef
 
 public class SyntheticAnalyzer implements Opcodes {
     public final static int UNKNOWN = 0;
@@ -47,11 +50,14 @@ public class SyntheticAnalyzer implements Opcodes {
     
     int kind = UNKNOWN;
     Reference reference;
+    ClassInfo classInfo;
     MethodInfo method;
 
-    public SyntheticAnalyzer(MethodInfo method, boolean checkName) {
+    public SyntheticAnalyzer(ClassInfo classInfo, MethodInfo method, 
+			     boolean checkName) {
+	this.classInfo = classInfo;
 	this.method = method;
-	if (method.getBytecode() == null)
+	if (method.getBasicBlocks() == null)
 	    return;
 	if (!checkName || method.getName().equals("class$"))
 	    if (checkGetClass())
@@ -94,37 +100,50 @@ public class SyntheticAnalyzer implements Opcodes {
 		 .equals("(Ljava/lang/String;)Ljava/lang/Class;")))
 	    return false;
 	
-	BytecodeInfo bytecode = method.getBytecode();
+	BasicBlocks bb = method.getBasicBlocks();
 
-	Handler[] excHandlers = bytecode.getExceptionHandlers();
-	if (excHandlers.length != 1
-	    || !"java.lang.ClassNotFoundException".equals(excHandlers[0].type))
+	Block[] blocks = bb.getBlocks();
+	Block startBlock = bb.getStartBlock();
+	Handler[] excHandlers = bb.getExceptionHandlers();
+	if (startBlock == null
+	    || startBlock.getInstructions().size() != 3
+	    || excHandlers.length != 1
+	    || excHandlers[0].getStart() != startBlock
+	    || excHandlers[0].getEnd() != startBlock
+	    || !"java.lang.ClassNotFoundException"
+	    .equals(excHandlers[0].getType()))
 	    return false;
 
-	int excSlot = -1;
-	int i = 0;
-	for (Iterator iter = bytecode.getInstructions().iterator(); iter.hasNext(); i++) {
-	    Instruction instr = (Instruction) iter.next();
-	    if (i == getClassOpcodes.length
-		|| instr.getOpcode() != getClassOpcodes[i])
-		return false;
-	    if (i == 0 && (instr.getLocalSlot() != 0
-			   || excHandlers[0].start != instr))
-		return false;
-	    if (i == 2 && excHandlers[0].end != instr)
-		return false;
-	    if (i == 3) {
-		if (excHandlers[0].catcher != instr)
-		    return false;
-		excSlot = instr.getLocalSlot();
-	    }
-	    if (i == 4 && !instr.getClazzType().equals
-		("Ljava/lang/NoClassDefFoundError;"))
-		return false;
-	    if (i == 6 && instr.getLocalSlot() != excSlot)
+        for (int i=0; i< 3; i++) {
+	    Instruction instr = 
+		(Instruction) startBlock.getInstructions().get(i);
+	    if (instr.getOpcode() != getClassOpcodes[i])
 		return false;
 	    if (getClassRefs[i] != null
 		&& !getClassRefs[i].equals(instr.getReference()))
+		return false;
+	    if (i == 0 && instr.getLocalSlot() != 0)
+		return false;
+	}
+
+	Block catchBlock = excHandlers[0].getCatcher();
+	if (catchBlock.getInstructions().size() != 7)
+	    return false;
+	int excSlot = -1;
+	for (int i=0; i< 7; i++) {
+	    Instruction instr = (Instruction) 
+		catchBlock.getInstructions().get(i);
+	    if (instr.getOpcode() != getClassOpcodes[3+i])
+		return false;
+	    if (getClassRefs[3+i] != null
+		&& !getClassRefs[3+i].equals(instr.getReference()))
+		return false;
+	    if (i == 0)
+		excSlot = instr.getLocalSlot();
+	    if (i == 1 && !instr.getClazzType().equals
+		("Ljava/lang/NoClassDefFoundError;"))
+		return false;
+	    if (i == 3 && instr.getLocalSlot() != excSlot)
 		return false;
 	}
 	this.kind = GETCLASS;
@@ -135,21 +154,34 @@ public class SyntheticAnalyzer implements Opcodes {
 				      Modifier.PUBLIC | Modifier.STATIC);
 
     public boolean checkStaticAccess() {
-	ClassInfo clazzInfo = method.getClazzInfo();
-	BytecodeInfo bytecode = method.getBytecode();
-	Iterator iter = bytecode.getInstructions().iterator();
-
+	BasicBlocks bb = method.getBasicBlocks();
+	Handler[] excHandlers = bb.getExceptionHandlers();
+	if (excHandlers != null && excHandlers.length != 0)
+	    return false;
+	Block[] blocks = bb.getBlocks();
+	Block startBlock = bb.getStartBlock();
+	if (startBlock == null)
+	    return false;
+	Block[] succBlocks = startBlock.getSuccs();
+	if (succBlocks.length > 1 || 
+	    (succBlocks.length == 1 && succBlocks[0] != null))
+	    return false;
+	Iterator iter = startBlock.getInstructions().iterator();
+	if (!iter.hasNext())
+	    return false;
 	Instruction instr = (Instruction) iter.next();
 	if (instr.getOpcode() == opc_getstatic) {
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(clazzInfo.getName().replace('.','/'))))
+		  .equals(classInfo.getName().replace('.','/'))))
 		return false;
 	    FieldInfo refField
-		= clazzInfo.findField(ref.getName(), ref.getType());
+		= classInfo.findField(ref.getName(), ref.getType());
 	    if ((refField.getModifiers() & modifierMask) != 
 		(Modifier.PRIVATE | Modifier.STATIC))
+		return false;
+	    if (!iter.hasNext())
 		return false;
 	    instr = (Instruction) iter.next();
 	    if (instr.getOpcode() < opc_ireturn
@@ -167,6 +199,8 @@ public class SyntheticAnalyzer implements Opcodes {
 	    params++;
 	    slot += (instr.getOpcode() == opc_lload 
 		     || instr.getOpcode() == opc_dload) ? 2 : 1;
+	    if (!iter.hasNext())
+		return false;
 	    instr = (Instruction) iter.next();
 	}
 	if (instr.getOpcode() == opc_putstatic) {
@@ -176,12 +210,14 @@ public class SyntheticAnalyzer implements Opcodes {
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(clazzInfo.getName().replace('.','/'))))
+		  .equals(classInfo.getName().replace('.','/'))))
 		return false;
 	    FieldInfo refField
-		= clazzInfo.findField(ref.getName(), ref.getType());
+		= classInfo.findField(ref.getName(), ref.getType());
 	    if ((refField.getModifiers() & modifierMask) != 
 		(Modifier.PRIVATE | Modifier.STATIC))
+		return false;
+	    if (!iter.hasNext())
 		return false;
 	    instr = (Instruction) iter.next();
 	    if (instr.getOpcode() != opc_return)
@@ -194,20 +230,25 @@ public class SyntheticAnalyzer implements Opcodes {
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(clazzInfo.getName().replace('.','/'))))
+		  .equals(classInfo.getName().replace('.','/'))))
 		return false;
 	    MethodInfo refMethod
-		= clazzInfo.findMethod(ref.getName(), ref.getType());
+		= classInfo.findMethod(ref.getName(), ref.getType());
 	    MethodType refType = Type.tMethod(ref.getType());
 	    if ((refMethod.getModifiers() & modifierMask) != 
 		(Modifier.PRIVATE | Modifier.STATIC)
 		|| refType.getParameterTypes().length != params)
 		return false;
+	    if (!iter.hasNext())
+		return false;
 	    instr = (Instruction) iter.next();
 	    if (refType.getReturnType() == Type.tVoid) {
-		if (instr.getOpcode() != opc_return)
+		if (iter.hasNext())
 		    return false;
 	    } else {
+		if (!iter.hasNext())
+		    return false;
+		instr = (Instruction) iter.next();
 		if (instr.getOpcode() < opc_ireturn
 		    || instr.getOpcode() > opc_areturn)
 		    return false;
@@ -222,20 +263,31 @@ public class SyntheticAnalyzer implements Opcodes {
     }
 
     public boolean checkAccess() {
-	ClassInfo clazzInfo = method.getClazzInfo();
-	BytecodeInfo bytecode = method.getBytecode();
-	Handler[] excHandlers = bytecode.getExceptionHandlers();
-	if (excHandlers != null && excHandlers.length != 0)
-	    return false;
-
 	if (method.isStatic()) {
 	    if (checkStaticAccess())
 		return true;
 	}
 
-	Iterator iter = bytecode.getInstructions().iterator();
+	BasicBlocks bb = method.getBasicBlocks();
+	Handler[] excHandlers = bb.getExceptionHandlers();
+	if (excHandlers != null && excHandlers.length != 0)
+	    return false;
+	Block[] blocks = bb.getBlocks();
+	Block startBlock = bb.getStartBlock();
+	if (startBlock == null)
+	    return false;
+	Block[] succBlocks = startBlock.getSuccs();
+	if (succBlocks.length > 1 || 
+	    (succBlocks.length == 1 && succBlocks[0] != null))
+	    return false;
+	Iterator iter = startBlock.getInstructions().iterator();
+
+	if (!iter.hasNext())
+	    return false;
 	Instruction instr = (Instruction) iter.next();
 	if (instr.getOpcode() != opc_aload || instr.getLocalSlot() != 0)
+	    return false;
+	if (!iter.hasNext())
 	    return false;
 	instr = (Instruction) iter.next();
 
@@ -243,11 +295,13 @@ public class SyntheticAnalyzer implements Opcodes {
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(clazzInfo.getName().replace('.','/'))))
+		  .equals(classInfo.getName().replace('.','/'))))
 		return false;
 	    FieldInfo refField
-		= clazzInfo.findField(ref.getName(), ref.getType());
+		= classInfo.findField(ref.getName(), ref.getType());
 	    if ((refField.getModifiers() & modifierMask) != Modifier.PRIVATE)
+		return false;
+	    if (!iter.hasNext())
 		return false;
 	    instr = (Instruction) iter.next();
 	    if (instr.getOpcode() < opc_ireturn
@@ -265,6 +319,8 @@ public class SyntheticAnalyzer implements Opcodes {
 	    params++;
 	    slot += (instr.getOpcode() == opc_lload 
 		     || instr.getOpcode() == opc_dload) ? 2 : 1;
+	    if (!iter.hasNext())
+		return false;
 	    instr = (Instruction) iter.next();
 	}
 	if (instr.getOpcode() == opc_putfield) {
@@ -274,14 +330,13 @@ public class SyntheticAnalyzer implements Opcodes {
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(clazzInfo.getName().replace('.','/'))))
+		  .equals(classInfo.getName().replace('.','/'))))
 		return false;
 	    FieldInfo refField
-		= clazzInfo.findField(ref.getName(), ref.getType());
+		= classInfo.findField(ref.getName(), ref.getType());
 	    if ((refField.getModifiers() & modifierMask) != Modifier.PRIVATE)
 		return false;
-	    instr = (Instruction) iter.next();
-	    if (instr.getOpcode() != opc_return)
+	    if (iter.hasNext())
 		return false;
 	    reference = ref;
 	    kind = ACCESSPUTFIELD;
@@ -291,19 +346,21 @@ public class SyntheticAnalyzer implements Opcodes {
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(clazzInfo.getName().replace('.','/'))))
+		  .equals(classInfo.getName().replace('.','/'))))
 		return false;
 	    MethodInfo refMethod
-		= clazzInfo.findMethod(ref.getName(), ref.getType());
+		= classInfo.findMethod(ref.getName(), ref.getType());
 	    MethodType refType = Type.tMethod(ref.getType());
 	    if ((refMethod.getModifiers() & modifierMask) != Modifier.PRIVATE
 		|| refType.getParameterTypes().length != params)
 		return false;
-	    instr = (Instruction) iter.next();
 	    if (refType.getReturnType() == Type.tVoid) {
-		if (instr.getOpcode() != opc_return)
+		if (iter.hasNext())
 		    return false;
 	    } else {
+		if (!iter.hasNext())
+		    return false;
+		instr = (Instruction) iter.next();
 		if (instr.getOpcode() < opc_ireturn
 		    || instr.getOpcode() > opc_areturn)
 		    return false;
@@ -318,15 +375,24 @@ public class SyntheticAnalyzer implements Opcodes {
     }
 
     public boolean checkConstructorAccess() {
-	ClassInfo clazzInfo = method.getClazzInfo();
-	BytecodeInfo bytecode = method.getBytecode();
-	Handler[] excHandlers = bytecode.getExceptionHandlers();
+	BasicBlocks bb = method.getBasicBlocks();
+	Handler[] excHandlers = bb.getExceptionHandlers();
 	if (excHandlers != null && excHandlers.length != 0)
 	    return false;
-
-	Iterator iter = bytecode.getInstructions().iterator();
+	Block[] blocks = bb.getBlocks();
+	Block startBlock = bb.getStartBlock();
+	if (startBlock == null)
+	    return false;
+	Block[] succBlocks = startBlock.getSuccs();
+	if (succBlocks.length != 1 || succBlocks[0] != null)
+	    return false;
+	Iterator iter = startBlock.getInstructions().iterator();
+	if (!iter.hasNext())
+	    return false;
 	Instruction instr = (Instruction) iter.next();
 	if (instr.getOpcode() != opc_aload || instr.getLocalSlot() != 0)
+	    return false;
+	if (!iter.hasNext())
 	    return false;
 	instr = (Instruction) iter.next();
 
@@ -339,25 +405,25 @@ public class SyntheticAnalyzer implements Opcodes {
 	    params++;
 	    slot += (instr.getOpcode() == opc_lload 
 		     || instr.getOpcode() == opc_dload) ? 2 : 1;
+	    if (!iter.hasNext())
+		return false;
 	    instr = (Instruction) iter.next();
 	}
 	if (instr.getOpcode() == opc_invokespecial) {
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(clazzInfo.getName().replace('.','/'))))
+		  .equals(classInfo.getName().replace('.','/'))))
 		return false;
 	    MethodInfo refMethod
-		= clazzInfo.findMethod(ref.getName(), ref.getType());
+		= classInfo.findMethod(ref.getName(), ref.getType());
 	    MethodType refType = Type.tMethod(ref.getType());
 	    if ((refMethod.getModifiers() & modifierMask) != Modifier.PRIVATE
 		|| !refMethod.getName().equals("<init>")
 		|| refType.getParameterTypes().length != params)
 		return false;
-	    instr = (Instruction) iter.next();
-	    if (instr.getOpcode() != opc_return)
+	    if (iter.hasNext())
 		return false;
-
 	    /* For valid bytecode the types matches automatically */
 	    reference = ref;
 	    kind = ACCESSCONSTRUCTOR;
