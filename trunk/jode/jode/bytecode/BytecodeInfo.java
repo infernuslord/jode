@@ -27,12 +27,24 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.util.Vector;
 import java.util.Enumeration;
+import java.util.NoSuchElementException;
+
+///#ifdef JDK12
+///import java.util.Collection;
+///import java.util.AbstractCollectoin;
+///import java.util.Iterator;
+///#else
+import jode.util.Collection;
+import jode.util.AbstractCollection;
+import jode.util.Iterator;
+///#endif
+
 
 /**
  * This class represents the byte code of a method.  Each instruction is
  * stored in an Instruction instance.
  *
- * We canocalize some opcodes:  wide opcodes are mapped to short ones,
+ * We canonicalize some opcodes:  wide opcodes are mapped to short ones,
  * opcodes that load a constant are mapped to opc_ldc or opc_ldc2_w, and
  * opc_xload_x / opc_xstore_x opcodes are mapped to opc_xload / opc_xstore.
  */
@@ -44,6 +56,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
     int maxStack, maxLocals;
     int codeLength;
     Instruction firstInstr = null;
+    int instructionCount = 0;
     Handler[] exceptionHandlers;
     LocalVariableInfo[] lvt;
     LineNumber[] lnt;
@@ -84,20 +97,20 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		int slot = input.readUnsignedShort();
 		Instruction startInstr, endInstr;
 		for (startInstr = firstInstr; 
-		     startInstr.addr < start && startInstr != null;
-		     startInstr = startInstr.nextByAddr) {
+		     startInstr.getAddr() < start && startInstr != null;
+		     startInstr = startInstr.getNextByAddr()) {
 		    /* empty */
 		}
 		endInstr = startInstr;
 		if (startInstr != null) {
-		    while (endInstr.nextByAddr != null 
-			   && endInstr.nextByAddr.addr < end)
-			endInstr = endInstr.nextByAddr;
+		    while (endInstr.getNextByAddr() != null 
+			   && endInstr.getNextByAddr().getAddr() < end)
+			endInstr = endInstr.getNextByAddr();
 		}
 		if (startInstr == null
-		    || startInstr.addr != start
+		    || startInstr.getAddr() != start
 		    || endInstr == null
-		    || endInstr.addr + endInstr.length != end
+		    || endInstr.getAddr() + endInstr.getLength() != end
 		    || nameIndex == 0 || typeIndex == 0
 		    || slot >= maxLocals
 		    || cp.getTag(nameIndex) != cp.UTF8
@@ -105,8 +118,10 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
 		    // This is probably an evil lvt as created by HashJava
 		    // simply ignore it.
-		    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_LVT) != 0) 
-			GlobalOptions.err.println("Illegal entry, ignoring LVT");
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_LVT) != 0) 
+			GlobalOptions.err.println
+			    ("Illegal entry, ignoring LVT");
 		    lvt = null;
 		    return;
 		}
@@ -135,12 +150,12 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		int start = input.readUnsignedShort();
 		Instruction startInstr;
 		for (startInstr = firstInstr; 
-		     startInstr.addr < start && startInstr != null;
-		     startInstr = startInstr.nextByAddr) {
+		     startInstr.getAddr() < start && startInstr != null;
+		     startInstr = startInstr.getNextByAddr()) {
 		    /* empty */
 		}
 		if (startInstr == null
-		    || startInstr.addr != start) {
+		    || startInstr.getAddr() != start) {
 		    GlobalOptions.err.println
 			("Illegal entry, ignoring LineNumberTable table");
 		    lnt = null;
@@ -164,15 +179,14 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	int[] predcounts = new int[codeLength];
 	{
 	    int addr = 0;
+	    firstInstr = new Instruction(this);
+	    instructionCount++;
 	    Instruction lastInstr = null;
 	    while (addr < codeLength) {
-		Instruction instr = new Instruction(this);
-		if (lastInstr != null) {
-		    lastInstr.nextByAddr = instr;
-		    instr.prevByAddr = lastInstr;
-		}
+		Instruction instr = lastInstr != null 
+		    ? lastInstr.appendInstruction(opc_nop) : firstInstr;
+
 		instrs[addr] = instr;
-		instr.addr = addr;
 		lastInstr = instr;
 
 		int opcode = input.readUnsignedByte();
@@ -182,60 +196,65 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		     & GlobalOptions.DEBUG_BYTECODE) != 0) 
 		    GlobalOptions.err.print(addr+": "+opcodeString[opcode]);
 
-		instr.opcode = opcode;
 		switch (opcode) {
 		case opc_wide: {
 		    int wideopcode = input.readUnsignedByte();
-		    instr.opcode = wideopcode;
+		    instr.replaceInstruction(wideopcode);
 		    switch (wideopcode) {
 		    case opc_iload: case opc_fload: case opc_aload:
-		    case opc_istore: case opc_fstore: case opc_astore:
-			instr.localSlot = input.readUnsignedShort();
-			if (instr.localSlot >= maxLocals)
+		    case opc_istore: case opc_fstore: case opc_astore: {
+			int slot = input.readUnsignedShort();
+			if (slot >= maxLocals)
 			    throw new ClassFormatError
-				("Invalid local slot "+instr.localSlot);
-			instr.length = 4;
+				("Invalid local slot "+slot);
+			instr.setLocalSlot(slot);
+			instr.setLength(4);
 			if ((GlobalOptions.debuggingFlags
 			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			    GlobalOptions.err.print(" "+opcodeString[wideopcode]
-						 +" "+instr.localSlot);
+			    GlobalOptions.err.print
+				(" " + opcodeString[wideopcode] + " " + slot);
 			break;
+		    }
 		    case opc_lload: case opc_dload:
-		    case opc_lstore: case opc_dstore:
-			instr.localSlot = input.readUnsignedShort();
-			if (instr.localSlot >= maxLocals-1)
+		    case opc_lstore: case opc_dstore: {
+			int slot = input.readUnsignedShort();
+			if (slot >= maxLocals-1)
 			    throw new ClassFormatError
-				("Invalid local slot "+instr.localSlot);
-			instr.length = 4;
+				("Invalid local slot "+slot);
+			instr.setLocalSlot(slot);
+			instr.setLength(4);
 			if ((GlobalOptions.debuggingFlags
 			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
 			    GlobalOptions.err.print(" "+opcodeString[wideopcode]
-						 +" "+instr.localSlot);
+						 +" "+slot);
 			break;
-		    case opc_ret:
-			instr.localSlot = input.readUnsignedShort();
-			if (instr.localSlot >= maxLocals)
+		    }
+		    case opc_ret: {
+			int slot = input.readUnsignedShort();
+			if (slot >= maxLocals)
 			    throw new ClassFormatError
-				("Invalid local slot "+instr.localSlot);
-			instr.length = 4;
-			instr.alwaysJumps = true;
+				("Invalid local slot "+slot);
+			instr.setLocalSlot(slot);
+			instr.setLength(4);
 			if ((GlobalOptions.debuggingFlags
 			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			    GlobalOptions.err.print(" ret "+instr.localSlot);
+			    GlobalOptions.err.print(" ret "+slot);
 			break;
-			
-		    case opc_iinc:
-			instr.localSlot = input.readUnsignedShort();
-			if (instr.localSlot >= maxLocals)
+		    }
+		    case opc_iinc: {
+			int slot = input.readUnsignedShort();
+			if (slot >= maxLocals)
 			    throw new ClassFormatError
-				("Invalid local slot "+instr.localSlot);
-			instr.intData = input.readShort();
-			instr.length = 6;
+				("Invalid local slot "+slot);
+			instr.setLocalSlot(slot);
+			instr.setIntData(input.readShort());
+			instr.setLength(6);
 			if ((GlobalOptions.debuggingFlags
 			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			    GlobalOptions.err.print(" iinc "+instr.localSlot
-						 +" "+instr.intData);
+			    GlobalOptions.err.print(" iinc "+slot
+						    +" "+instr.getIntData());
 			break;
+		    }
 		    default:
 			throw new ClassFormatError("Invalid wide opcode "
 						   +wideopcode);
@@ -251,97 +270,114 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		case opc_dload_0: case opc_dload_1:
 		case opc_dload_2: case opc_dload_3:
 		case opc_aload_0: case opc_aload_1:
-		case opc_aload_2: case opc_aload_3:
-		    instr.opcode = opc_iload + (opcode-opc_iload_0)/4;
-		    instr.localSlot = (opcode-opc_iload_0) & 3;
-		    if (instr.localSlot >= maxLocals)
+		case opc_aload_2: case opc_aload_3: {
+		    int slot = (opcode-opc_iload_0) & 3;
+		    if (slot >= maxLocals)
 			throw new ClassFormatError
-			    ("Invalid local slot "+instr.localSlot);
-		    instr.length = 1;
+			    ("Invalid local slot "+slot);
+		    instr.replaceInstruction(opc_iload + 
+					     (opcode-opc_iload_0)/4);
+		    instr.setLocalSlot(slot);
+		    instr.setLength(1);
 		    break;
+		}
 		case opc_istore_0: case opc_istore_1: 
 		case opc_istore_2: case opc_istore_3:
 		case opc_fstore_0: case opc_fstore_1:
 		case opc_fstore_2: case opc_fstore_3:
 		case opc_astore_0: case opc_astore_1:
-		case opc_astore_2: case opc_astore_3:
-		    instr.opcode = opc_istore + (opcode-opc_istore_0)/4;
-		    instr.localSlot = (opcode-opc_istore_0) & 3;
-		    if (instr.localSlot >= maxLocals)
+		case opc_astore_2: case opc_astore_3: {
+		    int slot = (opcode-opc_istore_0) & 3;
+		    if (slot >= maxLocals)
 			throw new ClassFormatError
-			    ("Invalid local slot "+instr.localSlot);
-		    instr.length = 1;
+			    ("Invalid local slot "+slot);
+		    instr.replaceInstruction(opc_istore + 
+					     (opcode-opc_istore_0)/4);
+		    instr.setLocalSlot(slot);
+		    instr.setLength(1);
 		    break;
+		}
 		case opc_lstore_0: case opc_lstore_1: 
 		case opc_lstore_2: case opc_lstore_3:
 		case opc_dstore_0: case opc_dstore_1:
-		case opc_dstore_2: case opc_dstore_3:
-		    instr.opcode = opc_istore + (opcode-opc_istore_0)/4;
-		    instr.localSlot = (opcode-opc_istore_0) & 3;
-		    if (instr.localSlot >= maxLocals-1)
+		case opc_dstore_2: case opc_dstore_3: {
+		    int slot = (opcode-opc_istore_0) & 3;
+		    if (slot >= maxLocals-1)
 			throw new ClassFormatError
-			    ("Invalid local slot "+instr.localSlot);
-		    instr.length = 1;
+			    ("Invalid local slot "+slot);
+		    instr.replaceInstruction(opc_istore
+					     + (opcode-opc_istore_0)/4);
+		    instr.setLocalSlot(slot);
+		    instr.setLength(1);
 		    break;
+		}
 		case opc_iload: case opc_fload: case opc_aload:
-		case opc_istore: case opc_fstore: case opc_astore:
-		    instr.localSlot = input.readUnsignedByte();
-		    if (instr.localSlot >= maxLocals)
+		case opc_istore: case opc_fstore: case opc_astore: {
+		    int slot = input.readUnsignedByte();
+		    if (slot >= maxLocals)
 			throw new ClassFormatError
-			    ("Invalid local slot "+instr.localSlot);
-		    instr.length = 2;
+			    ("Invalid local slot "+slot);
+		    instr.replaceInstruction(opcode);
+		    instr.setLocalSlot(slot);
+		    instr.setLength(2);
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			GlobalOptions.err.print(" "+instr.localSlot);
+			GlobalOptions.err.print(" "+slot);
 		    break;
+		}
 		case opc_lstore: case opc_dstore:
-		case opc_lload: case opc_dload:
-		    instr.localSlot = input.readUnsignedByte();
-		    if (instr.localSlot >= maxLocals - 1)
+		case opc_lload: case opc_dload: {
+		    int slot = input.readUnsignedByte();
+		    if (slot >= maxLocals - 1)
 			throw new ClassFormatError
-			    ("Invalid local slot "+instr.localSlot);
-		    instr.length = 2;
+			    ("Invalid local slot "+slot);
+		    instr.replaceInstruction(opcode);
+		    instr.setLocalSlot(slot);
+		    instr.setLength(2);
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			GlobalOptions.err.print(" "+instr.localSlot);
+			GlobalOptions.err.print(" "+slot);
 		    break;
-
-		case opc_ret:
-		    instr.localSlot = input.readUnsignedByte();
-		    if (instr.localSlot >= maxLocals)
+		}
+		case opc_ret: {
+		    int slot = input.readUnsignedByte();
+		    if (slot >= maxLocals)
 			throw new ClassFormatError
-			    ("Invalid local slot "+instr.localSlot);
-		    instr.alwaysJumps = true;
-		    instr.length = 2;
+			    ("Invalid local slot "+slot);
+		    instr.replaceInstruction(opcode);
+		    instr.setLocalSlot(slot);
+		    instr.setLength(2);
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			GlobalOptions.err.print(" "+instr.localSlot);
+			GlobalOptions.err.print(" "+slot);
 		    break;
-
+		}
 		case opc_aconst_null:
 		case opc_iconst_m1: 
 		case opc_iconst_0: case opc_iconst_1: case opc_iconst_2:
 		case opc_iconst_3: case opc_iconst_4: case opc_iconst_5:
 		case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
-		    instr.objData = constants[instr.opcode - opc_aconst_null];
-		    instr.opcode = opc_ldc;
-		    instr.length = 1;
+		    instr.replaceInstruction(opc_ldc);
+		    instr.setConstant
+			(constants[opcode - opc_aconst_null]);
+		    instr.setLength(1);
 		    break;
 		case opc_lconst_0: case opc_lconst_1:
 		case opc_dconst_0: case opc_dconst_1:
-		    instr.objData = constants[instr.opcode - opc_aconst_null];
-		    instr.opcode = opc_ldc2_w;
-		    instr.length = 1;
+		    instr.replaceInstruction(opc_ldc2_w);
+		    instr.setConstant
+			(constants[opcode - opc_aconst_null]);
+		    instr.setLength(1);
 		    break;
 		case opc_bipush:
-		    instr.opcode = opc_ldc;
-		    instr.objData = new Integer(input.readByte());
-		    instr.length = 2;
+		    instr.replaceInstruction(opc_ldc);
+		    instr.setConstant(new Integer(input.readByte()));
+		    instr.setLength(2);
 		    break;
 		case opc_sipush:
-		    instr.opcode = opc_ldc;
-		    instr.objData = new Integer(input.readShort());
-		    instr.length = 3;
+		    instr.replaceInstruction(opc_ldc);
+		    instr.setConstant(new Integer(input.readShort()));
+		    instr.setLength(3);
 		    break;
 		case opc_ldc: {
 		    int index = input.readUnsignedByte();
@@ -350,8 +386,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			 && tag != cp.INTEGER && tag != cp.FLOAT)
 			throw new ClassFormatException
 			    ("wrong constant tag: "+tag);
-		    instr.objData = cp.getConstant(index);
-		    instr.length = 2;
+		    instr.replaceInstruction(opcode);
+		    instr.setConstant(cp.getConstant(index));
+		    instr.setLength(2);
 		    break;
 		}
 		case opc_ldc_w: {
@@ -361,9 +398,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			 && tag != cp.INTEGER && tag != cp.FLOAT)
 			throw new ClassFormatException
 			    ("wrong constant tag: "+tag);
-		    instr.opcode = opc_ldc;
-		    instr.objData = cp.getConstant(index);
-		    instr.length = 3;
+		    instr.replaceInstruction(opc_ldc);
+		    instr.setConstant(cp.getConstant(index));
+		    instr.setLength(3);
 		    break;
 		}
 		case opc_ldc2_w: {
@@ -372,27 +409,28 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    if (tag != cp.LONG && tag != cp.DOUBLE)
 			throw new ClassFormatException
 			    ("wrong constant tag: "+tag);
-		    instr.objData = cp.getConstant(index);
-		    instr.length = 3;
+		    instr.replaceInstruction(opcode);
+		    instr.setConstant(cp.getConstant(index));
+		    instr.setLength(3);
 		    break;
 		}
-		case opc_iinc:
-		    instr.localSlot = input.readUnsignedByte();
-		    if (instr.localSlot >= maxLocals)
+		case opc_iinc: {
+		    int slot = input.readUnsignedByte();
+		    if (slot >= maxLocals)
 			throw new ClassFormatError
-			    ("Invalid local slot "+instr.localSlot);
-		    instr.intData = input.readByte();
-		    instr.length = 3;
+			    ("Invalid local slot "+slot);
+		    instr.replaceInstruction(opcode);
+		    instr.setLocalSlot(slot);
+		    instr.setIntData(input.readByte());
+		    instr.setLength(3);
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			GlobalOptions.err.print(" "+instr.localSlot
-					     +" "+instr.intData);
+			GlobalOptions.err.print(" "+slot
+						+" "+instr.getIntData());
 		    break;
-
+		}
 		case opc_goto:
 		case opc_jsr:
-		    instr.alwaysJumps = true;
-		    /* fall through */
 		case opc_ifeq: case opc_ifne: 
 		case opc_iflt: case opc_ifge: 
 		case opc_ifgt: case opc_ifle:
@@ -401,10 +439,10 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		case opc_if_icmpgt: case opc_if_icmple:
 		case opc_if_acmpeq: case opc_if_acmpne:
 		case opc_ifnull: case opc_ifnonnull:
-		    succAddrs[addr] = new int[1];
-		    succAddrs[addr][0] = addr+input.readShort();
+		    instr.replaceInstruction(opcode);
+		    instr.setLength(3);
+		    succAddrs[addr] = new int[] { addr+input.readShort() };
 		    predcounts[succAddrs[addr][0]]++;
-		    instr.length = 3;
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
 			GlobalOptions.err.print(" "+succAddrs[addr][0]);
@@ -412,12 +450,10 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
 		case opc_goto_w:
 		case opc_jsr_w:
-		    instr.alwaysJumps = true;
-		    instr.opcode -= opc_goto_w - opc_goto;
-		    succAddrs[addr] = new int[1];
-		    succAddrs[addr][0] = addr+input.readInt();
+		    instr.replaceInstruction(opcode - (opc_goto_w - opc_goto));
+		    instr.setLength(5);
+		    succAddrs[addr] = new int[] { addr+input.readInt() };
 		    predcounts[succAddrs[addr][0]]++;
-		    instr.length = 5;
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
 			GlobalOptions.err.print(" "+succAddrs[addr][0]);
@@ -429,7 +465,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    int def  = input.readInt();
 		    int low  = input.readInt();
 		    int high = input.readInt();
-		    instr.intData = low;
+		    instr.replaceInstruction(opcode);
+		    instr.setIntData(low);
 		    succAddrs[addr] = new int[high-low+2];
 		    for (int i=0; i+low <= high; i++) {
 			succAddrs[addr][i] = addr + input.readInt();
@@ -437,8 +474,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    }
 		    succAddrs[addr][high-low+1] = addr + def;
 		    predcounts[addr + def]++;
-		    instr.alwaysJumps = true;
-		    instr.length = length + 13 + 4 * (high-low+1);
+		    instr.setLength(length + 13 + 4 * (high-low+1));
 		    break;
 		}
 		case opc_lookupswitch: {
@@ -446,6 +482,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    input.readFully(new byte[length]);
 		    int def = input.readInt();
 		    int npairs = input.readInt();
+		    instr.replaceInstruction(opcode);
 		    succAddrs[addr] = new int[npairs + 1];
 		    int[] values = new int[npairs];
 		    for (int i=0; i < npairs; i++) {
@@ -455,20 +492,11 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    }
 		    succAddrs[addr][npairs] = addr + def;
 		    predcounts[addr + def]++;
-		    instr.objData = values;
-		    instr.alwaysJumps = true;
-		    instr.length = length + 9 + 8 * npairs;
+		    instr.setValues(values);
+		    instr.setLength(length + 9 + 8 * npairs);
 		    break;
 		}
-		
-		case opc_ireturn: case opc_lreturn: 
-		case opc_freturn: case opc_dreturn: case opc_areturn:
-		case opc_return: 
-		case opc_athrow:
-		    instr.alwaysJumps = true;
-		    instr.length = 1;
-		    break;
-	    
+			    
 		case opc_getstatic:
 		case opc_getfield:
 		case opc_putstatic:
@@ -478,7 +506,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		case opc_invokevirtual: {
 		    int index = input.readUnsignedShort();
 		    int tag = cp.getTag(index);
-		    if (instr.opcode < opc_invokevirtual) {
+		    if (opcode < opc_invokevirtual) {
 			if (tag != cp.FIELDREF)
 			    throw new ClassFormatException
 				("field tag mismatch: "+tag);
@@ -493,11 +521,12 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			    || opcode != opc_invokespecial))
 			throw new ClassFormatException
 			    ("Illegal call of special method/field "+ref);
+		    instr.replaceInstruction(opcode);
+		    instr.setReference(ref);
+		    instr.setLength(3);
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
 			GlobalOptions.err.print(" "+ref);
-		    instr.objData = ref;
-		    instr.length = 3;
 		    break;
 		}
 		case opc_invokeinterface: {
@@ -510,16 +539,21 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    if (ref.getName().charAt(0) == '<')
 			throw new ClassFormatException
 			    ("Illegal call of special method "+ref);
+		    int nargs = input.readUnsignedByte();
+		    if (TypeSignature.getArgumentSize(ref.getType())
+			!= nargs - 1)
+			throw new ClassFormatException
+			    ("Interface nargs mismatch: "+ref+" vs. "+nargs);
+		    if (input.readUnsignedByte() != 0)
+			throw new ClassFormatException
+			    ("Interface reserved param not zero");
+
+		    instr.replaceInstruction(opcode);
+		    instr.setReference(ref);
+		    instr.setLength(5);
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
 			GlobalOptions.err.print(" "+ref);
-		    instr.objData = ref;
-		    instr.intData = input.readUnsignedByte();
-		    if (input.readUnsignedByte() != 0)
-			throw new ClassFormatException
-			    ("Illegal call of special method "+ref);
-			
-		    instr.length = 5;
 		    break;
 		}
 
@@ -530,68 +564,112 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    if (opcode == opc_new && type.charAt(0) == '[')
 			throw new ClassFormatException
 			    ("Can't create array with opc_new");
-		    instr.objData = type;
+		    instr.replaceInstruction(opcode);
+		    instr.setClazzType(type);
+		    instr.setLength(3);
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			GlobalOptions.err.print(" "+instr.objData);
-		    instr.length = 3;
+			GlobalOptions.err.print(" "+type);
 		    break;
 		}
-		case opc_multianewarray:
-		    instr.objData = cp.getClassType(input.readUnsignedShort());
-		    instr.intData = input.readUnsignedByte();
-		    for (int i=0; i<instr.intData; i++)
-			if (((String)instr.objData).charAt(i) != '[')
+		case opc_multianewarray: {
+		    String type = cp.getClassType(input.readUnsignedShort());
+		    int dims = input.readUnsignedByte();
+		    for (int i=0; i < dims; i++)
+			/* Note that since type is a valid type
+			 * signature, there must be a non bracket
+			 * character, before the string is over.  
+			 * So there is no StringIndexOutOfBoundsException.
+			 */
+			if (type.charAt(i) != '[')
 			    throw new ClassFormatException
 				("multianewarray called for non array:"
 				 + instr.getDescription());
+		    instr.replaceInstruction(opcode);
+		    instr.setClazzType(type);
+		    instr.setIntData(dims);
+		    instr.setLength(4);
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			GlobalOptions.err.print(" "+instr.objData
-					     +" "+instr.intData);
-		    instr.length = 4;
+			GlobalOptions.err.print(" " + type + " " + dims);
 		    break;
+		}
 		case opc_anewarray: {
 		    String type = cp.getClassType(input.readUnsignedShort());
-		    instr.opcode = opc_multianewarray;
-		    instr.objData = ("["+type).intern();
+		    instr.replaceInstruction(opc_multianewarray);
+		    instr.setClazzType(("["+type).intern());
+		    instr.setIntData(1);
+		    instr.setLength(3);
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			GlobalOptions.err.print(" "+instr.objData);
-		    instr.intData = 1;
-		    instr.length = 3;
+			GlobalOptions.err.print(" "+type);
 		    break;
 		}
 		case opc_newarray: {
 		    char sig = newArrayTypes.charAt
 			(input.readUnsignedByte()-4);
-		    instr.opcode = opc_multianewarray;
-		    instr.objData = new String (new char[] { '[', sig });
+		    String type = new String (new char[] { '[', sig });
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
-			GlobalOptions.err.print(" "+instr.objData);
-		    instr.intData = 1;
-		    instr.length = 2;
+			GlobalOptions.err.print(" "+type);
+		    instr.replaceInstruction(opc_multianewarray);
+		    instr.setClazzType(type);
+		    instr.setIntData(1);
+		    instr.setLength(2);
 		    break;
 		}
 		
+		case opc_nop:
+		case opc_iaload: case opc_laload: case opc_faload:
+		case opc_daload: case opc_aaload:
+		case opc_baload: case opc_caload: case opc_saload:
+		case opc_iastore: case opc_lastore: case opc_fastore:
+		case opc_dastore: case opc_aastore:
+		case opc_bastore: case opc_castore: case opc_sastore:
+		case opc_pop: case opc_pop2:
+		case opc_dup: case opc_dup_x1: case opc_dup_x2:
+		case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
+		case opc_swap:
+		case opc_iadd: case opc_ladd: case opc_fadd: case opc_dadd:
+		case opc_isub: case opc_lsub: case opc_fsub: case opc_dsub:
+		case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
+		case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
+		case opc_irem: case opc_lrem: case opc_frem: case opc_drem:
+		case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg:
+		case opc_ishl: case opc_lshl:
+		case opc_ishr: case opc_lshr:
+		case opc_iushr: case opc_lushr: 
+		case opc_iand: case opc_land:
+		case opc_ior: case opc_lor: 
+		case opc_ixor: case opc_lxor:
+		case opc_i2l: case opc_i2f: case opc_i2d:
+		case opc_l2i: case opc_l2f: case opc_l2d:
+		case opc_f2i: case opc_f2l: case opc_f2d:
+		case opc_d2i: case opc_d2l: case opc_d2f:
+		case opc_i2b: case opc_i2c: case opc_i2s:
+		case opc_lcmp: case opc_fcmpl: case opc_fcmpg:
+		case opc_dcmpl: case opc_dcmpg:
+		case opc_ireturn: case opc_lreturn: 
+		case opc_freturn: case opc_dreturn: case opc_areturn:
+		case opc_return: 
+		case opc_athrow:
+		case opc_arraylength:
+		case opc_monitorenter: case opc_monitorexit:
+		    instr.replaceInstruction(opcode);
+		    instr.setLength(1);
+		    break;
 		default:
-		    if (opcode == opc_xxxunusedxxx
-			|| opcode >= opc_breakpoint)
-			throw new ClassFormatError("Invalid opcode "+opcode);
-		    else
-			instr.length = 1;
+		    throw new ClassFormatError("Invalid opcode "+opcode);
 		}
-		addr += lastInstr.length;
 		if ((GlobalOptions.debuggingFlags
 		     & GlobalOptions.DEBUG_BYTECODE) != 0) 
 		    GlobalOptions.err.println();
+		addr += instr.getLength();
 	    }
 	}
-	firstInstr = instrs[0];
 	for (Instruction instr = firstInstr; 
-	     instr != null; instr = instr.nextByAddr) {
-	    int addr = instr.addr;
+	     instr != null; instr = instr.getNextByAddr()) {
+	    int addr = instr.getAddr();
 	    if (succAddrs[addr] != null) {
 		int length = succAddrs[addr].length;
 		instr.succs = new Instruction[length];
@@ -615,12 +693,12 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		exceptionHandlers[i].start
 		    = instrs[input.readUnsignedShort()];
 		exceptionHandlers[i].end
-		    = instrs[input.readUnsignedShort()].prevByAddr;
+		    = instrs[input.readUnsignedShort()].getPrevByAddr();
 		exceptionHandlers[i].catcher
 		    = instrs[input.readUnsignedShort()];
 		int index = input.readUnsignedShort();
 		exceptionHandlers[i].type = (index == 0) ? null
-		    : cp.getClassName(index).replace('/','.');
+		    : cp.getClassName(index);
 	    }
 	}
 	readAttributes(cp, input, FULLINFO);
@@ -628,7 +706,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
     public void dumpCode(java.io.PrintWriter output) {
 	for (Instruction instr = firstInstr; 
-	     instr != null; instr = instr.nextByAddr) {
+	     instr != null; instr = instr.getNextByAddr()) {
 	    output.println(instr.getDescription() + " "
 			   + Integer.toHexString(hashCode()));
 	    if (instr.succs != null) {
@@ -655,120 +733,207 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
     public void reserveSmallConstants(GrowableConstantPool gcp) {
     next_instr:
 	for (Instruction instr = firstInstr; 
-	     instr != null; instr = instr.nextByAddr) {
-	    if (instr.opcode == opc_ldc) {
-		if (instr.objData == null)
+	     instr != null; instr = instr.getNextByAddr()) {
+	    if (instr.getOpcode() == opc_ldc) {
+		Object constant = instr.getConstant();
+		if (constant == null)
 		    continue next_instr;
 		for (int i=1; i < constants.length; i++) {
-		    if (instr.objData.equals(constants[i]))
+		    if (constant.equals(constants[i]))
 			continue next_instr;
 		}
-		if (instr.objData instanceof Integer) {
-		    int value = ((Integer) instr.objData).intValue();
+		if (constant instanceof Integer) {
+		    int value = ((Integer) constant).intValue();
 		    if (value >= Short.MIN_VALUE
 			&& value <= Short.MAX_VALUE)
 			continue next_instr;
 		}
-		gcp.reserveConstant(instr.objData);
+		gcp.reserveConstant(constant);
 	    }
 	}
     }
 
     public void prepareWriting(GrowableConstantPool gcp) {
-	/* Recalculate addr and length */
+	/* Recalculate addr, length and add all constants to gcp */
 	int addr = 0;
-    next_instr:
 	for (Instruction instr = firstInstr; 
-	     instr != null; addr += instr.length, instr = instr.nextByAddr) {
-	    instr.addr = addr;
-	    if (instr.opcode == opc_ldc
-		|| instr.opcode == opc_ldc2_w) {
-		if (instr.objData == null) {
-		    instr.length = 1;
-		    continue next_instr;
+	     instr != null; instr = instr.getNextByAddr()) {
+	    int opcode = instr.getOpcode();
+	    instr.setAddr(addr);
+	    int length;
+	switch_opc:
+	    switch (opcode) {
+	    case opc_ldc:
+	    case opc_ldc2_w: {
+		Object constant = instr.getConstant();
+		if (constant == null) {
+		    length = 1;
+		    break switch_opc;
 		}
 		for (int i=1; i < constants.length; i++) {
-		    if (instr.objData.equals(constants[i])) {
-			instr.length = 1;
-			continue next_instr;
+		    if (constant.equals(constants[i])) {
+			length = 1;
+			break switch_opc;
 		    }
 		}
-		if (instr.opcode == opc_ldc2_w) {
-		    gcp.putLongConstant(instr.objData);
-		    instr.length = 3;
-		    continue;
+		if (opcode == opc_ldc2_w) {
+		    gcp.putLongConstant(constant);
+		    length = 3;
+		    break switch_opc;
 		}
-		if (instr.objData instanceof Integer) {
-		    int value = ((Integer) instr.objData).intValue();
+		if (constant instanceof Integer) {
+		    int value = ((Integer) constant).intValue();
 		    if (value >= Byte.MIN_VALUE
 			&& value <= Byte.MAX_VALUE) {
-			instr.length = 2;
-			continue;
+			length = 2;
+			break switch_opc;
 		    } else if (value >= Short.MIN_VALUE
 			       && value <= Short.MAX_VALUE) {
-			instr.length = 3;
-			continue;
+			length = 3;
+			break switch_opc;
 		    }
 		}
-		if (gcp.putConstant(instr.objData) < 256) {
-		    instr.length = 2;
+		if (gcp.putConstant(constant) < 256) {
+		    length = 2;
 		} else {
-		    instr.length = 3;
+		    length = 3;
 		}
-	    } else if (instr.localSlot != -1) {
-		if (instr.opcode == opc_iinc) {
-		    if (instr.localSlot < 256 
-			&& instr.intData >= Byte.MIN_VALUE 
-			&& instr.intData <= Byte.MAX_VALUE)
-			instr.length = 3;
+		break;
+	    } 
+	    case opc_iload: case opc_lload: 
+	    case opc_fload: case opc_dload: case opc_aload:
+	    case opc_istore: case opc_lstore: 
+	    case opc_fstore: case opc_dstore: case opc_astore:
+	    case opc_ret:
+	    case opc_iinc: {
+		int slot = instr.getLocalSlot();
+		if (opcode == opc_iinc) {
+		    if (slot < 256 
+			&& instr.getIntData() >= Byte.MIN_VALUE 
+			&& instr.getIntData() <= Byte.MAX_VALUE)
+			length = 3;
 		    else
-			instr.length = 6;
+			length = 6;
 		} else {
-		    if (instr.opcode != opc_ret && instr.localSlot < 4)
-			instr.length = 1;
-		    else if (instr.localSlot < 256)
-			instr.length = 2;
+		    if (opcode != opc_ret && slot < 4)
+			length = 1;
+		    else if (slot < 256)
+			length = 2;
 		    else 
-			instr.length = 4;
+			length = 4;
 		}
-	    } else if (instr.opcode == opc_tableswitch) {
-		int length = 3-(addr % 4);
-		instr.length = length + 9 + 4 * instr.succs.length;
-	    } else if (instr.opcode == opc_lookupswitch) {
-		int length = 3-(addr % 4);
-		instr.length = length + 1 + 8 * instr.succs.length;
-	    } else if (instr.opcode == opc_goto
-		       || instr.opcode == opc_jsr) {
-		int dist = instr.succs[0].addr - instr.addr;
+		break;
+	    } 
+	    case opc_tableswitch: {
+		length = 3-(addr % 4);
+		length += 9 + 4 * instr.succs.length;
+		break;
+	    }
+	    case opc_lookupswitch: {
+		length = 3-(addr % 4);
+		length += 1 + 8 * instr.succs.length;
+		break;
+	    }
+	    case opc_goto: case opc_jsr: {
+		int dist = instr.succs[0].getAddr() - instr.getAddr();
 		if (dist < Short.MIN_VALUE || dist > Short.MAX_VALUE) {
-		    instr.length = 5;
-		} else
-		    instr.length = 3;
-	    } else if (instr.opcode == opc_multianewarray) {
-		if (instr.intData == 1) {
-		    String clazz = ((String) instr.objData).substring(1);
-		    if (newArrayTypes.indexOf(clazz.charAt(0))
-			!= -1) {
-			instr.length = 2;
+		    /* wide goto / jsr */
+		    length = 5;
+		    break;
+		} 
+		/* fall through */
+	    }
+	    case opc_ifeq: case opc_ifne: 
+	    case opc_iflt: case opc_ifge: 
+	    case opc_ifgt: case opc_ifle:
+	    case opc_if_icmpeq: case opc_if_icmpne:
+	    case opc_if_icmplt: case opc_if_icmpge: 
+	    case opc_if_icmpgt: case opc_if_icmple:
+	    case opc_if_acmpeq: case opc_if_acmpne:
+	    case opc_ifnull: case opc_ifnonnull:
+		length = 3;
+		break;
+	    case opc_multianewarray: {
+		if (instr.getIntData() == 1) {
+		    String clazz = instr.getClazzType().substring(1);
+		    if (newArrayTypes.indexOf(clazz.charAt(0)) != -1) {
+			length = 2;
 		    } else {
 			gcp.putClassType(clazz);
-			instr.length = 3;
+			length = 3;
 		    }
 		} else {
-		    gcp.putClassType((String)instr.objData);
-		    instr.length = 4;
+		    gcp.putClassType(instr.getClazzType());
+		    length = 4;
 		}
-	    } else if (instr.opcode >= opc_getstatic
-		       && instr.opcode <= opc_invokeinterface) {
-		int tag = (instr.opcode <= opc_putfield ? gcp.FIELDREF
-			   : instr.opcode <= opc_invokestatic ? gcp.METHODREF
-			   : gcp.INTERFACEMETHODREF);
-		gcp.putRef(tag, (Reference) instr.objData);
-	    } else if (instr.opcode == opc_new
-		       || instr.opcode == opc_checkcast
-		       || instr.opcode == opc_instanceof) {
-		gcp.putClassType((String) instr.objData);
+		break;
 	    }
+	    case opc_getstatic:
+	    case opc_getfield:
+	    case opc_putstatic:
+	    case opc_putfield:
+		gcp.putRef(gcp.FIELDREF, instr.getReference());
+		length = 3;
+		break;
+	    case opc_invokespecial:
+	    case opc_invokestatic:
+	    case opc_invokevirtual:
+		gcp.putRef(gcp.METHODREF, instr.getReference());
+		length = 3;
+		break;
+	    case opc_invokeinterface:
+		gcp.putRef(gcp.INTERFACEMETHODREF, instr.getReference());
+		length = 5;
+		break;
+	    case opc_new:
+	    case opc_checkcast:
+	    case opc_instanceof:
+		gcp.putClassType(instr.getClazzType());
+		length = 3;
+		break;
+	    case opc_nop:
+	    case opc_iaload: case opc_laload: case opc_faload:
+	    case opc_daload: case opc_aaload:
+	    case opc_baload: case opc_caload: case opc_saload:
+	    case opc_iastore: case opc_lastore: case opc_fastore:
+	    case opc_dastore: case opc_aastore:
+	    case opc_bastore: case opc_castore: case opc_sastore:
+	    case opc_pop: case opc_pop2:
+	    case opc_dup: case opc_dup_x1: case opc_dup_x2:
+	    case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
+	    case opc_swap:
+	    case opc_iadd: case opc_ladd: case opc_fadd: case opc_dadd:
+	    case opc_isub: case opc_lsub: case opc_fsub: case opc_dsub:
+	    case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
+	    case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
+	    case opc_irem: case opc_lrem: case opc_frem: case opc_drem:
+	    case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg:
+	    case opc_ishl: case opc_lshl:
+	    case opc_ishr: case opc_lshr:
+	    case opc_iushr: case opc_lushr: 
+	    case opc_iand: case opc_land:
+	    case opc_ior: case opc_lor: 
+	    case opc_ixor: case opc_lxor:
+	    case opc_i2l: case opc_i2f: case opc_i2d:
+	    case opc_l2i: case opc_l2f: case opc_l2d:
+	    case opc_f2i: case opc_f2l: case opc_f2d:
+	    case opc_d2i: case opc_d2l: case opc_d2f:
+	    case opc_i2b: case opc_i2c: case opc_i2s:
+	    case opc_lcmp: case opc_fcmpl: case opc_fcmpg:
+	    case opc_dcmpl: case opc_dcmpg:
+	    case opc_ireturn: case opc_lreturn: 
+	    case opc_freturn: case opc_dreturn: case opc_areturn:
+	    case opc_return: 
+	    case opc_athrow:
+	    case opc_arraylength:
+	    case opc_monitorenter: case opc_monitorexit:
+		length = 1;
+		break;
+	    default:
+		throw new ClassFormatError("Invalid opcode "+opcode);
+	    }
+	    instr.setLength(length);
+	    addr += length;
 	}
 	codeLength = addr;
 	for (int i=0; i< exceptionHandlers.length; i++)
@@ -805,9 +970,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    output.writeInt(length);
 	    output.writeShort(count);
             for (int i=0; i < count; i++) {
-		output.writeShort(lvt[i].start.addr);
-		output.writeShort(lvt[i].end.addr + lvt[i].end.length
-				  - lvt[i].start.addr);
+		output.writeShort(lvt[i].start.getAddr());
+		output.writeShort(lvt[i].end.getAddr() + lvt[i].end.getLength()
+				  - lvt[i].start.getAddr());
 		output.writeShort(gcp.putUTF8(lvt[i].name));
 		output.writeShort(gcp.putUTF8(lvt[i].type));
 		output.writeShort(lvt[i].slot);
@@ -820,7 +985,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    output.writeInt(length);
 	    output.writeShort(count);
             for (int i=0; i < count; i++) {
-		output.writeShort(lnt[i].start.addr);
+		output.writeShort(lnt[i].start.getAddr());
 		output.writeShort(lnt[i].linenr);
             }
 	}
@@ -832,100 +997,115 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	output.writeShort(maxLocals);
 	output.writeInt(codeLength);
 	for (Instruction instr = firstInstr; 
-	     instr != null; instr = instr.nextByAddr) {
+	     instr != null; instr = instr.getNextByAddr()) {
+	    int opcode = instr.getOpcode();
         switch_opc:
-	    switch (instr.opcode) {
+	    switch (opcode) {
 	    case opc_iload: case opc_lload: 
 	    case opc_fload: case opc_dload: case opc_aload:
 	    case opc_istore: case opc_lstore: 
-	    case opc_fstore: case opc_dstore: case opc_astore:
-		if (instr.length == 1) {
-		    if (instr.opcode < opc_istore)
+	    case opc_fstore: case opc_dstore: case opc_astore: {
+		int slot = instr.getLocalSlot();
+		if (slot < 4) {
+		    if (opcode < opc_istore)
 			output.writeByte(opc_iload_0
-					 + 4*(instr.opcode-opc_iload)
-					 + instr.localSlot);
+					 + 4*(opcode-opc_iload)
+					 + slot);
 		    else
 			output.writeByte(opc_istore_0
-					 + 4*(instr.opcode-opc_istore)
-					 + instr.localSlot);
-		} else if (instr.length == 2) {
-		    output.writeByte(instr.opcode);
-		    output.writeByte(instr.localSlot);
+					 + 4*(opcode-opc_istore)
+					 + slot);
+		} else if (slot < 256) {
+		    output.writeByte(opcode);
+		    output.writeByte(slot);
 		} else {
 		    output.writeByte(opc_wide);
-		    output.writeByte(instr.opcode);
-		    output.writeShort(instr.localSlot);
+		    output.writeByte(opcode);
+		    output.writeShort(slot);
 		}
 		break;
-		
-	    case opc_ret:
-		if (instr.length == 2) {
-		    output.writeByte(instr.opcode);
-		    output.writeByte(instr.localSlot);
+	    }		
+	    case opc_ret: {
+		int slot = instr.getLocalSlot();
+		if (slot < 256) {
+		    output.writeByte(opcode);
+		    output.writeByte(slot);
 		} else {
 		    output.writeByte(opc_wide);
-		    output.writeByte(instr.opcode);
-		    output.writeShort(instr.localSlot);
+		    output.writeByte(opcode);
+		    output.writeShort(slot);
 		}
 		break;
-
+	    }
 	    case opc_ldc:
-	    case opc_ldc2_w:
-		if (instr.objData == null) {
+	    case opc_ldc2_w: {
+		Object constant = instr.getConstant();
+		if (constant == null) {
 		    output.writeByte(opc_aconst_null);
-		    instr.length = 1;
 		    break switch_opc;
 		}
 		for (int i=1; i < constants.length; i++) {
-		    if (instr.objData.equals(constants[i])) {
+		    if (constant.equals(constants[i])) {
 			output.writeByte(opc_aconst_null + i);
 			break switch_opc;
 		    }
 		}
-		if (instr.opcode == opc_ldc2_w) {
-		    output.writeByte(instr.opcode);
-		    output.writeShort(gcp.putLongConstant(instr.objData));
+		if (opcode == opc_ldc2_w) {
+		    output.writeByte(opcode);
+		    output.writeShort(gcp.putLongConstant(constant));
 		} else {
-		    if (instr.objData instanceof Integer) {
-			int value = ((Integer) instr.objData).intValue();
+		    if (constant instanceof Integer) {
+			int value = ((Integer) constant).intValue();
 			if (value >= Byte.MIN_VALUE
 			    && value <= Byte.MAX_VALUE) {
 			    
 			    output.writeByte(opc_bipush);
-			    output.writeByte(((Integer)instr.objData)
+			    output.writeByte(((Integer)constant)
 					     .intValue());
 			    break switch_opc;
 			} else if (value >= Short.MIN_VALUE
 				   && value <= Short.MAX_VALUE) {
 			    output.writeByte(opc_sipush);
-			    output.writeShort(((Integer)instr.objData)
+			    output.writeShort(((Integer)constant)
 					      .intValue());
 			    break switch_opc;
 			}
 		    }
-		    if (instr.length == 2) {
+		    if (instr.getLength() == 2) {
 			output.writeByte(opc_ldc);
-			output.writeByte(gcp.putConstant(instr.objData));
+			output.writeByte(gcp.putConstant(constant));
 		    } else {
 			output.writeByte(opc_ldc_w);
-			output.writeShort(gcp.putConstant(instr.objData));
+			output.writeShort(gcp.putConstant(constant));
 		    }
 		}
 		break;
-	    case opc_iinc:
-		if (instr.length == 3) {
-		    output.writeByte(instr.opcode);
-		    output.writeByte(instr.localSlot);
-		    output.writeByte(instr.intData);
+	    }
+	    case opc_iinc: {
+		int slot = instr.getLocalSlot();
+		int incr = instr.getIntData();
+		if (instr.getLength() == 3) {
+		    output.writeByte(opcode);
+		    output.writeByte(slot);
+		    output.writeByte(incr);
 		} else {
 		    output.writeByte(opc_wide);
-		    output.writeByte(instr.opcode);
-		    output.writeShort(instr.localSlot);
-		    output.writeShort(instr.intData);
+		    output.writeByte(opcode);
+		    output.writeShort(slot);
+		    output.writeShort(incr);
 		}
 		break;
-
+	    }
 	    case opc_goto:
+	    case opc_jsr:
+		if (instr.getLength() == 5) {
+		    /* wide goto or jsr */
+		    output.writeByte(opcode + (opc_goto_w - opc_goto));
+		    output.writeInt(instr.succs[0].getAddr()
+				    - instr.getAddr());
+		    break;
+		}
+		/* fall through */
 	    case opc_ifeq: case opc_ifne: 
 	    case opc_iflt: case opc_ifge: 
 	    case opc_ifgt: case opc_ifle:
@@ -934,44 +1114,38 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    case opc_if_icmpgt: case opc_if_icmple:
 	    case opc_if_acmpeq: case opc_if_acmpne:
 	    case opc_ifnull: case opc_ifnonnull:
-	    case opc_jsr:
-		if (instr.length == 3) {
-		    output.writeByte(instr.opcode);
-		    output.writeShort(instr.succs[0].addr - instr.addr);
-		} else {
-		    /* wide goto or jsr */
-		    output.writeByte(instr.opcode + (opc_goto_w - opc_goto));
-		    output.writeInt(instr.succs[0].addr - instr.addr);
-		}
+		output.writeByte(opcode);
+		output.writeShort(instr.succs[0].getAddr() 
+				  - instr.getAddr());
 		break;
 
 	    case opc_tableswitch: {
-		output.writeByte(instr.opcode);
-		int align = 3-(instr.addr % 4);
+		output.writeByte(opcode);
+		int align = 3-(instr.getAddr() % 4);
 		int numcases = instr.succs.length - 1;
 		output.write(new byte[align]);
 		/* def */
-		output.writeInt(instr.succs[numcases].addr - instr.addr);
+		output.writeInt(instr.succs[numcases].getAddr() - instr.getAddr());
 		/* low */
-		output.writeInt(instr.intData); 
+		output.writeInt(instr.getIntData()); 
 		/* high */
-		output.writeInt(instr.intData + numcases - 1);
+		output.writeInt(instr.getIntData() + numcases - 1);
 		for (int i=0; i < numcases; i++)
-		    output.writeInt(instr.succs[i].addr - instr.addr);
+		    output.writeInt(instr.succs[i].getAddr() - instr.getAddr());
 		break;
 	    }
 	    case opc_lookupswitch: {
-		output.writeByte(instr.opcode);
-		int[] values = (int[]) instr.objData;
-		int align = 3-(instr.addr % 4);
+		output.writeByte(opcode);
+		int[] values = instr.getValues();
+		int align = 3-(instr.getAddr() % 4);
 		int numcases = values.length;
 		output.write(new byte[align]);
 		/* def */
-		output.writeInt(instr.succs[numcases].addr - instr.addr);
+		output.writeInt(instr.succs[numcases].getAddr() - instr.getAddr());
 		output.writeInt(numcases);
 		for (int i=0; i < numcases; i++) {
 		    output.writeInt(values[i]);
-		    output.writeInt(instr.succs[i].addr - instr.addr);
+		    output.writeInt(instr.succs[i].getAddr() - instr.getAddr());
 		}
 		break;
 	    }
@@ -980,34 +1154,35 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    case opc_getfield:
 	    case opc_putstatic:
 	    case opc_putfield:
-		output.writeByte(instr.opcode);
+		output.writeByte(opcode);
 		output.writeShort(gcp.putRef(gcp.FIELDREF, 
-					     (Reference) instr.objData));
+					     instr.getReference()));
 		break;
 
 	    case opc_invokespecial:
 	    case opc_invokestatic:
 	    case opc_invokeinterface:
-	    case opc_invokevirtual:
-		output.writeByte(instr.opcode);
-		if (instr.opcode == opc_invokeinterface) {
-		    output.writeShort(gcp.putRef(gcp.INTERFACEMETHODREF, 
-						 (Reference) instr.objData));
-		    output.writeByte(instr.intData);
+	    case opc_invokevirtual: {
+		Reference ref = instr.getReference();
+		output.writeByte(opcode);
+		if (opcode == opc_invokeinterface) {
+		    output.writeShort(gcp.putRef(gcp.INTERFACEMETHODREF, ref));
+		    output.writeByte
+			(TypeSignature.getArgumentSize(ref.getType()) + 1);
 		    output.writeByte(0);
 		} else 
-		    output.writeShort(gcp.putRef(gcp.METHODREF, 
-						 (Reference) instr.objData));
+		    output.writeShort(gcp.putRef(gcp.METHODREF, ref));
 		break;
+	    }
 	    case opc_new:
 	    case opc_checkcast:
 	    case opc_instanceof:
-		output.writeByte(instr.opcode);
-		output.writeShort(gcp.putClassType((String) instr.objData));
+		output.writeByte(opcode);
+		output.writeShort(gcp.putClassType(instr.getClazzType()));
 		break;
 	    case opc_multianewarray:
-		if (instr.intData == 1) {
-		    String clazz = ((String) instr.objData).substring(1);
+		if (instr.getIntData() == 1) {
+		    String clazz = instr.getClazzType().substring(1);
 		    int index = newArrayTypes.indexOf(clazz.charAt(0));
 		    if (index != -1) {
 			output.writeByte(opc_newarray);
@@ -1017,30 +1192,60 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			output.writeShort(gcp.putClassType(clazz));
 		    }
 		} else {
-		    output.writeByte(instr.opcode);
-		    output.writeShort(gcp.putClassType((String)instr.objData));
-		    output.writeByte(instr.intData);
+		    output.writeByte(opcode);
+		    output.writeShort(gcp.putClassType(instr.getClazzType()));
+		    output.writeByte(instr.getIntData());
 		}
 		break;
 
+	    case opc_nop:
+	    case opc_iaload: case opc_laload: case opc_faload:
+	    case opc_daload: case opc_aaload:
+	    case opc_baload: case opc_caload: case opc_saload:
+	    case opc_iastore: case opc_lastore: case opc_fastore:
+	    case opc_dastore: case opc_aastore:
+	    case opc_bastore: case opc_castore: case opc_sastore:
+	    case opc_pop: case opc_pop2:
+	    case opc_dup: case opc_dup_x1: case opc_dup_x2:
+	    case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
+	    case opc_swap:
+	    case opc_iadd: case opc_ladd: case opc_fadd: case opc_dadd:
+	    case opc_isub: case opc_lsub: case opc_fsub: case opc_dsub:
+	    case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
+	    case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
+	    case opc_irem: case opc_lrem: case opc_frem: case opc_drem:
+	    case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg:
+	    case opc_ishl: case opc_lshl:
+	    case opc_ishr: case opc_lshr:
+	    case opc_iushr: case opc_lushr: 
+	    case opc_iand: case opc_land:
+	    case opc_ior: case opc_lor: 
+	    case opc_ixor: case opc_lxor:
+	    case opc_i2l: case opc_i2f: case opc_i2d:
+	    case opc_l2i: case opc_l2f: case opc_l2d:
+	    case opc_f2i: case opc_f2l: case opc_f2d:
+	    case opc_d2i: case opc_d2l: case opc_d2f:
+	    case opc_i2b: case opc_i2c: case opc_i2s:
+	    case opc_lcmp: case opc_fcmpl: case opc_fcmpg:
+	    case opc_dcmpl: case opc_dcmpg:
+	    case opc_ireturn: case opc_lreturn: 
+	    case opc_freturn: case opc_dreturn: case opc_areturn:
+	    case opc_return: 
+	    case opc_athrow:
+	    case opc_arraylength:
+	    case opc_monitorenter: case opc_monitorexit:
+		output.writeByte(opcode);
+		break;
 	    default:
-		if (instr.opcode == opc_xxxunusedxxx
-		    || instr.opcode >= opc_breakpoint)
-		    throw new ClassFormatError("Invalid opcode "+instr.opcode);
-		else if (instr.length != 1)
-		    throw new ClassFormatError("Length differs at "
-					       + instr.addr + " opcode "
-					       + opcodeString[instr.opcode]);
-		else
-		    output.writeByte(instr.opcode);
+		throw new ClassFormatError("Invalid opcode "+opcode);
 	    }
 	}
 
 	output.writeShort(exceptionHandlers.length);
 	for (int i=0; i< exceptionHandlers.length; i++) {
-	    output.writeShort(exceptionHandlers[i].start.addr);
-	    output.writeShort(exceptionHandlers[i].end.nextByAddr.addr);
-	    output.writeShort(exceptionHandlers[i].catcher.addr);
+	    output.writeShort(exceptionHandlers[i].start.getAddr());
+	    output.writeShort(exceptionHandlers[i].end.getNextByAddr().getAddr());
+	    output.writeShort(exceptionHandlers[i].catcher.getAddr());
 	    output.writeShort((exceptionHandlers[i].type == null) ? 0
 			      : gcp.putClassName(exceptionHandlers[i].type));
 	}
@@ -1083,6 +1288,36 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
     public MethodInfo getMethodInfo() {
 	return methodInfo;
+    }
+
+    public Collection getInstructions() {
+	return new AbstractCollection() {
+	    public int size() {
+		return instructionCount;
+	    }
+
+	    public Iterator iterator() {
+		return new Iterator() {
+		    Instruction instr = firstInstr;
+
+		    public boolean hasNext() {
+			return instr != null;
+		    }
+
+		    public Object next() {
+			if (instr == null)
+			    throw new NoSuchElementException();
+			Instruction result = instr;
+			instr = instr.getNextByAddr();
+			return result;
+		    }
+
+		    public void remove() {
+			instr.getPrevByAddr().removeInstruction();
+		    }
+		};
+	    }
+	};
     }
 
     public Instruction getFirstInstr() {
