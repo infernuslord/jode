@@ -34,7 +34,7 @@
 
   <path id="project.classpath">
     <pathelement path="${classpath}"/>
-    <pathelement location="lib/getopt.jar"/>
+    <fileset dir="lib" includes="*.jar"/>
   </path>
 
   <!-- -->
@@ -101,7 +101,7 @@
                classpathref="project.classpath" />
   </target>
   
-  <target name="preconfig" depends="check-jdk,preconfig.11,preconfig.12"/>
+  <target name="preconfig" depends="check-jdk,check-getopt,preconfig.11,preconfig.12"/>
   <target name="preconfig.11" unless="jdk1.2+">
     <property name="src" value="src-1.1"/>
     <antcall target="runjcpp"/>
