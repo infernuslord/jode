@@ -1,3 +1,9 @@
+2002-02-25  Jochen Hoenicke  <hoenicke@marge.Informatik.Uni-Oldenburg.DE>
+
+	* jode/bytecode/ClassInfo.java.in (read):  Don't check for a
+	maximum version anymore.  Sun changes it with every release without
+	changing the bytecode format.
+
 2002-02-15  Jochen Hoenicke  <jochen@gnu.org>
 
 	* net/sf/jode/bytecode/BasicBlockReader.java: handle empty loops.
