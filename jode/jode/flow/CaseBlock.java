@@ -131,22 +131,25 @@ public class CaseBlock extends StructuredBlock {
 		&& subBlock instanceof EmptyBlock
 		&& subBlock.jump == null)
 		return;
-	    writer.println("default:" + (wantBraces ? " {" : ""));
+	    writer.print("default:");
 	} else {
             ConstOperator constOp = new ConstOperator
                 (((SwitchBlock)outer).getInstruction().getType(), 
                  Integer.toString(value));
             constOp.makeInitializer();
-	    writer.println("case " + constOp.toString() + ":"
-                           + (wantBraces ? " {" : ""));
+	    writer.print("case " + constOp.toString() + ":");
         }
+	if (wantBraces)
+	    writer.openBrace();
+	else
+	    writer.println();
 	if (subBlock != null) {
 	    writer.tab();
 	    subBlock.dumpSource(writer);
 	    writer.untab();
 	}
         if (wantBraces)
-            writer.println("}");
+            writer.closeBrace();
     }
 
     /**

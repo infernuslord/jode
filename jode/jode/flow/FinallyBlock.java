@@ -46,7 +46,9 @@ public class FinallyBlock extends CatchBlock {
 
     public void dumpInstruction(jode.TabbedPrintWriter writer) 
         throws java.io.IOException {
-        writer.println("} finally {");
+	writer.closeBraceContinue();
+        writer.print("finally");
+	writer.openBrace();
         writer.tab();
         catchBlock.dumpSource(writer);
         writer.untab();
