@@ -189,7 +189,7 @@ public class MainWindow
 	    TabbedPrintWriter writer = 
 		new TabbedPrintWriter
 		(new BufferedWriter
-		 (new AreaWriter(sourcecodeArea), 1024), imports);
+		 (new AreaWriter(sourcecodeArea), 1024), imports, false);
 
 	    imports.dumpHeader(writer);
 	    clazzAna.dumpSource(writer);
