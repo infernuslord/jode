@@ -30,15 +30,13 @@ import java.util.Enumeration;
  * @author Jochen Hoenicke
  */
 public class TransformExceptionHandlers {
-    FlowBlock[] flows;
     int count;
-    int[] startPCs = new int[4];
+    FlowBlock[] trys    = new FlowBlock[4];
+    FlowBlock[] catches = new FlowBlock[4];
     int[] endPCs = new int[4];
-    int[] handlerPCs = new int[4];
     Type[] types = new Type[4];
     
-    public TransformExceptionHandlers(FlowBlock[] flowBlocks) {
-        flows = flowBlocks;
+    public TransformExceptionHandlers() {
         count = 0;
     }
 
@@ -49,63 +47,66 @@ public class TransformExceptionHandlers {
      * @param handler The address of the handler.
      * @param type The type of the exception, null for ALL.
      */
-    public void addHandler(int start, int end, int handler, Type type) {
+    public void addHandler(FlowBlock tryBlock, int end, 
+			   FlowBlock catchBlock, Type type) {
         int offset = 0;
+	int start = tryBlock.addr;
+	int handler = catchBlock.addr;
         /* First sort by start offsets, highest address first...*/
-        while (offset < count && start < startPCs[offset])
+        while (offset < count && start < trys[offset].addr)
             offset++;
         /* ...Second sort by end offsets, lowest address first...
          * this will move the innermost blocks to the beginning. */
-        while (offset < count && start == startPCs[offset] 
+        while (offset < count && start == trys[offset].addr 
                && end > endPCs[offset])
             offset++;
         /* ...Last sort by handler offsets, lowest first */
-        while (offset < count && start == startPCs[offset]
-               && end == endPCs[offset] && handler > handlerPCs[offset])
+        while (offset < count && start == trys[offset].addr
+               && end == endPCs[offset] && handler > catches[offset].addr)
             offset++;
 
-        if (count++ >= startPCs.length) {
+        if (count++ >= trys.length) {
             /* We grow the arrays by 50 % */
-            int newSize = startPCs.length * 3 / 2;
-            int[] newStartPCs = new int[newSize];
+            int newSize = trys.length * 3 / 2;
+            FlowBlock[] newTrys = new FlowBlock[newSize];
             int[] newEndPCs = new int[newSize];
-            int[] newHandlerPCs = new int[newSize];
+            FlowBlock[] newCatches = new FlowBlock[newSize];
             Type[] newTypes = new Type[newSize];
-            System.arraycopy(startPCs, 0, newStartPCs, 0, offset);
+            System.arraycopy(trys, 0, newTrys, 0, offset);
             System.arraycopy(endPCs, 0, newEndPCs, 0, offset);
-            System.arraycopy(handlerPCs, 0, newHandlerPCs, 0, offset);
+            System.arraycopy(catches, 0, newCatches, 0, offset);
             System.arraycopy(types, 0, newTypes, 0, offset);
 
             if (offset+1 < count) {
-                System.arraycopy(startPCs, offset, newStartPCs, offset+1, 
+                System.arraycopy(trys, offset, newTrys, offset+1, 
                                  count-offset-1);
                 System.arraycopy(endPCs, offset, newEndPCs, offset+1, 
                                  count-offset-1);
-                System.arraycopy(handlerPCs, offset, newHandlerPCs, offset+1, 
+                System.arraycopy(catches, offset, newCatches, offset+1, 
                                  count-offset-1);
                 System.arraycopy(types, offset, newTypes, offset+1, 
                                  count-offset-1);
             }
-            startPCs = newStartPCs;
+            trys = newTrys;
             endPCs = newEndPCs;
-            handlerPCs = newHandlerPCs;
+            catches = newCatches;
             types = newTypes;
         } else if (offset+1 < count) {
             /* Move the tailing data one place below
              */
-            System.arraycopy(startPCs, offset, startPCs, offset+1, 
+            System.arraycopy(trys, offset, trys, offset+1, 
                              count-offset-1);
             System.arraycopy(endPCs, offset, endPCs, offset+1, 
                              count-offset-1);
-            System.arraycopy(handlerPCs, offset, handlerPCs, offset+1, 
+            System.arraycopy(catches, offset, catches, offset+1, 
                              count-offset-1);
             System.arraycopy(types, offset, types, offset+1, 
                              count-offset-1);
         }
         /* Insert the new handler */
-        startPCs[offset] = start;
+        trys[offset] = tryBlock;
         endPCs[offset] = end;
-        handlerPCs[offset] = handler;
+        catches[offset] = catchBlock;
         types[offset] = type;
     }
 
@@ -114,7 +115,17 @@ public class TransformExceptionHandlers {
      * successing flow block for a try catch block.  The main difference
      * to updateInOut in FlowBlock is, that this function works, as if
      * every instruction would have a jump.  This is because every
-     * instruction can throw an exception and thus enter the catch block.
+     * instruction can throw an exception and thus enter the catch block.<br>
+     *
+     * For example this code prints <code>0</code>:
+     * <pre>
+     *   int a=3;
+     *   try {
+     *     a = 5 / (a=0);
+     *   } catch (DivideByZeroException ex) {
+     *     System.err.println(a);
+     *   }
+     * </pre>
      *
      * @param successor The flow block which is unified with this flow
      * block.  
@@ -166,17 +177,18 @@ public class TransformExceptionHandlers {
         StructuredBlock firstInstr = (catchBlock instanceof SequentialBlock)
             ? catchBlock.getSubBlocks()[0] : catchBlock;
 
-        if (firstInstr instanceof InstructionBlock) {
+	if (firstInstr instanceof SpecialBlock
+	    && ((SpecialBlock) firstInstr).type == SpecialBlock.POP
+	    && ((SpecialBlock) firstInstr).count == 1) {
+	    /* The exception is ignored.  Create a dummy local for it */
+	    local = new LocalInfo(-1);
+	    local.setName("exception");
+	    firstInstr.removeBlock();
+
+	} else if (firstInstr instanceof InstructionBlock) {
             Expression instr = 
                 ((InstructionBlock) firstInstr).getInstruction();
-            if (instr instanceof PopOperator
-                && ((PopOperator) instr).getCount() == 1) {
-                /* The exception is ignored.  Create a dummy local for it */
-                local = new LocalInfo(-1);
-                local.setName("exception");
-                firstInstr.removeBlock();
-
-            } else if (instr instanceof LocalStoreOperator) {
+            if (instr instanceof LocalStoreOperator) {
                 /* The exception is stored in a local variable */
                 local = ((LocalStoreOperator) instr).getLocalInfo();
                 firstInstr.removeBlock();
@@ -193,7 +205,7 @@ public class TransformExceptionHandlers {
         ((TryBlock)tryFlow.block).addCatchBlock(newBlock);
         newBlock.setCatchBlock(catchFlow.block);
         tryFlow.mergeSuccessors(catchFlow);
-        tryFlow.length += catchFlow.length;
+	tryFlow.mergeAddr(catchFlow);
     }
 
     /* And now the complicated parts. */
@@ -216,6 +228,18 @@ public class TransformExceptionHandlers {
         while (sequBlock.subBlocks[1] instanceof SequentialBlock)
             sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
         
+	/* XXX - Check that the local isn't used for any other purposes 
+	 * than RET and replace any RET with a flow control to end of 
+	 * flow block.
+	 *
+	 * This is a complicated task which isn't needed for javac nor jikes.
+	 */
+	if (sequBlock.subBlocks[1].jump != null
+	    && sequBlock.subBlocks[1].jump.destination
+	    == FlowBlock.END_OF_METHOD) {
+	    instr.removeBlock();
+	    return true;
+	}
         if (! (sequBlock.subBlocks[1] instanceof RetBlock)
             || !(((RetBlock)sequBlock.subBlocks[1])
                  .local.equals(store.getLocalInfo())))
@@ -465,7 +489,7 @@ public class TransformExceptionHandlers {
                             ((InstructionBlock)subRoutine.block)
                             .getInstruction();
                         if (isMonitorExit(instr, local)) {
-                            tryFlow.length += subRoutine.length;
+                            tryFlow.mergeAddr(subRoutine);
                             continue dest_loop;
                         }
                     }
@@ -540,10 +564,10 @@ public class TransformExceptionHandlers {
             LocalInfo local = 
                 ((LocalLoadOperator)monexit.getSubExpressions()[0])
                     .getLocalInfo();
-            tryFlow.length += catchFlow.length;
+            tryFlow.mergeAddr(catchFlow);
 
             checkAndRemoveMonitorExit
-                (tryFlow, local, catchFlow.addr+catchFlow.length, endHandler);
+                (tryFlow, local, catchFlow.getNextAddr(), endHandler);
             
             SynchronizedBlock syncBlock = new SynchronizedBlock(local);
             TryBlock tryBlock = (TryBlock) tryFlow.block;
@@ -613,7 +637,7 @@ public class TransformExceptionHandlers {
                 catchBlock = (SequentialBlock) doWhileFalse.bodyBlock;
             }
         }
-                
+
         if (catchBlock instanceof SequentialBlock
             && catchBlock.getSubBlocks()[0] instanceof JsrBlock
             && instr instanceof LocalStoreOperator
@@ -667,7 +691,7 @@ public class TransformExceptionHandlers {
                 transformSubRoutine(finallyBlock);
 
                 updateInOutCatch(tryFlow, catchFlow);
-                tryFlow.length += catchFlow.length;
+                tryFlow.mergeAddr(catchFlow);
                 finallyBlock = catchFlow.block;
                 tryFlow.mergeSuccessors(catchFlow);
 
@@ -676,16 +700,16 @@ public class TransformExceptionHandlers {
                     ((JsrBlock)catchBlock.getSubBlocks()[0])
                     .innerBlock.jump.destination;
 
-                subRoutine.analyze(catchFlow.addr+catchFlow.length, end);
+                subRoutine.analyze(catchFlow.getNextAddr(), end);
                 if (!transformSubRoutine(subRoutine.block))
                     return false;
-                
-                tryFlow.length += catchFlow.length;
+
+                tryFlow.mergeAddr(catchFlow);
 
                 checkAndRemoveJSR(tryFlow, subRoutine);
 
                 updateInOutCatch(tryFlow, subRoutine);                
-                tryFlow.length += subRoutine.length;
+                tryFlow.mergeAddr(subRoutine);
                 tryFlow.mergeSuccessors(subRoutine);
                 finallyBlock = subRoutine.block;
 
@@ -722,11 +746,9 @@ public class TransformExceptionHandlers {
             catchFlow.block instanceof SequentialBlock 
             ? catchFlow.block.getSubBlocks()[0]: catchFlow.block;
 
-        if (firstInstr instanceof InstructionBlock 
-            && ((InstructionBlock) firstInstr).getInstruction()
-            instanceof PopOperator
-            && ((PopOperator) ((InstructionBlock) firstInstr)
-                .getInstruction()).getCount() == 1) {
+        if (firstInstr instanceof SpecialBlock 
+            && ((SpecialBlock)firstInstr).type == SpecialBlock.POP
+            && ((SpecialBlock)firstInstr).count == 1) {
 
             /* This is a special try/finally-block, where
              * the finally block ends with a break, return or
@@ -756,7 +778,7 @@ public class TransformExceptionHandlers {
 
             /* remove the pop now */
             firstInstr.removeBlock();
-            tryFlow.length += catchFlow.length;
+            tryFlow.mergeAddr(catchFlow);
 
             if (succ != null) {
                 Jump jumps = (Jump) tryFlow.successors.remove(succ);
@@ -781,8 +803,8 @@ public class TransformExceptionHandlers {
             /* try block has no successors */
                 
             if (succ != null && succ.predecessors.size() == 1) {
-                while (succ.analyze(catchFlow.addr+catchFlow.length, end));
-                tryFlow.length += succ.length;
+                while (succ.analyze(catchFlow.getNextAddr(), end));
+		tryFlow.mergeAddr(succ);
                 tryFlow.successors.remove(succ);
                 newBlock.setCatchBlock(succ.block);
                 tryFlow.mergeSuccessors(succ);
@@ -804,43 +826,43 @@ public class TransformExceptionHandlers {
     public void analyze() { 
         /* Check if try/catch ranges are okay.  The following succeeds
          * for all classes generated by the sun java compiler, but hand
-         * optimized classes will fail this.
+         * optimized classes (or generated by other compilers) will fail.
          */
         for (int i=0; i<count; i++) {
-            int start = startPCs[i];
+            int start = trys[i].addr;
             int end = endPCs[i];
-            int handler = handlerPCs[i];
+            int handler = catches[i].addr;
             if (start >= end || handler < end)
                 throw new AssertError("ExceptionHandler order failed: not "
                                       + start + " < " + end + " <= " + 
                                       handler);
             if (i == 0 
-                || startPCs[i-1] != start || endPCs[i-1] != end) {
+                || trys[i-1].addr != start || endPCs[i-1] != end) {
                 /* The last handler does catch another range. */
                 if ( /*handler > end + 1 || */
-                    (i > 0 && end > startPCs[i-1] && end < endPCs[i-1]))
+                    (i > 0 && end > trys[i-1].addr && end < endPCs[i-1]))
                     throw new AssertError("ExceptionHandler"
                                           + " at wrong position: "
                                           + "end: "+end + " handler: "+handler
-                                          + (i>0 ? " last: ("+startPCs[i-1]
+                                          + (i>0 ? " last: ("+trys[i-1].addr
                                              +", "+endPCs[i-1]+", "
-                                             +handlerPCs[i-1]+")"
+                                             +catches[i-1].addr+")"
                                              :""));
             }
         }
 
         for (int i=0; i<count; i++) {
-            int endHandler = (i< count-1 && endPCs[i+1] > handlerPCs[i]) 
+            int endHandler = (i< count-1 && endPCs[i+1] > catches[i].addr) 
                 ? endPCs[i+1]
                 : Integer.MAX_VALUE;
             if (Decompiler.debugAnalyze)
-                Decompiler.err.println("analyzeCatch(" + startPCs[i] + ", "
-                                   + endPCs[i] + ", " +handlerPCs[i] + ")");
-            FlowBlock tryFlow = flows[startPCs[i]];
-            while (tryFlow.analyze(startPCs[i], handlerPCs[i]));
+                Decompiler.err.println("analyzeCatch(" + trys[i].addr + ", "
+                                   + endPCs[i] + ", " +catches[i].addr + ")");
+            FlowBlock tryFlow = trys[i];
+            while (tryFlow.analyze(tryFlow.addr, catches[i].addr));
 
             if (i == 0
-                || startPCs[i-1] != startPCs[i] || endPCs[i-1] != endPCs[i]) {
+                || trys[i-1].addr != trys[i].addr || endPCs[i-1] != endPCs[i]) {
                 /* The last handler does catch another range. 
                  * Create a new try block.
                  */
@@ -848,19 +870,8 @@ public class TransformExceptionHandlers {
             } else if (! (tryFlow.block instanceof TryBlock))
                 throw new AssertError("no TryBlock");
 
-            FlowBlock catchFlow = flows[handlerPCs[i]];
-            while (catchFlow.analyze(handlerPCs[i], endHandler));
-
-            if (!catchFlow.predecessors.isEmpty()) {
-		/* This can actually happen, namely in code compiled by
-		 * jikes.  In this case the predecessor is a nop and has
-		 * no further predecessors.
-		 */
-		if (catchFlow.predecessors.size() != 1
-		    && ((FlowBlock)catchFlow.predecessors.elementAt(0))
-		    .predecessors.size() != 0)
-		    throw new AssertError("Handler has a predecessors");
-	    }
+            FlowBlock catchFlow = catches[i];
+            while (catchFlow.analyze(catchFlow.addr, endHandler));
 
             updateInOutCatch(tryFlow, catchFlow);
             if (types[i] != null)
