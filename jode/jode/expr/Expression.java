@@ -23,6 +23,12 @@ import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 import jode.flow.VariableSet;
 
+///#ifdef JDK12
+///import java.util.Set;
+///#else
+import jode.util.SimpleSet;
+///#endif
+
 public abstract class Expression {
     protected Type type;
 
@@ -224,6 +230,13 @@ public abstract class Expression {
     }
 
     public void fillInGenSet(VariableSet in, VariableSet gen) {
+    }
+
+///#ifdef JDK12
+///    public void fillDeclarables(Set used) {
+///#else
+    public void fillDeclarables(SimpleSet used) {
+///#endif
     }
 
     public abstract void dumpExpression(TabbedPrintWriter writer) 
