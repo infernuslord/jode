@@ -1,11 +1,10 @@
-</td></tr>
-</table>
-<TABLE width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="737b9c">
+<TABLE class=footer width="100%" border="0" cellspacing="0" cellpadding="2">
   <TR>
-    <TD align="center"><FONT color="#ffffff"><SPAN class="titlebar">
+    <TD align="center"><SPAN class=footer>
       All trademarks and copyrights on this page are properties of their respective owners. <br>
-      Last updated on 30-Jun-2000, 
-	Copyright &copy; 1998-2000 by Jochen Hoenicke.</SPAN></FONT>
+      Last updated on 3-Jul-2000, 
+	Copyright &copy; 1998-2000 by Jochen Hoenicke.<br>
+      Canonic URL is <a class=boldlink href="http://jode.sourceforge.net/">http://jode.sourceforge.net/</a></SPAN>
     </TD>
   </TR>
 </TABLE>

@@ -1,5 +1,5 @@
 <?php require("header.inc"); ?>
-<h2>History</h2> 
+<h1>History</h1> 
 
 <p>Someday I found <code>guavad</code>, a disassembler for java byte
 code (it does similar things like <code>javap&nbsp;-c</code>).  I used
