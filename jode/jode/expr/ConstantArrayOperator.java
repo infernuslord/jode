@@ -33,7 +33,22 @@ public class ConstantArrayOperator extends NoArgOperator {
         values = new Expression[size];
         argType = (type instanceof ArrayType) 
             ? Type.tSubType(((ArrayType)type).getElementType()) : Type.tError;
-        empty  = new ConstOperator(argType, "0");
+	Object emptyVal;
+	if (argType == type.tError || argType.isOfType(Type.tUObject))
+	    emptyVal = null;
+	else if (argType.isOfType(Type.tBoolUInt))
+	    emptyVal = new Integer(0);
+	else if (argType.isOfType(Type.tLong))
+	    emptyVal = new Long(0);
+	else if (argType.isOfType(Type.tFloat))
+	    emptyVal = new Float(0);
+	else if (argType.isOfType(Type.tDouble))
+	    emptyVal = new Double(0);
+	else
+	    throw new IllegalArgumentException("Illegal Type: "+argType);
+	    
+        empty  = new ConstOperator(emptyVal);
+	empty.setType(argType);
         empty.makeInitializer();
     }
 
