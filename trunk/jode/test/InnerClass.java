@@ -48,6 +48,6 @@ public class InnerClass {
 
     InnerClass() {
         new Inner().createInnerInner(10).getB();
-	createInner(this);
+	createInner(this).new InnerInner(42);
     }
 }
