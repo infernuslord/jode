@@ -53,12 +53,15 @@ public class CodeAnalyzer implements Analyzer, Scope {
         method = ma;
 	imports = i;
 	code = minfo.getBytecode();
-	CodeVerifier verifier = new CodeVerifier(getClazz(), minfo, code);
-	try {
-	    verifier.verify();
-	} catch (VerifyException ex) {
-	    ex.printStackTrace();
-	    throw new jode.AssertError("Verification error");
+
+	if ((Decompiler.options & Decompiler.OPTION_VERIFY) != 0) {
+	    CodeVerifier verifier = new CodeVerifier(getClazz(), minfo, code);
+	    try {
+		verifier.verify();
+	    } catch (VerifyException ex) {
+		ex.printStackTrace(GlobalOptions.err);
+		throw new jode.AssertError("Verification error");
+	    }
 	}
 	
 	if ((Decompiler.options & Decompiler.OPTION_LVT) != 0) {
