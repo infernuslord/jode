@@ -1,3 +1,50 @@
+2004-01-31  Jochen Hoenicke  <hoenicke@informatik.uni-oldenburg.de>
+
+	* src/net/sf/jode/jvm/SyntheticAnalyzer.java (checkGetClass):
+	Handle jdk1.4 class$ methods.
+
+	* src/net/sf/jode/jvm/RuntimeEnvironment.java: Fixed some javadocs.
+	* src/net/sf/jode/flow/CompleteSynchronized.java: likewise.
+	* src/net/sf/jode/flow/CreateExpression.java: likewise.
+	* src/net/sf/jode/flow/CreateIfThenElseOperator.java: likewise.
+
+	Added changes (except obfuscator changes) from jode-1.1 tree up to
+	2001-07-08
+
+	* src/net/sf/jode/bytecode/ClassInfo.java (deprecatedFlag): Added
+	flag for deprecated classes. Stuart Ballard noticed that this was
+	missing.
+	(readAttribute): Read deprecated attribute.
+	(prepareWriting): Prepare deprecated attribute.
+	(writeKnownAttributes): Write deprecated attribute.
+	(isDeprected): New function.
+	(setDeprecated): Likewise.
+
+	* src/net/sf/jode/bytecode/BasicBlockReader.java (readCode): Fix
+	the exception handlers that javac 1.4 produces: I simply shorten
+	the start/end interval, so that the catcher is not in the end
+	interval.
+
+	* src/net/sf/jode/flow/CreateAssignExpression.java
+	(createAssignOp): Bug fix: Check whether store is already a
+	op-assign and break out.
+	* src/net/sf/jode/expr/StoreInstruction.java (isOpAssign): New
+	function to check whether this is an op-assign.
+
+	* src/net/sf/jode/flow/CatchBlock.java (combineLocal): Added more
+	checks if LocalStoreOperator is of the right form.
+
+	* net/sf/jode/flow/TransformConstructors.java (Constructor): Ignore
+	OuterValues for static constructor.
+
+	* src/net/sf/jode/expr/CompareToIntOperator.java (dumpExpression):
+	Added a missing breakOp.
+
+2004-01-22  Jochen Hoenicke  <hoenicke@informatik.uni-oldenburg.de>
+
+	* net/sf/jode/jvm/CodeVerifier.java (modelEffect): Allow assigning
+	fields in an uninitialized class as some synthetic code does this.
+
 2003-06-11  Mark Morschhäuser  <mark.morschhaeuser@firemail.de>
 	* net/sf/jode/decompiler/Main.java:  New MenuItem to save a decompiled file.
 	
