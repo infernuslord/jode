@@ -17,6 +17,7 @@
  */
 package jode.flow;
 import jode.decompiler.TabbedPrintWriter;
+import jode.expr.LocalStoreOperator;
 
 /**
  * A sequential block combines exactly two structured blocks to a new
@@ -65,6 +66,55 @@ public class SequentialBlock extends StructuredBlock {
 	    return subBlocks[1].mapStackToLocal(middle);
 	jode.Decompiler.err.println("Dead code after Block " + subBlocks[0]);
 	return null;
+    }
+
+    /** 
+     * This method should remove local variables that are only written
+     * and read one time directly after another.  <br>
+     *
+     * This is especially important for stack locals, that are created
+     * when there are unusual swap or dup instructions, but also makes
+     * inlined functions more pretty (but not that close to the
+     * bytecode).  
+     */
+    public void removeOnetimeLocals() {
+	StructuredBlock secondBlock = subBlocks[1];
+	if (secondBlock instanceof SequentialBlock)
+	    secondBlock = ((SequentialBlock)secondBlock).subBlocks[0];
+	if (subBlocks[0] instanceof InstructionBlock
+	    && secondBlock instanceof InstructionContainer) {
+	    InstructionBlock first = (InstructionBlock) subBlocks[0];
+	    InstructionContainer second = (InstructionContainer) secondBlock;
+	    /* check if subBlocks[0] writes to a local, second reads
+	     * that local, the local is only used by this two blocks,
+	     * and there are no side effects.  In that case replace
+	     * the LoadLocal with the righthandside of subBlocks[0]
+	     * and replace subBlocks[1] with this block.  Call
+	     * removeOnetimelLocals on subBlocks[1] afterwards and
+	     * return.  
+	     */
+
+	    if (first.getInstruction().getOperator() 
+		instanceof LocalStoreOperator) {
+		LocalStoreOperator store = (LocalStoreOperator) 
+		    first.getInstruction().getOperator();
+		if (store.getLocalInfo().getUseCount() == 2
+		    && (second.getInstruction().canCombine
+			(first.getInstruction()) > 0)) {
+		    System.err.println("before: "+first+second);
+
+		    second.setInstruction(second.getInstruction()
+					  .combine(first.getInstruction()));
+		    System.err.println("after: "+second);
+		    StructuredBlock sb = subBlocks[1];
+		    sb.moveDefinitions(this, sb);
+		    sb.replace(this);
+		    sb.removeOnetimeLocals();
+		    return;
+		}
+	    }	    
+	}
+	super.removeOnetimeLocals();
     }
 
     /**
