@@ -18,19 +18,21 @@
  */
 
 package jode;
-import java.lang.reflect.*;
-import gnu.bytecode.ClassType;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Constructor;
 import gnu.bytecode.ConstantPool;
 import gnu.bytecode.CpoolEntry;
-import gnu.bytecode.CpoolString;
 import gnu.bytecode.CpoolValue1;
 import gnu.bytecode.CpoolValue2;
+import gnu.bytecode.CpoolString;
 
 public class ClassAnalyzer implements Analyzer {
     JodeEnvironment env;
     Analyzer[] analyzers;
     Class clazz;
-    ClassType classType;
+    gnu.bytecode.ClassType classType;
     ClassAnalyzer parent;
     
     public ClassAnalyzer(ClassAnalyzer parent, Class clazz, 
@@ -52,25 +54,21 @@ public class ClassAnalyzer implements Analyzer {
         int i = 0;
         
         Field[] fields = clazz.getDeclaredFields(); 
-        Method[] methods = clazz.getDeclaredMethods();
-        Constructor[] constrs = clazz.getDeclaredConstructors();
 
-        analyzers = new Analyzer[fields.length + methods.length 
-                                + constrs.length];
+        analyzers = new Analyzer[fields.length + 
+                                classType.getMethodCount()];
 
         for (int j=0; j< fields.length; j++) {
             analyzers[i] = new FieldAnalyzer(this, fields[j], env);
             analyzers[i++].analyze();
         }
     
-        for (int j=0; j< constrs.length; j++) {
-            analyzers[i] = new MethodAnalyzer(this, constrs[j], env);
+        for (gnu.bytecode.Method method = classType.getMethods();
+             method != null; method = method.getNext()) {
+            analyzers[i] = new MethodAnalyzer(this, method, env);
             analyzers[i++].analyze();
         }
-        for (int j=0; j< methods.length; j++) {
-            analyzers[i] = new MethodAnalyzer(this, methods[j], env);
-            analyzers[i++].analyze();
-        }
+
 	env.useClass(clazz);
         if (clazz.getSuperclass() != null)
             env.useClass(clazz.getSuperclass());
@@ -88,7 +86,9 @@ public class ClassAnalyzer implements Analyzer {
                                          & ~Modifier.SYNCHRONIZED);
         if (modif.length() > 0)
             writer.print(modif + " ");
-        writer.print(clazz.isInterface() ? "interface " : "class ");
+        writer.print(clazz.isInterface() 
+                     ? ""/*interface is in modif*/ 
+                     : "class ");
 	writer.println(env.classString(clazz));
 	writer.tab();
         Class superClazz = clazz.getSuperclass();
@@ -113,11 +113,6 @@ public class ClassAnalyzer implements Analyzer {
 	    analyzers[i].dumpSource(writer);
 	writer.untab();
 	writer.println("}");
-    }
-
-
-    public ConstantPool getConstantPool() {
-        return classType.getConstants();
     }
 
     public CpoolEntry getConstant(int i) {
