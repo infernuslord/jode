@@ -44,10 +44,10 @@ public class InstanceOfOperator extends Operator {
 
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	/* There are special cases where a cast isn't allowed.  We must cast
-	 * to the common super type before.  This cases always give a runtime
-	 * error, but we want to decompile even bad programs.
-	 */
+	/* There are special cases where a cast isn't allowed.  We
+	 * must cast to the common super type before.  In these cases
+	 * instanceof always return false, but we want to decompile
+	 * even bad programs.  */
 	Type superType
 	    = instanceType.getCastHelper(subExpressions[0].getType());
 	if (superType != null) {

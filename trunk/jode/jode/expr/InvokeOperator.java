@@ -339,12 +339,12 @@ public final class InvokeOperator extends Operator
 	    result = (String) Interpreter.interpretMethod(env, info, locals);
 	} catch (InterpreterException ex) {
 	    GlobalOptions.err.println("Warning: Can't interpret method "
-				   +methodName);
+				      +methodName);
 	    ex.printStackTrace(GlobalOptions.err);
 	    return null;
 	} catch (InvocationTargetException ex) {
 	    GlobalOptions.err.println("Warning: Interpreted method throws"
-				   +" an uncaught exception: ");
+				      +" an uncaught exception: ");
 	    ex.getTargetException().printStackTrace(GlobalOptions.err);
 	    return null;
 	}
