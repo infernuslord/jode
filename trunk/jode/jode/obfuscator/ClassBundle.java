@@ -74,8 +74,8 @@ public class ClassBundle {
 	return ident.getIdentifier(ref.getName(), ref.getType());
     }
 
-    public void loadClasses(String packageOrClass) {
-	basePackage.loadClasses(packageOrClass);
+    public void loadClasses(String wildcard) {
+	basePackage.loadMatchingClasses(new WildCard(wildcard));
     }
 
     public void reachableIdentifier(String fqn, boolean isVirtual) {
@@ -88,7 +88,8 @@ public class ClassBundle {
 	basePackage.applyPreserveRule(preserveRule);
 	Enumeration enum = fullqualifiednames.elements();
 	while (enum.hasMoreElements()) {
-	    basePackage.preserveIdentifier((String) enum.nextElement());
+	    basePackage.preserveMatchingIdentifier
+		(new WildCard((String) enum.nextElement()));
 	}
 	analyze();
     }
