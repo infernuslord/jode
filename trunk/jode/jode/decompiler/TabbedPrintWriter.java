@@ -19,8 +19,11 @@
 
 package jode.decompiler;
 import java.io.*;
+import java.util.Stack;
 import jode.Decompiler;
-import jode.type.Type;
+import jode.bytecode.ClassInfo;
+import jode.bytecode.InnerClassInfo;
+import jode.type.*;
 
 public class TabbedPrintWriter {
     boolean atbol;
@@ -29,6 +32,7 @@ public class TabbedPrintWriter {
     String indentStr = "";
     PrintWriter pw;
     ImportHandler imports;
+    Stack scopes = new Stack();
 
     public TabbedPrintWriter (OutputStream os, ImportHandler imports) {
 	pw = new PrintWriter(os, true);
@@ -114,10 +118,7 @@ public class TabbedPrintWriter {
     }
 
     public void printType(Type type) {
-	if (imports != null)
-	    print(imports.getTypeString(type));
-	else
-	    print(type.toString());
+	print(getTypeString(type));
     }
 
     /**
@@ -138,6 +139,147 @@ public class TabbedPrintWriter {
 		tab();
 	    println("{");
 	}
+    }
+
+    public void pushScope(Scope scope) {
+	scopes.push(scope);
+    }
+
+    public void popScope() {
+	scopes.pop();
+    }
+
+    /**
+     * Checks if the name in inScope conflicts with an identifier in a
+     * higher scope.
+     */
+    public boolean conflicts(String name, Scope inScope, int context) {
+	int dot = name.indexOf('.');
+	if (dot >= 0)
+	    name = name.substring(0, dot);
+	int count = scopes.size();
+	for (int ptr = count; ptr-- > 0; ) {
+	    Scope scope = (Scope) scopes.elementAt(ptr);
+	    if (scope == inScope)
+		return false;
+	    if (scope.conflicts(name, context))
+		return true;
+	}
+	return false;
+    }
+
+    public Scope getScope(Object obj, int scopeType) {
+	int count = scopes.size();
+	for (int ptr = count; ptr-- > 0; ) {
+	    Scope scope = (Scope) scopes.elementAt(ptr);
+	    if (scope.isScopeOf(obj, scopeType))
+		return scope;
+	}
+	return null;
+    }
+
+    public String getInnerClassString(ClassInfo info) {
+	InnerClassInfo[] outers = info.getOuterClasses();
+	if (outers == null)
+	    return null;
+	for (int i=0; i< outers.length; i++) {
+	    if (outers[i].name == null || outers[i].outer == null)
+		return null;
+	    Scope scope = getScope(ClassInfo.forName(outers[i].outer), 
+				   Scope.CLASSSCOPE);
+	    if (scope != null && 
+		!conflicts(outers[i].name, scope, Scope.AMBIGUOUSNAME)) {
+ 		StringBuffer sb = new StringBuffer(outers[i].name);
+		for (int j = i; j-- > 0;) {
+		    sb.append('.').append(outers[j].name);
+		}
+		return sb.toString();
+	    }
+	}
+	String name = getClassString
+	    (ClassInfo.forName(outers[outers.length-1].outer));
+	StringBuffer sb = new StringBuffer(name);
+	for (int j = outers.length; j-- > 0;)
+	    sb.append('.').append(outers[j].name);
+	return sb.toString();
+    }
+    
+    public String getAnonymousClassString(ClassInfo info) {
+	InnerClassInfo[] outers = info.getOuterClasses();
+	if (outers == null)
+	    return null;
+	for (int i=0; i< outers.length; i++) {
+	    if (outers[i].name == null)
+		return "ANONYMOUS CLASS";
+	    Scope scope = getScope
+		(ClassInfo.forName(outers[i].outer == null 
+				   ? outers[i].inner : outers[i].outer),
+		 outers[i].outer == null 
+		 ? Scope.METHODSCOPE : Scope.CLASSSCOPE);
+	    if (scope != null && 
+		!conflicts(outers[i].name, scope, Scope.AMBIGUOUSNAME)) {
+ 		StringBuffer sb = new StringBuffer(outers[i].name);
+		for (int j = i; j-- > 0;) {
+		    sb.append('.').append(outers[j].name);
+		}
+		return sb.toString();
+	    } else if (outers[i].outer == null) {
+		StringBuffer sb;
+		if (scope != null)
+		    sb = new StringBuffer("NAME CONFLICT ");
+		else
+		    sb = new StringBuffer("UNREACHABLE ");
+		
+		sb.append(outers[i].name);
+		for (int j = i; j-- > 0;) {
+		    sb.append('.').append(outers[j].name);
+		}
+		return sb.toString();
+	    }
+	}
+	String name = getClassString
+	    (ClassInfo.forName(outers[outers.length-1].outer));
+	StringBuffer sb = new StringBuffer(name);
+	for (int j = outers.length; j-- > 0;)
+	    sb.append('.').append(outers[j].name);
+	return sb.toString();
+    }
+    
+    public String getClassString(ClassInfo clazz) {
+	String name = clazz.getName();
+	if (name.indexOf('$') >= 0) {
+	    if ((Decompiler.options & Decompiler.OPTION_INNER) != 0) {
+		String innerClassName = getInnerClassString(clazz);
+		if (innerClassName != null)
+		    return innerClassName;
+	    }
+	    if ((Decompiler.options
+		 & Decompiler.OPTION_ANON) != 0) {
+		String innerClassName = getAnonymousClassString(clazz);
+		if (innerClassName != null)
+		    return innerClassName;
+	    }
+	}
+	if (imports != null) {
+	    String importedName = imports.getClassString(clazz);
+	    if (!conflicts(importedName, null, Scope.AMBIGUOUSNAME))
+		return importedName;
+	}
+	if (conflicts(name, null, Scope.AMBIGUOUSNAME))
+	    return "PKGNAMECONFLICT "+ name;
+	return name;
+    }
+
+    public String getTypeString(Type type) {
+	if (type instanceof ArrayType)
+	    return getTypeString(((ArrayType) type).getElementType()) + "[]";
+	else if (type instanceof ClassInterfacesType) {
+	    ClassInfo clazz = ((ClassInterfacesType) type).getClassInfo();
+	    return getClassString(clazz);
+	} else if (type instanceof NullType)
+	    return "Object";
+	else
+	    return type.toString();
     }
 
     /**
