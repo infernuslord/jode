@@ -56,98 +56,162 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 ///#endif
 
     static {
-	addWhite(new Reference("Ljava/lang/String;", "toCharArray", "()[C"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "<init>", 
-			       "(Ljava/lang/String;)V"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "append", 
-			     "(Ljava/lang/String;)Ljava/lang/StringBuffer;"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "append", 
-			       "(C)Ljava/lang/StringBuffer;"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "append", 
-			       "(B)Ljava/lang/StringBuffer;"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "append", 
-			       "(S)Ljava/lang/StringBuffer;"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "append", 
-			       "(Z)Ljava/lang/StringBuffer;"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "append", 
-			       "(F)Ljava/lang/StringBuffer;"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "append", 
-			       "(I)Ljava/lang/StringBuffer;"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "append", 
-			       "(J)Ljava/lang/StringBuffer;"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "append", 
-			       "(D)Ljava/lang/StringBuffer;"));
-	addWhite(new Reference("Ljava/lang/StringBuffer;", "toString", 
-			       "()Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "<init>", "()V"));
-	addWhite(new Reference("Ljava/lang/String;", "<init>", "([C)V"));
-	addWhite(new Reference("Ljava/lang/String;", "<init>", "([CII)V"));
-	addWhite(new Reference("Ljava/lang/String;", "<init>", 
-			       "(Ljava/lang/String;)V"));
-	addWhite(new Reference("Ljava/lang/String;", "<init>", 
-			       "(Ljava/lang/StringBuffer;)V"));
-	addWhite(new Reference("Ljava/lang/String;", "length", "()I"));
-	addWhite(new Reference("Ljava/lang/String;", "replace", 
-			       "(CC)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "valueOf", 
-			       "(Z)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "valueOf", 
-			       "(B)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "valueOf", 
-			       "(S)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "valueOf", 
-			       "(C)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "valueOf", 
-			       "(D)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "valueOf", 
-			       "(F)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "valueOf", 
-			       "(I)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "valueOf", 
-			       "(J)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "valueOf", 
-			       "(Ljava/lang/Object;)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "substring", 
-			       "(I)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/String;", "substring", 
-			       "(II)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava.lang/reflect/Modifier;", "toString", 
-			       "(I)Ljava/lang/String;"));
-	addWhite(new Reference("Ljava/lang/Math;", "abs", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "abs", "(F)F"));
-	addWhite(new Reference("Ljava/lang/Math;", "abs", "(I)I"));
-	addWhite(new Reference("Ljava/lang/Math;", "abs", "(J)J"));
-	addWhite(new Reference("Ljava/lang/Math;", "acos", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "asin", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "atan", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "atan2", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "ceil", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "cos", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "exp", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "floor", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "IEEEremainder", "(DD)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "log", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "max", "(DD)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "max", "(FF)F"));
-	addWhite(new Reference("Ljava/lang/Math;", "max", "(II)I"));
-	addWhite(new Reference("Ljava/lang/Math;", "max", "(JJ)J"));
-	addWhite(new Reference("Ljava/lang/Math;", "min", "(DD)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "min", "(FF)F"));
-	addWhite(new Reference("Ljava/lang/Math;", "min", "(II)I"));
-	addWhite(new Reference("Ljava/lang/Math;", "min", "(JJ)J"));
-	addWhite(new Reference("Ljava/lang/Math;", "pow", "(DD)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "rint", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "round", "(D)J"));
-	addWhite(new Reference("Ljava/lang/Math;", "round", "(F)I"));
-	addWhite(new Reference("Ljava/lang/Math;", "sin", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "sqrt", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "tan", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "toDegrees", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "toRadians", "(D)D"));
-	addWhite(new Reference("Ljava/lang/Math;", "E", "D"));
-	addWhite(new Reference("Ljava/lang/Math;", "PI", "D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "toCharArray", "()[C"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "<init>", 
+		  "(Ljava/lang/String;)V"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "append", 
+		  "(Ljava/lang/String;)Ljava/lang/StringBuffer;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "append", 
+		  "(C)Ljava/lang/StringBuffer;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "append", 
+		  "(B)Ljava/lang/StringBuffer;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "append", 
+		  "(S)Ljava/lang/StringBuffer;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "append", 
+		  "(Z)Ljava/lang/StringBuffer;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "append", 
+		  "(F)Ljava/lang/StringBuffer;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "append", 
+		  "(I)Ljava/lang/StringBuffer;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "append", 
+		  "(J)Ljava/lang/StringBuffer;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "append", 
+		  "(D)Ljava/lang/StringBuffer;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "toString", 
+		  "()Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "<init>", "()V"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "<init>", "([C)V"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "<init>", "([CII)V"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "<init>", 
+		  "(Ljava/lang/String;)V"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "<init>", 
+		  "(Ljava/lang/StringBuffer;)V"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "length", "()I"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "replace", 
+		  "(CC)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "valueOf", 
+		  "(Z)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "valueOf", 
+		  "(B)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "valueOf", 
+		  "(S)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "valueOf", 
+		  "(C)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "valueOf", 
+		  "(D)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "valueOf", 
+		  "(F)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "valueOf", 
+		  "(I)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "valueOf", 
+		  "(J)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "valueOf", 
+		  "(Ljava/lang/Object;)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "substring", 
+		  "(I)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/String;", "substring", 
+		  "(II)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava.lang/reflect/Modifier;", "toString", 
+		  "(I)Ljava/lang/String;"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "abs", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "abs", "(F)F"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "abs", "(I)I"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "abs", "(J)J"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "acos", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "asin", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "atan", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "atan2", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "ceil", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "cos", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "exp", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "floor", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "IEEEremainder", "(DD)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "log", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "max", "(DD)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "max", "(FF)F"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "max", "(II)I"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "max", "(JJ)J"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "min", "(DD)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "min", "(FF)F"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "min", "(II)I"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "min", "(JJ)J"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "pow", "(DD)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "rint", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "round", "(D)J"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "round", "(F)I"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "sin", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "sqrt", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "tan", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "toDegrees", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "toRadians", "(D)D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "E", "D"));
+	addWhite(Reference.getReference
+		 ("Ljava/lang/Math;", "PI", "D"));
     }
-
+    
     MethodIdentifier m;
     public ConstantRuntimeEnvironment(MethodIdentifier method) {
 	m = method;
