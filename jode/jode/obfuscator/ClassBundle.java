@@ -90,6 +90,11 @@ public class ClassBundle {
     }
 
     public void storeClasses(String destination) {
+	File directory = new File(destination);
+	if (!directory.exists()) {
+	    Obfuscator.err.println("Destination directory "
+				   +directory.getPath()+" doesn't exists.");
+	}
 	basePackage.storeClasses(new File(destination));
     }
 }

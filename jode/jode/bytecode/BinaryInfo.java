@@ -43,6 +43,10 @@ public class BinaryInfo {
         return null;
     }
 
+    public AttributeInfo[] getAttributes() {
+	return attributes;
+    }
+
     protected void skipAttributes(DataInputStream input) throws IOException {
         int count = input.readUnsignedShort();
         for (int i=0; i< count; i++) {
