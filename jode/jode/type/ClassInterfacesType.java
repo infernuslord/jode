@@ -78,6 +78,10 @@ public class ClassInterfacesType extends ReferenceType {
         /* Make sure that every {java.lang.Object} equals tObject */
         if (ifaces.length == 0 && clazz == null) 
             return tObject;
+	if (ifaces.length == 0)
+	    return tClass(clazz);
+	if (ifaces.length == 1 && clazz == null)
+	    return tClass(ifaces[0]);
         return new ClassInterfacesType(clazz, ifaces);
     }
 
@@ -523,6 +527,14 @@ public class ClassInterfacesType extends ReferenceType {
             return name.toLowerCase();
         else
             return name+"_var";
+    }
+    
+    public int hashCode() {
+	int hash = clazz == null ? 0 : clazz.hashCode();
+	for (int i=0; i < ifaces.length; i++) {
+	    hash ^= ifaces[i].hashCode();
+	}
+	return hash;
     }
 
     public boolean equals(Object o) {
