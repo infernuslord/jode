@@ -42,11 +42,42 @@ public class Decompiler {
     public static void usage() {
 	err.println("Version: " + version);
         err.println("use: jode [-v][--dest <destdir>]"
-			   +"[--imm][--debug][--analyze][--flow]"
-			   +"[--type][--inout][--lvt][--check]"
-                           +"[--import <pkglimit> <clslimit>]"
+			   +"[--imm][--pretty]"
 			   +"[--cp <classpath>]"
+                           +"[--import <pkglimit> <clslimit>]"
+		           +"[--debug][--analyze][--flow]"
+			   +"[--type][--inout][--lvt][--check]"
                            +" class1 [class2 ...]");
+	err.println("\t-v               "+
+		    "show progress.");
+	err.println("\t--dest <destdir> "+
+	    "write decompiled files to disk into directory destdir.");
+	err.println("\t--imm            "+
+		    "output source immediately with wrong import.");
+	err.println("\t--pretty         "+
+		    "use `pretty' names for local variables.");
+	err.println("\t--cp <classpath> "+
+		    "search for classes in specified classpath.");
+	err.println("\t--import <pkglimit> <clslimit>");
+	err.println("\t                 "+
+	    "import classes used more than clslimit times");
+	err.println("\t                 "+
+	    "and packages with more then pkglimit used classes");
+	err.println("Debugging options, mainly used to debug this decompiler:");
+	err.println("\t--debug          "+
+		    "output some debugging messages into the source code.");
+	err.println("\t--analyze        "+
+		    "show analyzation order of flow blocks.");
+	err.println("\t--flow           "+
+		    "show flow block merging.");
+	err.println("\t--type           "+
+		    "show how types are guessed.");
+	err.println("\t--inout          "+
+		    "show T1/T2 in/out-set analysis.");
+	err.println("\t--lvt            "+
+		    "dump the local variable table.");
+	err.println("\t--check          "+
+		    "do flow block sanity checks.");
     }
 
     public static void main(String[] params) {
@@ -86,7 +117,8 @@ public class Decompiler {
                 i++;
                 break;
             } else {
-                if (!params[i].startsWith("-h"))
+                if (!params[i].startsWith("-h") &&
+		    !params[i].equals("--help"))
                     err.println("Unknown option: "+params[i]);
                 usage();
                 return;
@@ -106,13 +138,18 @@ public class Decompiler {
 		    File file = new File
 			(destDir, 
 			 params[i].replace('.', File.separatorChar)+".java");
+		    File directory = new File(file.getParent());
+		    if (!directory.exists() && !directory.mkdirs()) {
+			err.println("Could not create directory "+directory.getPath()+", "
+				    +"check permissions.");
+		    }
 		    writer = new TabbedPrintWriter
 			(new FileOutputStream(file), "    ");
 		}
 		env.doClass(params[i], writer);
 	    } catch (IOException ex) {
 		err.println("Can't write source of "+params[i]+".");
-		err.println("Make sure that all directories exist.");
+		err.println("Check the permissions.");
 		ex.printStackTrace(err);
 	    }
 	}
