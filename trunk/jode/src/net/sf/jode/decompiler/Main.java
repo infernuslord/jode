@@ -20,6 +20,7 @@
 package net.sf.jode.decompiler;
 import net.sf.jode.bytecode.ClassInfo;
 import net.sf.jode.bytecode.ClassPath;
+import net.sf.jode.bytecode.ClassFormatException;
 import net.sf.jode.GlobalOptions;
 
 import java.io.BufferedOutputStream;
@@ -172,6 +173,10 @@ public class Main extends Options {
 	    GlobalOptions.err.println
 		("Check the class path ("+classPathStr+
 		 ") and check that you use the java class name.");
+	} catch (ClassFormatException ex) {
+	    GlobalOptions.err.println
+		("Error while reading "+className+".");
+	    ex.printStackTrace(GlobalOptions.err);
 	} catch (IOException ex) {
 	    GlobalOptions.err.println
 		("Can't write source of "+className+".");

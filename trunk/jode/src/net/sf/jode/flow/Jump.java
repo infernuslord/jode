@@ -42,7 +42,7 @@ public class Jump {
     /**
      * The stack map.  This tells how many objects are on stack at
      * begin of the flow block, and to what locals they are maped.
-     * @see FlowBlock.mapStackToLocal
+     * @see FlowBlock#mapStackToLocal
      */
     VariableStack stackMap;
 

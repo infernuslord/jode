@@ -66,7 +66,7 @@ import java.util.ListIterator;
  *       
  *
  * @author Jochen Hoenicke */
-public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
+public class ConstantAnalyzer extends SimpleAnalyzer {
 
     private static ConstantRuntimeEnvironment runtime
 	= new ConstantRuntimeEnvironment();
@@ -188,7 +188,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    value = VOLATILE;
 	    for (Iterator i = listeners.iterator(); i.hasNext(); ) {
 		ConstantListener l = (ConstantListener) i.next();
-		System.err.println("  notifying: "+ l);
+// 		System.err.println("  notifying: "+ l);
 		l.constantChanged();
 	    }
 	    listeners = null;
@@ -217,130 +217,106 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
     }
 
+    /**
+     * This class handles information necessary for jsr analysis.
+     * Jsr is probably the most difficult opcode to handle, we have
+     * to keep track of changed locals, of nested jsrs, if there is
+     * a corresponding ret instruction and much more.
+     */
     private final static class JsrInfo implements Cloneable {
-	BitSet usedLocals;
 	BlockInfo jsrTarget;
 	Collection callers;
 
 	/**
-	 * The dependent entries, that want to know if the bit set changed.
-	 * This is either a StackLocalInfo (the ret info) or a single
-	 * JsrInfo or a Collection of JsrInfos.
+	 * The number of outer subroutines
 	 */
-	Object dependent;
+	int jsrDepth;
 
-	public JsrInfo(BlockInfo target) {
+	/**
+	 * The outer jsr info, or null if this is a top level jsr.
+	 */
+	JsrInfo outerJsr;
+
+	/**
+	 * The locals used in the outer subroutine, or null if this is
+	 * a top level jsr.
+	 * The locals used inside this jsr are in the BlockInfo itself.
+	 */
+	BitSet usedInOuter;
+
+	/**
+	 * The info for the ret block of this subroutine.
+	 */
+	BlockInfo retInfo;
+
+	public JsrInfo(BlockInfo target, JsrInfo outer, BitSet used) {
 	    jsrTarget = target;
+	    if (outer != null) {
+		outerJsr = outer;
+		usedInOuter = (BitSet) used.clone();
+	    }
+	    jsrDepth = (outer != null ? outer.jsrDepth + 1 : 0);
 	    callers = new ArrayList();
-	    usedLocals = new BitSet();
-	}
-
-	public JsrInfo copy() {
-	    try {
-		JsrInfo result = (JsrInfo) clone();
-		result.usedLocals = (BitSet) usedLocals.clone();
-		addDependent(result);
-		return result;
-	    } catch (CloneNotSupportedException ex) {
-		throw new IncompatibleClassChangeError(ex.getMessage());
-	    }
-	}
-
-	private void addDependent(JsrInfo result) {
-	    if (dependent == null || dependent == result)
-		dependent = result;
-	    else if (dependent instanceof JsrInfo) {
-		Set newDeps = new HashSet();
-		newDeps.add(dependent);
-		newDeps.add(result);
-	    } else if (dependent instanceof Collection) {
-		((Collection) dependent).add(result);
-	    }
-	}
-
-	public boolean uses(int localSlot) {
-	    return usedLocals.get(localSlot);
 	}
 
 	public void setRetInfo(BlockInfo retInfo) {
-	    dependent = retInfo;
+	    this.retInfo = retInfo;
 	    for (Iterator i = callers.iterator(); i.hasNext(); )
-		retInfo.mergeRetLocals(this, (BlockInfo)i.next());
+		((BlockInfo)i.next()).mergeRetLocals(this, retInfo);
 	}
 
 	public void addCaller(BlockInfo caller) {
 	    if (callers.contains(caller))
 		return;
 	    callers.add(caller);
-
-	    if (dependent instanceof BlockInfo) {
-		BlockInfo retInfo = ((BlockInfo) dependent);
-		for (Iterator i = callers.iterator(); i.hasNext(); )
-		    retInfo.mergeRetLocals(this, caller);
-	    } else if (dependent instanceof JsrInfo) {
-		((JsrInfo) dependent).addCaller(caller);
-	    } else if (dependent instanceof Collection) {
-		Iterator iter = ((Collection) dependent).iterator();
-		while (iter.hasNext()) {
-		    JsrInfo dep = (JsrInfo) iter.next();
-		    dep.addCaller(caller);
-		}		
-	    }
+	    if (retInfo != null)
+		caller.mergeRetLocals(this, retInfo);
 	}
 
-	public boolean hasRetInfo() {
-	    if (dependent instanceof BlockInfo)
-		return true;
-	    else if (dependent instanceof JsrInfo)
-		return ((JsrInfo) dependent).hasRetInfo();
-	    else if (dependent instanceof Collection) {
-		Iterator iter = ((Collection) dependent).iterator();
-		while (iter.hasNext()) {
-		    JsrInfo dep = (JsrInfo) iter.next();
-		    if (dep.hasRetInfo())
-			return true;
-		}		
+	public JsrInfo intersect(JsrInfo other, BitSet used) {
+	    int otherDepth = other != null ? other.jsrDepth : -1;
+	    JsrInfo isect = this;
+	    int myDepth = jsrDepth;
+
+	    while (otherDepth > myDepth) {
+		if (other.usedInOuter != null)
+		    used.or(other.usedInOuter);
+		other = other.outerJsr;
+		otherDepth--;
 	    }
-	    return false;
-	}
-
-	public void addUsed(int localSlot) {
-	    if (usedLocals.get(localSlot))
-		return;
-	    usedLocals.set(localSlot);
-
-	    if (dependent instanceof BlockInfo) {
-		BlockInfo retInfo = ((BlockInfo) dependent);
-		for (Iterator i = callers.iterator(); i.hasNext(); )
-		    retInfo.mergeRetLocals(this, (BlockInfo)i.next());
-	    } else if (dependent instanceof JsrInfo) {
-		((JsrInfo) dependent).addUsed(localSlot);
-	    } else if (dependent instanceof Collection) {
-		Iterator iter = ((Collection) dependent).iterator();
-		while (iter.hasNext()) {
-		    JsrInfo dep = (JsrInfo) iter.next();
-		    dep.addUsed(localSlot);
+	    while (myDepth > otherDepth) {
+		if (isect.usedInOuter != null)
+		    used.or(isect.usedInOuter);
+		isect = isect.outerJsr;
+		myDepth--;
+	    }
+	    while (isect != other) {
+		if (other.usedInOuter != null) {
+		    used.or(other.usedInOuter);
+		    used.or(isect.usedInOuter);
 		}
+		other = other.outerJsr;
+		isect = isect.outerJsr;
 	    }
+	    return isect;
 	}
 
-	public void merge(JsrInfo o) {
-	    o.addDependent(this);
-	    for (int slot = 0; slot < o.usedLocals.size(); slot++) {
-		if (o.usedLocals.get(slot))
-		    addUsed(slot);
-	    }
-	    for (Iterator i = o.callers.iterator(); i.hasNext();) {
-		addCaller((BlockInfo) i.next());
-	    }
+	public void merge(JsrInfo outer, BitSet used) {
+	    if (outerJsr != null)
+		outerJsr = outerJsr.intersect(outer, used);
+	    if (outerJsr == null)
+		usedInOuter = null;
+	    else
+		usedInOuter.or(used);
 	}
 
 	public String toString() {
-	    StringBuffer sb = new StringBuffer(String.valueOf(jsrTarget));
-	    if (dependent instanceof BlockInfo)
-		sb.append("->").append(((BlockInfo) dependent).nr);
-	    return sb.append(usedLocals)
-		.append('_').append(hashCode()).toString();
+	    StringBuffer sb = new StringBuffer(String.valueOf(jsrTarget.nr));
+	    if (retInfo != null)
+		sb.append("->").append(retInfo.nr);
+	    if (outerJsr != null)
+		sb.append("used="+usedInOuter+",outer=["+outerJsr+"]");
+	    return sb.toString();
 	}
     }
 
@@ -381,6 +357,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    locals[i] = original.locals[i].copy();
 	    }
 	    stack = new ConstValue[original.stack.length];
+	    stackDepth = original.stackDepth;
 	    for (int i=0; i< stackDepth; i++) {
 		if (original.stack[i] != null)
 		    stack[i] = original.stack[i].copy();
@@ -388,15 +365,17 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
 
 	public StackLocalInfo poppush(int pops, ConstValue push) {
-	    for (int i = pops; i>= 0; i--)
+	    for (int i = pops; i > 0; i--)
 		stack[--stackDepth] = null;
+	    if (push == null)
+	      throw new NullPointerException();
 	    stack[stackDepth] = push;
 	    stackDepth += push.stackSize;
 	    return this;
 	}
 
 	public StackLocalInfo pop(int pops) {
-	    for (int i = pops; i>= 0; i--)
+	    for (int i = pops; i > 0; i--)
 		stack[--stackDepth] = null;
 	    return this;
 	}
@@ -433,7 +412,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
 
 	public ConstValue getStack(int depth) {
-	    return stack[stack.length - depth];
+	    return stack[stackDepth - depth];
 	}
 
 	public StackLocalInfo setLocal(int slot, ConstValue value) {
@@ -468,8 +447,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
 
 	public String toString() {
-	    return "Locals: "+Arrays.asList(locals)
-		+"Stack: "+Arrays.asList(stack);
+	    return "StackLocalInfo[locals="+Arrays.asList(locals)
+		+",stack="+Arrays.asList(stack)+",stackDepth="+stackDepth+"]";
 	}
     }
 
@@ -530,10 +509,18 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	StackLocalInfo after;
 
 	/**
-	 * The JsrInfo of jsrs that must be visited to reach
-	 * this block. 
+	 * The JsrInfo of the innermost surrounding subroutine.  If
+	 * before is null, this value is null and means unknown.  If
+	 * before is not null, a value of null means no surrounding
+	 * subroutine.
 	 */
-	JsrInfo[] jsrInfos;
+	JsrInfo jsrInfo;
+
+	/**
+	 * The locals used between the jsr instruction for jsrInfo and
+	 * the end of the current block; null if jsrInfo is null.
+	 */
+	BitSet usedLocals;
 
 	public BlockInfo(int nr, Block block) {
 	    this.nr = nr;
@@ -549,36 +536,24 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
 
 	public void mergeBefore(StackLocalInfo info, 
-				JsrInfo[] newJsrInfos) {
+				JsrInfo newJsrInfo,
+				BitSet usedLocals) {
 	    if (before == null) {
-		System.err.println("mergeBefore:::"+info);
+//  		System.err.println("mergeBefore:::"+info);
 		before = new StackLocalInfo(info);
-		this.jsrInfos = new JsrInfo[newJsrInfos.length];
-		for (int i = 0; i < newJsrInfos.length; i++)
-		    jsrInfos[i] = newJsrInfos[i].copy();
+		this.jsrInfo = newJsrInfo;
+		if (usedLocals != null)
+		    this.usedLocals = (BitSet) usedLocals.clone();
 		modifiedQueue.enqueue(this);
 	    } else {
-		System.err.println("merging:::: "+before+":::AND:::"+info);
+//  		System.err.println("merging:::: "+before+":::AND:::"+info);
 		before.merge(info);
-		int newJsrCount = 0;
-		int ptr = 0;
-		for (int i = 0; i < jsrInfos.length; i++) {
-		    for (int j = ptr; j < newJsrInfos.length; j++) {
-			if (newJsrInfos[j].jsrTarget
-			    == jsrInfos[i].jsrTarget) {
-			    jsrInfos[newJsrCount] = jsrInfos[i];
-			    jsrInfos[newJsrCount].merge(newJsrInfos[j]);
-			    newJsrCount++;
-			    ptr = j+1;
-			    break;
-			}
-		    }
-		}
-		if (newJsrCount < jsrInfos.length) {
-		    JsrInfo[] newJsr = new JsrInfo[newJsrCount];
-		    System.arraycopy(jsrInfos, 0, newJsr, 0, newJsrCount);
-		    jsrInfos = newJsr;
-		}
+		if (jsrInfo != null)
+		    jsrInfo = jsrInfo.intersect(newJsrInfo, usedLocals);
+		if (jsrInfo == null)
+		    this.usedLocals = null;
+		else
+		    this.usedLocals.or(usedLocals);
 		if (constantFlow >= 0)
 		    propagateAfter();
 	    }
@@ -590,17 +565,19 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
 
 	public void useLocal(int slot) {
-	    for (int i=0; i< jsrInfos.length; i++)
-		jsrInfos[i].addUsed(slot);
+	    if (usedLocals != null)
+		usedLocals.set(slot);
 	}
 
-	public void mergeRetLocals(JsrInfo myJsrInfo, BlockInfo caller) {
+	public void mergeRetLocals(JsrInfo myJsrInfo, BlockInfo retBlock) {
 	    if (constantFlow == 0) {
 		Instruction[] instrs = block.getInstructions();
 		// remove the constantFlow info
 		constantInfos.remove(instrs[instrs.length-1]);
+		constantFlow = -1;
 	    }
-	    Block nextBlock = caller.block.getSuccs()[1];
+
+	    Block nextBlock = block.getSuccs()[1];
 	    if (nextBlock == null) {
 		/* The calling jsr is just before a return.  We don't
 		 * have to fuzz around, since nobody is interested in
@@ -610,21 +587,29 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    }
 
 	    ConstValue[] newLocals = (ConstValue[]) after.locals.clone();
+	    BitSet nextUsed = new BitSet();
 	    for (int slot = 0; slot < newLocals.length; slot++) {
-		if (!myJsrInfo.uses(slot))
-		    newLocals[slot] = caller.after.locals[slot];
-		else
-		    caller.useLocal(slot);
+		if (retBlock.usedLocals.get(slot)) {
+		    newLocals[slot] = retBlock.after.locals[slot];
+		    if (nextUsed != null)
+			nextUsed.set(slot);
+		}
 	    }
 	    StackLocalInfo nextInfo
 		= new StackLocalInfo(after.stack, newLocals, after.stackDepth);
-	    int newCount = jsrInfos.length - 1;
-	    while (jsrInfos[newCount].jsrTarget != myJsrInfo.jsrTarget)
-		newCount--;
-	    JsrInfo[] retJsrInfos = new JsrInfo[newCount];
-	    System.arraycopy(jsrInfos, 0, 
-			     retJsrInfos, 0, newCount);
-	    infos[nextBlock.getBlockNr()].mergeBefore(nextInfo, retJsrInfos);
+	    JsrInfo nextJsrInfo = null;
+	    if (usedLocals != null)
+		nextUsed.or(usedLocals);
+	    if (myJsrInfo.usedInOuter != null)
+		nextUsed.or(myJsrInfo.usedInOuter);
+	    if (jsrInfo != null)
+		nextJsrInfo = jsrInfo.intersect(myJsrInfo.outerJsr,
+						nextUsed);
+	    if (nextJsrInfo == null)
+		nextUsed = null;
+
+	    infos[nextBlock.getBlockNr()].mergeBefore(nextInfo, 
+						      nextJsrInfo, nextUsed);
 	}
 	
 	public void propagateAfter() {
@@ -692,7 +677,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    Block constantSucc = block.getSuccs()[constantFlow];
 		    if (constantSucc != null)
 			infos[constantSucc.getBlockNr()]
-			    .mergeBefore(nextInfo, jsrInfos);
+			    .mergeBefore(nextInfo, jsrInfo, usedLocals);
 		} else {
 		    constantInfos.remove(instr);
 		    for (int i=0; i < 2; i++) {
@@ -700,7 +685,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			    Block succ = block.getSuccs()[i];
 			    if (succ != null)
 				infos[succ.getBlockNr()]
-				    .mergeBefore(nextInfo, jsrInfos);
+				    .mergeBefore(nextInfo, 
+						 jsrInfo, usedLocals);
 			}
 		    }
 		    constantFlow = -1;
@@ -727,7 +713,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    Block constantSucc = block.getSuccs()[constantFlow];
 		    if (constantSucc != null)
 			infos[constantSucc.getBlockNr()]
-			    .mergeBefore(nextInfo, jsrInfos);
+			    .mergeBefore(nextInfo, jsrInfo, usedLocals);
 		} else {
 		    constantInfos.remove(instr);
 		    Block[] succs = block.getSuccs();
@@ -735,7 +721,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			if (i != constantFlow) {
 			    if (succs[i] != null) 
 				infos[succs[i].getBlockNr()]
-				    .mergeBefore(nextInfo, jsrInfos);
+				    .mergeBefore(nextInfo, jsrInfo, 
+						 usedLocals);
 			}
 		    }
 		    constantFlow = -1;
@@ -743,40 +730,51 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		break;
 	    }
 	    case opc_jsr: {
-		// XXXXXXXXXXXX System.err
-		dumpBlockInfo(GlobalOptions.err);
-		GlobalOptions.err.println(instr);
-
-		BlockInfo target = infos[block.getSuccs()[0].getBlockNr()];
-		ConstValue result = new ConstValue(target);
-		int jsrInfosCount = jsrInfos.length;
-		for (int i=0; i< jsrInfosCount; i++) {
-		    if (jsrInfos[i].jsrTarget == target) {
-			// recursive jsrs are forbidden. But maybe the jsr
-			// just terminated without a ret.
-			jsrInfosCount = i;
-		    }
-		}
-		JsrInfo[] newJsrInfos = new JsrInfo[jsrInfosCount + 1];
-		System.arraycopy(jsrInfos, 0, newJsrInfos, 0, jsrInfosCount);
-		newJsrInfos[jsrInfosCount] = new JsrInfo(target);
-		newJsrInfos[jsrInfosCount].addCaller(this);
+		/* Assume there is no ret for this jsr.  If the ret
+		 * was already found this info will be corrected
+		 * immediately by the jsrInfo.addCaller.
+		 */
 		constantFlow = 0;
 		ConstantInfo constInfo = new ConstantInfo
 		    (CONSTANTFLOW, new Integer(0));
 		constantInfos.put(instr, constInfo);
+
+
+		BlockInfo target = infos[block.getSuccs()[0].getBlockNr()];
+		ConstValue result = new ConstValue(target);
+
+		JsrInfo newJsrInfo;
+		BitSet newUsed;
+		if (target.before == null) {
+		    /* The info for this jsr target wasn't created before. */
+		    newJsrInfo = new JsrInfo(target, jsrInfo, usedLocals);
+		    newJsrInfo.addCaller(this);
+		    newUsed = new BitSet();
+		} else if (target.jsrInfo == null
+			   || target.jsrInfo.jsrTarget != target) {
+		    /* The jsr exits instantenously. */
+		    newJsrInfo = jsrInfo;
+		    newUsed = usedLocals;
+		} else {
+		    /* Normal case, merge jsr infos. */
+		    newJsrInfo = target.jsrInfo;
+		    newJsrInfo.merge(jsrInfo, usedLocals);
+		    newJsrInfo.addCaller(this);
+		    newUsed = new BitSet();
+		}
+
 		target.mergeBefore(after.copy().poppush(0, result), 
-				   newJsrInfos);
+				   newJsrInfo, newUsed);
 		break;
 	    }
 	    case opc_ret: {
 		ConstValue result = after.getLocal(instr.getLocalSlot());
 		BlockInfo jsrTarget = (BlockInfo) result.value;
-
-		int i = jsrInfos.length-1; 
-		while (jsrInfos[i].jsrTarget != jsrTarget)
-		    i--;
-		jsrInfos[i].setRetInfo(this);
+		while (jsrInfo.jsrTarget != jsrTarget) {
+		    usedLocals.or(jsrInfo.usedInOuter);
+		    jsrInfo = jsrInfo.outerJsr;
+		}
+		jsrInfo.setRetInfo(this);
 		break;
 	    }
 	    case opc_ireturn: case opc_lreturn: 
@@ -787,15 +785,655 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    default: {
 		Block succ = block.getSuccs()[0];
 		if (succ != null)
-		    infos[succ.getBlockNr()].mergeBefore(after, jsrInfos);
+		    infos[succ.getBlockNr()].mergeBefore
+			(after, jsrInfo, usedLocals);
 	    }
 	    }
 	}
+
+	StackLocalInfo handleOpcode(Instruction instr, StackLocalInfo info) {
+	    constantInfos.remove(instr);
+	    int opcode = instr.getOpcode();
+	    ConstValue result;
+	    switch (opcode) {
+	    case opc_nop:
+		return info.pop(0);
+
+	    case opc_ldc:
+	    case opc_ldc2_w:
+		result = new ConstValue(instr.getConstant());
+		return info.poppush(0, result);
+
+	    case opc_iload: case opc_lload: 
+	    case opc_fload: case opc_dload: case opc_aload:
+		result = info.getLocal(instr.getLocalSlot());
+		if (result.value != ConstValue.VOLATILE) {
+		    ConstantInfo constInfo
+			= new ConstantInfo(CONSTANT, result.value);
+		    result.addConstantListener(constInfo);
+		    constantInfos.put(instr, constInfo);
+		}
+		return info.poppush(0, result)
+		    .setLocal(instr.getLocalSlot(), result);
+	    case opc_iaload: case opc_laload: 
+	    case opc_faload: case opc_daload: case opc_aaload:
+	    case opc_baload: case opc_caload: case opc_saload: {
+		result = unknownValue[(opcode == opc_laload
+				       || opcode == opc_daload) ? 1 : 0];
+		return info.poppush(2, result);
+	    }
+	    case opc_istore: case opc_fstore: case opc_astore: {
+		int slot = instr.getLocalSlot();
+		useLocal(slot);
+		result = info.getStack(1);
+		return info.pop(1).setLocal(slot, result);
+	    }
+	    case opc_lstore: case opc_dstore: {
+		int slot = instr.getLocalSlot();
+		useLocal(slot);
+		useLocal(slot + 1);
+		result = info.getStack(2);
+		return info.pop(2).setLocal(slot, result);
+	    }
+	    case opc_iastore: case opc_lastore:
+	    case opc_fastore: case opc_dastore: case opc_aastore:
+	    case opc_bastore: case opc_castore: case opc_sastore: {
+		int size = (opcode == opc_lastore
+			    || opcode == opc_dastore) ? 2 : 1;
+		return info.pop(2+size);
+	    }
+	    case opc_pop: 
+		return info.pop(1);
+	    case opc_pop2:
+		return info.pop(2);
+
+	    case opc_dup: case opc_dup_x1: case opc_dup_x2:
+	    case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
+		return info.dup((opcode - (opc_dup - 3)) / 3,
+				(opcode - (opc_dup - 3)) % 3);
+	    case opc_swap:
+		return info.swap();
+
+	    case opc_iadd: case opc_ladd: case opc_fadd: case opc_dadd:
+	    case opc_isub: case opc_lsub: case opc_fsub: case opc_dsub:
+	    case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
+	    case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
+	    case opc_irem: case opc_lrem: case opc_frem: case opc_drem:
+	    case opc_iand: case opc_land:
+	    case opc_ior : case opc_lor :
+	    case opc_ixor: case opc_lxor: {
+		int size = 1 + (opcode - opc_iadd & 1);
+		ConstValue value1 = info.getStack(2*size);
+		ConstValue value2 = info.getStack(1*size);
+		boolean known = value1.value != ConstValue.VOLATILE
+		    && value2.value != ConstValue.VOLATILE;
+		if (known) {
+		    if (((opcode == opc_idiv || opcode == opc_irem)
+			 && ((Integer)value2.value).intValue() == 0)
+			|| ((opcode == opc_ldiv || opcode == opc_lrem)
+			    && ((Long)value2.value).longValue() == 0))
+			known = false;
+		}
+		if (known) {
+		    Object newValue;
+		    switch (opcode) {
+		    case opc_iadd: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     + ((Integer)value2.value).intValue());
+			break;
+		    case opc_isub: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     - ((Integer)value2.value).intValue());
+			break;
+		    case opc_imul: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     * ((Integer)value2.value).intValue());
+			break;
+		    case opc_idiv: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     / ((Integer)value2.value).intValue());
+			break;
+		    case opc_irem: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     % ((Integer)value2.value).intValue());
+			break;
+		    case opc_iand: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     & ((Integer)value2.value).intValue());
+			break;
+		    case opc_ior: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     | ((Integer)value2.value).intValue());
+			break;
+		    case opc_ixor: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     ^ ((Integer)value2.value).intValue());
+			break;
+		    
+		    case opc_ladd: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     + ((Long)value2.value).longValue());
+			break;
+		    case opc_lsub: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     - ((Long)value2.value).longValue());
+			break;
+		    case opc_lmul: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     * ((Long)value2.value).longValue());
+			break;
+		    case opc_ldiv: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     / ((Long)value2.value).longValue());
+			break;
+		    case opc_lrem: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     % ((Long)value2.value).longValue());
+			break;
+		    case opc_land: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     & ((Long)value2.value).longValue());
+			break;
+		    case opc_lor: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     | ((Long)value2.value).longValue());
+			break;
+		    case opc_lxor: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     ^ ((Long)value2.value).longValue());
+			break;
+		    
+		    case opc_fadd: 
+			newValue = new Float
+			    (((Float)value1.value).floatValue()
+			     + ((Float)value2.value).floatValue());
+			break;
+		    case opc_fsub: 
+			newValue = new Float
+			    (((Float)value1.value).floatValue()
+			     - ((Float)value2.value).floatValue());
+			break;
+		    case opc_fmul: 
+			newValue = new Float
+			    (((Float)value1.value).floatValue()
+			     * ((Float)value2.value).floatValue());
+			break;
+		    case opc_fdiv: 
+			newValue = new Float
+			    (((Float)value1.value).floatValue()
+			     / ((Float)value2.value).floatValue());
+			break;
+		    case opc_frem: 
+			newValue = new Float
+			    (((Float)value1.value).floatValue()
+			     % ((Float)value2.value).floatValue());
+			break;
+		    
+		    case opc_dadd: 
+			newValue = new Double
+			    (((Double)value1.value).doubleValue()
+			     + ((Double)value2.value).doubleValue());
+			break;
+		    case opc_dsub: 
+			newValue = new Double
+			    (((Double)value1.value).doubleValue()
+			     - ((Double)value2.value).doubleValue());
+			break;
+		    case opc_dmul: 
+			newValue = new Double
+			    (((Double)value1.value).doubleValue()
+			     * ((Double)value2.value).doubleValue());
+			break;
+		    case opc_ddiv: 
+			newValue = new Double
+			    (((Double)value1.value).doubleValue()
+			     / ((Double)value2.value).doubleValue());
+			break;
+		    case opc_drem: 
+			newValue = new Double
+			    (((Double)value1.value).doubleValue()
+			     % ((Double)value2.value).doubleValue());
+			break;
+		    default:
+			throw new InternalError("Can't happen.");
+		    }
+		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, newValue);
+		    constantInfos.put(instr, constInfo);
+		    result = new ConstValue(newValue);
+		    result.addConstantListener(constInfo);
+		    value1.addConstantListener(result);
+		    value2.addConstantListener(result);
+		} else 
+		    result = unknownValue[size-1];
+		return info.poppush(2*size, result);
+	    }
+	    case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg: {
+		int size = 1 + (opcode - opc_ineg & 1);
+		ConstValue value = info.getStack(size);
+		if (value.value != ConstValue.VOLATILE) {
+		    Object newValue;
+		    switch (opcode) {
+		    case opc_ineg: 
+			newValue = new Integer
+			    (-((Integer)value.value).intValue());
+			break;
+		    case opc_lneg: 
+			newValue = new Long
+			    (- ((Long)value.value).longValue());
+			break;
+		    case opc_fneg: 
+			newValue = new Float
+			    (- ((Float)value.value).floatValue());
+			break;
+		    case opc_dneg: 
+			newValue = new Double
+			    (- ((Double)value.value).doubleValue());
+			break;
+		    default:
+			throw new InternalError("Can't happen.");
+		    }
+		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, newValue);
+		    constantInfos.put(instr, constInfo);
+		    result = new ConstValue(newValue);
+		    result.addConstantListener(constInfo);
+		    value.addConstantListener(result);
+		} else 
+		    result = unknownValue[size-1];
+		return info.poppush(size, result);
+	    }
+	    case opc_ishl: case opc_lshl:
+	    case opc_ishr: case opc_lshr:
+	    case opc_iushr: case opc_lushr: {
+		int size = 1 + (opcode - opc_iadd & 1);
+		ConstValue value1 = info.getStack(size+1);
+		ConstValue value2 = info.getStack(1);
+		if (value1.value != ConstValue.VOLATILE
+		    && value2.value != ConstValue.VOLATILE) {
+		    Object newValue;
+		    switch (opcode) {
+		    case opc_ishl: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     << ((Integer)value2.value).intValue());
+			break;
+		    case opc_ishr: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     >> ((Integer)value2.value).intValue());
+			break;
+		    case opc_iushr: 
+			newValue = new Integer
+			    (((Integer)value1.value).intValue()
+			     >>> ((Integer)value2.value).intValue());
+			break;
+
+		    case opc_lshl: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     << ((Integer)value2.value).intValue());
+			break;
+		    case opc_lshr: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     >> ((Integer)value2.value).intValue());
+			break;
+		    case opc_lushr: 
+			newValue = new Long
+			    (((Long)value1.value).longValue()
+			     >>> ((Integer)value2.value).intValue());
+			break;
+		    default:
+			throw new InternalError("Can't happen.");
+		    }
+		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, newValue);
+		    constantInfos.put(instr, constInfo);
+		    result = new ConstValue(newValue);
+		    result.addConstantListener(constInfo);
+		    value1.addConstantListener(result);
+		    value2.addConstantListener(result);
+		} else 
+		    result = unknownValue[size-1];
+		return info.poppush(size+1, result);
+	    }
+	    case opc_iinc: {
+		int slot = instr.getLocalSlot();
+		useLocal(slot);
+		ConstValue local = info.getLocal(slot);
+		if (local.value != ConstValue.VOLATILE) {
+		    result = new ConstValue
+			(new Integer(((Integer)local.value).intValue()
+				     + instr.getIncrement()));
+		    local.addConstantListener(result);
+		} else 
+		    result = unknownValue[0];
+		return info.setLocal(instr.getLocalSlot(), result);
+	    }
+	    case opc_i2l: case opc_i2f: case opc_i2d:
+	    case opc_l2i: case opc_l2f: case opc_l2d:
+	    case opc_f2i: case opc_f2l: case opc_f2d:
+	    case opc_d2i: case opc_d2l: case opc_d2f: {
+		int insize = 1 + ((opcode - opc_i2l) / 3 & 1);
+		ConstValue stack = info.getStack(insize);
+		if (stack.value != ConstValue.VOLATILE) {
+		    Object newVal;
+		    switch(opcode) {
+		    case opc_l2i: case opc_f2i: case opc_d2i: 
+			newVal = new Integer(((Number)stack.value).intValue());
+			break;
+		    case opc_i2l: case opc_f2l: case opc_d2l: 
+			newVal = new Long(((Number)stack.value).longValue());
+			break;
+		    case opc_i2f: case opc_l2f: case opc_d2f:
+			newVal = new Float(((Number)stack.value).floatValue());
+			break;
+		    case opc_i2d: case opc_l2d: case opc_f2d:
+			newVal = new Double(((Number)stack.value).doubleValue());
+			break;
+		    default:
+			throw new InternalError("Can't happen.");
+		    }
+		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
+		    constantInfos.put(instr, constInfo);
+		    result = new ConstValue(newVal);
+		    result.addConstantListener(constInfo);
+		    stack.addConstantListener(result);
+		} else {
+		    switch (opcode) {
+		    case opc_i2l: case opc_f2l: case opc_d2l:
+		    case opc_i2d: case opc_l2d: case opc_f2d:
+			result = unknownValue[1];
+			break;
+		    default:
+			result = unknownValue[0];
+		    }
+		}
+		return info.poppush(insize, result);
+	    }
+	    case opc_i2b: case opc_i2c: case opc_i2s: {
+		ConstValue stack = info.getStack(1);
+		if (stack.value != ConstValue.VOLATILE) {
+		    int val = ((Integer)stack.value).intValue();
+		    switch(opcode) {
+		    case opc_i2b:
+			val = (byte) val;
+			break;
+		    case opc_i2c: 
+			val = (char) val;
+			break;
+		    case opc_i2s:
+			val = (short) val;
+			break;
+		    }
+		    Integer newVal = new Integer(val);
+		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
+		    constantInfos.put(instr, constInfo);
+		    result = new ConstValue(newVal);
+		    stack.addConstantListener(constInfo);
+		    stack.addConstantListener(result);
+		} else
+		    result = unknownValue[0];
+		return info.poppush(1, result);
+	    }
+	    case opc_lcmp: {
+		ConstValue val1 = info.getStack(4);
+		ConstValue val2 = info.getStack(2);
+		if (val1.value != ConstValue.VOLATILE
+		    && val2.value != ConstValue.VOLATILE) {
+		    long value1 = ((Long) val1.value).longValue();
+		    long value2 = ((Long) val1.value).longValue();
+		    Integer newVal = new Integer(value1 == value2 ? 0
+						 : value1 < value2 ? -1 : 1);
+		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
+		    constantInfos.put(instr, constInfo);
+		    result = new ConstValue(newVal);
+		    result.addConstantListener(constInfo);
+		    val1.addConstantListener(result);
+		    val2.addConstantListener(result);
+		} else
+		    result = unknownValue[0];
+		return info.poppush(4, result);
+	    }
+	    case opc_fcmpl: case opc_fcmpg: {
+		ConstValue val1 = info.getStack(2);
+		ConstValue val2 = info.getStack(1);
+		if (val1.value != ConstValue.VOLATILE
+		    && val2.value != ConstValue.VOLATILE) {
+		    float value1 = ((Float) val1.value).floatValue();
+		    float value2 = ((Float) val1.value).floatValue();
+		    Integer newVal = new Integer
+			(value1 == value2 ? 0
+			 : ( opcode == opc_fcmpg
+			     ? (value1 < value2 ? -1 :  1)
+			     : (value1 > value2 ?  1 : -1)));
+		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
+		    constantInfos.put(instr, constInfo);
+		    result = new ConstValue(newVal);
+		    result.addConstantListener(constInfo);
+		    val1.addConstantListener(result);
+		    val2.addConstantListener(result);
+		} else
+		    result = unknownValue[0];
+		return info.poppush(2, result);
+	    }
+	    case opc_dcmpl: case opc_dcmpg: {
+		ConstValue val1 = info.getStack(4);
+		ConstValue val2 = info.getStack(2);
+		if (val1.value != ConstValue.VOLATILE
+		    && val2.value != ConstValue.VOLATILE) {
+		    double value1 = ((Double) val1.value).doubleValue();
+		    double value2 = ((Double) val1.value).doubleValue();
+		    Integer newVal = new Integer
+			(value1 == value2 ? 0
+			 : ( opcode == opc_dcmpg
+			     ? (value1 < value2 ? -1 :  1)
+			     : (value1 > value2 ?  1 : -1)));
+		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
+		    constantInfos.put(instr, constInfo);
+		    result = new ConstValue(newVal);
+		    result.addConstantListener(constInfo);
+		    val1.addConstantListener(result);
+		    val2.addConstantListener(result);
+		} else
+		    result = unknownValue[0];
+		return info.poppush(4, result);
+	    }
+	    case opc_ifeq: case opc_ifne: 
+	    case opc_iflt: case opc_ifge: 
+	    case opc_ifgt: case opc_ifle:
+	    case opc_if_icmpeq: case opc_if_icmpne:
+	    case opc_if_icmplt: case opc_if_icmpge: 
+	    case opc_if_icmpgt: case opc_if_icmple: 
+	    case opc_if_acmpeq: case opc_if_acmpne:
+	    case opc_ifnull: case opc_ifnonnull:
+	    case opc_lookupswitch:
+	    case opc_ireturn: case opc_lreturn: 
+	    case opc_freturn: case opc_dreturn: case opc_areturn:
+	    case opc_athrow:
+	    case opc_jsr:
+	    case opc_ret:
+	    case opc_goto:
+	    case opc_return:
+		return info;
+
+	    case opc_putstatic:
+	    case opc_putfield: {
+		final FieldIdentifier fi
+		    = (FieldIdentifier) canonizeReference(instr);
+		Reference ref = instr.getReference();
+		int size = TypeSignature.getTypeSize(ref.getType());
+		if (fi != null && !fi.isNotConstant()) {
+		    ConstValue stacktop = info.getStack(size);
+		    Object fieldVal = fi.getConstant();
+		    if (fieldVal == null)
+			fieldVal = TypeSignature.getDefaultValue(ref.getType());
+		    if (stacktop.value == null ? fieldVal == null
+			: stacktop.value.equals(fieldVal)) {
+			stacktop.addConstantListener(new ConstantListener() {
+				public void constantChanged() {
+				    fieldNotConstant(fi);
+				}
+			    });
+		    } else {
+			fieldNotConstant(fi);
+		    }
+		}
+		size += (opcode == opc_putstatic) ? 0 : 1;
+		return info.pop(size);
+	    }
+	    case opc_getstatic:
+	    case opc_getfield: {
+		int size = (opcode == opc_getstatic) ? 0 : 1;
+		FieldIdentifier fi = (FieldIdentifier) canonizeReference(instr);
+		Reference ref = instr.getReference();
+		int typesize = TypeSignature.getTypeSize(ref.getType());
+		if (fi != null) {
+		    if (fi.isNotConstant()) {
+			fi.setReachable();
+			result = unknownValue[typesize - 1];
+		    } else {
+			Object obj = fi.getConstant();
+			if (obj == null)
+			    obj = TypeSignature.getDefaultValue(ref.getType());
+			ConstantInfo constInfo = new ConstantInfo(CONSTANT, obj);
+			constantInfos.put(instr, constInfo);
+			result = new ConstValue(obj);
+			fi.addFieldListener(methodIdent);
+			ConstValue prev = (ConstValue) fieldDependencies.get(fi);
+			if (prev != null)
+			    prev.addConstantListener(result);
+			else
+			    fieldDependencies.put(fi, result);
+		    }
+		} else
+		    result = unknownValue[typesize - 1];
+		return info.poppush(size, result);
+	    }
+	    case opc_invokespecial:
+	    case opc_invokestatic:
+	    case opc_invokeinterface:
+	    case opc_invokevirtual: {
+		canonizeReference(instr);
+		Reference ref = instr.getReference();
+		boolean constant = true;
+		int size = 0;
+		Object   cls = null;
+		String[] paramTypes 
+		    = TypeSignature.getParameterTypes(ref.getType());
+		Object[] args = new Object[paramTypes.length];
+		ConstValue clsValue = null;
+		ConstValue[] argValues = new ConstValue[paramTypes.length];
+
+		for (int i = paramTypes.length - 1; i >= 0; i--) {
+		    size += TypeSignature.getTypeSize(paramTypes[i]);
+		    Object value = (argValues[i] = info.getStack(size)).value;
+		    if (value != ConstValue.VOLATILE)
+			args[i] = value;
+		    else
+			constant = false;
+		}
 	    
+		if (opcode != opc_invokestatic) {
+		    size++;
+		    clsValue = info.getStack(size);
+		    cls = clsValue.value;
+		    if (cls == ConstValue.VOLATILE || cls == null)
+			constant = false;
+		}
+		String retType = TypeSignature.getReturnType(ref.getType());
+		if (retType.equals("V")) {
+		    handleReference(ref, opcode == opc_invokevirtual 
+				    || opcode == opc_invokeinterface);
+		    return info.pop(size);
+		}
+		if (constant && !runtime.isWhite(retType)) {
+		    /* This is not a valid constant type */
+		    constant = false;
+		}
+		Object methodResult = null;
+		if (constant) {
+		    try {
+			methodResult = runtime.invokeMethod
+			    (ref, opcode != opc_invokespecial, cls, args);
+		    } catch (InterpreterException ex) {
+			constant = false;
+			if (net.sf.jode.GlobalOptions.verboseLevel > 3)
+			    GlobalOptions.err.println("Can't interpret "+ref+": "
+						      + ex.getMessage());
+			/* result is not constant */
+		    } catch (InvocationTargetException ex) {
+			constant = false;
+			if (net.sf.jode.GlobalOptions.verboseLevel > 3)
+			    GlobalOptions.err.println("Method "+ref
+						      +" throwed exception: "
+						      + ex.getTargetException());
+			/* method always throws exception ? */
+		    }
+		}
+		ConstValue returnVal;
+		if (!constant) {
+		    handleReference(ref, opcode == opc_invokevirtual 
+				    || opcode == opc_invokeinterface);
+		    int retsize = TypeSignature.getTypeSize(retType);
+		    returnVal = unknownValue[retsize - 1];
+		} else {
+		    ConstantInfo constInfo = 
+			new ConstantInfo(CONSTANT, methodResult);
+		    constantInfos.put(instr, constInfo);
+		    returnVal = new ConstValue(methodResult);
+		    returnVal.addConstantListener(constInfo);
+		    if (clsValue != null)
+			clsValue.addConstantListener(returnVal);
+		    for (int i=0; i< argValues.length; i++)
+			argValues[i].addConstantListener(returnVal);
+		}
+		return info.poppush(size, returnVal);
+	    }
+
+	    case opc_new: {
+		handleClass(instr.getClazzType());
+		return info.poppush(0, unknownValue[0]);
+	    }
+	    case opc_arraylength: {
+		return info.poppush(1, unknownValue[0]);
+	    }
+	    case opc_checkcast: {
+		handleClass(instr.getClazzType());
+		return info.pop(0);
+	    }
+	    case opc_instanceof: {
+		handleClass(instr.getClazzType());
+		return info.poppush(1, unknownValue[0]);
+	    }
+	    case opc_monitorenter:
+	    case opc_monitorexit:
+		return info.pop(1);
+	    case opc_multianewarray:
+		handleClass(instr.getClazzType());
+		return info.poppush(instr.getDimensions(), unknownValue[0]);
+	    default:
+		throw new IllegalArgumentException("Invalid opcode "+opcode);
+	    }
+	}
+
 	public void analyze() {
-	    System.err.println("analyze:");
 	    StackLocalInfo info = before.copy();
-	    Handler[] handlers = block.getCatchers();
+	    Handler[] handlers = block.getHandlers();
 
 	    if (handlers.length > 0) {
 		ConstValue[] newStack = new ConstValue[info.stack.length];
@@ -809,14 +1447,14 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			    (handlers[i].getType());
 		    
 		    infos[handlers[i].getCatcher().getBlockNr()]
-			.mergeBefore(catchInfo, jsrInfos);
+			.mergeBefore(catchInfo, jsrInfo, usedLocals);
 		}
 	    }
 	    
 	    Instruction[] instrs = block.getInstructions();
 	    for (int idx = 0 ; idx < instrs.length; idx++) {
 		Instruction instr = instrs[idx];
-		info = handleOpcode(instr, info, this);
+		info = handleOpcode(instr, info);
 		if (instr.isStore() && handlers.length > 0) {
 		    int slot = instr.getLocalSlot();
 		    ConstValue newValue = info.locals[slot];
@@ -830,12 +1468,15 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		}
 	    }
 	    after = info;
-	    dumpInfo(GlobalOptions.err);
 	    propagateAfter();
 	}
 
 	public void dumpInfo(PrintWriter output) {
 	    output.println("/-["+nr+"]-"+before);
+	    if (constantFlow >= 0)
+		output.println("| constantFlow: "+constantFlow);
+	    if (jsrInfo != null)
+		output.println("| used: "+usedLocals+" JSR: "+jsrInfo);
 	    block.dumpCode(output);
 	    output.println("\\-["+nr+"]-"+after);
 	}
@@ -881,74 +1522,6 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	fi.setNotConstant();
     }
     
-    private ClassInfo canonizeIfaceRef(ClassInfo clazz, Reference ref) {
-	while (clazz != null) {
-	    if (clazz.findMethod(ref.getName(), ref.getType()) != null)
-		return clazz;
-	    ClassInfo[] ifaces = clazz.getInterfaces();
-	    for (int i = 0; i < ifaces.length; i++) {
-		ClassInfo realClass = canonizeIfaceRef(ifaces[i], ref);
-		if (realClass != null)
-		    return realClass;
-	    }
-	    clazz = clazz.getSuperclass();
-	}
-	return null;
-    }
-
-    private Identifier canonizeReference(Instruction instr) {
-	Reference ref = instr.getReference();
-	Identifier ident = Main.getClassBundle().getIdentifier(ref);
-	String clName = ref.getClazz();
-	String realClazzName;
-	if (ident != null) {
-	    ClassIdentifier clazz = (ClassIdentifier)ident.getParent();
-	    realClazzName = "L" + (clazz.getFullName()
-				   .replace('.', '/')) + ";";
-	} else {
-	    /* We have to look at the ClassInfo's instead, to
-	     * point to the right method.
-	     */
-	    ClassInfo clazz;
-	    if (clName.charAt(0) == '[') {
-		/* Arrays don't define new methods (well clone(),
-		 * but that can be ignored).
-		 */
-		clazz = ClassInfo.forName("java.lang.Object");
-	    } else {
-		clazz = ClassInfo.forName
-		    (clName.substring(1, clName.length()-1)
-		     .replace('/','.'));
-	    }
-	    if (instr.getOpcode() == opc_invokeinterface) {
-		clazz = canonizeIfaceRef(clazz, ref);
-	    } else if (instr.getOpcode() >= opc_invokevirtual) {
-		while (clazz != null
-		       && clazz.findMethod(ref.getName(), 
-					   ref.getType()) == null)
-		    clazz = clazz.getSuperclass();
-	    } else {
-		while (clazz != null
-		       && clazz.findField(ref.getName(), 
-					  ref.getType()) == null)
-		    clazz = clazz.getSuperclass();
-	    }
-
-	    if (clazz == null) {
-		GlobalOptions.err.println("WARNING: Can't find reference: "
-					  +ref);
-		realClazzName = clName;
-	    } else
-		realClazzName = "L" + clazz.getName().replace('.', '/') + ";";
-	}
-	if (!realClazzName.equals(ref.getClazz())) {
-	    ref = Reference.getReference(realClazzName, 
-					 ref.getName(), ref.getType());
-	    instr.setReference(ref);
-	}
-	return ident;
-    }
-
     void handleReference(Reference ref, boolean isVirtual) {
 	Main.getClassBundle().reachableReference(ref, isVirtual);
     }
@@ -963,644 +1536,6 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
     }
 
-    StackLocalInfo handleOpcode(Instruction instr, 
-				StackLocalInfo info, BlockInfo block) {
-	constantInfos.remove(instr);
-	int opcode = instr.getOpcode();
-	ConstValue result;
-	switch (opcode) {
-        case opc_nop:
-	    return info.pop(0);
-
-        case opc_ldc:
-        case opc_ldc2_w:
-	    result = new ConstValue(instr.getConstant());
-	    return info.poppush(0, result);
-
-        case opc_iload: case opc_lload: 
-        case opc_fload: case opc_dload: case opc_aload:
-	    result = info.getLocal(instr.getLocalSlot());
-	    if (result.value != ConstValue.VOLATILE) {
-		ConstantInfo constInfo
-		    = new ConstantInfo(CONSTANT, result.value);
-		result.addConstantListener(constInfo);
-		constantInfos.put(instr, constInfo);
-	    }
-	    return info.poppush(0, result)
-		.setLocal(instr.getLocalSlot(), result);
-        case opc_iaload: case opc_laload: 
-        case opc_faload: case opc_daload: case opc_aaload:
-        case opc_baload: case opc_caload: case opc_saload: {
-	    result = unknownValue[(opcode == opc_laload
-				   || opcode == opc_daload) ? 1 : 0];
-	    return info.poppush(2, result);
-	}
-        case opc_istore: case opc_fstore: case opc_astore: {
-	    int slot = instr.getLocalSlot();
-	    block.useLocal(slot);
-	    return info.pop(1).setLocal(slot, info.getStack(1));
-	}
-	case opc_lstore: case opc_dstore: {
-	    int slot = instr.getLocalSlot();
-	    block.useLocal(slot);
-	    block.useLocal(slot + 1);
-	    return info.pop(2).setLocal(slot, info.getStack(2));
-	}
-        case opc_iastore: case opc_lastore:
-        case opc_fastore: case opc_dastore: case opc_aastore:
-        case opc_bastore: case opc_castore: case opc_sastore: {
-	    int size = (opcode == opc_lastore
-			|| opcode == opc_dastore) ? 2 : 1;
-	    return info.pop(2+size);
-	}
-        case opc_pop: 
-	    return info.pop(1);
-	case opc_pop2:
-	    return info.pop(2);
-
-	case opc_dup: case opc_dup_x1: case opc_dup_x2:
-        case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
-	    return info.dup((opcode - (opc_dup - 3)) / 3,
-			    (opcode - (opc_dup - 3)) % 3);
-        case opc_swap:
-	    return info.swap();
-
-        case opc_iadd: case opc_ladd: case opc_fadd: case opc_dadd:
-        case opc_isub: case opc_lsub: case opc_fsub: case opc_dsub:
-        case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
-        case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
-        case opc_irem: case opc_lrem: case opc_frem: case opc_drem:
-        case opc_iand: case opc_land:
-        case opc_ior : case opc_lor :
-        case opc_ixor: case opc_lxor: {
-	    int size = 1 + (opcode - opc_iadd & 1);
-	    ConstValue value1 = info.getStack(2*size);
-	    ConstValue value2 = info.getStack(1*size);
-	    boolean known = value1.value != ConstValue.VOLATILE
-		&& value2.value != ConstValue.VOLATILE;
-	    if (known) {
-		if (((opcode == opc_idiv || opcode == opc_irem)
-		     && ((Integer)value2.value).intValue() == 0)
-		    || ((opcode == opc_ldiv || opcode == opc_lrem)
-			&& ((Long)value2.value).longValue() == 0))
-		    known = false;
-	    }
-	    if (known) {
-		Object newValue;
-		switch (opcode) {
-		case opc_iadd: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 + ((Integer)value2.value).intValue());
-		    break;
-		case opc_isub: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 - ((Integer)value2.value).intValue());
-		    break;
-		case opc_imul: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 * ((Integer)value2.value).intValue());
-		    break;
-		case opc_idiv: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 / ((Integer)value2.value).intValue());
-		    break;
-		case opc_irem: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 % ((Integer)value2.value).intValue());
-		    break;
-		case opc_iand: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 & ((Integer)value2.value).intValue());
-		    break;
-		case opc_ior: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 | ((Integer)value2.value).intValue());
-		    break;
-		case opc_ixor: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 ^ ((Integer)value2.value).intValue());
-		    break;
-		    
-		case opc_ladd: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 + ((Long)value2.value).longValue());
-		    break;
-		case opc_lsub: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 - ((Long)value2.value).longValue());
-		    break;
-		case opc_lmul: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 * ((Long)value2.value).longValue());
-		    break;
-		case opc_ldiv: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 / ((Long)value2.value).longValue());
-		    break;
-		case opc_lrem: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 % ((Long)value2.value).longValue());
-		    break;
-		case opc_land: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 & ((Long)value2.value).longValue());
-		    break;
-		case opc_lor: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 | ((Long)value2.value).longValue());
-		    break;
-		case opc_lxor: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 ^ ((Long)value2.value).longValue());
-		    break;
-		    
-		case opc_fadd: 
-		    newValue = new Float
-			(((Float)value1.value).floatValue()
-			 + ((Float)value2.value).floatValue());
-		    break;
-		case opc_fsub: 
-		    newValue = new Float
-			(((Float)value1.value).floatValue()
-			 - ((Float)value2.value).floatValue());
-		    break;
-		case opc_fmul: 
-		    newValue = new Float
-			(((Float)value1.value).floatValue()
-			 * ((Float)value2.value).floatValue());
-		    break;
-		case opc_fdiv: 
-		    newValue = new Float
-			(((Float)value1.value).floatValue()
-			 / ((Float)value2.value).floatValue());
-		    break;
-		case opc_frem: 
-		    newValue = new Float
-			(((Float)value1.value).floatValue()
-			 % ((Float)value2.value).floatValue());
-		    break;
-		    
-		case opc_dadd: 
-		    newValue = new Double
-			(((Double)value1.value).doubleValue()
-			 + ((Double)value2.value).doubleValue());
-		    break;
-		case opc_dsub: 
-		    newValue = new Double
-			(((Double)value1.value).doubleValue()
-			 - ((Double)value2.value).doubleValue());
-		    break;
-		case opc_dmul: 
-		    newValue = new Double
-			(((Double)value1.value).doubleValue()
-			 * ((Double)value2.value).doubleValue());
-		    break;
-		case opc_ddiv: 
-		    newValue = new Double
-			(((Double)value1.value).doubleValue()
-			 / ((Double)value2.value).doubleValue());
-		    break;
-		case opc_drem: 
-		    newValue = new Double
-			(((Double)value1.value).doubleValue()
-			 % ((Double)value2.value).doubleValue());
-		    break;
-		default:
-		    throw new InternalError("Can't happen.");
-		}
-		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newValue);
-		constantInfos.put(instr, constInfo);
-		result = new ConstValue(newValue);
-		result.addConstantListener(constInfo);
-		value1.addConstantListener(result);
-		value2.addConstantListener(result);
-	    } else 
-		result = unknownValue[size-1];
-	    return info.poppush(2*size, result);
-	}
-        case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg: {
-	    int size = 1 + (opcode - opc_ineg & 1);
-	    ConstValue value = info.getStack(size);
-	    if (value.value != ConstValue.VOLATILE) {
-		Object newValue;
-		switch (opcode) {
-		case opc_ineg: 
-		    newValue = new Integer
-			(-((Integer)value.value).intValue());
-		    break;
-		case opc_lneg: 
-		    newValue = new Long
-			(- ((Long)value.value).longValue());
-		    break;
-		case opc_fneg: 
-		    newValue = new Float
-			(- ((Float)value.value).floatValue());
-		    break;
-		case opc_dneg: 
-		    newValue = new Double
-			(- ((Double)value.value).doubleValue());
-		    break;
-		default:
-		    throw new InternalError("Can't happen.");
-		}
-		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newValue);
-		constantInfos.put(instr, constInfo);
-		result = new ConstValue(newValue);
-		result.addConstantListener(constInfo);
-		value.addConstantListener(result);
-	    } else 
-		result = unknownValue[size-1];
-	    return info.poppush(size, result);
-	}
-        case opc_ishl: case opc_lshl:
-        case opc_ishr: case opc_lshr:
-        case opc_iushr: case opc_lushr: {
-	    int size = 1 + (opcode - opc_iadd & 1);
-	    ConstValue value1 = info.getStack(size+1);
-	    ConstValue value2 = info.getStack(1);
-	    if (value1.value != ConstValue.VOLATILE
-		&& value2.value != ConstValue.VOLATILE) {
-		Object newValue;
-		switch (opcode) {
-		case opc_ishl: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 << ((Integer)value2.value).intValue());
-		    break;
-		case opc_ishr: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 >> ((Integer)value2.value).intValue());
-		    break;
-		case opc_iushr: 
-		    newValue = new Integer
-			(((Integer)value1.value).intValue()
-			 >>> ((Integer)value2.value).intValue());
-		    break;
-
-		case opc_lshl: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 << ((Integer)value2.value).intValue());
-		    break;
-		case opc_lshr: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 >> ((Integer)value2.value).intValue());
-		    break;
-		case opc_lushr: 
-		    newValue = new Long
-			(((Long)value1.value).longValue()
-			 >>> ((Integer)value2.value).intValue());
-		    break;
-		default:
-		    throw new InternalError("Can't happen.");
-		}
-		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newValue);
-		constantInfos.put(instr, constInfo);
-		result = new ConstValue(newValue);
-		result.addConstantListener(constInfo);
-		value1.addConstantListener(result);
-		value2.addConstantListener(result);
-	    } else 
-		result = unknownValue[size-1];
-	    return info.poppush(size+1, result);
-	}
-        case opc_iinc: {
-	    ConstValue local = info.getLocal(instr.getLocalSlot());
-	    if (local.value != ConstValue.VOLATILE) {
-		result = new ConstValue
-		    (new Integer(((Integer)local.value).intValue()
-				 + instr.getIncrement()));
-		local.addConstantListener(result);
-	    } else 
-		result = unknownValue[0];
-	    return info.setLocal(instr.getLocalSlot(), result);
-	}
-        case opc_i2l: case opc_i2f: case opc_i2d:
-        case opc_l2i: case opc_l2f: case opc_l2d:
-        case opc_f2i: case opc_f2l: case opc_f2d:
-        case opc_d2i: case opc_d2l: case opc_d2f: {
-	    int insize = 1 + ((opcode - opc_i2l) / 3 & 1);
-	    ConstValue stack = info.getStack(insize);
-	    if (stack.value != ConstValue.VOLATILE) {
-		Object newVal;
-		switch(opcode) {
-		case opc_l2i: case opc_f2i: case opc_d2i: 
-		    newVal = new Integer(((Number)stack.value).intValue());
-		    break;
-		case opc_i2l: case opc_f2l: case opc_d2l: 
-		    newVal = new Long(((Number)stack.value).longValue());
-		    break;
-		case opc_i2f: case opc_l2f: case opc_d2f:
-		    newVal = new Float(((Number)stack.value).floatValue());
-		    break;
-		case opc_i2d: case opc_l2d: case opc_f2d:
-		    newVal = new Double(((Number)stack.value).doubleValue());
-		    break;
-		default:
-		    throw new InternalError("Can't happen.");
-		}
-		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
-		constantInfos.put(instr, constInfo);
-		result = new ConstValue(newVal);
-		result.addConstantListener(constInfo);
-		stack.addConstantListener(result);
-	    } else {
-		switch (opcode) {
-		case opc_i2l: case opc_f2l: case opc_d2l:
-		case opc_i2d: case opc_l2d: case opc_f2d:
-		    result = unknownValue[1];
-		    break;
-		default:
-		    result = unknownValue[0];
-		}
-	    }
-	    return info.poppush(insize, result);
-        }
-        case opc_i2b: case opc_i2c: case opc_i2s: {
-	    ConstValue stack = info.getStack(1);
-	    if (stack.value != ConstValue.VOLATILE) {
-		int val = ((Integer)stack.value).intValue();
-		switch(opcode) {
-		case opc_i2b:
-		    val = (byte) val;
-		    break;
-		case opc_i2c: 
-		    val = (char) val;
-		    break;
-		case opc_i2s:
-		    val = (short) val;
-		    break;
-		}
-		Integer newVal = new Integer(val);
-		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
-		constantInfos.put(instr, constInfo);
-		result = new ConstValue(newVal);
-		stack.addConstantListener(constInfo);
-		stack.addConstantListener(result);
-	    } else
-		result = unknownValue[0];
-	    return info.poppush(1, result);
-	}
-        case opc_lcmp: {
-	    ConstValue val1 = info.getStack(4);
-	    ConstValue val2 = info.getStack(2);
-	    if (val1.value != ConstValue.VOLATILE
-		&& val2.value != ConstValue.VOLATILE) {
-		long value1 = ((Long) val1.value).longValue();
-		long value2 = ((Long) val1.value).longValue();
-		Integer newVal = new Integer(value1 == value2 ? 0
-					     : value1 < value2 ? -1 : 1);
-		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
-		constantInfos.put(instr, constInfo);
-		result = new ConstValue(newVal);
-		result.addConstantListener(constInfo);
-		val1.addConstantListener(result);
-		val2.addConstantListener(result);
-	    } else
-		result = unknownValue[0];
-	    return info.poppush(4, result);
-	}
-        case opc_fcmpl: case opc_fcmpg: {
-	    ConstValue val1 = info.getStack(2);
-	    ConstValue val2 = info.getStack(1);
-	    if (val1.value != ConstValue.VOLATILE
-		&& val2.value != ConstValue.VOLATILE) {
-		float value1 = ((Float) val1.value).floatValue();
-		float value2 = ((Float) val1.value).floatValue();
-		Integer newVal = new Integer
-		    (value1 == value2 ? 0
-		     : ( opcode == opc_fcmpg
-			 ? (value1 < value2 ? -1 :  1)
-			 : (value1 > value2 ?  1 : -1)));
-		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
-		constantInfos.put(instr, constInfo);
-		result = new ConstValue(newVal);
-		result.addConstantListener(constInfo);
-		val1.addConstantListener(result);
-		val2.addConstantListener(result);
-	    } else
-		result = unknownValue[0];
-	    return info.poppush(2, result);
-	}
-        case opc_dcmpl: case opc_dcmpg: {
-	    ConstValue val1 = info.getStack(4);
-	    ConstValue val2 = info.getStack(2);
-	    if (val1.value != ConstValue.VOLATILE
-		&& val2.value != ConstValue.VOLATILE) {
-		double value1 = ((Double) val1.value).doubleValue();
-		double value2 = ((Double) val1.value).doubleValue();
-		Integer newVal = new Integer
-		    (value1 == value2 ? 0
-		     : ( opcode == opc_dcmpg
-			 ? (value1 < value2 ? -1 :  1)
-			 : (value1 > value2 ?  1 : -1)));
-		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
-		constantInfos.put(instr, constInfo);
-		result = new ConstValue(newVal);
-		result.addConstantListener(constInfo);
-		val1.addConstantListener(result);
-		val2.addConstantListener(result);
-	    } else
-		result = unknownValue[0];
-	    return info.poppush(4, result);
-	}
-	case opc_ifeq: case opc_ifne: 
-	case opc_iflt: case opc_ifge: 
-	case opc_ifgt: case opc_ifle:
-	case opc_if_icmpeq: case opc_if_icmpne:
-	case opc_if_icmplt: case opc_if_icmpge: 
-	case opc_if_icmpgt: case opc_if_icmple: 
-	case opc_if_acmpeq: case opc_if_acmpne:
-	case opc_ifnull: case opc_ifnonnull:
-        case opc_lookupswitch:
-        case opc_ireturn: case opc_lreturn: 
-        case opc_freturn: case opc_dreturn: case opc_areturn:
-        case opc_athrow:
-        case opc_jsr:
-	case opc_ret:
-        case opc_goto:
-        case opc_return:
-	    return info;
-
-	case opc_putstatic:
-	case opc_putfield: {
-	    final FieldIdentifier fi
-		= (FieldIdentifier) canonizeReference(instr);
-	    Reference ref = instr.getReference();
-	    int size = TypeSignature.getTypeSize(ref.getType());
-	    if (fi != null && !fi.isNotConstant()) {
-		ConstValue stacktop = info.getStack(size);
-		Object fieldVal = fi.getConstant();
-		if (fieldVal == null)
-		    fieldVal = TypeSignature.getDefaultValue(ref.getType());
-		if (stacktop.value == null ? fieldVal == null
-		    : stacktop.value.equals(fieldVal)) {
-		    stacktop.addConstantListener(new ConstantListener() {
-			public void constantChanged() {
-			    fieldNotConstant(fi);
-			}
-		    });
-		} else {
-		    fieldNotConstant(fi);
-		}
-	    }
-	    size += (opcode == opc_putstatic) ? 0 : 1;
-	    return info.pop(size);
-	}
-	case opc_getstatic:
-	case opc_getfield: {
-	    int size = (opcode == opc_getstatic) ? 0 : 1;
-	    FieldIdentifier fi = (FieldIdentifier) canonizeReference(instr);
-	    Reference ref = instr.getReference();
-	    int typesize = TypeSignature.getTypeSize(ref.getType());
-	    if (fi != null) {
-		if (fi.isNotConstant()) {
-		    fi.setReachable();
-		    result = unknownValue[typesize - 1];
-		} else {
-		    Object obj = fi.getConstant();
-		    if (obj == null)
-			obj = TypeSignature.getDefaultValue(ref.getType());
-		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, obj);
-		    constantInfos.put(instr, constInfo);
-		    result = new ConstValue(obj);
-		    fi.addFieldListener(methodIdent);
-		    ConstValue prev = (ConstValue) fieldDependencies.get(fi);
-		    if (prev != null)
-			prev.addConstantListener(result);
-		    else
-			fieldDependencies.put(fi, result);
-		}
-	    } else
-		result = unknownValue[typesize - 1];
-	    return info.poppush(size, result);
-	}
-	case opc_invokespecial:
-	case opc_invokestatic:
-	case opc_invokeinterface:
-	case opc_invokevirtual: {
-	    canonizeReference(instr);
-	    Reference ref = instr.getReference();
-	    boolean constant = true;
-	    int size = 0;
-	    Object   cls = null;
-	    String[] paramTypes 
-		= TypeSignature.getParameterTypes(ref.getType());
-	    Object[] args = new Object[paramTypes.length];
-	    ConstValue clsValue = null;
-	    ConstValue[] argValues = new ConstValue[paramTypes.length];
-
-	    for (int i = paramTypes.length - 1; i >= 0; i--) {
-		size += TypeSignature.getTypeSize(paramTypes[i]);
-		Object value = (argValues[i] = info.getStack(size)).value;
-		if (value != ConstValue.VOLATILE)
-		    args[i] = value;
-		else
-		    constant = false;
-	    }
-	    
-	    if (opcode != opc_invokestatic) {
-		size++;
-		clsValue = info.getStack(size);
-		cls = clsValue.value;
-		if (cls == ConstValue.VOLATILE || cls == null)
-		    constant = false;
-	    }
-	    String retType = TypeSignature.getReturnType(ref.getType());
-	    if (retType.equals("V")) {
-		handleReference(ref, opcode == opc_invokevirtual 
-				|| opcode == opc_invokeinterface);
-		return info.pop(size);
-	    }
-	    if (constant && !runtime.isWhite(retType)) {
-		/* This is not a valid constant type */
-		constant = false;
-	    }
-	    Object methodResult = null;
-	    if (constant) {
-		try {
-		    methodResult = runtime.invokeMethod
-			(ref, opcode != opc_invokespecial, cls, args);
-		} catch (InterpreterException ex) {
-		    constant = false;
-		    if (net.sf.jode.GlobalOptions.verboseLevel > 3)
-			GlobalOptions.err.println("Can't interpret "+ref+": "
-						  + ex.getMessage());
-		    /* result is not constant */
-		} catch (InvocationTargetException ex) {
-		    constant = false;
-		    if (net.sf.jode.GlobalOptions.verboseLevel > 3)
-			GlobalOptions.err.println("Method "+ref
-						  +" throwed exception: "
-						  + ex.getTargetException());
-		    /* method always throws exception ? */
-		}
-	    }
-	    ConstValue returnVal;
-	    if (!constant) {
-		handleReference(ref, opcode == opc_invokevirtual 
-				|| opcode == opc_invokeinterface);
-		int retsize = TypeSignature.getTypeSize(retType);
-		returnVal = unknownValue[retsize - 1];
-	    } else {
-		ConstantInfo constInfo = 
-		    new ConstantInfo(CONSTANT, methodResult);
-		constantInfos.put(instr, constInfo);
-		returnVal = new ConstValue(methodResult);
-		returnVal.addConstantListener(constInfo);
-		if (clsValue != null)
-		    clsValue.addConstantListener(returnVal);
-		for (int i=0; i< argValues.length; i++)
-		    argValues[i].addConstantListener(returnVal);
-	    }
-	    return info.poppush(size, returnVal);
-	}
-
-        case opc_new: {
-	    handleClass(instr.getClazzType());
-	    return info.poppush(0, unknownValue[0]);
-        }
-        case opc_arraylength: {
-	    return info.poppush(1, unknownValue[0]);
-	}
-        case opc_checkcast: {
-	    handleClass(instr.getClazzType());
-	    return info.pop(0);
-        }
-        case opc_instanceof: {
-	    handleClass(instr.getClazzType());
-	    return info.poppush(1, unknownValue[0]);
-        }
-        case opc_monitorenter:
-        case opc_monitorexit:
-	    return info.pop(1);
-        case opc_multianewarray:
-	    handleClass(instr.getClazzType());
-	    return info.poppush(instr.getDimensions(), unknownValue[0]);
-	default:
-            throw new IllegalArgumentException("Invalid opcode "+opcode);
-        }
-    }
-
-
     public ConstantAnalyzer() {
     }
 
@@ -1610,8 +1545,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    infos[i].dumpInfo(output);
     }
 
-    public void analyzeCode(MethodIdentifier methodIdent, 
-			    BasicBlocks bb) {
+    public void analyzeCode(MethodIdentifier methodIdent, BasicBlocks bb) {
 	Block[] blocks = bb.getBlocks();
 	this.methodIdent = methodIdent;
 	this.bb = bb;
@@ -1627,15 +1561,19 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    infos[startBlock.getBlockNr()].mergeBefore
 		(new StackLocalInfo(bb.getMaxStack(), bb.getMaxLocals(), 
 				    minfo.isStatic(), minfo.getType()),
-		 new JsrInfo[0]);
+		 null, null);
 
 	    BlockInfo info;
 	    while ((info = modifiedQueue.dequeue()) != null) {
-		System.err.println(info);
+// 		dumpBlockInfo(GlobalOptions.err);
+// 		GlobalOptions.err.println("Analyzing: "+info);
 		info.analyze();
 	    }
 	}
 	
+// 	GlobalOptions.err.println("After Analyze");
+// 	dumpBlockInfo(GlobalOptions.err);
+
 	BitSet reachableBlocks = new BitSet();
 	for (int i=0; i< infos.length; i++) {
 	    if (infos[i].isReachable())
@@ -1730,22 +1668,16 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    Reference ref = instr.getReference();
 	    String[] pt = TypeSignature.getParameterTypes(ref.getType());
 	    int arg = 0;
+
+	    int i = pt.length;
+	    while (i > 0)
+		newCode.add(Instruction.forOpcode(TypeSignature
+						  .getTypeSize(pt[--i])
+						  + opc_pop - 1));
+
 	    if (instr.getOpcode() != opc_invokestatic)
 		newCode.add(Instruction.forOpcode(opc_pop));
-	    else if (pt.length > 0) {
-		newCode.add(Instruction.forOpcode(TypeSignature.getTypeSize(pt[0])
-					       + opc_pop - 1));
-		arg++;
-	    } else {
-		if (replacement != null)
-		    newCode.add(replacement);
-		return;
-	    }
-	    
-	    for (int i=arg; i < pt.length; i++)
-		newCode.add(Instruction.forOpcode
-			    (TypeSignature.getTypeSize(pt[i])
-			     + opc_pop - 1));
+	    break;
 	}
 	default:
 	    throw new InternalError("Unexpected opcode");
@@ -1790,7 +1722,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    for (int idx = 0; idx < oldCode.length; idx++) {
 		Instruction instr = oldCode[idx];
 		ConstantInfo info = (ConstantInfo) constantInfos.remove(instr);
-		if ((info.flags & CONSTANT) != 0) {
+		if (info != null && (info.flags & CONSTANT) != 0) {
 		    Instruction ldcInstr = Instruction.forOpcode
 			(info.constant instanceof Long
 			 || info.constant instanceof Double
@@ -1800,7 +1732,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 				(bb + ": Replacing " + instr
 				 + " with constant " + info.constant);
 		    replaceWith(newCode, instr, ldcInstr);
-		} else if ((info.flags & CONSTANTFLOW) != 0) {
+		} else if (info != null && (info.flags & CONSTANTFLOW) != 0) {
 		    int succnr = ((Integer)info.constant).intValue();
 		    replaceWith(newCode, instr, null);
 		    if (GlobalOptions.verboseLevel > 2)
@@ -1822,23 +1754,28 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			    && (Main.stripping & Main.STRIP_UNREACH) != 0
 			    && !fi.isReachable()) {
 			    replaceWith(newCode, instr, null);
+			    break;
 			}
-			break;
+			/* fall through */
 		    }
 		    default:
 			newCode.add(instr);
 		    }
 		}
 	    }
-	    blocks[i].setCode((Instruction[]) newCode.toArray(oldCode), succs);
+	    blocks[i].setCode((Instruction[]) newCode.toArray(new Instruction[newCode.size()]), succs);
 	    newBlockCtr++;
 	}
 	if (newBlockCtr < blocks.length) {
 	    Block[] newBlocks = new Block[newBlockCtr];
-	    Handler[] newHandlers = new Handler[newHandlerCtr];
 	    System.arraycopy(blocks, 0, newBlocks, 0, newBlockCtr);
-	    System.arraycopy(handlers, 0, newHandlers, 0, newHandlerCtr);
-	    bb.setBlocks(newBlocks, newStartBlock, newHandlers);
+	    blocks = newBlocks;
 	}
+	if (newHandlerCtr < handlers.length) {
+	    Handler[] newHandlers = new Handler[newHandlerCtr];
+	    System.arraycopy(handlers, 0, newHandlers, 0, newHandlerCtr);
+	    handlers = newHandlers;
+	}
+	bb.setBlocks(blocks, newStartBlock, handlers);
     }
 }

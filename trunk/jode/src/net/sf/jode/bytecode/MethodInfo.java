@@ -26,6 +26,38 @@ import java.lang.reflect.Modifier;
 import java.lang.Comparable;
 ///#enddef
 
+/**
+ * <p>Represents a java bytecode method.  A method consists of the following
+ * parts:</p>
+ *
+ * <dl>
+ *
+ * <dt>name</dt><dd>The method's name</dd>
+ *
+ * <dt>type</dt><dd>The method's {@link TypeSignature type signature}
+ * in bytecode format.</dd>
+ *
+ * <dt>modifiers</dt><dd>The modifiers of the method like private, public etc.
+ * These are created by or-ing the constants defined in
+ * {@link java.lang.reflect.Modifier}. </dt>
+ *
+ * <dt>basicblocks</dt><dd>the bytecode of the method in form of
+ * {@link BasicBlocks basic blocks}, null if it is native or
+ * abstract.</dd>
+ *
+ * <dt>synthetic</dt><dd>true if this method is synthetic</dd>
+ *
+ * <dt>deprecated</dt><dd>true if this method is deprecated</dd>
+ *
+ * <dt>exceptions</dt> <dd>the exceptions that the method declared in
+ * its throws clause</dd>
+ *
+ * </dl>
+ *
+ * @author Jochen Hoenicke
+ * @see net.sf.jode.bytecode.TypeSignature
+ * @see net.sf.jode.bytecode.BasicBlocks
+ */
 public final class MethodInfo extends BinaryInfo implements Comparable {
     int modifier;
     String name;
@@ -45,8 +77,9 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	this.modifier = modifier;
     }
 
-    void readAttribute(String name, int length, ConstantPool cp,
-		       DataInputStream input, int howMuch) throws IOException {
+    protected void readAttribute
+	(String name, int length, ConstantPool cp,
+	 DataInputStream input, int howMuch) throws IOException {
 	if (howMuch >= ClassInfo.NODEBUG && name.equals("Code")) {
 	    basicblocks = new BasicBlocks(this);
 	    basicblocks.read(cp, input, howMuch);
@@ -105,8 +138,8 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	prepareAttributes(gcp);
     }
 
-    int getKnownAttributeCount() {
-	int count = 0;
+    protected int getAttributeCount() {
+	int count = super.getAttributeCount();
 	if (basicblocks != null)
 	    count++;
 	if (exceptions != null)
@@ -118,9 +151,10 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	return count;
     }
 
-    void writeKnownAttributes(GrowableConstantPool gcp,
-			      DataOutputStream output) 
+    protected void writeAttributes(GrowableConstantPool gcp,
+				   DataOutputStream output) 
 	throws IOException {
+	super.writeAttributes(gcp, output);
 	if (basicblocks != null) {
 	    output.writeShort(gcp.putUTF8("Code"));
 	    basicblocks.write(gcp, output);
@@ -144,14 +178,14 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
     }
 
     void write(GrowableConstantPool constantPool, 
-		      DataOutputStream output) throws IOException {
+	       DataOutputStream output) throws IOException {
 	output.writeShort(modifier);
 	output.writeShort(constantPool.putUTF8(name));
 	output.writeShort(constantPool.putUTF8(typeSig));
         writeAttributes(constantPool, output);
     }
 
-    void drop(int keep) {
+    protected void drop(int keep) {
 	if (keep < ClassInfo.DECLARATIONS)
 	    exceptions = null;
 	if (keep < ClassInfo.NODEBUG)
@@ -260,8 +294,12 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	return result;
     }
 
+    /** 
+     * Returns a string representation of this method.  It consists
+     * of the method's name and type signature.
+     * @return a string representation of this method.
+     */
     public String toString() {
-        return "Method "+Modifier.toString(modifier)+" "+
-            typeSig + " " + name;
+        return "MethodInfo[name="+name+",type="+typeSig+"]";
     }
 }

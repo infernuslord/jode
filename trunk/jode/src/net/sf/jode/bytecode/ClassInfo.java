@@ -59,13 +59,13 @@ import java.lang.reflect.Modifier;
  * now have two different possibilities to fill it with informations:
  * You load the class from its classpath (from which it was created)
  * or you build it from scratch by setting its contents with the 
- * various <code>setXXX</code> methods.
+ * various <code>setSomething</code> methods.
  *
  * <h3>Changing a class</h3> 
  * Even if the class is already filled with information you can change
  * it.  You can, for example, set another array of methods, change the
  * modifiers, or rename the class.  Use the various
- * <code>setXXX</code> methods.
+ * <code>setSomething</code> methods.
  *
  * <h3>The components of a class</h3>
  * A class consists of several components:
@@ -79,7 +79,7 @@ import java.lang.reflect.Modifier;
  * <dt>class name</dt><dd>
  *   The short java name of this class, i.e. the name that appears
  *   behind the "class" keyword in the java source file.  While 
- *   <code>getClassName()</code> also works for top level classes,
+ *   <code>getClassName()</code> also works for package scope classes,
  *   setClassName() must only be called on inner classes and will not
  *   change the bytecode name.<br>
  *
@@ -121,21 +121,16 @@ import java.lang.reflect.Modifier;
  *   Fields are represented as {@link MethodInfo} objects.
  * </dd>
  * <dt>method scoped</dt><dd>
- *   True if this class is an anonymous or method scoped class.
+ *   A boolean value; true if this class is an anonymous or method
+ *   scoped class.
  * </dd>
  * <dt>outer class</dt><dd>
- *   the class of which this class is the inner.  It returns null for
- *   top level classes and for method scoped classes. <br>
+ *   the class of which this class is the inner class.  It returns
+ *   null for package scoped and method scoped classes. <br>
  * </dd>
  * <dt>classes</dt><dd>
  *   the inner classes which is an array of ClassInfo.  This doesn't
  *   include method scoped classes.<br>
- * </dd>
- * <dt>extra classes</dt><dd>
- *   this field tells only, for which additional classes the class
- *   files contains an InnerClass Attribute.  This can be the method
- *   scoped classes or the inner inner classes, but there is no
- *   promise. <br>
  * </dd>
  * <dt>source file</dt><dd>
  *   The name of source file.  The JVM uses this field when a stack
@@ -155,16 +150,16 @@ import java.lang.reflect.Modifier;
  *   <code>getOuterClass()</code> returns <code>null</code> and
  *   <code>isMethodScoped()</code> returns <code>false</code>.
  * </dd>
- * <dt>inner class scoped classes</dt><dd>
+ * <dt>class scoped classes (inner classes)</dt><dd>
  *   A class is class scoped if, and only if
  *   <code>getOuterClass()</code> returns not <code>null</code>.
  *
  *   The bytecode name (<code>getName()</code>) of an inner class is
- *   most times of the form <code>Package.Outer$Inner</code>.  But
+ *   in most cases of the form <code>Package.Outer$Inner</code>.  But
  *   ClassInfo also supports differently named classes, as long as the
  *   InnerClass attribute is present.  The method
  *   <code>getClassName()</code> returns the name of the inner class
- *   (<code>Inner</code> in the above example).  
+ *   (<code>Inner</code> in the above example).
  *
  *   You can get all inner classes of a class with the
  *   <code>getClasses</code> method.
@@ -177,12 +172,13 @@ import java.lang.reflect.Modifier;
  *   too.<br><br>
  *
  *   The bytecode name (<code>getName()</code>) of an method scoped class is
- *   most times of the form <code>Package.Outer$Number$Inner</code>.  But
+ *   in most cases of the form <code>Package.Outer$Number$Inner</code>.  But
  *   ClassInfo also supports differently named classes, as long as the
  *   InnerClass attribute is present.  <br><br>
  *
  *   There's no way to get the method scoped classes of a method, except
- *   by analyzing its instructions.  
+ *   by analyzing its instructions.  And even that is error prone, since
+ *   it could just be a method scoped class of an outer method.
  * </dd>
  * <dt>anonymous classes</dt><dd>
  *   A class is an anonymous class if, and only if
@@ -191,18 +187,20 @@ import java.lang.reflect.Modifier;
  *   case <code>getOuterClass()</code> returns <code>null</code>,
  *   too.<br><br>
  *
- *   The bytecode name (<code>getName()</code>) of an method scoped class is
- *   most times of the form <code>Package.Outer$Number</code>.  But
- *   ClassInfo also supports differently named classes, as long as the
- *   InnerClass attribute is present.  <br><br>
+ *   The bytecode name (<code>getName()</code>) of an method scoped
+ *   class is in most cases of the form
+ *   <code>Package.Outer$Number</code>.  But ClassInfo also supports
+ *   differently named classes, as long as the InnerClass attribute is
+ *   present.  <br><br>
  *
  *   There's no way to get the anonymous classes of a method, except
- *   by analyzing its instructions.  
+ *   by analyzing its instructions.  And even that is error prone, since
+ *   it could just be an anonymous class of an outer method.
  * </dd>
  * </dl>
  *
  * <hr>
- * <h3>open questions...</h3>
+ * <h3>Open Questions</h3>
  *
  * I represent most types as <code>java/lang/String</code> (type
  * signatures); this is convenient since java bytecode does the same.
@@ -211,17 +209,13 @@ import java.lang.reflect.Modifier;
  * method to convert to it, but I need a ClassPath for this.  Should
  * the method be in ClassInfo (I don't think so), should an instance
  * of TypeSignature have a ClassPath as member variable, or should
- * getClassInfo() take a ClassPath parameter?  What about arrays?
+ * getClassInfo() take a ClassPath parameter as it is currently?
+ * What about arrays, shall we support special ClassInfo's for them,
+ * as java.lang.Class does?  I think the current solution is okay.
  * <br>
  *
- * Should load(HIERARCHY) also try to load hierarchy of super class.
- * If yes, should it return an IOException if super class can't be
- * found?  Or should <code>getSuperclass</code> throw the IOException
- * instead (I don't like that).  <br>
- * <b>Current Solution:</b> <code>superClassOf</code> and 
- * <code>implementedBy</code> can throw an IOException, getSuperclass not.
- *
- * @author Jochen Hoenicke */
+ * @author Jochen Hoenicke 
+ */
 public final class ClassInfo extends BinaryInfo implements Comparable {
 
     private static ClassPath defaultClasspath;
@@ -244,6 +238,8 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     private MethodInfo[] methods;
     private String sourceFile;
     private boolean hasInnerClassesAttr;
+
+    private final static ClassInfo[] EMPTY_INNER = new ClassInfo[0];
 
     /** 
      * This constant can be used as parameter to drop.  It specifies
@@ -419,10 +415,24 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	if (status >= OUTERCLASS) {
 	    if ((className == null 
 		 ? this.className != null : !className.equals(this.className))
-		|| this.outerClass != outer)
-		throw new ClassFormatException("Outer information mismatch "
-					       +name+": "+className+","+outer+","+ms+"<->"+this.className +","+this.outerClass+","+this.methodScoped);
-	    mergeModifiers(realModifiers);
+		|| this.outerClass != outer) {
+		/* Ignore errors when merging, some obfuscator may have 
+		 * stripped InnerClasses attributes
+		 */
+		if (this.className == null && this.outerClass == null
+		    && (className != null || outer != null)) {
+		    this.outerClass = outer;
+		    this.className = className;
+		    this.methodScoped = ms;
+		} else if (className != null || outer != null) {
+		    GlobalOptions.err.println
+			("WARNING: Outer information mismatch "
+			 +name+": "+className+","+outer+","+ms+"<->"
+			 +this.className +","+this.outerClass+","+this.methodScoped);
+		}
+	    }
+	    if (realModifiers != -1)
+		mergeModifiers(realModifiers);
 	} else {
 	    if (realModifiers != -1)
 		mergeModifiers(realModifiers);
@@ -438,37 +448,16 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	throws IOException
     {
 	/* The InnerClasses attribute is transformed in a special way
-	 * so we want to taker a closer look.  According to the inner
-	 * class specification,
+	 * so we want to taker a closer look.  According to the 2nd 
+	 * edition of the vm specification (InnerClasses attribute),
 	 *
-	 * http://java.sun.com/products/jdk/1.1/docs/guide/innerclasses/spec/innerclasses.doc10.html#18814
+	 * http://java.sun.com/docs/books/vmspec/2nd-edition/html/ClassFile.doc.html#79996
 	 *
-	 * there are several InnerClass records in a class.  We differ 
-	 * three different types:
-	 *
-	 * The InnerClass records for our own inner classes:  They can
-	 * easily be recognized, since this class must be mentioned in
-	 * the outer_class_info_index field.
-	 * 
-	 * The InnerClass records for the outer class and its outer
-	 * classes, and so on: According to the spec, these must
-	 * always be present if this is a class scoped class.  And they
-	 * must be in reversed order, i.e. the outer most class comes
-	 * first.
-	 *
-	 * Some other InnerClass records, the extra classes.  This is
-	 * optional, but we don't want to loose this information if we
-	 * just transform classes, so we memorize for which classes we
-	 * have to keep the information anyway.
-	 *
-	 * Currently we don't use all informations, since we don't
-	 * update the information for inner/outer/extra classes or
-	 * check it for consistency.  This might be bad, since this 
-	 * means that 
-	 * <pre>
-	 * load(ALL); write(new File())
-	 * </pre> 
-	 * doesn't work.
+	 * there is a InnerClass record for each non package scope
+	 * class referenced in this class.  We are only interested in
+	 * out own entry and in the entries for our inner classes.
+	 * The latter can easily be recognized, since this class must
+	 * be mentioned in the outer_class_info_index field.
 	 */
 
 	hasInnerClassesAttr = true;
@@ -478,14 +467,14 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    throw new ClassFormatException
 		("InnerClasses attribute has wrong length");
 
-	int innerCount = 0, outerCount = 0, extraCount = 0;
+	int innerCount = 0;
 	/**
 	 * The first part will contain the inner classes, the last
 	 * part the extra classes.
 	 */
-	ClassInfo[] innerExtra = new ClassInfo[count];
+	ClassInfo[] innerCIs = new ClassInfo[count];
 
-	for (int i=0; i < count; i++) {
+	for (int i = 0; i < count; i++) {
 	    int innerIndex = input.readUnsignedShort();
 	    int outerIndex = input.readUnsignedShort();
 	    int nameIndex = input.readUnsignedShort();
@@ -497,12 +486,17 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    if (innername != null && innername.length() == 0)
 		innername = null;
 
-	    /* Some compilers give method scope classes a valid
-	     * outer field, but we mustn't handle them as inner
-	     * classes.  The best way to distinguish this case 
-	     * is by the class name.
+	    /* Some compilers give method scope and anonymous classes
+	     * a valid outer field, but we mustn't handle them as
+	     * inner classes.  
 	     */
-	    if (outer != null && innername != null
+	    if (innername == null)
+		outer = null;
+
+	    /* The best way to distinguish method scope classes is by thier
+	     * class name.
+	     */
+	    if (outer != null
 		&& inner.length() > outer.length() + 2 + innername.length()
 		&& inner.startsWith(outer+"$") 
 		&& inner.endsWith("$"+innername)
@@ -510,45 +504,13 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 		outer = null;
 
 	    ClassInfo innerCI = classpath.getClassInfo(inner);
-	    ClassInfo outerCI = null;
-	    if (outer != null) {
-		outerCI = classpath.getClassInfo(outer);
-		/* If we didn't find an InnerClasses info for outerCI, yet,
-		 * this means that it doesn't have an outer class.  So we
-		 * know its (empty) outer class status now.
-		 */
-		if (outerCI.status < OUTERCLASS)
-		    outerCI.mergeOuterInfo(null, null, -1, false);
-	    }
-
-	    if (innername == null)
-		/* anonymous class */
-		outerCI = null;
+	    ClassInfo outerCI = outer != null
+		? classpath.getClassInfo(outer) : null;
 
 	    innerCI.mergeOuterInfo(innername, outerCI, 
 				   access, outerCI == null);
 	    if (outerCI == this)
-		innerExtra[innerCount++] = innerCI;
-	    else {
-		/* Remove outerCI from the extra part of innerExtra
-		 * since it is implicit now.
-		 */
-		for (int j = count - 1; j >= count - extraCount; j--) {
-		    if (innerExtra[j] == outerCI) {
-			System.arraycopy(innerExtra, count - extraCount,
-					 innerExtra, count - extraCount + 1,
-					 j - (count - extraCount));
-			extraCount--;
-			break;
-		    }
-		}
-
-		/* Add innerCI to the extra classes, except if it is
-		 * this class.
-		 */
-		if (innerCI != this)
-		    innerExtra[count - (++extraCount)] = innerCI;
-	    }
+		innerCIs[innerCount++] = innerCI;
 	}
 
 	/* Now inner classes are at the front of the array in correct
@@ -557,32 +519,15 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	 */
 	if (innerCount > 0) {
 	    innerClasses = new ClassInfo[innerCount];
-	    for (int i=0; i < innerCount; i++)
-		innerClasses[i] = innerExtra[i];
+	    System.arraycopy(innerCIs, 0, innerClasses, 0, innerCount);
 	} else
-	    innerClasses = null;
-	
-	/* All remaining classes that are mentioned in the constant
-	 * pool must have an empty outer class info.  This is
-	 * specified in the 2nd edition of the JVM specification.
-	 */
-	for (int i = 1; i < cp.size(); i++) {
-	    if (cp.tags[i] == cp.CLASS) {
-		String clName = cp.getUTF8(cp.indices1[i]);
-		if (clName.charAt(0) != '[') {
-		    ClassInfo ci = classpath.getClassInfo
-			(clName.replace('/','.'));
-		    if (ci.status < OUTERCLASS)
-			ci.mergeOuterInfo(null, null, -1, false);
-		}
-	    }
-	}
+	    innerClasses = EMPTY_INNER;
     }
 
-    void readAttribute(String name, int length,
-		       ConstantPool cp,
-		       DataInputStream input, 
-		       int howMuch) throws IOException {
+    protected void readAttribute(String name, int length,
+				 ConstantPool cp,
+				 DataInputStream input, 
+				 int howMuch) throws IOException {
 	if (howMuch >= ClassInfo.ALMOSTALL && name.equals("SourceFile")) {
 	    if (length != 2)
 		throw new ClassFormatException("SourceFile attribute"
@@ -642,7 +587,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 		    (clazz.getSuperclass().getName());
 	    Class[] ifaces = clazz.getInterfaces();
 	    interfaces = new ClassInfo[ifaces.length];
-	    for (int i=0; i<ifaces.length; i++)
+	    for (int i = 0; i<ifaces.length; i++)
 		interfaces[i] = classpath.getClassInfo(ifaces[i].getName());
 	}
 	if (howMuch >= PUBLICDECLARATIONS) {
@@ -707,7 +652,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 			innerClasses[i].loadFromReflection(is[i], OUTERCLASS);
 		}
 	    } else
-		innerClasses = null;
+		innerClasses = EMPTY_INNER;
 	}
 	status = howMuch;
     }
@@ -761,11 +706,12 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    String className = cpool.getClassName(input.readUnsignedShort());
 	    if (!name.equals(className))
 		throw new ClassFormatException("wrong name " + className);
-	    String superName = cpool.getClassName(input.readUnsignedShort());
-	    superclass = superName != null ? classpath.getClassInfo(superName) : null;
+	    int superID = input.readUnsignedShort();
+	    superclass = superID == 0 ? null
+		: classpath.getClassInfo(cpool.getClassName(superID));
 	    int count = input.readUnsignedShort();
 	    interfaces = new ClassInfo[count];
-	    for (int i=0; i< count; i++) {
+	    for (int i = 0; i < count; i++) {
 		interfaces[i] = classpath.getClassInfo
 		    (cpool.getClassName(input.readUnsignedShort()));
 	    }
@@ -775,14 +721,14 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         if (howMuch >= PUBLICDECLARATIONS) {
             int count = input.readUnsignedShort();
 	    fields = new FieldInfo[count];
-            for (int i=0; i< count; i++) {
+            for (int i = 0; i < count; i++) {
 		fields[i] = new FieldInfo(); 
                 fields[i].read(cpool, input, howMuch);
             }
         } else {
 	    byte[] skipBuf = new byte[6];
             int count = input.readUnsignedShort();
-            for (int i=0; i< count; i++) {
+            for (int i = 0; i < count; i++) {
 		input.readFully(skipBuf); // modifier, name, type
                 skipAttributes(input);
             }
@@ -792,29 +738,45 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         if (howMuch >= PUBLICDECLARATIONS) {
             int count = input.readUnsignedShort();
 	    methods = new MethodInfo[count];
-            for (int i=0; i< count; i++) {
+            for (int i = 0; i < count; i++) {
 		methods[i] = new MethodInfo(); 
                 methods[i].read(cpool, input, howMuch);
             }
         } else {
 	    byte[] skipBuf = new byte[6];
             int count = input.readUnsignedShort();
-            for (int i=0; i< count; i++) {
+            for (int i = 0; i < count; i++) {
 		input.readFully(skipBuf); // modifier, name, type
                 skipAttributes(input);
             }
         }
 
+	/* initialize inner classes to empty array, in case there
+	 * is no InnerClasses attribute.
+	 */
+	innerClasses = EMPTY_INNER;
+
 	/* attributes */
 	readAttributes(cpool, input, howMuch);
+
+	/* All classes that are mentioned in the constant pool must
+	 * have an empty outer class info.  This is specified in the
+	 * 2nd edition of the JVM specification.
+	 */
+	Iterator iter = cpool.iterateClassNames();
+	while (iter.hasNext()) {
+	    ClassInfo ci = classpath.getClassInfo((String) iter.next());
+	    if (ci.status < OUTERCLASS)
+		ci.mergeOuterInfo(null, null, -1, false);
+	}
 	status = howMuch;
     }
 
     private void reserveSmallConstants(GrowableConstantPool gcp) {
-	for (int i=0; i < fields.length; i++)
+	for (int i = 0; i < fields.length; i++)
 	    fields[i].reserveSmallConstants(gcp);
 
-	for (int i=0; i < methods.length; i++)
+	for (int i = 0; i < methods.length; i++)
 	    methods[i].reserveSmallConstants(gcp);
     }
 
@@ -823,16 +785,16 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     private void prepareWriting(GrowableConstantPool gcp) {
 	gcp.putClassName(name);
 	gcp.putClassName(superclass.name);
-	for (int i=0; i < interfaces.length; i++)
+	for (int i = 0; i < interfaces.length; i++)
 	    gcp.putClassName(interfaces[i].name);
 
-	for (int i=0; i < fields.length; i++)
+	for (int i = 0; i < fields.length; i++)
 	    fields[i].prepareWriting(gcp);
 
-	for (int i=0; i < methods.length; i++)
+	for (int i = 0; i < methods.length; i++)
 	    methods[i].prepareWriting(gcp);
 
-	for (int i=0; i < innerClasses.length; i++)
+	for (int i = 0; i < innerClasses.length; i++)
 	    gcp.putClassName(innerClasses[i].name);
 
 	if (sourceFile != null) {
@@ -845,40 +807,29 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	 * edition of the JVM specification.
 	 */
 	hasInnerClassesAttr = false;
-	for (int i = 1; i < gcp.size(); i++) {
-	    if (gcp.tags[i] == gcp.CLASS) {
-		String clName;
-		try {
-		    clName = gcp.getUTF8(gcp.indices1[i]);
-		} catch (ClassFormatException ex) {
-		    throw new InternalError(ex.getMessage());
+	Iterator iter = gcp.iterateClassNames();
+	while (iter.hasNext()) {
+	    ClassInfo ci = classpath.getClassInfo((String) iter.next());
+	    if (ci.status < OUTERCLASS) {
+		GlobalOptions.err.println
+		    ("WARNING: " + ci.name + "'s outer class isn't known.");
+	    } else {
+		if ((ci.outerClass != null || ci.methodScoped)
+		    && ! hasInnerClassesAttr) {
+		    gcp.putUTF8("InnerClasses");
+		    hasInnerClassesAttr = true;
 		}
-		if (clName.charAt(0) != '[') {
-		    ClassInfo ci = classpath.getClassInfo
-			(clName.replace('/','.'));
-		    if (ci.status < OUTERCLASS) {
-			GlobalOptions.err.println
-			    ("WARNING: "+ ci.name
-			     + "'s outer class isn't known.");
-		    } else {
-			if ((ci.outerClass != null || ci.methodScoped)
-			    && ! hasInnerClassesAttr) {
-			    gcp.putUTF8("innerClasses");
-			    hasInnerClassesAttr = true;
-			}
-			if (ci.outerClass != null)
-			    gcp.putClassName(ci.outerClass.name);
-			if (ci.className != null)
-			    gcp.putUTF8(ci.className);
-		    }
-		}
+		if (ci.outerClass != null)
+		    gcp.putClassName(ci.outerClass.name);
+		if (ci.className != null)
+		    gcp.putUTF8(ci.className);
 	    }
 	}
         prepareAttributes(gcp);
     }
 
-    int getKnownAttributeCount() {
-	int count = 0;
+    protected int getAttributeCount() {
+	int count = super.getAttributeCount();
 	if (sourceFile != null)
 	    count++;
 	if (hasInnerClassesAttr)
@@ -886,9 +837,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	return count;
     }
 
-    void writeKnownAttributes(GrowableConstantPool gcp,
-			      DataOutputStream output) 
+    protected void writeAttributes(GrowableConstantPool gcp,
+				   DataOutputStream output) 
 	throws IOException {
+	super.writeAttributes(gcp, output);
 	if (sourceFile != null) {
 	    output.writeShort(gcp.putUTF8("SourceFile"));
 	    output.writeInt(2);
@@ -896,28 +848,19 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	}
 
 	List outers = new ArrayList();
-	for (int i = 0; i < gcp.size(); i++) {
-	    if (gcp.tags[i] == gcp.CLASS) {
-		String clName;
-		try {
-		    clName = gcp.getUTF8(gcp.indices1[i]);
-		} catch (ClassFormatException ex) {
-		    throw new InternalError(ex.getMessage());
-		}
-		if (clName.charAt(0) != '[') {
-		    ClassInfo ci = classpath.getClassInfo
-			(clName.replace('/','.'));
-		    while (ci.status >= OUTERCLASS
-			   && ci.outerClass != null || ci.methodScoped) {
-			/* Order is important so remove ci if it
-			 * already exists and add it to the end.  This
-			 * way the outermost classes go to the end.
-			 */
-			outers.remove(ci);
-			outers.add(ci);
-			ci = ci.outerClass;
-		    }
-		}
+	Iterator iter = gcp.iterateClassNames();
+	while (iter.hasNext()) {
+	    ClassInfo ci = classpath.getClassInfo((String) iter.next());
+	    while (ci != null
+		   && ci.status >= OUTERCLASS
+		   && (ci.outerClass != null || ci.methodScoped)) {
+		/* Order is important so remove ci if it
+		 * already exists and add it to the end.  This
+		 * way the outermost classes go to the end.
+		 */
+		outers.remove(ci);
+		outers.add(ci);
+		ci = ci.outerClass;
 	    }
 	}
 	if (hasInnerClassesAttr) {
@@ -926,9 +869,9 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    output.writeInt(2 + count * 8);
 	    output.writeShort(count);
 
-	    ListIterator iter = outers.listIterator(count);
-	    while (iter.hasPrevious()) {
-		ClassInfo ci = (ClassInfo) iter.previous();
+	    ListIterator listiter = outers.listIterator(count);
+	    while (listiter.hasPrevious()) {
+		ClassInfo ci = (ClassInfo) listiter.previous();
 
 		output.writeShort(gcp.putClassName(ci.name));
 		output.writeShort(ci.outerClass == null ? 0 : 
@@ -951,7 +894,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
      * @exception IllegalStateException if not enough information is set.
      */
     public void write(DataOutputStream out) throws IOException {
-	if (status <= ALL)
+	if (status < ALL)
 	    throw new IllegalStateException("state is "+status);
 
 	GrowableConstantPool gcp = new GrowableConstantPool();
@@ -967,15 +910,15 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	out.writeShort(gcp.putClassName(name));
 	out.writeShort(gcp.putClassName(superclass.getName()));
 	out.writeShort(interfaces.length);
-	for (int i=0; i < interfaces.length; i++)
+	for (int i = 0; i < interfaces.length; i++)
 	    out.writeShort(gcp.putClassName(interfaces[i].getName()));
 
 	out.writeShort(fields.length);
-	for (int i=0; i < fields.length; i++)
+	for (int i = 0; i < fields.length; i++)
 	    fields[i].write(gcp, out);
 
 	out.writeShort(methods.length);
-	for (int i=0; i < methods.length; i++)
+	for (int i = 0; i < methods.length; i++)
 	    methods[i].write(gcp, out);
 
         writeAttributes(gcp, out);
@@ -1018,11 +961,6 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
      * Guess the contents of a class.  It
      * @param howMuch The amount of information that should be read, e.g.
      *                <code>HIERARCHY</code>.
-     * @exception ClassFormatException if the file doesn't denote a
-     *            valid class.
-     * @exception FileNotFoundException if class wasn't found in classpath.
-     * @exception IOException if an io exception occured.
-     * @exception IllegalStateException if this ClassInfo was modified.
      * @see #OUTERCLASS
      * @see #HIERARCHY
      * @see #PUBLICDECLARATIONS
@@ -1074,7 +1012,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	if (howMuch >= PUBLICDECLARATIONS) {
 	    methods = new MethodInfo[0];
 	    fields = new FieldInfo[0];
-	    innerClasses = new ClassInfo[0];
+	    innerClasses = EMPTY_INNER;
 	}
 	status = howMuch;
     }
@@ -1117,9 +1055,9 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 		 */
 		keep = DECLARATIONS;
 
-	    for (int i=0; i < fields.length; i++)
+	    for (int i = 0; i < fields.length; i++)
 		fields[i].drop(keep);
-	    for (int i=0; i < methods.length; i++)
+	    for (int i = 0; i < methods.length; i++)
 		methods[i].drop(keep);
 	}
 
@@ -1201,7 +1139,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     public FieldInfo findField(String name, String typeSig) {
         if (status < PUBLICDECLARATIONS)
             throw new IllegalStateException("status is "+status);
-        for (int i=0; i< fields.length; i++)
+        for (int i = 0; i < fields.length; i++)
             if (fields[i].getName().equals(name)
                 && fields[i].getType().equals(typeSig))
                 return fields[i];
@@ -1211,7 +1149,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     public MethodInfo findMethod(String name, String typeSig) {
         if (status < PUBLICDECLARATIONS)
             throw new IllegalStateException("status is "+status);
-        for (int i=0; i< methods.length; i++)
+        for (int i = 0; i < methods.length; i++)
             if (methods[i].getName().equals(name)
                 && methods[i].getType().equals(typeSig))
                 return methods[i];
@@ -1260,6 +1198,12 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         return methodScoped;
     }
 
+    /**
+     * Returns the inner classes declared in this class.
+     * This needs at least PUBLICDECLARATION information loaded. 
+     * @return an array containing the inner classes, guaranteed != null.
+     * @exception IllegalStateException if PUBLICDECLARATIONS information
+     * wasn't loaded yet.  */
     public ClassInfo[] getClasses() {
         if (status < PUBLICDECLARATIONS)
             throw new IllegalStateException("status is "+status);
@@ -1270,53 +1214,73 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	return sourceFile;
     }
 
+    /**
+     * Sets the name of this class info.  Note that by changing the
+     * name you may overwrite an already loaded class.  This can have
+     * ugly effects, as that overwritten class may still exist, but
+     * can't be loaded via the classPath.
+     */
     public void setName(String newName) {
+	/* The class name is used as index in the hash table.  We have
+	 * to update the class path and tell it about the name change.
+	 */
+	classpath.renameClassInfo(this, newName);
 	name = newName.intern();
+	status = ALL;
 	modified = true;
     }
 
     public void setSuperclass(ClassInfo newSuper) {
 	superclass = newSuper;
+	status = ALL;
 	modified = true;
     }
     
     public void setInterfaces(ClassInfo[] newIfaces) {
         interfaces = newIfaces;
+	status = ALL;
 	modified = true;
     }
 
     public void setModifiers(int newModifiers) {
         modifiers = newModifiers;
+	status = ALL;
 	modified = true;
     }
 
     public void setMethods(MethodInfo[] mi) {
         methods = mi;
+	status = ALL;
 	modified = true;
     }
 
     public void setFields(FieldInfo[] fi) {
         fields = fi;
+	status = ALL;
 	modified = true;
     }
 
     public void setOuterClass(ClassInfo oc) {
         outerClass = oc;
+	status = ALL;
 	modified = true;
     }
 
     public void setMethodScoped(boolean ms) {
         methodScoped = ms;
+	status = ALL;
 	modified = true;
     }
 
     public void setClasses(ClassInfo[] ic) {
-        innerClasses = ic;
+        innerClasses = ic.length == 0 ? EMPTY_INNER : ic;
+	status = ALL;
 	modified = true;
     }
 
     public void setSourceFile(String newSource) {
 	sourceFile = newSource;
+	status = ALL;
 	modified = true;
     }
 
@@ -1363,12 +1327,12 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    
 	    ClassInfo[] interfaces = (ClassInfo[]) this.interfaces.clone();
 	    Arrays.sort(interfaces);
-	    for (int i=0; i < interfaces.length; i++)
+	    for (int i = 0; i < interfaces.length; i++)
 		out.writeUTF(interfaces[i].name);
 
 	    FieldInfo[] fields  = (FieldInfo[]) this.fields.clone();
 	    Arrays.sort(fields);
-	    for (int i=0; i < fields.length; i++) {
+	    for (int i = 0; i < fields.length; i++) {
 		modifs = fields[i].getModifiers();
 		if ((modifs & Modifier.PRIVATE) != 0
 		    && (modifs & (Modifier.STATIC 
@@ -1383,7 +1347,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    MethodInfo[] methods = (MethodInfo[]) this.methods.clone();
 	    Arrays.sort(methods);
 	    
-	    for (int i=0; i < methods.length; i++) {
+	    for (int i = 0; i < methods.length; i++) {
 		modifs = methods[i].getModifiers();
 		/* The modifiers of <clinit> should be just static,
 		 * but jikes also marks it final.  
@@ -1405,7 +1369,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 
 	    byte[] sha = md.digest();
 	    long result = 0;
-	    for (int i=0; i < 8; i++) {
+	    for (int i = 0; i < 8; i++) {
 		result += (long)(sha[i] & 0xFF) << (8 * i);
 	    }
 	    return result;
@@ -1461,7 +1425,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    if (clazz.status < HIERARCHY)
 		clazz.load(HIERARCHY);
             ClassInfo[] ifaces = clazz.getInterfaces();
-            for (int i=0; i< ifaces.length; i++) {
+            for (int i = 0; i < ifaces.length; i++) {
                 if (implementedBy(ifaces[i]))
                     return true;
             }

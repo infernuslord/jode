@@ -685,6 +685,26 @@ public class ClassPath  {
     }
 
     /**
+     * Updates the classes unify hash for a class renaming.  This
+     * should be only called by {@link ClassInfo#setName}.
+     */
+    void renameClassInfo(ClassInfo classInfo, String classname) {
+	classes.remove(classInfo.getName().hashCode(), classInfo);
+	/* Now remove any class already loaded with that name, just
+	 * in case we're overwriting one.
+	 */
+	Iterator iter = classes.iterateHashCode(classname.hashCode());
+	while (iter.hasNext()) {
+	    ClassInfo clazz = (ClassInfo) iter.next();
+	    if (clazz.getName().equals(classname)) {
+		iter.remove();
+		break;
+	    }
+	}
+	classes.put(classname.hashCode(), classInfo);
+    }
+
+    /**
      * Checks, if a class with the given name exists somewhere in this
      * path.
      * @param classname the class name.
@@ -752,7 +772,7 @@ public class ClassPath  {
      * @param fqn the full qualified name. The components should be dot
      * separated.
      * @return true, if filename exists and is a package, false otherwise.
-     * @see isDirectory
+     * @see #isDirectory
      */
     public boolean isPackage(String fqn) {
 	return isDirectory(fqn.replace('.', '/'));

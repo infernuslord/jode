@@ -1,3 +1,73 @@
+2001-08-05  Jochen Hoenicke  <jochen@gnu.org>
+
+	Documentation updates (INSTALL, javadoc).
+	Added JUnit Test cases.
+	* build.xml: Big update.
+	* net/sf/jode/bytecode/BasicBlock.java:
+	(updateMaxStackLocals): new method to calculate maxStack and
+	maxLocals.
+	(setBlocks): fixed calculation of handlers, call updateMaxLocals.
+	* net/sf/jode/bytecode/BasicBlockReader.java:
+	(maxLocals, maxStack): new fields.
+	(readCode): read maxStack/Locals into private fields.
+	(convert): check that maxStack/Locals match what we calculate.
+	* net/sf/jode/bytecode/BinaryInfo.java:
+	(getKnownAttributeCount): renamed to...
+	(getAttributeCount): ... this, and also count internal attributes.
+	Made it protected.
+	(readAttribute): made protected.
+	(drop): made protected.
+	(prepareAttributes): made protected.
+	(writeKnownAttributes): removed.
+	(writeAttributes): made protected, use getAttributeCount.  
+	Changed policy: it doesn't call writeKnownAttribute, but instead
+	it expects sub classes to override this method.
+	(getAttributeSize): made protected, subclasses should override it.
+	Changed all subclasses to new policy.
+	* net/sf/jode/bytecode/Block.java:
+	(lineNr): Removed, it wasn't used.
+	(pop,push): Removed, replaced by ...
+	(maxpop,maxpush,delta): ... these, with slightly changed semantics.
+	(stackHeight): New variable.
+	(Block): Default Constructor doesn't initialize fields now.
+	(getCatchers): Renamed to ...
+	(getHandlers): ... this, changed all callers.
+	(initCode): Calculate maxpop, maxpush, delta correctly.
+	(getStackPopPush): Changed accordingly to new fields.
+	(setCode): Removed debugging output for illegal contents.
+	* net/sf/jode/bytecode/Classes.java:  Reworked handling of inner
+	classes.
+	(innerClasses): Field mustn't be null anymore when loaded.
+	(setName): Update class in classpath.
+	* net/sf/jode/bytecode/ClassPath.java:
+	(renameClassInfo): new function, should only used by ClassInfo.
+	* net/sf/jode/bytecode/ConstantPool.java: made public.
+	(getUTF8,getRef,getClassType,getClassName): Don't allow the 0 index.
+	(iterateClassNames): New method.
+	* net/sf/jode/decompiler/Main.java:
+	(decompileClass): Catch ClassFormatExceptions and decompile
+	remaining classes.
+	* net/sf/jode/obfuscator/ClassIdentifier.java:
+	Updated handling of inner/extra classes to new ClassInfo behaviour.
+	(initSuperClasses): Load DECLARATION of super classes.
+	* net/sf/jode/obfuscator/PackageIdentifier.java:
+	Replace deprecated methods of ClassInfo with corresponding classpath
+	calls.
+	(loadMatchingClasses): Initialize packages loaded on demand if we
+	are initialize.
+	* net/sf/jode/obfuscator/modules/ConstantAnalyzer.java:
+	Now extends SimpleAnalyzer.
+	(canonizeIfaceRef): Removed; it is now inherited.
+	(canonizeRef): likewise.
+	Big updates to handle jsr correctly.
+	(handleOpcode):  Moved method to BlockInfo.
+	* net/sf/jode/obfuscator/modules/SimpleAnalyzer.java:
+	(canonizeIfaceRef): New method, copied from ConstantAnalyzer.
+	(canonizeRef): call canonizeIfaceRef for interfaces.
+	* net/sf/jode/util/UnifyHash.java
+	(iterateHashCode): iterator now supports remove().
+	(remove): New method.
+
 2001-07-30  Jochen Hoenicke  <jochen@gnu.org>
 
 	Changed compilation procedure to ant.
@@ -149,8 +219,8 @@
 2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
 	Applied patch from 2001-05-08 of Jode 1.1 tree:
 	* jode/jvm/CodeVerifier.java (doVerify): Don't check for
- 	uninitialized objects in local or stack slots on backwards jump or
- 	exception blocks.  Sun's jdk also doesn't check it, and I never
+	uninitialized objects in local or stack slots on backwards jump or
+	exception blocks.  Sun's jdk also doesn't check it, and I never
 	understood why it is necessary.  But see JVM Spec 4.9.4.
 
 2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
@@ -238,12 +308,12 @@
 	* jode/decompiler/Options.java (setOptions): changed gnu style
 	to include GNU_SPACING.
 	* jode/decompiler/ClassAnalyzer.java (dumpSource): Use
- 	open/closeBraceClass.
+	open/closeBraceClass.
 	* jode/decompiler/MethodAnalyzer.java (dumpSource): Use
- 	open/closeBraceNoIndent.  Call printOptionalSpace.
+	open/closeBraceNoIndent.  Call printOptionalSpace.
 	* jode/decompiler/InvokeOperator.java (dumpExpression): 
 	Call printOptionalSpace, use open/closeBraceClass for inner
- 	classes.
+	classes.
 	* jode/decompiler/UnaryOperator.java (dumpExpression): Call
 	printOptionalSpace.
 
@@ -252,21 +322,21 @@
 	* jode/decompiler/TabbedPrintWriter.java (BRACE_FLUSH_LEFT): 
 	new constant.
 	(openBrace, openBraceContinue, closeBrace, closeBraceNoSpace,
- 	closeBraceContinue): handle flush left.
+	closeBraceContinue): handle flush left.
 	
 	* jode/type/NullType.java (intersection): Removed, since the
- 	version in ReferenceType is more correct.  Before
- 	tNull.isOfType(tRange(X,tNull)) returned false, which lead to
- 	incorrect behaviour in InvokeOperator.needsCast.
+	version in ReferenceType is more correct.  Before
+	tNull.isOfType(tRange(X,tNull)) returned false, which lead to
+	incorrect behaviour in InvokeOperator.needsCast.
 	* jode/decompiler/FieldAnalyzer.java (dumpSource): Removed the
- 	"= null" hack for final fields; it was not correct, since the
- 	field could be initialized in a constructor.
+	"= null" hack for final fields; it was not correct, since the
+	field could be initialized in a constructor.
 	* jode/decompiler/TabbedPrintWriter.java (BreakPoint.endOp):
 	Simplified the code, copy options always from child.
 	* jode/expr/InvokeOperator.java (isGetClass): Allow the method to
- 	be declared inside an outer class:  We simply check if we can get
+	be declared inside an outer class:  We simply check if we can get
 	the method analyzer.
 	(simplify): handle unifyParam.
 	* jode/expr/PopOperator.java (getBreakPenalty): return penalty of
- 	inner expression. (dumpExpression): Call dumpExpression of
- 	subexpression immediately without priority.
+	inner expression. (dumpExpression): Call dumpExpression of
+	subexpression immediately without priority.

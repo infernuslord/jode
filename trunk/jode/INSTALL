@@ -1,45 +1,23 @@
 Before installing, make sure you have at least version 1.1 of the java
 developement kit installed.  If you want to run this program you only
 need the java runtime environment.  Version 1.1 is quite old, I
-recommend using Java 2 (jdk1.2 or above).
+recommend using Java 2 (jdk1.2 or above).  You need perl if you want
+to compile a 1.1 version.
 
-This package was designed to use the GNU standard for configuration
-and makefiles.  To build and install do the following:
+This package was designed to use the ANT from the jakarta.apache.org
+tools.  I assume you have installed it correctly. 
 
-0).  If you have downloaded the code from the CVS repository create
-configure and Makefile.in with autoconf-2.13 and automake-1.4.  Type
-"aclocal; automake -a; autoconf".
+Take some time to edit config.props.  There are a few options you need
+to take care of.  (Unfortunately ant can't test for executables).
 
-1).  You need a java development kit (at least version 1.1), some unix
-tools and some java packages.  Make sure that you have all java
-packages that are needed in your classpath.  This are gnu.getopt, and
-if you have JDK 1.1 you also need the collection classes and swing for
-1.1.  These packages are accessible from the following urls:
+Now you are ready to invoke ant.  There are many possible targets, here
+are the most useful ones:
 
- CYGWIN (unix tools for win95/NT):
-   http://sourceware.cygnus.com/cygwin/
-
- JDK 1.1:
-   http://java.sun.com/products/jdk/1.1/index.htm
-
- Collection classes and Swing for JDK 1.1:
-   http://java.sun.com/beans/infobus/#DOWNLOAD_COLLECTIONS
-   http://java.sun.com/products/jfc/index.html#download-swing
-
- JDK 1.2:
-   http://java.sun.com/products/jdk/1.2/index.html
-
- Getopt:
-   http://www.urbanophile.com/arenn/hacking/download.html#getopt
-
-2).  Run the "configure" script to configure the package.  There are
-various options you might want to pass to configure to control how the
-package is built.  "configure --help" will give a complete list.  
-
-Use the --with-java option to specify the install directory of the jdk.
-
-If you have jikes, you should specify it with --with-jikes.  You can
-give a path to the directory where it resides, otherwise it is
-searched in the path.
-
-3).  Type "make" to build the package.
+all       builds class files and documentation.
+build     builds class files only (autodetects java version).
+build-1.1 builds JDK1.1 class files.
+doc       builds documentation.
+dist      creates all release files.
+test      does some self tests.  You need to have junit installed for this.
+clean     cleans everything that doesn't belong to the source distribution.
+cvsclean  cleans everything that doesn't belong into the cvs repository.

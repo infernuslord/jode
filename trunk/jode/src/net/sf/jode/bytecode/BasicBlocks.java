@@ -26,6 +26,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import java.util.BitSet;
+import java.util.Stack;
 ///#def COLLECTIONS java.util
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,8 +70,9 @@ import java.lang.UnsupportedOperationException;
  * necessary, you don't have to care about that.</p>
  *
  * @see net.sf.jode.bytecode.Block
- * @see net.sf.jode.bytecode.Instruction */
-public class BasicBlocks extends BinaryInfo {
+ * @see net.sf.jode.bytecode.Instruction
+ */
+public class BasicBlocks extends BinaryInfo implements Opcodes {
     
     /**
      * The method info which contains the basic blocks.
@@ -153,12 +156,84 @@ public class BasicBlocks extends BinaryInfo {
 	return paramInfos.length;
     }
 
-    public void setMaxStack(int ms) {
-        maxStack = ms;
-    }
+    /**
+     * Updates the maxStack and maxLocals according to the current code.
+     * Call this every time you change the code.
+     */
+    public void updateMaxStackLocals() {
+	maxLocals = getParamCount();
+	maxStack = 0;
 
-    public void setMaxLocals(int ml) {
-        maxLocals = ml;
+	if (startBlock == null)
+	    return;
+
+	BitSet visited = new BitSet();
+	Stack todo = new Stack();
+	int[] poppush = new int[2];
+
+	startBlock.stackHeight = 0;
+	todo.push(startBlock);
+	while (!todo.isEmpty()) {
+	    Block block = (Block) todo.pop();
+	    int stackHeight = block.stackHeight;
+	    if (stackHeight + block.maxpush > maxStack)
+		maxStack = stackHeight + block.maxpush;
+	    stackHeight += block.delta;
+
+	    Block[] succs = block.getSuccs();
+	    Instruction[] instr = block.getInstructions();
+	    for (int i = 0; i < instr.length; i++) {
+		if (instr[i].hasLocal()) {
+		    int slotlimit = instr[i].getLocalSlot() + 1;
+		    int opcode = instr[i].getOpcode();
+		    if (opcode == opc_lstore || opcode == opc_dstore
+			|| opcode == opc_lload || opcode == opc_dload)
+			slotlimit++;
+		    if (slotlimit > maxLocals)
+			maxLocals = slotlimit;
+		}
+	    }
+	    if (instr.length > 0 
+		&& instr[instr.length-1].getOpcode() == opc_jsr) {
+		if (!visited.get(succs[0].blockNr)) {
+		    succs[0].stackHeight = stackHeight + 1;
+		    todo.push(succs[0]);
+		    visited.set(succs[0].blockNr);
+		} else if (succs[0].stackHeight != stackHeight + 1)
+		    throw new IllegalArgumentException
+			("Block has two different stack heights.");
+
+		if (succs[1] != null && !visited.get(succs[1].blockNr)) {
+		    succs[1].stackHeight = stackHeight;
+		    todo.push(succs[1]);
+		    visited.set(succs[1].blockNr);
+		} else if ((succs[1] == null ? 0 : succs[1].stackHeight)
+			   != stackHeight)
+		    throw new IllegalArgumentException
+			("Block has two different stack heights.");
+	    } else {
+		for (int i = 0; i < succs.length; i++) {
+		    if (succs[i] != null && !visited.get(succs[i].blockNr)) {
+			succs[i].stackHeight = stackHeight;
+			todo.push(succs[i]);
+			visited.set(succs[i].blockNr);
+		    } else if ((succs[i] == null ? 0 : succs[i].stackHeight)
+			       != stackHeight)
+			throw new IllegalArgumentException
+			    ("Block has two different stack heights.");
+		}
+	    }
+	    Handler[] handler = block.getHandlers();
+	    for (int i = 0; i < handler.length; i++) {
+		if (!visited.get(handler[i].getCatcher().blockNr)) {
+		    handler[i].getCatcher().stackHeight = 1;
+		    todo.push(handler[i].getCatcher());
+		    visited.set(handler[i].getCatcher().blockNr);
+		} else if (handler[i].getCatcher().stackHeight != 1)
+		    throw new IllegalArgumentException
+			("Block has two different stack heights.");
+	    }
+	}
     }
 
     public void setBlocks(Block[] blocks, Block startBlock, 
@@ -173,15 +248,18 @@ public class BasicBlocks extends BinaryInfo {
 	    for (int j = 0; j < handlers.length; j++) {
 		if (handlers[j].getStart() == blocks[i])
 		    activeHandlers.add(handlers[j]);
-		if (handlers[j].getEnd() == blocks[i])
-		    activeHandlers.remove(handlers[j]);
 	    }
 	    if (activeHandlers.size() == 0)
 		blocks[i].catchers = Handler.EMPTY;
 	    else
 		blocks[i].catchers = 
 		    (Handler[]) activeHandlers.toArray(Handler.EMPTY);
+	    for (int j = 0; j < handlers.length; j++) {
+		if (handlers[j].getEnd() == blocks[i])
+		    activeHandlers.remove(handlers[j]);
+	    }
 	}
+	updateMaxStackLocals();
 //  	TransformSubroutine.createSubroutineInfo(this);
     }
 
@@ -212,7 +290,7 @@ public class BasicBlocks extends BinaryInfo {
 	    dumpCode(GlobalOptions.err);
     }
 
-    void readAttribute(String name, int length, ConstantPool cp,
+    protected void readAttribute(String name, int length, ConstantPool cp,
 				 DataInputStream input, 
 				 int howMuch) throws IOException {
 	if (howMuch >= ClassInfo.ALMOSTALL
@@ -256,15 +334,17 @@ public class BasicBlocks extends BinaryInfo {
     BasicBlockWriter bbw;
     void prepareWriting(GrowableConstantPool gcp) {
 	bbw = new BasicBlockWriter(this, gcp);
+	prepareAttributes(gcp);
     }
 
-    int getKnownAttributeCount() {
-	return bbw.getAttributeCount();
+    protected int getAttributeCount() {
+	return super.getAttributeCount() + bbw.getAttributeCount();
     }
 
-    void writeKnownAttributes(GrowableConstantPool gcp,
-			      DataOutputStream output)
+    protected void writeAttributes(GrowableConstantPool gcp,
+				   DataOutputStream output)
 	throws IOException {
+	super.writeAttributes(gcp, output);
 	bbw.writeAttributes(gcp, output);
     }
 

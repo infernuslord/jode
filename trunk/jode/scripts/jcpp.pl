@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-# jcpp Copyright (C) 1999 Jochen Hoenicke.
+# jcpp Copyright (C) 1999-2001 Jochen Hoenicke.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,8 +39,8 @@
 # After running jcpp the false branch is commented out.  If the true
 # branch was commented out it will get commented in.
 #
-# jcpp also definitions, useful for package renaming.  The java file
-# must look like this:
+# jcpp can also change definitions, useful for package renaming.  The
+# java file should look like this:
 #
 # ///#def COLLECTIONS java.util
 # import java.util.Vector

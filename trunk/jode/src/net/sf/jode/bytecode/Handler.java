@@ -66,7 +66,7 @@ public class Handler {
     }
     
     /**
-     * Gets the type signature of the exception.
+     * Gets the class name of the exception type.
      */
     public String getType() {
 	return type;
@@ -85,7 +85,7 @@ public class Handler {
     }
     
     /**
-     * Sets the type signature of the exception.
+     * Sets the class name of the exception type.
      */
     public void setType(String type) {
 	this.type = type;

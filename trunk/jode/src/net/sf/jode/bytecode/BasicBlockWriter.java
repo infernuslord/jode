@@ -76,8 +76,10 @@ class BasicBlockWriter implements Opcodes {
 	    new LocalVariableInfo[blocks.length][];
 	int startBlockNr = startBlock.getBlockNr();
 	atStart[startBlockNr] = new LocalVariableInfo[bb.getMaxLocals()];
-	for (int i=0; i < bb.getParamCount(); i++)
-	    atStart[startBlockNr][i] = bb.getParamInfo(i);
+	for (int i=0; i < bb.getParamCount(); i++) {
+	    LocalVariableInfo lvi = bb.getParamInfo(i);
+	    atStart[startBlockNr][i] = lvi.getName() != null ? lvi : null;
+	}
 
 	/* We currently ignore the jsr/ret issue.  Should be okay,
 	 * though, since it can only generate a bit too much local
@@ -94,36 +96,47 @@ class BasicBlockWriter implements Opcodes {
 		if (instrs[i].hasLocal()) {
 		    LocalVariableInfo lvi = instrs[i].getLocalInfo();
 		    int slot = lvi.getSlot();
-		    if (life[slot] != null 
-			&& life[slot] != lvi)
-			life[slot] = null;
-
-		    if (life[slot] == null
-			&& lvi.getName() != null)
-			life[slot] = lvi;
+		    life[slot] = lvi.getName() != null ? lvi : null;
 		}
 	    }
 	    Block[] succs = block.getSuccs();
-	    if (succs != null) {
-		for (int j = 0; j < succs.length; j++) {
-		    if (succs[j] == null)
-			continue;
-		    int succNr = succs[j].getBlockNr();
-		    if (atStart[succNr] == null) {
-			atStart[succNr] = (LocalVariableInfo[]) life.clone();
-			todo.push(succs[j]);
-		    } else {
-			boolean changed = false;
-			for (int k = 0; k < life.length; k++) {
-			    if (atStart[succNr][k] != life[k]
-				&& atStart[succNr][k] != null) {
-				atStart[succNr][k] = null;
-				changed = true;
-			    }
+	    for (int j = 0; j < succs.length; j++) {
+		if (succs[j] == null)
+		    continue;
+		int succNr = succs[j].getBlockNr();
+		if (atStart[succNr] == null) {
+		    atStart[succNr] = (LocalVariableInfo[]) life.clone();
+		    todo.push(succs[j]);
+		} else {
+		    boolean changed = false;
+		    for (int k = 0; k < life.length; k++) {
+			if (atStart[succNr][k] != life[k]
+			    && atStart[succNr][k] != null) {
+			    atStart[succNr][k] = null;
+			    changed = true;
 			}
-			if (changed && !todo.contains(succs[j]))
-			    todo.push(succs[j]);
 		    }
+		    if (changed && !todo.contains(succs[j]))
+			todo.push(succs[j]);
+		}
+	    }
+	    Handler[] handlers = block.getHandlers();
+	    for (int j = 0; j < handlers.length; j++) {
+		int succNr = handlers[j].getCatcher().getBlockNr();
+		if (atStart[succNr] == null) {
+		    atStart[succNr] = (LocalVariableInfo[]) life.clone();
+		    todo.push(handlers[j].getCatcher());
+		} else {
+		    boolean changed = false;
+		    for (int k = 0; k < life.length; k++) {
+			if (atStart[succNr][k] != life[k]
+			    && atStart[succNr][k] != null) {
+			    atStart[succNr][k] = null;
+			    changed = true;
+			}
+		    }
+		    if (changed && !todo.contains(handlers[j].getCatcher()))
+			todo.push(handlers[j].getCatcher());
 		}
 	    }
 	}
@@ -137,6 +150,7 @@ class BasicBlockWriter implements Opcodes {
 		current[slot] = new LVTEntry();
 		current[slot].startAddr = 0;
 		current[slot].lvi = lvi;
+		System.err.println("lvi at init,"+slot+": "+lvi);
 	    }
 	}
 
@@ -158,6 +172,7 @@ class BasicBlockWriter implements Opcodes {
 		    current[slot] = new LVTEntry();
 		    current[slot].startAddr = addr;
 		    current[slot].lvi = atStart[i][slot];
+		    System.err.println("lvi at "+i+","+slot+": "+current[slot].lvi);
 		}
 	    }
 
@@ -178,6 +193,7 @@ class BasicBlockWriter implements Opcodes {
 			current[slot] = new LVTEntry();
 			current[slot].startAddr = addr;
 			current[slot].lvi = lvi;
+			System.err.println("lvi at "+i+","+k+","+slot+": "+current[slot].lvi);
 		    }
 		}
 		addr += instrLength[i][k];
@@ -222,8 +238,8 @@ class BasicBlockWriter implements Opcodes {
 	    gotos[0] = startBlock.getBlockNr();
 	}
 
-    next_block:
 	for (int i = 0; i < blocks.length; i++) {
+	    boolean hasDefaultSucc = true;
 	    blockAddr[i] = addr;
 	    Instruction[] instrs = blocks[i].getInstructions();
 	    instrLength[i] = new int[instrs.length];
@@ -265,7 +281,7 @@ class BasicBlockWriter implements Opcodes {
 			} else if (value >= Short.MIN_VALUE
 				   && value <= Short.MAX_VALUE) {
 			    length = 3;
-			break switch_opc;
+			    break switch_opc;
 			}
 		    }
 		    if (gcp.putConstant(constant) < 256) {
@@ -304,30 +320,28 @@ class BasicBlockWriter implements Opcodes {
 			length = 2;
 		    else 
 			length = 4;
-		    gotos[i+1] = -2;
+		    hasDefaultSucc = false;
 		    break;
 		} 
 		case opc_lookupswitch: {
-		    length = 3-(addr % 4);
+		    length = (~addr) & 3; /* padding */
 		    int[] values = instr.getValues();
 		    int   npairs = values.length;
 		    for (int k=0; k< succs.length; k++) {
 			if (succs[k] == null)
 			    needRet = true;
 		    }
-		    if (npairs > 0) {
-			int tablesize = values[npairs-1] - values[0] + 1;
-			if (4 + tablesize * 4 < 8 * npairs) {
-			    // Use a table switch
-			    length += 13 + 4 * tablesize;
-			    break;
-			}
+		    if (npairs > 0
+			&& 4 + 4 * (values[npairs-1] - values[0] + 1) 
+			<= 8 * npairs) {
+			// Use a table switch
+			length += 13 + 4 * (values[npairs-1] - values[0] + 1);
+		    } else {
+			// Use a lookup switch
+			length += 9 + 8 * npairs;
 		    }
-		    // Use a lookup switch
-		    length += 9 + 8 * npairs;
-		    // The goto is inclusive through the default part.
-		    gotos[i+1] = -2;
-		    continue next_block;
+		    hasDefaultSucc = false;
+		    break;
 		}
 		case opc_jsr:
 		    conds[i+1] = succs[0].getBlockNr();
@@ -391,8 +405,8 @@ class BasicBlockWriter implements Opcodes {
 		case opc_freturn: case opc_dreturn: case opc_areturn:
 		case opc_return: 
 		case opc_athrow:
-		    gotos[i+1] = -2;
 		    length = 1;
+		    hasDefaultSucc = false;
 		    break;
 		case opc_nop:
 		case opc_iaload: case opc_laload: case opc_faload:
@@ -434,20 +448,26 @@ class BasicBlockWriter implements Opcodes {
 		instrLength[i][j] = length;
 		addr += length;
 	    }
-	    Block defaultSucc = succs[succs.length-1];
-	    if (defaultSucc == null) {
-		// This is a return
-		gotos[i+1] = -1;
-		isRet.set(i+1);
-		lastRetAddr = addr;
-		addr++;
-	    } else if (defaultSucc.getBlockNr() == i + 1) {
-		// no need for any jump
-		gotos[i+1] = succs[succs.length-1].getBlockNr();
+	    if (hasDefaultSucc) {
+		Block defaultSucc = succs[succs.length-1];
+		if (defaultSucc == null) {
+		    // This is a return
+		    gotos[i+1] = -1;
+		    isRet.set(i+1);
+		    lastRetAddr = addr;
+		    hasRet = true;
+		    addr++;
+		} else if (defaultSucc.getBlockNr() == i + 1) {
+		    // no need for any jump
+		    gotos[i+1] = succs[succs.length-1].getBlockNr();
+		} else {
+		    // Reserve space for a normal goto.
+		    gotos[i+1] = succs[succs.length-1].getBlockNr();
+		    addr += 3;
+		}
 	    } else {
-		// Reserve space for a normal goto.
-		gotos[i+1] = succs[succs.length-1].getBlockNr();
-		addr += 3;
+		// No goto needed for this block
+		gotos[i+1] = -2;
 	    }
 	}
 	if (needRet && !hasRet) {
@@ -470,9 +490,9 @@ class BasicBlockWriter implements Opcodes {
 		    int from = blockAddr[i] - 3;
 		    if (gotoNr != i + 1)
 			from -= isRet.get(i) ? 1 : isWide.get(i) ? 5 : 3;
-		    int dist;
+		    int dist = Integer.MAX_VALUE;
 		    if (condNr == -1) {
-			if (!retAtEnd) {
+			if (retAtEnd) {
 			    dist = blockAddr[blockAddr.length-1] - 1 - from;
 			} else {
 			    for (int j = 0; j < gotos.length; j++) {
@@ -483,7 +503,8 @@ class BasicBlockWriter implements Opcodes {
 					break;
 				}
 			    }
-			    throw new InternalError();
+			    if (dist == Integer.MAX_VALUE)
+				throw new InternalError();
 			}
 		    } else {
 			dist = blockAddr[condNr] - from;
@@ -502,7 +523,7 @@ class BasicBlockWriter implements Opcodes {
 			    blockAddr[j] += diff;
 			changed = true;
 		    }
-		} 
+		}
 		if (!isWide.get(i) && gotoNr >= 0) {
 		    int dist = blockAddr[gotoNr] - blockAddr[i] + 3;
 		    if (dist < Short.MIN_VALUE || dist > Short.MAX_VALUE) {
@@ -565,6 +586,7 @@ class BasicBlockWriter implements Opcodes {
 	    gcp.putUTF8("LocalVariableTable");
             int count = lvt.length;
             for (int i=0; i < count; i++) {
+	      System.err.println("lvt: "+lvt[i].lvi);
 		gcp.putUTF8(lvt[i].lvi.getName());
 		gcp.putUTF8(lvt[i].lvi.getType());
 	    }
@@ -590,13 +612,12 @@ class BasicBlockWriter implements Opcodes {
 		output.writeShort(lvt[i].lvi.getSlot());
             }
 	}
-	if (lnt != null) {
+	if (lntCount > 0) {
 	    output.writeShort(gcp.putUTF8("LineNumberTable"));
-            int count = lnt.length / 2;
-	    int length = 2 + 4 * count;
+	    int length = 2 + 4 * lntCount;
 	    output.writeInt(length);
-	    output.writeShort(count);
-            for (int i=0; i < count; i++) {
+	    output.writeShort(lntCount);
+            for (int i = 0; i < lntCount; i++) {
 		output.writeShort(lnt[2*i]);
 		output.writeShort(lnt[2*i+1]);
             }
@@ -629,11 +650,11 @@ class BasicBlockWriter implements Opcodes {
 	}
 	int lntPtr = 0;
 	
-    next_block:
 	for (int i = 0; i< blocks.length; i++) {
+	    boolean hasDefaultSucc = true;
 	    Block[] succs = blocks[i].getSuccs();
 	    if (addr != blockAddr[i])
-		throw new InternalError("Address calculation broken!");
+		throw new InternalError("Address calculation broken for "+i+": "+blockAddr[i]+"!="+addr+"!");
 	    Instruction[] instructions = blocks[i].getInstructions();
 	    int size = instructions.length;
 	    for (int j = 0; j < size; j++) {
@@ -679,7 +700,8 @@ class BasicBlockWriter implements Opcodes {
 			output.writeByte(opcode);
 			output.writeShort(slot);
 		    }
-		    continue next_block;
+		    hasDefaultSucc = false;
+		    break;
 		}
 		case opc_ldc:
 		case opc_ldc2_w: {
@@ -782,18 +804,19 @@ class BasicBlockWriter implements Opcodes {
 		    } else {
 			int dist;
 			if (dest == null) {
-			    if (!retAtEnd) {
+			    if (retAtEnd) {
 				dist = blockAddr[blocks.length] - 1 - addr;
 			    } else {
-				for (int k = 0; k < blocks.length + 1; k++) {
+				for (int k = 0; ; k++) {
 				    if (isRet.get(k)) {
 					dist = blockAddr[k] - 1 - addr;
 					if (dist >= Short.MIN_VALUE
 					    && dist <= Short.MAX_VALUE) 
 					    break;
 				    }
+				    if (k == blocks.length)
+					throw new InternalError();
 				}
-				throw new InternalError();
 			    }
 			} else {
 			    dist = blockAddr[dest.getBlockNr()] - addr;
@@ -814,7 +837,7 @@ class BasicBlockWriter implements Opcodes {
 			
 		    if (npairs > 0) {
 			int tablesize = values[npairs-1] - values[0] + 1;
-			if (4 + tablesize * 4 < 8 * npairs) {
+			if (4 + tablesize * 4 <= 8 * npairs) {
 			    // Use a table switch
 			    output.writeByte(opc_tableswitch);
 			    output.write(new byte[align]);
@@ -832,7 +855,8 @@ class BasicBlockWriter implements Opcodes {
 				    : blockAddr[succs[k].getBlockNr()];
 				output.writeInt(dest - addr);
 			    }
-			    continue next_block;
+			    hasDefaultSucc = false;
+			    break;
 			}
 		    }
 		    // Use a lookup switch
@@ -847,7 +871,8 @@ class BasicBlockWriter implements Opcodes {
 			    : blockAddr[succs[k].getBlockNr()];
 			output.writeInt(dest - addr);
 		    }
-		    continue next_block;
+		    hasDefaultSucc = false;
+		    break;
 		}
 		
 		case opc_getstatic:
@@ -903,7 +928,9 @@ class BasicBlockWriter implements Opcodes {
 		case opc_ireturn: case opc_lreturn: 
 		case opc_freturn: case opc_dreturn: case opc_areturn:
 		case opc_athrow: case opc_return:
-		    continue next_block;
+		    output.writeByte(opcode);
+		    hasDefaultSucc = false;
+		    break;
 
 		case opc_nop:
 		case opc_iaload: case opc_laload: case opc_faload:
@@ -944,19 +971,23 @@ class BasicBlockWriter implements Opcodes {
 		}
 		addr += instrLength[i][j];
 	    }
-	    // Check which type of goto we should use at end of this block.
-	    Block defaultSucc = succs[succs.length - 1];
-	    if (isRet.get(i+1)) {
-		output.writeByte(opc_return);
-		addr++;
-	    } else if (isWide.get(i+1)) {
-		output.writeByte(opc_goto_w);
-		output.writeInt(blockAddr[defaultSucc.getBlockNr()] - addr);
-		addr+=5;
-	    } else if (defaultSucc.getBlockNr() != i+1) {
-		output.writeByte(opc_goto);
-		output.writeShort(blockAddr[defaultSucc.getBlockNr()] - addr);
-		addr+=3;
+	    if (hasDefaultSucc) {
+		// Check which type of goto we should use at end of this block.
+		Block defaultSucc = succs[succs.length - 1];
+		if (isRet.get(i+1)) {
+		    output.writeByte(opc_return);
+		    addr++;
+		} else if (isWide.get(i+1)) {
+		    output.writeByte(opc_goto_w);
+		    output.writeInt(blockAddr[defaultSucc.getBlockNr()]
+				    - addr);
+		    addr+=5;
+		} else if (defaultSucc.getBlockNr() != i+1) {
+		    output.writeByte(opc_goto);
+		    output.writeShort(blockAddr[defaultSucc.getBlockNr()]
+				      - addr);
+		    addr+=3;
+		}
 	    }
 	}
 	if (retAtEnd) {
@@ -977,4 +1008,3 @@ class BasicBlockWriter implements Opcodes {
 	}
     }
 }
-

@@ -357,6 +357,15 @@ public class ClassIdentifier extends Identifier {
 		}
 	    } else {
 		// all methods and fields in superclass are preserved!
+		try {
+		    superclass.load(ClassInfo.DECLARATIONS);
+		} catch (IOException ex) {
+		    throw new RuntimeException
+			("Can't read declarations of class "
+			 + superclass.getName()
+			 + ": " + ex.getMessage());
+		}
+		    
 		MethodInfo[] topmethods = superclass.getMethods();
 		for (int i=0; i< topmethods.length; i++) {
 		    // all virtual methods in superclass may be
@@ -433,14 +442,12 @@ public class ClassIdentifier extends Identifier {
 	    info.setSourceFile(null);
 	}
 	if ((Main.stripping & Main.STRIP_INNERINFO) != 0) {
-	    info.setClasses(null);
+	    info.setClasses(new ClassInfo[0]);
 	    info.setOuterClass(null);
-	    info.setExtraClasses(null);
 	}
 	// load inner classes
 	ClassInfo outerClass   = info.getOuterClass();
 	ClassInfo[] innerClasses = info.getClasses();
-	ClassInfo[] extraClasses = info.getExtraClasses();
 	if (outerClass != null)
 	    Main.getClassBundle().getClassIdentifier(outerClass.getName());
 
@@ -448,13 +455,6 @@ public class ClassIdentifier extends Identifier {
 	    for (int i=0; i < innerClasses.length; i++) {
 		Main.getClassBundle()
 		    .getClassIdentifier(innerClasses[i].getName());
-	    }
-	}
-	if (extraClasses != null) {
-	    for (int i=0; i < extraClasses.length; i++) {
-		System.err.println("ec["+i+"]:"+extraClasses[i].getName());
-		Main.getClassBundle()
-		    .getClassIdentifier(extraClasses[i].getName());
 	    }
 	}
     }
@@ -515,6 +515,7 @@ public class ClassIdentifier extends Identifier {
 		    .getClassIdentifier(outerClass.getName());
 		if (outerIdent != null && outerIdent.isReachable())
 		    break;
+		outerClass = outerClass.getOuterClass();
 	    }
 	}
 	info.setOuterClass(outerClass);
@@ -533,44 +534,13 @@ public class ClassIdentifier extends Identifier {
 		}
 	    }
 	    
-	    if (newInnerCount == 0) {
-		info.setClasses(null);
-	    } else {
-		ClassInfo[] newInners = new ClassInfo[newInnerCount];
-		int pos = 0;
-		for (int i=0; i<innerClasses.length; i++) {
-		    if (innerClasses[i] != null)
-			newInners[pos++] = innerClasses[i];
-		}
-		info.setClasses(newInners);
+	    ClassInfo[] newInners = new ClassInfo[newInnerCount];
+	    int pos = 0;
+	    for (int i=0; i<innerClasses.length; i++) {
+		if (innerClasses[i] != null)
+		    newInners[pos++] = innerClasses[i];
 	    }
-	}
-
-	ClassInfo[] extraClasses = info.getExtraClasses();
-	if (extraClasses != null) {
-	    int newExtraCount = extraClasses.length;
-	    if ((Main.stripping & Main.STRIP_UNREACH) != 0) {
-		for (int i=0; i < extraClasses.length; i++) {
-		    ClassIdentifier extraIdent = Main.getClassBundle()
-			.getClassIdentifier(extraClasses[i].getName());
-		    if (extraIdent != null && !extraIdent.isReachable()) {
-			extraClasses[i] = null;
-			newExtraCount--;
-		    }
-		}
-	    }
-	    
-	    if (newExtraCount == 0) {
-		info.setExtraClasses(null);
-	    } else {
-		ClassInfo[] newExtras = new ClassInfo[newExtraCount];
-		int pos = 0;
-		for (int i=0; i<extraClasses.length; i++) {
-		    if (extraClasses[i] != null)
-			newExtras[pos++] = extraClasses[i];
-		}
-		info.setExtraClasses(newExtras);
-	    }
+	    info.setClasses(newInners);
 	}
     }
 
