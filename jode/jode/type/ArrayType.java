@@ -17,6 +17,8 @@
  * $Id$
  */
 package jode;
+import jode.bytecode.ClassInfo;
+import java.util.Vector;
 
 /** 
  * This type represents an array type.
@@ -24,6 +26,14 @@ package jode;
  * @author Jochen Hoenicke 
  */
 public class ArrayType extends Type {
+    // The interfaces that an array implements:
+    final static ClassInfo[] ifaces = {
+	// Make sure to list all interfaces, even if some interface
+	// implements another (or change code in getGeneralizedType().
+	ClassInfo.forName("java.lang.Cloneable"),
+	ClassInfo.forName("java.io.Serializable")
+    };
+
     Type elementType;
 
     public ArrayType(Type elementType) {
@@ -43,6 +53,19 @@ public class ArrayType extends Type {
         return tArray(elementType.getTop());
     }
 
+    static boolean implementsAllIfaces(ClassInfo[] otherIfaces) {
+    big:
+        for (int i=0; i < otherIfaces.length; i++) {
+            ClassInfo iface = otherIfaces[i];
+            for (int j=0; j < ifaces.length; j++) {
+                if (iface.implementedBy(ifaces[j]))
+                        continue big;
+            }
+            return false;
+        }
+        return true;
+    }
+    
     /**
      * Create the type corresponding to the range from bottomType to this.
      * @param bottomType the start point of the range
@@ -50,15 +73,24 @@ public class ArrayType extends Type {
      */
     public Type createRangeType(Type bottomType) {
         /*  tUnknown , tArray(x) -> <tObject, tArray(x)>
-         *  tObject  , tArray(x) -> <tObject, tArray(x)>
+         *  obj      , tArray(x) -> <obj, tArray(x)>
+	 *    iff tArray extends and implements obj
          *  tArray(y), tArray(x) -> tArray( <y,x> )
          */
-        return (bottomType == tUnknown || bottomType == tObject) 
-            ?      tRange(tObject, this)
-            :  (bottomType.typecode == TC_ARRAY)
-            ?      tArray(elementType.createRangeType
-                          (((ArrayType)bottomType).elementType))
-            :      tError;
+	if (bottomType == tUnknown || bottomType == tObject)
+            return tRange(tObject, this);
+
+	if (bottomType instanceof ClassInterfacesType) {
+	    ClassInterfacesType bottom = (ClassInterfacesType) bottomType;
+	    if (bottom.clazz == null
+		&& implementsAllIfaces(bottom.ifaces))
+		return tRange(bottom, this);
+	    return tError;
+	}
+        return (bottomType.typecode == TC_ARRAY)
+            ? tArray(elementType.createRangeType
+		     (((ArrayType)bottomType).elementType))
+            : tError;
     }
 
     /**
@@ -72,9 +104,17 @@ public class ArrayType extends Type {
          *  tArray(x), tArray(y) -> tArray(x.getSpecialized(y))
          *  tArray(x), other     -> tError
          */
-        return (type == tUnknown || type == tObject) 
-            ?      this 
-            :  (type.getTypeCode() == TC_ARRAY)
+	if (type == tUnknown || type == tObject)
+            return this;
+
+	if (type instanceof ClassInterfacesType) {
+	    ClassInterfacesType other = (ClassInterfacesType) type;
+	    if (other.clazz == null
+		&& implementsAllIfaces(other.ifaces))
+		return this;
+	    return tError;
+	}
+        return (type.getTypeCode() == TC_ARRAY)
             ?      tArray(elementType.getSpecializedType
                           (((ArrayType)type).elementType))
             :      tError;
@@ -91,18 +131,93 @@ public class ArrayType extends Type {
          *  tArray(x), tArray(y) -> tArray(x.getGeneralized(y))
          *  tArray(x), other     -> tError
          */
-        return (type == tUnknown) 
-            ?      this 
-            :  (type.getTypeCode() == TC_CLASS) 
-            ?      tObject
-            :  (type.getTypeCode() == TC_ARRAY) 
-            ?      tArray(elementType.getGeneralizedType
-                          (((ArrayType)type).elementType))
-            :      tError;
+	if (type == tUnknown)
+            return this;
+        if (type.getTypeCode() == TC_ARRAY)
+	    return tArray(elementType.getGeneralizedType
+                          (((ArrayType)type).elementType));
+
+	if (type.getTypeCode() == TC_CLASS) {
+	    ClassInterfacesType other = (ClassInterfacesType) type;
+	    if (implementsAllIfaces(other.ifaces)) {
+		if (other.clazz == null)
+		    return other;
+		else
+		    return ClassInterfacesType.create(null, other.ifaces);
+	    }
+
+	    if (other.implementsAllIfaces(ifaces))
+		return ClassInterfacesType.create(null, ifaces);
+	    
+	    /* Now the more complicated part: find all interfaces, that are
+	     * implemented by one interface or class in each group.
+	     *
+	     * First get all interfaces of this.clazz and this.ifaces.
+	     */
+	    Vector newIfaces = new Vector();
+	iface_loop:
+	    for (int i=0; i < ifaces.length; i++) {
+		/* Now consider each array interface.  If any clazz or
+		 * interface in other implements it, add it to the
+		 * newIfaces vector.  */
+		if (other.clazz != null 
+		    && ifaces[i].implementedBy(other.clazz)) {
+		    newIfaces.addElement(ifaces[i]);
+		    continue iface_loop;
+		}
+		for (int j=0; j<other.ifaces.length; j++) {
+		    if (ifaces[i].implementedBy(other.ifaces[j])) {
+			newIfaces.addElement(ifaces[i]);
+			continue iface_loop;
+		    }
+		}
+	    }
+	    ClassInfo[] ifaceArray = new ClassInfo[newIfaces.size()];
+	    newIfaces.copyInto(ifaceArray);
+	    return ClassInterfacesType.create(null, ifaceArray);
+	}
+	return tError;
+    }
+
+    /**
+     * Checks if we need to cast to a middle type, before we can cast from
+     * fromType to this type.
+     * @return the middle type, or null if it is not necessary.
+     */
+    public Type getCastHelper(Type fromType) {
+	Type topType = fromType.getTop();
+	switch (topType.getTypeCode()) {
+	case TC_ARRAY:
+	    if (!elementType.isClassType()
+		|| !((ArrayType)topType).elementType.isClassType())
+		return tObject;
+	    Type middleType = elementType.getCastHelper
+		(((ArrayType)topType).elementType);
+	    if (middleType != null)
+		return tArray(middleType);
+	    return null;
+	case TC_CLASS:
+	    ClassInterfacesType top = (ClassInterfacesType) topType;
+	    if (top.clazz == null
+		&& implementsAllIfaces(top.ifaces))
+		return null;
+	    return tObject;
+	case TC_UNKNOWN:
+	    return null;
+	}
+	return tObject;
+    }
+
+    /**
+     * Checks if this type represents a valid type instead of a list
+     * of minimum types.
+     */
+    public boolean isValidType() {
+	return elementType.isValidType();
     }
 
     public boolean isClassType() {
-        return elementType.isClassType();
+        return true;
     }
 
     /**
