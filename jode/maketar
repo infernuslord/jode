@@ -1,8 +1,10 @@
 #!/bin/sh
 
 echo '#!/bin/sh' > co.all
-echo co -u *.java */*.java >> co.all
+echo co -u COPYING *.java */*.java >> co.all
 echo javac -d \$HOME/java -g Decompiler.java >> co.all
+echo javac -d \$HOME/java -g Obfuscator.java >> co.all
+echo javac -d \$HOME/java -g JodeApplet.java >> co.all
 
 cd ..
 tar -cvzf jode.tar.gz jode/co.all jode/RCS jode/*/RCS
