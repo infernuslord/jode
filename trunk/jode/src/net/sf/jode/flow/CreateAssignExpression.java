@@ -56,7 +56,7 @@ public class CreateAssignExpression {
 
         SequentialBlock opBlock = (SequentialBlock) last.outer;
         StoreInstruction store = (StoreInstruction) ic.getInstruction();
-	if (!store.isFreeOperator())
+	if (!store.isFreeOperator() || store.isOpAssign())
 	    return false;
 	Expression lvalue = store.getSubExpressions()[0];
 	int lvalueCount = lvalue.getFreeOperandCount();

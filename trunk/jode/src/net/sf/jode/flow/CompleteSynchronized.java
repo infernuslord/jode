@@ -24,8 +24,7 @@ import net.sf.jode.expr.*;
 public class CompleteSynchronized {
 
     /**
-     * This combines the monitorenter into a synchronized statement
-     * @param flow The FlowBlock that is transformed 
+     * This combines the monitorenter into a synchronized statement.
      */
     public static boolean enter(SynchronizedBlock synBlock, 
                                 StructuredBlock last) {
@@ -63,8 +62,7 @@ public class CompleteSynchronized {
 
     /**
      * This combines the initial expression describing the object
-     * into a synchronized statement
-     * @param flow The FlowBlock that is transformed 
+     * into a synchronized statement.
      */
     public static boolean combineObject(SynchronizedBlock synBlock, 
                                         StructuredBlock last) {

@@ -25,7 +25,7 @@ import net.sf.jode.decompiler.TabbedPrintWriter;
 public class StoreInstruction extends Operator
     implements CombineableOperator {
 
-    boolean isOpAssign = false;
+    boolean opAssign = false;
 
     public StoreInstruction(LValueExpression lvalue) {
         super(Type.tVoid, ASSIGN_OP);
@@ -41,7 +41,11 @@ public class StoreInstruction extends Operator
 	setOperatorIndex(operatorIndex);
 	if (subExpressions[1] instanceof NopOperator)
 	    subExpressions[1].type = Type.tUnknown;
-	isOpAssign = true;
+	opAssign = true;
+    }
+
+    public boolean isOpAssign() {
+	return opAssign;
     }
 
     /**
@@ -72,7 +76,7 @@ public class StoreInstruction extends Operator
 
 	Type newType;
 
-	if (!isOpAssign) {
+	if (!opAssign) {
 	    /* An opassign (+=, -=, etc.) doesn't merge rvalue type. */
 	    Type lvalueType = subExpressions[0].getType();
 	    Type rvalueType = subExpressions[1].getType();

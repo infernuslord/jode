@@ -240,6 +240,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     private ClassPath classpath;
 
     private int modifiers = -1;
+    private boolean deprecatedFlag;
     private String name;
     private String className;
     private boolean methodScoped;
@@ -560,6 +561,11 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	} else if (howMuch >= ClassInfo.OUTERCLASS
 		   && name.equals("InnerClasses")) {
 	    readInnerClassesAttribute(length, cp, input);
+	} else if (name.equals("Deprecated")) {
+	    deprecatedFlag = true;
+	    if (length != 0)
+		throw new ClassFormatException
+		    ("Deprecated attribute has wrong length");
 	} else
 	    super.readAttribute(name, length, cp, input, howMuch);
     }
@@ -848,7 +854,9 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 		    gcp.putUTF8(ci.className);
 	    }
 	}
-        prepareAttributes(gcp);
+	if (deprecatedFlag)
+	    gcp.putUTF8("Deprecated");
+	prepareAttributes(gcp);
     }
 
     /**
@@ -910,6 +918,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 				  gcp.putUTF8(ci.className));
 		output.writeShort(ci.modifiers);
 	    }
+	}
+	if (deprecatedFlag) {
+	    output.writeShort(gcp.putUTF8("Deprecated"));
+	    output.writeInt(0);
 	}
     }
 
@@ -1192,6 +1204,15 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     }
 
     /**
+     * Checks whether this class was declared as deprecated.  In bytecode
+     * this is represented by a special attribute.
+     * @return true if this class info represents a deprecated class.
+     */
+    public boolean isDeprecated() {
+	return deprecatedFlag;
+    }
+
+    /**
      * Searches for a field with given name and type signature.
      * @param name the name of the field.
      * @param typeSig the {@link TypeSignature type signature} of the
@@ -1322,6 +1343,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         modifiers = newModifiers;
 	status = ALL;
 	modified = true;
+    }
+
+    public void setDeprecated(boolean flag) {
+	deprecatedFlag = flag;
     }
 
     public void setMethods(MethodInfo[] mi) {

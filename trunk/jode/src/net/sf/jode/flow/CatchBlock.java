@@ -24,6 +24,7 @@ import net.sf.jode.decompiler.Declarable;
 import net.sf.jode.expr.Expression;
 import net.sf.jode.expr.LocalLoadOperator;
 import net.sf.jode.expr.LocalStoreOperator;
+import net.sf.jode.expr.NopOperator;
 import net.sf.jode.expr.StoreInstruction;
 import net.sf.jode.util.SimpleSet;
 
@@ -220,17 +221,19 @@ public class CatchBlock extends StructuredBlock {
 	} else if (firstInstr instanceof InstructionBlock) {
             Expression instr = 
                 ((InstructionBlock) firstInstr).getInstruction();
-            if (instr instanceof StoreInstruction
-		&& (((StoreInstruction)instr).getLValue()
-		    instanceof LocalStoreOperator)) {
-                /* The exception is stored in a local variable */
-                exceptionLocal = ((LocalStoreOperator) 
-				  ((StoreInstruction)instr).getLValue())
-		    .getLocalInfo();
-		exceptionLocal.setType(exceptionType);
-                firstInstr.removeBlock();
-		return true;
-            }
+            if (instr instanceof StoreInstruction) {
+		StoreInstruction store = (StoreInstruction) instr;
+		if (store.getOperatorIndex() == store.OPASSIGN_OP
+		    && store.getSubExpressions()[1] instanceof NopOperator
+		    && store.getLValue() instanceof LocalStoreOperator) {
+		    /* The exception is stored in a local variable */
+		    exceptionLocal = ((LocalStoreOperator) store.getLValue())
+			.getLocalInfo();
+		    exceptionLocal.setType(exceptionType);
+		    firstInstr.removeBlock();
+		    return true;
+		}
+	    }
         }
 	return false;
     }

@@ -54,6 +54,7 @@ public class CompareToIntOperator extends Operator {
 	throws java.io.IOException
     {
         subExpressions[0].dumpExpression(writer, 550);
+	writer.breakOp();
 	writer.print(" <=>");
 	if (allowsNaN)
 	    writer.print(greaterOnNaN ? "g" : "l");

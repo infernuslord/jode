@@ -141,7 +141,6 @@ public class CreateIfThenElseOperator {
      *
      * Also note that the produced code is suboptimal:  The push-0 could
      * sometimes be better replaced with a correct jump.
-     * @param flow The FlowBlock that is transformed 
      */
     public static boolean createFunny(ConditionalBlock cb, 
                                       StructuredBlock last) {
@@ -188,7 +187,6 @@ public class CreateIfThenElseOperator {
      * -&gt;push cond ? e1 : e2
      * </pre>
      * The <code>-&gt;</code> points to the lastModified block.
-     * @param flow The FlowBlock that is transformed
      */
     public static boolean create(InstructionContainer ic,
                                  StructuredBlock last) {

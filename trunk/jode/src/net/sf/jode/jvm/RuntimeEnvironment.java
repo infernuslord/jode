@@ -109,13 +109,13 @@ public interface RuntimeEnvironment {
 
     /**
      * Enter a monitor.
-     * @param object the object whose monitor should be taken.
+     * @param obj the object whose monitor should be taken.
      */
     public void enterMonitor(Object obj)
 	throws InterpreterException;
     /**
      * Exit a monitor.
-     * @param object the object whose monitor should be freed.
+     * @param obj the object whose monitor should be freed.
      */
     public void exitMonitor(Object obj)
 	throws InterpreterException;

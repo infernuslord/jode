@@ -1120,8 +1120,13 @@ public class CodeVerifier implements Opcodes {
 	    if (!info.pop().isOfType(tType(type)))
 		throw new VerifyException(instr.getDescription());
 	    Type classType = tType(ref.getClazz());
-	    if (!info.pop().isOfType(classType))
-		throw new VerifyException(instr.getDescription());
+	    Type classOnStack = info.pop();
+	    if (!classOnStack.isOfType(classType)) {
+		/* Sometimes synthetic code writes to uninitialized classes. */
+		classType = tType("N" + ref.getClazz().substring(1));
+		if (!classOnStack.isOfType(classType))
+		    throw new VerifyException(instr.getDescription());
+	    }
 	    break;
 	}
 	case opc_invokevirtual:
