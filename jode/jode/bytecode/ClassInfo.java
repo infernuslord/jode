@@ -19,7 +19,7 @@
 package jode.bytecode;
 import jode.MethodType;
 import java.io.*;
-import java.util.Hashtable;
+import java.util.*;
 
 /**
  * This class does represent a class similar to java.lang.Class.  You
@@ -50,10 +50,34 @@ public class ClassInfo extends BinaryInfo {
     public final static ClassInfo javaLangObject = 
         ClassInfo.forName("java.lang.Object");
     
-    public static void setClassPath(SearchPath path) {
-        classpath = path;
+    public static void setClassPath(String path) {
+        classpath = new SearchPath(path);
     }
 
+    public static boolean exists(String name) {
+        return classpath.exists(name.replace('.', '/') + ".class");
+    }
+    
+    public static boolean isPackage(String name) {
+        return classpath.isDirectory(name.replace('.', '/'));
+    }
+    
+    public static Enumeration getClasses(final String packageName) {
+        final Enumeration enum = 
+            classpath.listClassFiles(packageName.replace('.','/'));
+        return new Enumeration() {
+            public boolean hasMoreElements() {
+                return enum.hasMoreElements();
+            }
+            public Object nextElement() {
+                String name = (String) enum.nextElement();
+                if (!name.endsWith(".class"))
+                    throw new jode.AssertError("Wrong file name");
+                name.substring(0, name.length()-6);
+                return ClassInfo.forName(packageName+"."+ name);
+            }
+        };
+    }
     
     public static ClassInfo forName(String name) {
         if (name == null)
