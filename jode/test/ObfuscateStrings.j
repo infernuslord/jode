@@ -6,7 +6,7 @@
 .super java/lang/Object
 
 .method private static obf(Ljava/lang/String;)Ljava/lang/String;
-	.limit locals 2
+	.limit locals 1
 	.limit stack 7
 	aload_0
 	invokevirtual java/lang/String/toCharArray()[C
@@ -20,7 +20,7 @@ loopstart:
 ;  char array
 	dup_x1
 	swap
-	iload_1
+	iload_0
 	swap
 	ldc 0x7fffffff
 	iand
@@ -72,8 +72,8 @@ firstloop:
 
 	swap
 	dup_x1
-	istore_1
-	iinc 1 1
+	istore_0
+	iinc 0 1
 	castore
 
 ;stack content:
@@ -84,7 +84,7 @@ firstloop:
 	swap
 	dup
 	arraylength
-	iload_1
+	iload_0
 	if_icmpne loopstart
 
 	new java/lang/String
@@ -96,12 +96,12 @@ firstloop:
 .end method
 
 .method private static obf2(Ljava/lang/String;)Ljava/lang/String;
-	.limit locals 2
+	.limit locals 1
 	.limit stack 8
 	aload_0
 	invokevirtual java/lang/String/toCharArray()[C
 	ldc 0x12345678
-	istore_1
+	istore_0
 	iconst_0
 
 loop:
@@ -122,7 +122,7 @@ loop:
 ;  current index
 ;  original char
 
-	iload_1
+	iload_0
 	ldc 0x7fffffff
 	iand
 
@@ -131,7 +131,7 @@ loop:
 	imul
 	sipush 12345
 	iadd
-	istore_1
+	istore_0
 	sipush 0xff
 	iand
 	ixor
