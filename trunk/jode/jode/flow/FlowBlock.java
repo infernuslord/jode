@@ -22,6 +22,7 @@ import java.util.*;
 import jode.TabbedPrintWriter;
 import jode.Expression;
 import jode.CodeAnalyzer;
+import jode.Decompiler;
 
 /**
  * A flow block is the structure of which the flow graph consists.  A
@@ -533,42 +534,8 @@ public class FlowBlock {
       *    return_n
       */
 
-    /**
-     * Search for an apropriate successor.
-     * @param prevSucc The successor, that was previously tried.
-     * @return the successor with smallest address greater than prevSucc
-     *  or null if there isn't any further successor at all.
-     */
-    public FlowBlock getSuccessor(FlowBlock prevSucc) {
-        /* search successor with smallest addr. */
-        Enumeration enum = successors.elements();
-        FlowBlock succ = null;
-        while (enum.hasMoreElements()) {
-            Jump jump = (Jump) enum.nextElement();
-            if (jump == null)
-                continue;
-            FlowBlock fb = jump.destination;
-            if (prevSucc != null && fb.addr <= prevSucc.addr)
-                continue;
-            if (succ == null || fb.addr < succ.addr) {
-//                 System.err.println("trying "+fb.getLabel());
-                succ = fb;
-            }
-        }
-        return succ;
-    }
-
-    /**
-     * Search for an apropriate successor.
-     * @return the successor with smallest address
-     *  or null if there isn't a successor at all.
-     */
-    public FlowBlock getSuccessor() {
-        return getSuccessor(null);
-    }
-
     public void checkConsistent() {
-        if (!jode.Decompiler.doChecks)
+        if (!Decompiler.doChecks)
             return;
         if (block.outer != null || block.flowBlock != this) {
             throw new RuntimeException("Inconsistency");
@@ -878,7 +845,7 @@ public class FlowBlock {
         return true;
     }
 
-    public boolean doT2(Vector triedBlocks) {
+    public boolean doT2(int start, int end  /* Vector triedBlocks */) {
         /* If there are no jumps to the beginning of this flow block
          * or if this block has other predecessors with a higher
          * address, return false.  The second condition make sure that
@@ -890,7 +857,8 @@ public class FlowBlock {
         while (preds.hasMoreElements()) {
             FlowBlock predFlow = (FlowBlock) preds.nextElement();
             if (predFlow != null && predFlow != this
-                && !triedBlocks.contains(predFlow)) {
+                && predFlow.addr >= start && predFlow.addr < end
+                /*&& !triedBlocks.contains(predFlow)*/) {
 //                 System.err.println("refusing T2 on: "+getLabel()+
 //                                    " because of "+predFlow.getLabel());
                 /* XXX Is this enough to refuse T2 trafo ??? */
@@ -1022,6 +990,389 @@ public class FlowBlock {
 
         return true;
     }
+
+
+    /**
+     * Do a T1 transformation with the end_of_method block.
+     */
+    public void mergeEndBlock() {
+        try{
+            checkConsistent();
+        } catch (RuntimeException ex) {
+            ex.printStackTrace();
+            try {
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
+                block.dumpSource(writer);
+            } catch (java.io.IOException ioex) {
+            }
+        }
+
+        /* First find the innermost block that contains all jumps to the
+         * END_OF_METHOD block.
+         */
+        Enumeration enum = successors.elements();
+        StructuredBlock appendBlock = lastModified;
+        while(enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+            if (jump == null || jump.destination != END_OF_METHOD)
+                continue;
+
+            while (!appendBlock.contains(jump.prev)) {
+                appendBlock = appendBlock.outer;
+                if (appendBlock instanceof SequentialBlock
+                    && appendBlock.getSubBlocks()[0] 
+                    instanceof RawTryCatchBlock) {
+                    
+                    /* We leave the catch block of a raw-try-catch-block.
+                     * We shall now create the Catch- resp. FinallyBlock.
+                     */
+                    appendBlock = 
+                        createCatchBlock((SequentialBlock)appendBlock);
+                }
+            }
+            /* appendBlock can't be null now, because the
+             * outermost block contains every structured block.  
+             */
+        }
+
+        /* Try to eliminate as many jumps as possible.
+         */
+
+        appendBlock = optimizeJumps(END_OF_METHOD, appendBlock);
+            
+        enum = successors.elements();
+    next_jump:
+        while (enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+	    
+            if (jump == null || jump.destination != END_OF_METHOD ||
+                jump.prev == appendBlock)
+                continue;
+            
+            BreakableBlock breakToBlock = null;
+            for (StructuredBlock surrounder = jump.prev.outer;
+                 surrounder != null && surrounder != appendBlock.outer; 
+                 surrounder = surrounder.outer) {
+                if (surrounder instanceof BreakableBlock) {
+                    if (surrounder.getNextFlowBlock() == END_OF_METHOD)
+                        breakToBlock = (BreakableBlock) surrounder;
+
+                    /* We don't want labeled breaks, because we can
+                     * simply return.  */
+                    break;
+                }
+            }
+            StructuredBlock prevBlock = jump.prev;
+            prevBlock.removeJump();
+
+            if (breakToBlock == null)
+                /* The successor is the dummy return instruction, so
+                 * replace the jump with a return.  
+                 */
+                prevBlock.appendBlock(new ReturnBlock());
+            else
+                prevBlock.appendBlock
+                    (new BreakBlock(breakToBlock, false));
+        }	    
+
+        /* Now remove the jump of the appendBlock if it points to
+         * successor.  
+         */
+        if (appendBlock.jump != null
+            && appendBlock.jump.destination == END_OF_METHOD)
+            appendBlock.removeJump();
+
+        /* transformation succeeded */
+        try {
+            checkConsistent();
+        } catch (RuntimeException ex) {
+            ex.printStackTrace();
+            try {
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
+                block.dumpSource(writer);
+            } catch (java.io.IOException ioex) {
+            }
+        }
+    }
+
+
+    static Transformation[] exprTrafos = {
+        new RemoveEmpty(),
+        new CreateExpression(),
+        new CreatePostIncExpression(),
+        new CreateAssignExpression(),
+        new CreateNewConstructor(),
+        new CombineIfGotoExpressions(),
+        new CreateIfThenElseOperator(),
+        new CreateConstantArray(),
+        new SimplifyExpression()
+    };
+
+
+    /**
+     * Search for an apropriate successor.
+     * @param prevSucc The successor, that was previously tried.
+     * @param start The minimum address.
+     * @param end   The maximum address + 1.
+     * @return the successor with smallest address greater than prevSucc
+     *  or null if there isn't any further successor at all.
+     */
+    FlowBlock getSuccessor(int start, int end) {
+        /* search successor with smallest addr. */
+        Enumeration enum = successors.elements();
+        FlowBlock succ = null;
+        while (enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+            if (jump == null)
+                continue;
+            FlowBlock fb = jump.destination;
+            if (fb.addr < start || fb.addr >= end || fb == this)
+                continue;
+            if (succ == null || fb.addr < succ.addr) {
+//                 System.err.println("trying "+fb.getLabel());
+                succ = fb;
+            }
+        }
+        return succ;
+    }
+
+    /**
+     * The main analyzation.  This calls doT1 and doT2 on apropriate
+     * regions.
+     */
+    public void analyze() {
+        analyze(0, Integer.MAX_VALUE);
+        mergeEndBlock();
+    }
+
+//     /**
+//      * The main analyzation.  This calls doT1 and doT2 on apropriate
+//      * regions.  Only blocks whose address lies in the given address
+//      * range are considered.
+//      * @param start the start of the address range.
+//      * @param end the end of the address range.
+//      */
+//     public void analyze(int start, int end) {
+//         /* XXX optimize */
+//         Stack todo = new Stack();
+//         FlowBlock flow = this;
+//         try {
+//             jode.TabbedPrintWriter writer = null;
+//             if (Decompiler.isFlowDebugging) {
+//                 writer = new jode.TabbedPrintWriter(System.err, "    ");
+//             }
+//         analyzation:
+//             while (true) {
+
+//                 if (Decompiler.isFlowDebugging) {
+//                     writer.println("before Transformation: ");
+//                     writer.tab();
+//                     flow.dumpSource(writer);
+//                     writer.untab();
+//                 }
+
+//                 /* First do some non flow transformations. */
+//                 int i=0;
+//                 while (i < exprTrafos.length) {
+//                     if (exprTrafos[i].transform(flow))
+//                         i = 0;
+//                     else
+//                         i++;
+//                 }
+            
+//                 if (Decompiler.isFlowDebugging) {
+//                     writer.println("after Transformation: ");
+//                     writer.tab();
+//                     flow.dumpSource(writer);
+//                     writer.untab();
+//                 }
+
+//                 if (flow.doT2(todo)) {
+
+//                     if (Decompiler.isFlowDebugging) {
+//                         writer.println("after T2: ");
+//                         writer.tab();
+//                         flow.dumpSource(writer);
+//                         writer.untab();
+//                     }
+
+//                     /* T2 transformation succeeded.  This may
+//                      * make another T1 analysis in the previous
+//                      * block possible.  
+//                      */
+//                     if (!todo.isEmpty())
+//                         flow = (FlowBlock) todo.pop();
+//                 }
+
+//                 FlowBlock succ = flow.getSuccessor(start, end);
+//                 while (true) {
+//                     if (succ == null) {
+//                         /* the Block has no successor where t1 is applicable.
+//                          *
+//                          * If everything is okay the stack should be empty now,
+//                          * and the program is transformed correctly.
+//                          */
+//                         if (todo.isEmpty())
+//                             break analyzation;
+                            
+//                         /* Otherwise pop the last flow block from stack and
+//                          * try another successor.
+//                          */
+//                         succ = flow;
+//                         flow = (FlowBlock) todo.pop();
+//                     } else {
+//                         if (succ.block instanceof RawTryCatchBlock) {
+//                             int subStart = succ.addr;
+//                             int subEnd = (subStart >= addr)? end : addr;
+//                             succ.analyze(subStart, subEnd);
+//                         }
+//                         if (flow.doT1(succ)) {
+//                             /* T1 transformation succeeded. */
+                            
+//                             if (Decompiler.isFlowDebugging) {
+//                                 writer.println("after T1: ");
+//                                 writer.tab();
+//                                 flow.dumpSource(writer);
+//                                 writer.untab();
+//                             }
+
+//                             if (Decompiler.isVerbose)
+//                                 System.err.print(".");
+                            
+//                             continue analyzation;
+//                         } else if (!todo.contains(succ) && succ != flow) {
+//                             /* succ wasn't tried before, succeed with
+//                              * successor and put flow on the stack.  
+//                              */
+//                             todo.push(flow);
+//                             flow = succ;
+//                             continue analyzation;
+//                         }
+//                     }
+                
+//                     /* Try the next successor.
+//                      */
+//                     succ = flow.getSuccessor(succ.addr+1, end);
+//                 }
+//             }
+//         } catch (java.io.IOException ioex) {
+//         }
+//     }
+
+    /**
+     * The main analyzation.  This calls doT1 and doT2 on apropriate
+     * regions.  Only blocks whose address lies in the given address
+     * range are considered.
+     * @param start the start of the address range.
+     * @param end the end of the address range.
+     */
+    public boolean analyze(int start, int end) {
+        try {
+            jode.TabbedPrintWriter writer = null;
+            if (Decompiler.isFlowDebugging)
+                writer = new jode.TabbedPrintWriter(System.err, "    ");
+
+            boolean changed = false;
+
+            while (true) {
+                
+                if (Decompiler.isFlowDebugging) {
+                    writer.println("before Transformation: ");
+                    writer.tab();
+                    dumpSource(writer);
+                    writer.untab();
+                }
+
+                /* First do some non flow transformations. */
+                int i=0;
+                while (i < exprTrafos.length) {
+                    if (exprTrafos[i].transform(this))
+                        i = 0;
+                    else
+                        i++;
+                }
+            
+                if (Decompiler.isFlowDebugging) {
+                    writer.println("after Transformation: ");
+                    writer.tab();
+                    dumpSource(writer);
+                    writer.untab();
+                }
+
+                if (doT2(start, end)) {
+
+                    if (Decompiler.isFlowDebugging) {
+                        writer.println("after T2: ");
+                        writer.tab();
+                        dumpSource(writer);
+                        writer.untab();
+                    }
+
+                    /* T2 transformation succeeded.  This may
+                     * make another T1 analysis in the previous
+                     * block possible.  
+                     */
+                    if (addr != 0)
+                        return true;
+                }
+
+                FlowBlock succ = getSuccessor(start, end);
+                while (true) {
+                    if (succ == null) {
+                        /* the Block has no successor where t1 is applicable.
+                         * Finish this analyzation.
+                         */
+                        return changed;
+                    } else {
+                        if (succ.block instanceof RawTryCatchBlock) {
+                            int subStart = succ.addr;
+                            int subEnd = (subStart > addr)? end : addr;
+                            succ.analyze(subStart, subEnd);
+                        }
+                        /* Only do T1 transformation if the blocks are
+                         * adjacent.  */
+                        if ((succ.addr == addr+length 
+                             || succ.addr+succ.length == addr)
+                            && doT1(succ)) {
+                            /* T1 transformation succeeded. */
+                            changed = true;
+                            
+                            if (Decompiler.isFlowDebugging) {
+                                writer.println("after T1: ");
+                                writer.tab();
+                                dumpSource(writer);
+                                writer.untab();
+                            }                            
+                            break;
+                        } else {
+                            /* analyze succ, the new region is the
+                             * continous region of
+                             * [start,end) \cap \compl [addr, addr+length)
+                             * where succ.addr lies in.
+                             */
+                            int newStart = (succ.addr > addr)
+                                ? addr+length : start;
+                            int newEnd   = (succ.addr > addr)
+                                ? end         : addr;
+                            if (succ.analyze(newStart, newEnd))
+                                break;
+                        }
+                    }
+                
+                    /* Try the next successor.
+                     */
+                    succ = getSuccessor(succ.addr+1, end);
+                }
+            }
+        } catch (java.io.IOException ioex) {
+            return false;
+        }
+    }
+    
 
     /**
      * Resolves the destinations of all jumps.

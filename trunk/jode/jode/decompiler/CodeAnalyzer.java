@@ -107,7 +107,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
 	    + (method.mdef.isStatic() ? 0 : 1);
 	param = new jode.flow.VariableSet();
 	for (int i=0; i<paramCount; i++)
-	    param.addElement(getLocalInfo(-1, i));
+	    param.addElement(getLocalInfo(0, i));
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -137,117 +137,9 @@ public class CodeAnalyzer implements Analyzer, Constants {
 	return (LocalInfo) param.elementAt(slot);
     }
 
-    static jode.flow.Transformation[] exprTrafos = {
-        new jode.flow.RemoveEmpty(),
-        new jode.flow.CreateExpression(),
-        new jode.flow.CreatePostIncExpression(),
-        new jode.flow.CreateAssignExpression(),
-        new jode.flow.CreateNewConstructor(),
-        new jode.flow.CombineIfGotoExpressions(),
-        new jode.flow.CreateIfThenElseOperator(),
-        new jode.flow.CreateConstantArray(),
-        new jode.flow.SimplifyExpression()
-    };
-
     public void analyze()
     {
-        /* XXX optimize */
-        Stack todo = new Stack();
-        FlowBlock flow = methodHeader;
-        try {
-            jode.TabbedPrintWriter writer = null;
-            if (Decompiler.isFlowDebugging) {
-                writer = new jode.TabbedPrintWriter(System.err, "    ");
-            }
-        analyzation:
-            while (true) {
-
-                if (Decompiler.isFlowDebugging) {
-                    writer.println("before Transformation: ");
-                    writer.tab();
-                    flow.dumpSource(writer);
-                    writer.untab();
-                }
-
-                /* First do some non flow transformations. */
-                int i=0;
-                while (i < exprTrafos.length) {
-                    if (exprTrafos[i].transform(flow))
-                        i = 0;
-                    else
-                        i++;
-                }
-            
-                if (Decompiler.isFlowDebugging) {
-                    writer.println("after Transformation: ");
-                    writer.tab();
-                    flow.dumpSource(writer);
-                    writer.untab();
-                }
-
-                if (flow.doT2(todo)) {
-
-                    if (Decompiler.isFlowDebugging) {
-                        writer.println("after T2: ");
-                        writer.tab();
-                        flow.dumpSource(writer);
-                        writer.untab();
-                    }
-
-                    /* T2 transformation succeeded.  This may
-                     * make another T1 analysis in the previous
-                     * block possible.  
-                     */
-                    if (!todo.isEmpty())
-                        flow = (FlowBlock) todo.pop();
-                }
-
-                FlowBlock succ = flow.getSuccessor();
-                while (true) {
-                    if (succ == null) {
-                        /* the Block has no successor where t1 is applicable.
-                         *
-                         * If everything is okay the stack should be empty now,
-                         * and the program is transformed correctly.
-                         */
-                        if (todo.isEmpty())
-                            break analyzation;
-                            
-                        /* Otherwise pop the last flow block from stack and
-                         * try another successor.
-                         */
-                        succ = flow;
-                        flow = (FlowBlock) todo.pop();
-                    } else if (flow.doT1(succ)) {
-                        /* T1 transformation succeeded. */
-
-                        if (Decompiler.isFlowDebugging) {
-                            writer.println("after T1: ");
-                            writer.tab();
-                            flow.dumpSource(writer);
-                            writer.untab();
-                        }
-
-                        if (Decompiler.isVerbose)
-                            System.err.print(".");
-
-                        continue analyzation;
-                    } else if (!todo.contains(succ) && succ != flow) {
-                        /* succ wasn't tried before, succeed with
-                         * successor and put flow on the stack.  
-                         */
-                        todo.push(flow);
-                        flow = succ;
-                        continue analyzation;
-                    }
-                
-                    /* Try the next successor.
-                     */
-                    succ = flow.getSuccessor(succ);
-                }
-            }
-        } catch (java.io.IOException ioex) {
-        }
+        methodHeader.analyze();
     }
 
     public String getTypeString(Type type) {

@@ -105,7 +105,7 @@ public class CreateExpression implements Transformation {
         } catch (ClassCastException ex) {
             return false;
         }
-        if(jode.Decompiler.isVerbose && params > 0)
+        if(jode.Decompiler.isVerbose)
             System.err.print("x");
 
         ((InstructionContainer) flow.lastModified).setInstruction

@@ -64,7 +64,7 @@ public class LocalVariableRangeList implements LocalVariable {
         MyLocalInfo li = list;
         while (li != null && addr >= li.start+li.length)
             li = li.next;
-        if (li == null || li.start > addr+2/*XXX*/) {
+        if (li == null || li.start > addr+1 /* XXX weired XXX */) {
             LocalInfo temp = new LocalInfo(slot);
             return temp;
         }
