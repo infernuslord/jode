@@ -63,7 +63,7 @@ implements LocalVarOperator {
             == local.getLocalInfo();
     }
 
-    public Instruction simplify() {
+    public Expression simplify() {
         if (value.equals("1")) {
             int op = (getOperatorIndex() == OPASSIGN_OP+ADD_OP)
                 ? INC_OP : DEC_OP;

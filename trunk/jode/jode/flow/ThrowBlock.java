@@ -19,13 +19,13 @@
 
 package jode.flow;
 import jode.TabbedPrintWriter;
-import jode.Instruction;
+import jode.Expression;
 
 /**
  * This is the structured block for an Throw block.
  */
 public class ThrowBlock extends ReturnBlock {
-    public ThrowBlock(Instruction instr, Jump jump) {
+    public ThrowBlock(Expression instr, Jump jump) {
         super(instr, jump);
     }
 

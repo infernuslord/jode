@@ -22,59 +22,61 @@ import jode.InvokeOperator;
 import jode.Expression;
 import jode.ComplexExpression;
 import jode.ConstructorOperator;
-import jode.DupOperator;
 import jode.NewOperator;
 
 public class CreateNewConstructor implements Transformation{
 
     public boolean transform(FlowBlock flow) {
-        SequentialBlock sequBlock;
-        InvokeOperator constrCall;
-        Expression exprs[];
+        if (!(flow.lastModified instanceof InstructionBlock)
+            || !(flow.lastModified.outer instanceof SequentialBlock))
+            return false;
+        InstructionBlock block = (InstructionBlock) flow.lastModified;
+        if (!(block.getInstruction() instanceof InvokeOperator))
+            return false;
+        InvokeOperator constrCall = (InvokeOperator) block.getInstruction();
+        if (!constrCall.isConstructor())
+            return false;
+
+        /* The rest should probably succeed */
+        int params = constrCall.getOperandCount();
+        Expression[] exprs = new Expression[params];
+        SequentialBlock sequBlock = (SequentialBlock) block.outer;
         try {
-            InstructionBlock block;
-            block = (InstructionBlock) flow.lastModified;
-            constrCall = (InvokeOperator) block.getInstruction();
-            if (!constrCall.isConstructor())
-                return false;
-            int params = constrCall.getOperandCount();
-            exprs = new Expression[params];
-
-            sequBlock = (SequentialBlock) block.outer;
-            if (sequBlock.getSubBlocks()[1] != block)
-                return false;
-
+        for_loop:
             for (int i = params-1; i>0; i--) {
 
-                block = (InstructionBlock) sequBlock.getSubBlocks()[0];
-                if (block.jump != null)
-                    return false;
+                block = (InstructionBlock) sequBlock.subBlocks[0];
+                exprs[i] = block.getInstruction();
+                sequBlock = (SequentialBlock) sequBlock.outer;
 
-                exprs[i] = (Expression) block.getInstruction();
-                if (exprs[i].isVoid()) {
-		    if (i == params-1)
-			return false;
-		    Expression e = exprs[i+1].tryToCombine(exprs[i]);
-		    if (e == null)
-			return false;
-		    i++;
+                while (sequBlock.subBlocks[0] instanceof InstructionBlock) {
+
+                    Expression expr = 
+                        ((InstructionBlock) sequBlock.subBlocks[0])
+                        .getInstruction();
+
+                    if (!expr.isVoid())
+                        continue for_loop;
+                    if (exprs[i].canCombine(expr) <= 0)
+                        return false;
+
+		    exprs[i] = exprs[i].combine(expr);
                     SequentialBlock subExprBlock = 
-                        (SequentialBlock) sequBlock.getSubBlocks()[1];
+                        (SequentialBlock) sequBlock.subBlocks[1];
                     subExprBlock.replace(sequBlock, subExprBlock);
                     sequBlock = subExprBlock;
-                    ((InstructionContainer)subExprBlock.getSubBlocks()[0]).
-                        setInstruction(e);
-		    exprs[i] = e;
+                    ((InstructionContainer)subExprBlock.subBlocks[0]).
+                        setInstruction(exprs[i]);
+                    sequBlock = (SequentialBlock)sequBlock.outer;
 		}
-                sequBlock = (SequentialBlock)sequBlock.outer;
             }
-            block = (InstructionBlock) sequBlock.getSubBlocks()[0];
-            DupOperator dup = (DupOperator) block.getInstruction();
-            if (dup.getCount() != 1 && dup.getDepth() != 0)
+            SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
+            if (dup.type != SpecialBlock.DUP 
+                || dup.count != 1 || dup.depth != 0)
                 return false;
             sequBlock = (SequentialBlock)sequBlock.outer;
-            block = (InstructionBlock) sequBlock.getSubBlocks()[0];
-            exprs[0] = (Expression) block.getInstruction();
+            block = (InstructionBlock) sequBlock.subBlocks[0];
+            exprs[0] = block.getInstruction();
             if (exprs[0].isVoid())
                 return false;
             NewOperator op = (NewOperator) exprs[0].getOperator();

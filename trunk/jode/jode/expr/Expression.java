@@ -19,12 +19,21 @@
 
 package jode;
 
-public abstract class Expression extends Instruction {
+public abstract class Expression {
+    protected Type type;
 
     ComplexExpression parent = null;
 
     public Expression(Type type) {
-        super (type);
+        this.type = type;
+    }
+
+    public Type getType() {
+        return type;
+    }
+
+    public void setType(Type newType) {
+        this.type = newType;
     }
 
     /**
@@ -39,19 +48,39 @@ public abstract class Expression extends Instruction {
         return new ComplexExpression(negop, new Expression[] { this });
     }
 
-    public Expression tryToCombine(Expression e) {
+    /**
+     * Checks if the given Expression (which should be a StoreInstruction)
+     * can be combined into this expression.
+     * @param e The store expression.
+     * @return 1, if it can, 0, if no match was found and -1, if a
+     * conflict was found.  You may wish to check for >0.
+     */
+    public int canCombine(Expression e) {
 	if (e instanceof ComplexExpression
             && e.getOperator() instanceof StoreInstruction) {
-            ComplexExpression ce = (ComplexExpression) e;
 	    StoreInstruction store = (StoreInstruction) e.getOperator();
-	    if (store.matches(getOperator()) 
-                && ce.subExpressions.length == 1) {
-                return new ComplexExpression
-                    (new AssignOperator(store.getOperatorIndex(), store),
-                     ce.subExpressions);
-	    }
+	    if (store.matches(getOperator()))
+                return 1;
 	}
-	return null;
+	return 0;
+    }
+
+    /**
+     * Combines the given Expression (which should be a StoreInstruction)
+     * into this expression.  You must only call this if
+     * canCombine returns the value 1.
+     * @param e The store expression.
+     * @return The combined expression.
+     */
+    public Expression combine(Expression e) {
+        StoreInstruction store = (StoreInstruction) e.getOperator();
+        ((ComplexExpression)e).operator
+            = new AssignOperator(store.getOperatorIndex(), store);
+        return e;
+    }
+
+    public Expression simplify() {
+        return this;
     }
 
     Expression simplifyStringBuffer() {
@@ -59,6 +88,8 @@ public abstract class Expression extends Instruction {
     }
 
     public abstract Operator getOperator();
+
+    public abstract String toString();
 
     String toString(int minPriority) {
         String result = toString();

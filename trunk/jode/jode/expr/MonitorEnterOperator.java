@@ -34,6 +34,6 @@ public class MonitorEnterOperator extends SimpleOperator {
     }
 
     public String toString(String[] operands) {
-        return "monitorenter "+operands[0];
+        return "MONITORENTER "+operands[0];
     }
 }

@@ -69,34 +69,59 @@ public class ComplexExpression extends Expression {
         return new ComplexExpression(negop, new Expression[] { this });
     }
 
-    public Expression tryToCombine(Expression e) {
+    /**
+     * Checks if the given Expression (which should be a StoreInstruction)
+     * can be combined into this expression.
+     * @param e The store expression.
+     * @return 1, if it can, 0, if no match was found and -1, if a
+     * conflict was found.  You may wish to check for >0.
+     */
+    public int canCombine(Expression e) {
 	if (e instanceof ComplexExpression
             && e.getOperator() instanceof StoreInstruction) {
             ComplexExpression ce = (ComplexExpression) e;
 	    StoreInstruction store = (StoreInstruction) e.getOperator();
 	    if (store.matches(operator)) {
-		int i;
-		for (i=0; i < ce.subExpressions.length-1; i++) {
+		for (int i=0; i < ce.subExpressions.length-1; i++) {
 		    if (!ce.subExpressions[i].equals(subExpressions[i]))
-			break;
+			return -1;
 		}
-		if (i == ce.subExpressions.length-1) {
-		    operator =
-			new AssignOperator(store.getOperatorIndex(), store);
-		    subExpressions = ce.subExpressions;
-		    return this;
-		}
+                return 1;
 	    }
 	    for (int i=0; i < subExpressions.length; i++) {
-		Expression combined = subExpressions[i].tryToCombine(e);
-		if (combined != null) {
-		    subExpressions[i] = combined;
-                    subExpressions[i].parent = this;
-		    return this;
-		}
+		int can = subExpressions[i].canCombine(e);
+		if (can != 0)
+                    return can;
 	    }
 	}
-	return null;
+	return 0;
+    }
+    
+    /**
+     * Combines the given Expression (which should be a StoreInstruction)
+     * into this expression.  You must only call this if
+     * canCombine returns the value 1.
+     * @param e The store expression.
+     * @return The combined expression.
+     */
+    public Expression combine(Expression e) {
+
+        StoreInstruction store = (StoreInstruction) e.getOperator();
+        if (store.matches(operator)) {
+            ((ComplexExpression) e).operator = 
+                new AssignOperator(store.getOperatorIndex(), store);
+            this.subExpressions = ((ComplexExpression) e).subExpressions;
+            return e;
+        }
+        for (int i=0; i < subExpressions.length; i++) {
+            Expression combined = subExpressions[i].combine(e);
+            if (combined != null) {
+                subExpressions[i] = combined;
+                subExpressions[i].parent = this;
+                return this;
+            }
+        }
+        throw new AssertError("combine didn't succeed");
     }
 
     public Operator getOperator() {
@@ -234,7 +259,7 @@ public class ComplexExpression extends Expression {
 
             return new ComplexExpression
                 (new StringAddOperator(), new Expression[] 
-                 { e, (Expression)subExpressions[1].simplify() });
+                 { e, subExpressions[1].simplify() });
         }
         if (operator instanceof ConstructorOperator &&
             operator.getType().isOfType(Type.tStringBuffer)) {
@@ -243,12 +268,12 @@ public class ComplexExpression extends Expression {
                 return emptyString;
             else if (subExpressions.length == 2 &&
                      subExpressions[1].getType().isOfType(Type.tString))
-                return (Expression) subExpressions[1].simplify();
+                return subExpressions[1].simplify();
         }
         return null;
     }
 
-    public Instruction simplify() {
+    public Expression simplify() {
         if (operator instanceof IfThenElseOperator &&
             operator.getType().isOfType(Type.tBoolean)) {
             if (subExpressions[1].getOperator() instanceof ConstOperator &&
@@ -334,7 +359,7 @@ public class ComplexExpression extends Expression {
                 .replace(java.io.File.separatorChar, '.')
                 .equals("java.lang.StringBuffer"))
             && subExpressions.length == 1) {
-            Instruction simple = subExpressions[0].simplifyStringBuffer();
+            Expression simple = subExpressions[0].simplifyStringBuffer();
             if (simple != null)
                 return simple;
         }
@@ -352,10 +377,10 @@ public class ComplexExpression extends Expression {
 
             return new ComplexExpression
                 (new StringAddOperator(), new Expression[] 
-                 { emptyString, (Expression) subExpressions[0].simplify() });
+                 { emptyString, subExpressions[0].simplify() });
         }
         for (int i=0; i< subExpressions.length; i++) {
-            subExpressions[i] = (Expression) subExpressions[i].simplify();
+            subExpressions[i] = subExpressions[i].simplify();
             subExpressions[i].parent = this;
         }
         return this;

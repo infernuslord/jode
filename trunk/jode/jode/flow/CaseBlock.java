@@ -17,6 +17,7 @@
  * $Id$
  */
 package jode.flow;
+import jode.ConstOperator;
 
 /** 
  * This block represents a case instruction.  A case instruction is a
@@ -46,11 +47,6 @@ public class CaseBlock extends StructuredBlock {
      */
     boolean isLastBlock;
 
-    /**
-     * The type of the switch value.
-     */
-    jode.Type type;
-
     public CaseBlock(int value) {
 	this.value = value;
 	subBlock = null;
@@ -60,6 +56,12 @@ public class CaseBlock extends StructuredBlock {
 	this.value = value;
 	subBlock = new EmptyBlock(dest);
 	subBlock.outer = this;
+    }
+
+    public void checkConsistent() {
+        if (!(outer instanceof SwitchBlock))
+            throw new jode.AssertError("Inconsistency");
+        super.checkConsistent();
     }
 
     /**
@@ -95,8 +97,12 @@ public class CaseBlock extends StructuredBlock {
 		&& subBlock.jump == null)
 		return;
 	    writer.println("default:");
-	} else
-	    writer.println("case " + value /*XXX-type*/ + ":");
+	} else {
+            ConstOperator constOp = new ConstOperator
+                (((SwitchBlock)outer).getInstruction().getType(), 
+                 Integer.toString(value));
+	    writer.println("case " + constOp.toString()+":");
+        }
 	if (subBlock != null) {
 	    writer.tab();
 	    subBlock.dumpSource(writer);

@@ -16,7 +16,7 @@
  * $Id$
  */
 package jode.flow;
-import jode.Instruction;
+import jode.Expression;
 import jode.TabbedPrintWriter;
 
 /**
@@ -28,7 +28,7 @@ public class IfThenElseBlock extends StructuredBlock {
     /**
      * The condition.  Must be of boolean type.
      */
-    Instruction cond;
+    Expression cond;
 
     /**
      * The then part.  This is always a valid block and not null 
@@ -44,7 +44,7 @@ public class IfThenElseBlock extends StructuredBlock {
      * Creates a new if then else block.  The method setThenBlock must
      * be called shortly after the creation.
      */
-    public IfThenElseBlock(Instruction cond) {
+    public IfThenElseBlock(Expression cond) {
         this.cond = cond;
     }
 

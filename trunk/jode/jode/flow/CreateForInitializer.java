@@ -18,7 +18,6 @@
  */
 
 package jode.flow;
-import jode.Instruction;
 import jode.Expression;
 import jode.StoreInstruction;
 
@@ -31,29 +30,23 @@ public class CreateForInitializer implements Transformation {
     public boolean transform(FlowBlock flow) {
 
         if (!(flow.lastModified instanceof LoopBlock)
-            || flow.lastModified.outer == null)
+            || !(flow.lastModified.outer instanceof SequentialBlock))
             return false;
 
         LoopBlock forBlock = (LoopBlock) flow.lastModified;
         if (forBlock.type != forBlock.FOR || forBlock.init != null)
             return false;
  
-        /* The following succeed, with high probability */
-        
-        Instruction initializer;
-        try {
-            SequentialBlock sequBlock = 
-                (SequentialBlock) forBlock.outer;
+        SequentialBlock sequBlock = (SequentialBlock) forBlock.outer;
 
-            initializer = 
-                ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
-            
-            if (!( ((Expression)initializer).getOperator() 
-                   instanceof StoreInstruction))
-                return false;
-        } catch (ClassCastException ex) {
+        if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
             return false;
-        }
+
+        Expression initializer = 
+            ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
+            
+        if (!(initializer.getOperator() instanceof StoreInstruction))
+            return false;
 
         if (jode.Decompiler.isVerbose)
             System.err.print('f');

@@ -36,22 +36,23 @@ public class CatchFinallyBlock extends CatchBlock {
         fin.setFlowBlock(flowBlock);
     }
 
-//     /**
-//      * Returns the block where the control will normally flow to, when
-//      * the given sub block is finished (<em>not</em> ignoring the jump
-//      * after this block).  FinallyBlock have a special behaviour, since
-//      * the try block has the finallyblock as successor and the
-//      * finallyblock has no default successor at all!!
-//      *
-//      * @return null, if the control flows to another FlowBlock.  
-//      */
-//     public StructuredBlock getNextBlock(StructuredBlock subBlock) {
-//         return subBlock == tryBlock ? finallyBlock : null;
-//     }
+    /**
+     * Returns the block where the control will normally flow to, when
+     * the given sub block is finished (<em>not</em> ignoring the jump
+     * after this block).  FinallyBlock have a special behaviour, since
+     * the finally block has no default successor at all (it is more a
+     * subroutine) that will be called by try or any exception.
+     * The try block has the normal successor.
+     *
+     * @return null, if the control flows to another FlowBlock.  
+     */
+    public StructuredBlock getNextBlock(StructuredBlock subBlock) {
+        return subBlock == tryBlock ? getNextBlock() : null;
+    }
 
-//     public FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
-//         return null;
-//     }
+    public FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
+        return subBlock == tryBlock ? getNextFlowBlock() : null;
+    }
 
     /**
      * Replaces the given sub block with a new block.
@@ -90,8 +91,7 @@ public class CatchFinallyBlock extends CatchBlock {
     public void dumpInstruction(jode.TabbedPrintWriter writer) 
         throws java.io.IOException {
         /* avoid ugly nested tries */
-        if (!(outer instanceof CatchBlock
-              /* XXX || outer instanceof FinallyBlock*/)) {
+        if (!(outer instanceof CatchBlock)) {
             writer.println("try {");
             writer.tab();
         }
@@ -100,13 +100,9 @@ public class CatchFinallyBlock extends CatchBlock {
         writer.println("} finally {");
         writer.tab();
         finallyBlock.dumpSource(writer);
-        if (!(outer instanceof CatchBlock
-              /* XXX || outer instanceof FinallyBlock*/)) {
+        if (!(outer instanceof CatchBlock)) {
             writer.untab();
             writer.println("}");
         }
     }
 }
-
-
-

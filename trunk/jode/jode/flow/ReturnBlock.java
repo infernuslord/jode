@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.TabbedPrintWriter;
-import jode.Instruction;
+import jode.Expression;
 
 /**
  * This is the structured block for an Return block.
@@ -30,7 +30,7 @@ public class ReturnBlock extends InstructionContainer {
         super(null);
     }
 
-    public ReturnBlock(Instruction instr, Jump jump) {
+    public ReturnBlock(Expression instr, Jump jump) {
         super(instr, jump);
     }
 
@@ -40,22 +40,6 @@ public class ReturnBlock extends InstructionContainer {
      */
     public boolean needsBraces() {
         return declare != null && !declare.isEmpty();
-    }
-
-    /**
-     * Get the underlying instruction.
-     * @return the underlying instruction.
-     */
-    public Instruction getInstruction() {
-        return instr;
-    }
-
-    /**
-     * Change the underlying instruction.
-     * @param instr the new underlying instruction.
-     */
-    public void setInstruction(Instruction instr) {
-        this.instr = instr;
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 

@@ -42,18 +42,18 @@ public class CreateAssignExpression implements Transformation{
             opBlock = (SequentialBlock) lastBlock.outer;
             if (opBlock.subBlocks[1] != lastBlock)
                 return false;
-            ib = (InstructionBlock) opBlock.subBlocks[0];
 
-            if (ib.getInstruction() instanceof DupOperator) {
-                DupOperator dup = (DupOperator) ib.getInstruction();
-                if (dup.getDepth() != store.getLValueOperandCount() && 
-                    dup.getCount() != store.getLValueType().stackSize())
+            if (opBlock.subBlocks[0] instanceof SpecialBlock) {
+                SpecialBlock dup = (SpecialBlock) opBlock.subBlocks[0];
+                if (dup.type != SpecialBlock.DUP
+                    || dup.depth != store.getLValueOperandCount()
+                    || dup.count != store.getLValueType().stackSize())
                     return false;
                 opBlock = (SequentialBlock) lastBlock.outer;
-                ib = (InstructionBlock) opBlock.subBlocks[0];
                 isExpression = true;
             }
 
+            ib = (InstructionBlock) opBlock.subBlocks[0];
             ComplexExpression binopExpr = 
                 (ComplexExpression) ib.getInstruction();
             binop = (BinaryOperator) binopExpr.getOperator();
@@ -70,11 +70,11 @@ public class CreateAssignExpression implements Transformation{
                 return false;
 
             sequBlock = (SequentialBlock) opBlock.outer;
-            ib = (InstructionBlock) sequBlock.subBlocks[0];
 
-            DupOperator dup = (DupOperator) ib.getInstruction();
-            if (dup.getDepth() != 0 && 
-                dup.getCount() != store.getLValueOperandCount())
+            SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
+            if (dup.type != SpecialBlock.DUP
+                || dup.depth != 0
+                || dup.count != store.getLValueOperandCount())
                 return false;
         } catch (ClassCastException ex) {
             return false;
@@ -107,11 +107,11 @@ public class CreateAssignExpression implements Transformation{
             store = (StoreInstruction) lastBlock.getInstruction();
 
             sequBlock = (SequentialBlock) lastBlock.outer;
-            InstructionBlock ib = (InstructionBlock) sequBlock.subBlocks[0];
 
-            DupOperator dup = (DupOperator) ib.getInstruction();
-            if (dup.getDepth() != store.getLValueOperandCount() && 
-                dup.getCount() != store.getLValueType().stackSize())
+            SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
+            if (dup.type != SpecialBlock.DUP
+                || dup.depth != store.getLValueOperandCount()
+                || dup.count != store.getLValueType().stackSize())
                 return false;
         } catch (NullPointerException ex) {
             return false;

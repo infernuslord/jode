@@ -36,6 +36,10 @@ public class PopOperator extends SimpleOperator {
         return 0;
     }
 
+    public int getCount() {
+        return count;
+    }
+
     public String toString(String[] operands) {
         return operands[0];
     }

@@ -85,7 +85,7 @@ public class LocalInfo {
                     LocalVarOperator lvo = 
                         (LocalVarOperator) enum.nextElement();
                     if (needTypeUpdate) {
-//                 System.err.println("updating "+lvo+" in "+((Expression)lvo).parent);
+//                 System.err.println("updating "+lvo+" in "+lvo.parent);
                         lvo.updateType();
                     }
                     shadow.operators.addElement(lvo);
@@ -163,13 +163,17 @@ public class LocalInfo {
     public Type setType(Type newType) {
         LocalInfo li = getLocalInfo();
         newType = li.type.intersection(newType);
-//         System.err.println(getName()+" setType, new: "+newType+" old: "+li.type);
+        if (Decompiler.isTypeDebugging)
+            System.err.println(getName()+" setType, new: "+newType
+                               + " old: "+li.type);
         if (!li.type.equals(newType)) {
             li.type = newType;
             java.util.Enumeration enum = li.operators.elements();
             while (enum.hasMoreElements()) {
                 LocalVarOperator lvo = (LocalVarOperator) enum.nextElement();
-//                 System.err.println("updating "+lvo+" in "+((Expression)lvo).parent);
+                if (Decompiler.isTypeDebugging)
+                    System.err.println("updating "+lvo+" in "
+                                       + ((Expression)lvo).parent);
                 lvo.updateType();
             }
         }

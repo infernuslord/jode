@@ -46,6 +46,22 @@ public class ConstOperator extends NoArgOperator {
                 return "false";
             else if (value.equals("1"))
                 return "true";
+        } if (type == Type.tChar) {
+            char i = (char) Integer.parseInt(value);
+            switch (i) {
+            case '\t':
+                return "\'\\t\'";
+            case '\n':
+                return "\'\\n\'";
+            case '\\':
+                return "\'\\\\\'";
+            case '\"':
+                return "\'\\\"\'";
+            case '\'':
+                return "\'\\\'\'";
+            }
+            if (i >= 32 && i <128)
+                return "\'"+i+"\'";
         } else if (parent != null) {
             int opindex = parent.getOperator().getOperatorIndex();
             if (opindex >= OPASSIGN_OP + ADD_OP
