@@ -379,8 +379,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
         if (!isConstructor)
             imports.useType(methodType.getReturnType());
 
-	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) == 0)
-	    analyzeCode();
+	analyzeCode();
     }
 
     public final LocalInfo getParamInfo(int nr) {
@@ -536,14 +535,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    declareAsConstructor = true;
 	    skipParams = hasJikesOuterValue
 		&& classAnalyzer.outerValues.length > 0 ? 1 : 0;
-	}
-
-	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0
-	    && code != null) {
-            // We do the analyzeCode() here, to get 
-            // immediate output.
-
-	    analyzeCode();
 	}
 
 	if (minfo.isDeprecated()) {
