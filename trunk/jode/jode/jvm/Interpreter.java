@@ -1,26 +1,26 @@
-/* 
- * Opcodes (c) 1998 Jochen Hoenicke
+/* Interpreter Copyright (C) 1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
+
 package jode.jvm;
+import jode.*;
 import jode.bytecode.*;
 import jode.decompiler.ClassAnalyzer;
-import jode.MethodType;
-import jode.Type;
 import java.lang.reflect.*;
 
 /**
@@ -32,84 +32,46 @@ import java.lang.reflect.*;
  */
 public class Interpreter implements Opcodes {
 
-    static int checkType(String typesig, int pos, Class type) {
-	switch (typesig.charAt(pos++)) {
-	case 'Z':
-	    if (type != Boolean.TYPE)
-		return -1;
-	    break;
-	case 'B':
-	    if (type != Byte.TYPE)
-		return -1;
-	    break;
-	case 'C':
-	    if (type != Character.TYPE)
-		return -1;
-	    break;
-	case 'S':
-	    if (type != Short.TYPE)
-		    return -1;
-	    break;
-	case 'I':
-	    if (type != Integer.TYPE)
-		return -1;
-	    break;
-	case 'J':
-	    if (type != Long.TYPE)
-		return -1;
-	    break;
-	case 'F':
-	    if (type != Float.TYPE)
-		return -1;
-	    break;
-	case 'D':
-	    if (type != Double.TYPE)
-		return -1;
-	    break;
-	case 'V':
-	    if (type != Void.TYPE)
-		return -1;
-	    break;
-	case '[':
-	    if (!type.isArray())
-		return -1;
-	    pos = checkType(typesig, pos, type.getComponentType());
-	    break;
-	case 'L': {
-	    int index = typesig.indexOf(';', pos);
-	    if (index == -1)
-		return -1;
-	    if (!type.getName().replace('.','/')
-		.equals(typesig.substring(pos, index)))
-		return -1;
-	    pos = index+1;
-	    break;
-	}
-	default:
-	    return -1;
-	}
-	return pos;
+    static boolean checkType(Type type1, Class type2) {
+	if (type1 == Type.tBoolean) {
+	    return type2 == Boolean.TYPE;
+	} else if (type1 == Type.tByte) {
+	    return type2 == Byte.TYPE;
+	} else if (type1 == Type.tChar) {
+	    return type2 == Character.TYPE;
+	} else if (type1 == Type.tShort) {
+	    return type2 == Short.TYPE;
+	} else if (type1 == Type.tInt) {
+	    return type2 == Integer.TYPE;
+	} else if (type1 == Type.tLong) {
+	    return type2 == Long.TYPE;
+	} else if (type1 == Type.tFloat) {
+	    return type2 == Float.TYPE;
+	} else if (type1 == Type.tDouble) {
+	    return type2 == Double.TYPE;
+	} else if (type1 == Type.tVoid) {
+	    return type2 == Void.TYPE;
+	} else if (type1 instanceof ArrayType) {
+	    if (!type2.isArray())
+		return false;
+	    return checkType(((ArrayType)type1).getElementType(), 
+			     type2.getComponentType()); 
+	} else if (type1 instanceof ClassInterfacesType) {
+	    return type1.equals(Type.tClass(type2.getName()));
+	} else
+	    return false;
     }
 
-    static boolean checkMethod(String typesig, 
+    static boolean checkMethod(MethodType methodType,
 			       Class[] paramTypes, Class retType) {
-	if (typesig.charAt(0) != '(')
+	Type[] params = methodType.getParameterTypes();
+	if (params.length != paramTypes.length)
 	    return false;
-	int pos = 1;
-	int i = 0;
-	while (typesig.charAt(pos) != ')') {
-	    if (i >= paramTypes.length)
+	for (int i=0; i < params.length; i++) {
+	    if (!checkType(params[i], paramTypes[i]))
 		return false;
-	    pos = checkType(typesig, pos, paramTypes[i++]);
-	    if (pos == -1) {
-		return false;
-	    }
 	}
-	if (i != paramTypes.length)
-	    return false;
-	pos++;
-	pos = checkType(typesig, pos, retType);
-	return pos == typesig.length();
+	return checkType(methodType.getReturnType(), retType);
     }
 
     public static Object interpretMethod
@@ -139,17 +101,7 @@ public class Interpreter implements Opcodes {
 	    switch (opcode) {
 	    case opc_nop:
 		break;
-	    case opc_aconst_null:
-	    case opc_iconst_m1: 
-	    case opc_iconst_0: case opc_iconst_1: case opc_iconst_2:
-	    case opc_iconst_3: case opc_iconst_4: case opc_iconst_5:
-	    case opc_lconst_0: case opc_lconst_1:
-	    case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
-	    case opc_dconst_0: case opc_dconst_1:
-	    case opc_bipush:
-	    case opc_sipush:
 	    case opc_ldc:
-	    case opc_ldc_w:
 	    case opc_ldc2_w: {
 		stack[stacktop++].setObject(instr.objData);
 		break;
@@ -600,12 +552,11 @@ public class Interpreter implements Opcodes {
 	    case opc_invokespecial:
 	    case opc_invokestatic :
 	    case opc_invokeinterface: {
-		String[] ref = (String[]) instr.objData;
+		Reference ref = (Reference) instr.objData;
 		
-		if (ref[0].equals(ca.getClazz().getName().replace('.','/'))) {
-		    boolean isStatic = opcode == opc_invokestatic;
-		    MethodType mt = new MethodType(isStatic, ref[2]);
-		    BytecodeInfo info = ca.getMethod(ref[1], mt)
+		if (ref.getClazz().equals(ca.getClazz().getName())) {
+		    MethodType mt = (MethodType) Type.tType(ref.getType());
+		    BytecodeInfo info = ca.getMethod(ref.getName(), mt)
 			.getCode().getBytecodeInfo();
 		    Value[] newLocals = new Value[info.getMaxLocals()];
 		    for (int i=0; i< newLocals.length; i++)
@@ -613,8 +564,14 @@ public class Interpreter implements Opcodes {
 		    Value[] newStack = new Value[info.getMaxStack()];
 		    for (int i=0; i< newStack.length; i++)
 			newStack[i] = new Value();
-		    for (int i=mt.getParameterTypes().length - 1; i >= 0; i--)
-			newLocals[i].setValue(stack[--stacktop]);
+		    int param = mt.getParameterTypes().length;
+		    int slot = 0;
+		    if (opcode != opc_invokestatic)
+			newLocals[slot++].setValue(stack[stacktop-param-1]);
+		    for (int i = 0; i < param; i++) {
+			newLocals[slot].setValue(stack[stacktop-param+i]);
+			slot += mt.getParameterTypes()[i].stackSize();
+		    }
 		    Object result = interpretMethod(ca, info, 
 						    newLocals, newStack);
 		    if (mt.getReturnType() != Type.tVoid)
@@ -622,41 +579,43 @@ public class Interpreter implements Opcodes {
 		} else {
 		    Class clazz;
 		    try {
-			clazz = Class.forName(ref[0].replace('/','.'));
+			clazz = Class.forName(ref.getClazz());
 		    } catch (ClassNotFoundException ex) {
 			throw new InterpreterException
-			    ("Class "+ref[0]+" not found");
+			    ("Class "+ref.getClazz()+" not found");
 		    }
 		    try {
-			if (ref[1].equals("<init>")) {
+			if (ref.getName().equals("<init>")) {
 			    Constructor[] cs = clazz.getConstructors();
 			    Constructor c = null;
 			    for (int i=0; i< cs.length; i++) {
-				if (checkMethod(ref[2], cs[i].getParameterTypes(), 
+				if (checkMethod((MethodType) 
+						Type.tType(ref.getType()), 
+						cs[i].getParameterTypes(), 
 						Void.TYPE)) {
 				    c = cs[i];
 				    break;
 				}
 			    }
 			    if (c == null)
-				throw new InterpreterException("Constructor "
-							       +ref[0]+"."
-							       +ref[1]+" not found.");
+				throw new InterpreterException
+				    ("Constructor " + ref + " not found.");
 			    Object[] args
 				= new Object[c.getParameterTypes().length];
 			    for (int i=args.length - 1; i >= 0; i--)
 				args[i] = stack[--stacktop].objectValue();
 			    NewObject newObj = stack[--stacktop].getNewObject();
-			    if (!newObj.getType().equals(ref[0]))
-				throw new InterpreterException("constructor not called"
-							       +" on new instance");
+			    if (!newObj.getType().equals(ref.getClazz()))
+				throw new InterpreterException
+				    ("constructor called on wrong type");
 			    newObj.setObject(c.newInstance(args));
 			} else {
 			    Method[] ms = clazz.getMethods();
 			    Method m = null;
 			    for (int i=0; i< ms.length; i++) {
-				if (ms[i].getName().equals(ref[1])) {
-				    if (checkMethod(ref[2],
+				if (ms[i].getName().equals(ref.getName())) {
+				    if (checkMethod((MethodType) 
+						    Type.tType(ref.getType()),
 						    ms[i].getParameterTypes(), 
 						    ms[i].getReturnType())) {
 					m = ms[i];
@@ -665,8 +624,8 @@ public class Interpreter implements Opcodes {
 				}
 			    }
 			    if (m == null)
-				throw new InterpreterException("Method "+ref[0]+"."
-							       +ref[1]+" not found.");
+				throw new InterpreterException
+				    ("Method " + ref + " not found.");
 			    Object obj = null;
 			    Object[] args 
 				= new Object[m.getParameterTypes().length];
@@ -681,13 +640,13 @@ public class Interpreter implements Opcodes {
 			}
 		    } catch (IllegalAccessException ex) {
 			throw new InterpreterException
-			    ("Method "+ref[0]+"."+ref[1]+" not accessible");
+			    ("Method " + ref + " not accessible");
 		    } catch (InstantiationException ex) {
 			throw new InterpreterException
-			    ("InstantiationException in "+ref[0]+"."+ref[1]+".");
+			    ("InstantiationException in " + ref + ".");
 		    } catch (InvocationTargetException ex) {
 			throw new InterpreterException
-			    ("Method "+ref[0]+"."+ref[1]+" throwed an exception");
+			    ("Method " + ref + " throwed an exception");
 			/*XXX exception handler?*/
 		    }
 		}
@@ -758,7 +717,7 @@ public class Interpreter implements Opcodes {
 		    throw new InterpreterException
 			("Class "+ex.getMessage()+" not found");
 		}
-		Object obj = stack[--stacktop].objectValue();
+		Object obj = stack[stacktop-1].objectValue();
 		if (obj != null && !clazz.isInstance(obj)) {
 		    /*XXX*/
 		    throw new InterpreterException
@@ -796,7 +755,7 @@ public class Interpreter implements Opcodes {
 		}
 		int dimension = instr.intData;
 		int[] dims = new int[dimension];
-		for (int i=dimension-1; i >= 0; i--)
+		for (int i=dimension - 1; i >= 0; i--)
 		    dims[i-1] = stack[--stacktop].intValue();
 		stack[stacktop++].setObject(Array.newInstance(clazz, dims));
 		break;
