@@ -248,6 +248,7 @@ public class LocalInfo {
         return getLocalInfo().type;
     }
 
+    private int loopCount = 0;
     /**
      * Sets a new information about the type of this local.  
      * The type of the local is may be made more specific by this call.
@@ -256,6 +257,12 @@ public class LocalInfo {
      */
     public Type setType(Type otherType) {
         LocalInfo li = getLocalInfo();
+	if (li.loopCount++ > 5) {
+	    GlobalOptions.err.println("Type error in local " + getName()+": "
+				      + li.type + " seems to be recursive.");
+	    Thread.dumpStack();
+	    otherType = Type.tError;
+	}
         Type newType = li.type.intersection(otherType);
 	if (newType == Type.tError
 	    && otherType != Type.tError && li.type != Type.tError) {
@@ -277,6 +284,7 @@ public class LocalInfo {
                 lvo.updateType();
             }
         }
+	li.loopCount--;
         return li.type;
     }
 
