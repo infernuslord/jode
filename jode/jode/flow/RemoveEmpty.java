@@ -25,6 +25,7 @@ public class RemoveEmpty {
     
     public static boolean removeSwap(SpecialBlock swapBlock,
                                      StructuredBlock last) {
+
         /* Remove non needed swaps; convert:
          *
          *   PUSH expr1
@@ -72,7 +73,7 @@ public class RemoveEmpty {
             /* PUSH expr2
              * PUSH expr1
              */
-            block1.flowBlock.lastModified = block1.outer;
+            block1.flowBlock.lastModified = block1;
             return true;
         }
         return false;
