@@ -15,8 +15,6 @@
  *
  * $Id$
  */
-
- */
 package jode.flow;
 
 /**
@@ -41,6 +39,10 @@ public class InstructionBlock extends StructuredBlock {
     public void dumpSource(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-        writer.println("/* empty */");
+        if (!(instr instanceof NopOperator)) {
+            if (instr.getType() != MyType.tVoid)
+                writer.print("push ");
+            writer.println(instr.toString()+";");
+        }
     }
 }
