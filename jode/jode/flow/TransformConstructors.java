@@ -37,7 +37,7 @@ public class TransformConstructors {
         StructuredBlock[] sb = new StructuredBlock[constrCount];
         for (int i=0; i< constrCount; ) {
 	    FlowBlock header = cons[i].getMethodHeader();
-	    if (!header.hasNoJumps())
+	    if (header == null || !header.hasNoJumps())
 		return;
             sb[i] = cons[i].getMethodHeader().block;
 //             Decompiler.err.println("constr "+i+": "+sb[i]);
