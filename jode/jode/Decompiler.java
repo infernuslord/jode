@@ -58,8 +58,8 @@ public class Decompiler {
 	OPTION_LVT | OPTION_INNER | OPTION_ANON | 
 	OPTION_DECRYPT | OPTION_VERIFY | OPTION_CONTRAFO;
 
-    private static final int OPTION_START=100;
-    private static final int OPTION_END  =200;
+    private static final int OPTION_START=0x10000;
+    private static final int OPTION_END  =0x20000;
     private static final LongOpt[] longOptions = new LongOpt[] {
 	new LongOpt("cp", LongOpt.REQUIRED_ARGUMENT, null, 'c'),
 	new LongOpt("classpath", LongOpt.REQUIRED_ARGUMENT, null, 'c'),
