@@ -49,6 +49,14 @@ public class PackageIdentifier extends Identifier {
 	    setLoadOnDemand();
     }
 
+    /**
+     * Marks the parent package as preserved, too.
+     */
+    protected void setSinglePreserved() {
+	if (parent != null)
+	    parent.setPreserved();
+    }
+
     public void setLoadOnDemand() {
 	if (loadOnDemand)
 	    return;
@@ -286,12 +294,11 @@ public class PackageIdentifier extends Identifier {
     public void preserveMatchingIdentifier(WildCard wildcard) {
 	String component = wildcard.getNextComponent(getFullName());
 	if (component != null) {
+	    String fullname = getFullName();
+	    fullname = (fullname.length() > 0)
+		? fullname + "."+ component : component;
 	    Identifier ident = (Identifier) loadedClasses.get(component);
 	    if (ident == null && loadOnDemand) {
-		String fullname = getFullName();
-		fullname = (fullname.length() > 0)
-		    ? fullname + "."+ component
-		    : component;
 		if (ClassInfo.isPackage(fullname)) {
 		    ident = new PackageIdentifier(bundle, this, 
 						  component, loadOnDemand);
@@ -308,7 +315,12 @@ public class PackageIdentifier extends Identifier {
 			ident.applyPreserveRule(bundle.preserveRule);
 		}
 	    }
-	    if (wildcard.startsWith(ident.getFullName()+".")) {
+	    if (wildcard.matches(fullname)) {
+		if (GlobalOptions.verboseLevel > 1)
+		    GlobalOptions.err.println("preserving "+ident);
+		ident.setPreserved();
+	    }
+	    if (wildcard.startsWith(fullname+".")) {
 		if (ident instanceof PackageIdentifier)
 		    ((PackageIdentifier) ident)
 			.preserveMatchingIdentifier(wildcard);
@@ -330,7 +342,7 @@ public class PackageIdentifier extends Identifier {
 			continue;
 		    String subFull = fullname + subclazz;
 		    
-		    if (wildcard.startsWith(subFull + ".")) {
+		    if (wildcard.startsWith(subFull)) {
 			if (ClassInfo.isPackage(subFull)) {
 			    Identifier ident = new PackageIdentifier
 				(bundle, this, subclazz, true);
@@ -350,6 +362,11 @@ public class PackageIdentifier extends Identifier {
 	    Enumeration enum = loadedClasses.elements();
 	    while (enum.hasMoreElements()) {
 		Identifier ident = (Identifier) enum.nextElement();
+		if (wildcard.matches(ident.getFullName())) {
+		    if (GlobalOptions.verboseLevel > 1)
+			GlobalOptions.err.println("Preserving "+ident);
+		    ident.setPreserved();
+		}
 		if (wildcard.startsWith(ident.getFullName()+".")) {
 		    if (ident instanceof PackageIdentifier)
 			((PackageIdentifier) ident)
@@ -376,13 +393,16 @@ public class PackageIdentifier extends Identifier {
     }
 
     /**
-     * @return the full qualified alias, including trailing dot.
+     * @return the full qualified alias.
      */
     public String getFullAlias() {
-	if (parent != null)
-	    return parent.getFullAlias() + getAlias() + ".";
-	else
-	    return "";
+	if (parent != null) {
+	    if (parent.getFullAlias().length() > 0)
+		return parent.getFullAlias() + "." + getAlias();
+	    else 
+		return getAlias();
+	}
+	return "";
     }
 
     public String findAlias(String className) {
@@ -405,9 +425,9 @@ public class PackageIdentifier extends Identifier {
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
-	    if (ident instanceof ClassIdentifier) {
+	    if (ident instanceof ClassIdentifier)
 		((ClassIdentifier) ident).buildTable(renameRule);
-	    } else
+	    else
 		((PackageIdentifier) ident).buildTable(renameRule);
 	}
     }
@@ -425,7 +445,7 @@ public class PackageIdentifier extends Identifier {
 
     public void readTable(Hashtable table) {
 	if (parent != null)
-	    setAlias((String) table.get(parent.getFullName() + getName()));
+	    setAlias((String) table.get(getFullName()));
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
@@ -436,7 +456,7 @@ public class PackageIdentifier extends Identifier {
 
     public void writeTable(Hashtable table) {
 	if (parent != null)
-	    table.put(parent.getFullAlias() + getAlias(), getName());
+	    table.put(getFullAlias(), getName());
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
@@ -481,7 +501,7 @@ public class PackageIdentifier extends Identifier {
 		    zip.closeEntry();
 		} catch (java.io.IOException ex) {
 		    GlobalOptions.err.println("Can't write Class "
-					   + ident.getName());
+					      + ident.getName());
 		    ex.printStackTrace(GlobalOptions.err);
 		}
 	    }
@@ -531,8 +551,7 @@ public class PackageIdentifier extends Identifier {
     }
 
     public String toString() {
-	return (parent == null) ? "base package" 
-	    : parent.getFullName()+getName();
+	return (parent == null) ? "base package" : getFullName();
     }
 
     public boolean contains(String newAlias) {
