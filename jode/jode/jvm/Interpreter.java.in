@@ -25,11 +25,11 @@ import jode.bytecode.Handler;
 import jode.bytecode.Instruction;
 import jode.bytecode.Opcodes;
 import jode.bytecode.Reference;
-import jode.type.MethodType;
-import jode.type.Type;
+import jode.bytecode.TypeSignature;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
+import @COLLECTIONS@.Arrays;
 
 /**
  * This class is a java virtual machine written in java :-).  Well not
@@ -53,14 +53,55 @@ public class Interpreter implements Opcodes {
     private final static int CMP_EQUAL_MASK
 	= (1 << CMP_GE)|(1 << CMP_LE)|(1 << CMP_EQ);
 
-    public static Object interpretMethod
-	(RuntimeEnvironment env, BytecodeInfo code, Value[] locals)
+    private RuntimeEnvironment env;
+
+    public Interpreter(RuntimeEnvironment env) {
+	this.env = env;
+    }
+
+    private Value[] fillParameters(BytecodeInfo code, 
+				   Object cls, Object[] params) {
+	Value[] locals = new Value[code.getMaxLocals()];
+	for (int i=0; i< locals.length; i++)
+	    locals[i] = new Value();
+
+	String myType = code.getMethodInfo().getType();
+	String[] myParamTypes = TypeSignature.getParameterTypes(myType);
+	int slot = 0;
+	if (!code.getMethodInfo().isStatic())
+	    locals[slot++].setObject(cls);
+	for (int i=0; i< myParamTypes.length; i++) {
+	    char type = myParamTypes[i].charAt(0);
+	    switch ("ZBSC".indexOf(type)) {
+	    case 0:
+		locals[slot].setInt(((Boolean) params[i])
+				    .booleanValue() ? 1 : 0);
+		break;
+	    case 1: case 2:
+		locals[slot].setInt(((Number) params[i]).intValue());
+		break;
+	    case 3:
+		locals[slot].setInt(((Character) params[i]).charValue());
+		break;
+	    default:
+		locals[slot].setObject(params[i]);
+		break;
+	    }
+	    slot += TypeSignature.getTypeSize(myParamTypes[i]);
+	}
+	return locals;
+    }
+
+    public Object interpretMethod(BytecodeInfo code, 
+				  Object instance, Object[] myParams)
 	throws InterpreterException, InvocationTargetException {
 	if ((GlobalOptions.debuggingFlags 
 	     & GlobalOptions.DEBUG_INTERPRT) != 0)
 	    GlobalOptions.err.println("Interpreting "+code);
+
+	Value[] locals = fillParameters(code, instance, myParams);
 	Value[] stack = new Value[code.getMaxStack()];
-	for (int i=0; i< stack.length; i++)
+	for (int i=0; i < stack.length; i++)
 	    stack[i] = new Value();
 
 	Instruction pc = (Instruction) code.getInstructions().get(0);
@@ -78,7 +119,8 @@ public class Interpreter implements Opcodes {
 			    GlobalOptions.err.print(",");
 			GlobalOptions.err.print(stack[i]);
 			if (stack[i].objectValue() instanceof char[]) {
-			    GlobalOptions.err.print(new String((char[])stack[i].objectValue()));
+			    GlobalOptions.err.print
+				(new String((char[])stack[i].objectValue()));
 			}
 		    }
 		    GlobalOptions.err.println("]");
@@ -563,16 +605,31 @@ public class Interpreter implements Opcodes {
 		case opc_lookupswitch: {
 		    int value = stack[--stacktop].intValue();
 		    int[] values = instr.getValues();
-		    pc = instr.getSuccs()[values.length];
-		    for (int i=0; i< values.length; i++) {
-			if (values[i] == value) {
-			    pc = instr.getSuccs()[i];
-			    break;
-			}
-		    }
+		    int pos = Arrays.binarySearch(values, value);
+		    pc = pos < 0
+			? instr.getSuccs()[values.length]
+			: instr.getSuccs()[pos];
 		    break;
 		}
-		case opc_ireturn: case opc_freturn: case opc_areturn:
+		case opc_ireturn: {
+		    Object result = stack[--stacktop].objectValue();
+		    String retType = TypeSignature
+			.getReturnType(code.getMethodInfo().getType());
+		    switch ("ZBSC".indexOf(retType.charAt(0))) {
+		    case 0: // boolean
+			return new Boolean(((Integer)result).intValue() != 0);
+		    case 1: // byte
+			return new Byte(((Integer)result).byteValue());
+		    case 2: // short
+			return new Short(((Integer)result).shortValue());
+		    case 3: // char
+			return new Character((char) 
+					     ((Integer)result).intValue());
+		    default: // integer
+			return result;
+		    }
+		}
+		case opc_freturn: case opc_areturn:
 		    return stack[--stacktop].objectValue();
 		case opc_lreturn: case opc_dreturn:
 		    return stack[stacktop -= 2].objectValue();
@@ -580,34 +637,100 @@ public class Interpreter implements Opcodes {
 		    return Void.TYPE;
 		case opc_getstatic: {
 		    Reference ref = instr.getReference();
-		    stack[stacktop].setObject
-			(env.getField(instr.getReference(), null));
-		    stacktop += Type.tType(ref.getType()).stackSize();
+		    Object result = env.getField(instr.getReference(), null);
+		    char type = ref.getType().charAt(0);
+		    switch ("ZBSC".indexOf(type)) {
+		    case 0:
+			stack[stacktop].setInt(((Boolean) result)
+					       .booleanValue() ? 1 : 0);
+			break;
+		    case 1: case 2:
+			stack[stacktop].setInt(((Number) result)
+					       .intValue());
+			break;
+		    case 3:
+			stack[stacktop].setInt(((Character) result)
+					       .charValue());
+			break;
+		    default:
+			stack[stacktop].setObject(result);
+			break;
+		    }
+		    stacktop += TypeSignature.getTypeSize(ref.getType());
 		    break;
 		}
 		case opc_getfield: {
 		    Reference ref = instr.getReference();
-		    Object cls = stack[--stacktop];
+		    Object cls = stack[--stacktop].objectValue();
 		    if (cls == null)
 			throw new InvocationTargetException
 			    (new NullPointerException());
-		    stack[stacktop].setObject
-			(env.getField(instr.getReference(), cls));
-		    stacktop += Type.tType(ref.getType()).stackSize();
+		    Object result = env.getField(instr.getReference(), cls);
+		    char type = ref.getType().charAt(0);
+		    switch ("ZBSC".indexOf(type)) {
+		    case 0:
+			stack[stacktop].setInt(((Boolean) result)
+					       .booleanValue() ? 1 : 0);
+			break;
+		    case 1: case 2:
+			stack[stacktop].setInt(((Number) result)
+					       .intValue());
+			break;
+		    case 3:
+			stack[stacktop].setInt(((Character) result)
+					       .charValue());
+			break;
+		    default:
+			stack[stacktop].setObject(result);
+			break;
+		    }
+		    stacktop += TypeSignature.getTypeSize(ref.getType());
 		    break;
 		}
 		case opc_putstatic: {
 		    Reference ref = instr.getReference();
-		    stacktop -= Type.tType(ref.getType()).stackSize();
-		    Object value = stack[stacktop];
+		    stacktop -= TypeSignature.getTypeSize(ref.getType());
+		    Object value = stack[stacktop].objectValue();
+		    int type = "ZBSC".indexOf(ref.getType().charAt(0));
+		    switch(type) {
+		    case 0: // boolean
+			value = new Boolean(((Integer)value).intValue() != 0);
+			break;
+		    case 1: // byte
+			value = new Byte(((Integer)value).byteValue());
+			break;
+		    case 2: // short
+			value = new Short(((Integer)value).shortValue());
+			break;
+		    case 3: // char
+			value = new Character((char) 
+					      ((Integer)value).intValue());
+			break;
+		    }
 		    env.putField(instr.getReference(), null, value);
 		    break;
 		}
 		case opc_putfield: {
 		    Reference ref = instr.getReference();
-		    stacktop -= Type.tType(ref.getType()).stackSize();
-		    Object value = stack[stacktop];
-		    Object cls = stack[--stacktop];
+		    stacktop -= TypeSignature.getTypeSize(ref.getType());
+		    Object value = stack[stacktop].objectValue();
+		    int type = "ZBSC".indexOf(ref.getType().charAt(0));
+		    switch(type) {
+		    case 0: // boolean
+			value = new Boolean(((Integer)value).intValue() != 0);
+			break;
+		    case 1: // byte
+			value = new Byte(((Integer)value).byteValue());
+			break;
+		    case 2: // short
+			value = new Short(((Integer)value).shortValue());
+			break;
+		    case 3: // char
+			value = new Character((char)
+					      ((Integer)value).intValue());
+			break;
+		    }
+		    Object cls = stack[--stacktop].objectValue();
 		    if (cls == null)
 			throw new InvocationTargetException
 			    (new NullPointerException());
@@ -619,11 +742,30 @@ public class Interpreter implements Opcodes {
 		case opc_invokestatic :
 		case opc_invokeinterface: {
 		    Reference ref = instr.getReference();
-		    MethodType mt = (MethodType) Type.tType(ref.getType());
-		    Object[] args = new Object[mt.getParameterTypes().length];
-		    for (int i=args.length - 1; i >= 0; i--) {
-			stacktop -= mt.getParameterTypes()[i].stackSize();
-			args[i] = stack[stacktop].objectValue();
+		    String[] paramTypes
+			= TypeSignature.getParameterTypes(ref.getType());
+		    Object[] args = new Object[paramTypes.length];
+		    for (int i = paramTypes.length - 1; i >= 0; i--) {
+			stacktop -= TypeSignature.getTypeSize(paramTypes[i]);
+			Object value = stack[stacktop].objectValue();
+			int type = "ZBSC".indexOf(paramTypes[i].charAt(0));
+			switch(type) {
+			case 0: // boolean
+			    value = new Boolean(((Integer)value)
+						.intValue() != 0);
+			    break;
+			case 1: // byte
+			    value = new Byte(((Integer)value).byteValue());
+			    break;
+			case 2: // short
+			    value = new Short(((Integer)value).shortValue());
+			    break;
+			case 3: // char
+			    value = new Character((char)
+						  ((Integer)value).intValue());
+			    break;
+			}
+			args[i] = value;
 		    }
 		
 		    Object result = null;
@@ -643,10 +785,29 @@ public class Interpreter implements Opcodes {
 			result = env.invokeMethod
 			    (ref, opcode != opc_invokespecial, cls, args);
 		    }
-		    if (mt.getReturnType() != Type.tVoid) {
+		    String retType
+			= TypeSignature.getReturnType(ref.getType());
+		    char type = retType.charAt(0);
+		    switch ("ZBSCV".indexOf(type)) {
+		    case 0:
+			stack[stacktop].setInt(((Boolean) result)
+					       .booleanValue() ? 1 : 0);
+			break;
+		    case 1: case 2:
+			stack[stacktop].setInt(((Number) result)
+					       .intValue());
+			break;
+		    case 3:
+			stack[stacktop].setInt(((Character) result)
+					       .charValue());
+			break;
+		    case 4: // Void
+			break;
+		    default:
 			stack[stacktop].setObject(result);
-			stacktop += mt.getReturnType().stackSize();
+			break;
 		    }
+		    stacktop += TypeSignature.getTypeSize(retType);
 		    break;
 		}
 		case opc_new: {

@@ -154,24 +154,6 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 		(ref+": Security exception");
 	}
 	try {
-	    Type[] paramTypes = mt.getParameterTypes();
-	    for (int i = 0; i< paramTypes.length; i++) {
-		if (paramTypes[i] instanceof IntegerType
-		    && paramTypes[i] != Type.tInt) {
-		    int value = ((Integer) params[i]).intValue();
-		    if (paramTypes[i] == Type.tBoolean) {
-			params[i] = value != 0 ? Boolean.TRUE : Boolean.FALSE;
-		    } else if (paramTypes[i] == Type.tChar) {
-			params[i] = new Character((char) value);
-		    } else if (paramTypes[i] == Type.tByte) {
-			params[i] = new Byte((byte) value);
-		    } else if (paramTypes[i] == Type.tShort) {
-			params[i] = new Short((short) value);
-		    } else
-			throw new AssertError("Unknown integer type: "
-					      +paramTypes[i]);
-		}
-	    }
 	    return m.invoke(cls, params);
 	} catch (IllegalAccessException ex) {
 	    throw new InterpreterException
