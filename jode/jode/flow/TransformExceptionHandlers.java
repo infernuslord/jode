@@ -850,8 +850,16 @@ public class TransformExceptionHandlers {
             FlowBlock catchFlow = flows[handlerPCs[i]];
             while (catchFlow.analyze(handlerPCs[i], endHandler));
 
-            if (!catchFlow.predecessors.isEmpty())
-                throw new AssertError("Handler has a predecessors");
+            if (!catchFlow.predecessors.isEmpty()) {
+		/* This can actually happen, namely in code compiled by
+		 * jikes.  In this case the predecessor is a nop and has
+		 * no further predecessors.
+		 */
+		if (catchFlow.predecessors.size() != 1
+		    && ((FlowBlock)catchFlow.predecessors.elementAt(0))
+		    .predecessors.size() != 0)
+		    throw new AssertError("Handler has a predecessors");
+	    }
 
             updateInOutCatch(tryFlow, catchFlow);
             if (types[i] != null)
