@@ -34,6 +34,7 @@ import java.awt.event.*;
 import java.io.*;
 import java.util.StringTokenizer;
 import java.util.ResourceBundle;
+import java.util.*;
 
 public class Main 
     implements ActionListener, Runnable, TreeSelectionListener {
@@ -49,6 +50,7 @@ public class Main
     ClassPathDialog classPathDialog;
 
     JProgressBar progressBar;
+    private JMenuItem saveMenuItem;
 
     boolean hierarchyTree;
 
@@ -84,10 +86,28 @@ public class Main
 	    }
 	});
 	frame.pack();
+	this.center();
+    }
+    
+     public void center() {
+        //center window
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        Dimension frameSize = frame.getSize();
+
+        if (frameSize.height > screenSize.height) {
+            frameSize.height = screenSize.height;
+        }
+
+        if (frameSize.width > screenSize.width) {
+            frameSize.width = screenSize.width;
+        }
+
+        frame.setLocation((screenSize.width - frameSize.width) / 2,
+            (screenSize.height - frameSize.height) / 2);
     }
 
     public void show() {
-	frame.show();
+	frame.setVisible(true);
     }
 
     public void fillContentPane(Container contentPane) {
@@ -163,6 +183,7 @@ public class Main
 	    progressBar.setString(bundle.getString("main.decompiling"));
 	    progressBar.setStringPainted(true);
 	    decompileThread.start();
+	    this.saveMenuItem.setEnabled(true);
 	}
     }
 
@@ -262,6 +283,48 @@ public class Main
 	JMenuItem item;
 	menu = new JMenu(bundle.getString("menu.file"));
 	menu.setMnemonic('f');
+	
+	this.saveMenuItem = new JMenuItem(bundle.getString("menu.save"));
+	this.saveMenuItem.setMnemonic('s');
+	this.saveMenuItem.setEnabled(false);
+	this.saveMenuItem.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent ev) {
+                    JFileChooser chooser = new JFileChooser();
+
+                    try {
+                        if (JFileChooser.APPROVE_OPTION != chooser.showSaveDialog(
+                                    new Container())) {
+                            return; //cancelled
+                        }
+                    } catch (Exception he) {
+                        return;
+                    }
+
+                    //save file
+                    File saveFile = new File(chooser.getSelectedFile()
+                                                    .getAbsoluteFile().toString());
+
+                    FileOutputStream out; // declare a file output object
+                    PrintStream p; // declare a print stream object
+
+                    try {
+                        // Create a new file output stream
+                        out = new FileOutputStream(saveFile);
+
+                        // Connect print stream to the output stream
+                        p = new PrintStream(out);
+
+                        p.print(sourcecodeArea.getText());
+                        p.close();
+                    } catch (Exception e) {
+                        errorArea.setText(bundle.getString("menu.save.ex"));
+                    }
+                }
+            });
+        menu.add(this.saveMenuItem);
+
+        menu.add(new JSeparator());
+	
 	item = new JMenuItem(bundle.getString("menu.file.gc"));
 	item.setMnemonic('c');
 	item.addActionListener(new ActionListener() {

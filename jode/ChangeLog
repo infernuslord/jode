@@ -1,3 +1,8 @@
+2003-06-11  Mark Morschhäuser  <mark.morschhaeuser@firemail.de>
+	* net/sf/jode/decompiler/Main.java:  New MenuItem to save a decompiled file.
+	
+	* net/sf/jode/decompiler/Main.java:  Main-window will be centered on startup
+	
 2002-06-11  Jochen Hoenicke  <jochen@gnu.org>
 
 	* net/sf/jode/decompiler/Main.java:  New option keep-alive.  With
