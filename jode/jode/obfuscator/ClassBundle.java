@@ -44,17 +44,45 @@ public class ClassBundle {
 	basePackage.setPreserved();
     }
 
-    public String getTypeAlias(String typeSig) {
-	StringBuffer newSig = new StringBuffer();
-	int index = 0, nextindex;
-	while ((nextindex = typeSig.indexOf('L', index)) != -1) {
-	    newSig.append(typeSig.substring(index, nextindex+1));
-	    index = typeSig.indexOf(';', nextindex);
-	    String alias = basePackage.findAlias
-		(typeSig.substring(nextindex+1, index).replace('/','.'));
-	    newSig.append(alias.replace('.', '/'));
+///#ifdef JDK12
+///    private static final Map aliasesHash = new WeakHashMap();
+///#else
+    private static final Hashtable aliasesHash = new Hashtable();
+///#endif
+    public Reference getReferenceAlias(Reference ref) {
+	Reference alias = (Reference) aliasesHash.get(ref);
+	if (alias == null) {
+	    Identifier ident = getIdentifier(ref);
+	    String newType = getTypeAlias(ref.getType());
+	    if (ident == null)
+		alias = Reference.getReference
+		    (ref.getClazz(), ref.getName(), newType);
+	    else 
+		alias = Reference.getReference
+		    ("L"+ident.getParent().getFullAlias().replace('.','/')+';',
+		     ident.getAlias(), newType);
+	    aliasesHash.put(ref, alias);
 	}
-	return newSig.append(typeSig.substring(index)).toString();
+	return alias;
+    }
+
+    public String getTypeAlias(String typeSig) {
+	String alias = (String) aliasesHash.get(typeSig);
+	if (alias == null) { 
+	    StringBuffer newSig = new StringBuffer();
+	    int index = 0, nextindex;
+	    while ((nextindex = typeSig.indexOf('L', index)) != -1) {
+		newSig.append(typeSig.substring(index, nextindex+1));
+		index = typeSig.indexOf(';', nextindex);
+		String typeAlias = basePackage.findAlias
+		    (typeSig.substring(nextindex+1, index).replace('/','.'));
+		newSig.append(typeAlias.replace('.', '/'));
+	    }
+	    alias = newSig.append(typeSig.substring(index))
+		.toString().intern();
+	    aliasesHash.put(typeSig, alias);
+	}
+	return alias;
     }
 
     public ClassIdentifier getClassIdentifier(String name) {
