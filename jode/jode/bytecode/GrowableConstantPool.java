@@ -31,10 +31,10 @@ public class GrowableConstantPool extends ConstantPool {
 
     public GrowableConstantPool () {
 	count = 1;
-	tags = new int[1];
-	indices1 = new int[1];
-	indices2 = new int[1];  
-	constants = new Object[1];
+	tags = new int[128];
+	indices1 = new int[128];
+	indices2 = new int[128];  
+	constants = new Object[128];
     }
 
     public final void grow(int wantedSize) {
@@ -55,13 +55,13 @@ public class GrowableConstantPool extends ConstantPool {
 	}
     }
 
-    public int putConstant(int tag, Object constant) {
+    int putConstant(int tag, Object constant) {
 	String key = tag+"C"+constant;
 	Integer index = (Integer) entryToIndex.get(key);
 	if (index != null)
 	    return index.intValue();
 	int newIndex = count;
-	grow(count+1);
+	grow(count+(tag == DOUBLE || tag == LONG ? 2 : 1));
 	tags[newIndex] = tag;
 	constants[newIndex] = constant;
 	entryToIndex.put(key, new Integer(newIndex));
@@ -71,7 +71,7 @@ public class GrowableConstantPool extends ConstantPool {
 	return newIndex;
     }
 
-    public int putIndexed(int tag, int index1, int index2) {
+    int putIndexed(int tag, int index1, int index2) {
 	String key = tag+"I"+index1+","+index2;
 	Integer index = (Integer) entryToIndex.get(key);
 	if (index != null)
