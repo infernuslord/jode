@@ -29,6 +29,7 @@ import jode.expr.Expression;
 import jode.expr.ThisOperator;
 import jode.expr.ConstructorOperator;
 import jode.flow.TransformConstructors;
+import jode.flow.StructuredBlock;
 
 import java.util.NoSuchElementException;
 import java.util.Vector;
@@ -43,6 +44,7 @@ public class ClassAnalyzer
     ClassDeclarer parent;
 
     String name;
+    StructuredBlock[] blockInitializers;
     FieldAnalyzer[] fields;
     MethodAnalyzer[] methods;
     ClassAnalyzer[] inners;
@@ -154,6 +156,17 @@ public class ClassAnalyzer
 	return outerValues;
     }
 
+    public void addBlockInitializer(FieldAnalyzer nextField,
+				    StructuredBlock initializer) {
+	int index = 0;
+	while (index < fields.length) {
+	    if (fields[index] == nextField)
+		break;
+	    index++;
+	}
+	blockInitializers[index] = initializer;
+    }
+
     public void addOuterValueListener(OuterValueListener l) {
 	if (ovListeners == null)
 	    ovListeners = new Vector();
@@ -231,6 +244,7 @@ public class ClassAnalyzer
 
 	fields = new FieldAnalyzer[finfos.length];
 	methods = new MethodAnalyzer[minfos.length];
+	blockInitializers = new StructuredBlock[finfos.length+1];
         for (int j=0; j < finfos.length; j++)
             fields[j] = new FieldAnalyzer(this, finfos[j], imports);
 
@@ -263,8 +277,7 @@ public class ClassAnalyzer
 
 	// Now analyze remaining methods.
         for (int j=0; j < methods.length; j++) {
-	    if (!methods[j].isConstructor()
-		&& !methods[j].isJikesConstructor)
+	    if (methods[j].isStatic() || !methods[j].isConstructor())
 		methods[j].analyze();
 	}
     }
@@ -287,7 +300,6 @@ public class ClassAnalyzer
 	if (constrAna != null)
 	    constrAna.transform();
         if (staticConstructor != null) {
-	    staticConstructor.analyze();
             new TransformConstructors
 		(this, true, new MethodAnalyzer[] { staticConstructor })
 		.transform();
@@ -308,11 +320,31 @@ public class ClassAnalyzer
 
     public void dumpBlock(TabbedPrintWriter writer) throws java.io.IOException
     {
+	writer.pushScope(this);
+	boolean needFieldNewLine = false;
 	boolean needNewLine = false;
 	for (int i=0; i< fields.length; i++) {
+	    if (blockInitializers[i] != null) {
+		if (needNewLine)
+		    writer.println("");
+		blockInitializers[i].dumpSource(writer);
+		needFieldNewLine = needNewLine = true;
+	    }
 	    if (fields[i].skipWriting())
 		continue;
+	    if (needFieldNewLine)
+		writer.println("");
 	    fields[i].dumpSource(writer);
+	    needNewLine = true;
+	}
+	if (blockInitializers[fields.length] != null) {
+	    if (needNewLine)
+		writer.println("");
+	    writer.openBrace();
+	    writer.tab();
+	    blockInitializers[fields.length].dumpSource(writer);
+	    writer.untab();
+	    writer.closeBrace();
 	    needNewLine = true;
 	}
 	for (int i=0; i< inners.length; i++) {
@@ -329,6 +361,7 @@ public class ClassAnalyzer
 	    methods[i].dumpSource(writer);
 	    needNewLine = true;
 	}
+	writer.popScope();
     }
 
     public void dumpSource(TabbedPrintWriter writer) throws java.io.IOException
@@ -339,7 +372,6 @@ public class ClassAnalyzer
              */
             return;
         }
-	writer.pushScope(this);
 
 	int modifiedModifiers = modifiers & ~Modifier.SYNCHRONIZED;
 	if (clazz.isInterface())
@@ -387,7 +419,6 @@ public class ClassAnalyzer
 	    writer.closeBraceNoSpace();
 	} else
 	    writer.closeBrace();
-	writer.popScope();
     }
 
     public void dumpJavaFile(TabbedPrintWriter writer) 
@@ -416,13 +447,14 @@ public class ClassAnalyzer
     public boolean conflicts(String name, int usageType) {
 	ClassInfo info = clazz;
 	while (info != null) {
-	    if (usageType == METHODNAME) {
+	    if (usageType == NOSUPERMETHODNAME || usageType == METHODNAME) {
 		MethodInfo[] minfos = info.getMethods();
 		for (int i = 0; i< minfos.length; i++)
 		    if (minfos[i].getName().equals(name))
 			return true;
 	    }
-	    if (usageType == FIELDNAME || usageType == AMBIGUOUSNAME) {
+	    if (usageType == NOSUPERFIELDNAME || usageType == FIELDNAME
+		|| usageType == AMBIGUOUSNAME) {
 		FieldInfo[] finfos = info.getFields();
 		for (int i=0; i < finfos.length; i++) {
 		    if (finfos[i].getName().equals(name))
@@ -438,6 +470,9 @@ public class ClassAnalyzer
 		    }
 		}
 	    }
+	    if (usageType == NOSUPERFIELDNAME
+		|| usageType == NOSUPERMETHODNAME)
+		return false;
 	    info = info.getSuperclass();
 	}
 	return false;
@@ -463,5 +498,9 @@ public class ClassAnalyzer
     public void addClassAnalyzer(ClassAnalyzer clazzAna) {
 	if (parent != null)
 	    parent.addClassAnalyzer(clazzAna);
+    }
+
+    public String toString() {
+	return getClass().getName()+"["+getClazz()+"]";
     }
 }
