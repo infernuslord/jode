@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
-import jode.ArrayType;
+import jode.type.Type;
+import jode.type.ArrayType;
+import jode.decompiler.TabbedPrintWriter;
 
 public class ArrayLoadOperator extends SimpleOperator {
     String value;
@@ -32,10 +33,6 @@ public class ArrayLoadOperator extends SimpleOperator {
 
     public int getPriority() {
         return 950;
-    }
-
-    public int getOperandPriority(int i) {
-        return (i==0)?950:0;
     }
 
     /**
@@ -59,7 +56,12 @@ public class ArrayLoadOperator extends SimpleOperator {
             throw new jode.AssertError("No Array type: "+operandTypes[0]);
     }
 
-    public String toString(String[] operands) {
-        return operands[0]+"["+operands[1]+"]";
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
+	operands[0].dumpExpression(writer, 950);
+	writer.print("[");
+	operands[1].dumpExpression(writer, 0);
+	writer.print("]");
     }
 }
