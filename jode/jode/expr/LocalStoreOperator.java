@@ -18,6 +18,7 @@
  */
 
 package jode.expr;
+import jode.GlobalOptions;
 import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
@@ -42,6 +43,9 @@ public class LocalStoreOperator extends LValueExpression
     }
 
     public void updateSubTypes() {
+	if (parent != null
+	    && (GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+	    GlobalOptions.err.println("local type changed in: "+parent);
         local.setType(type);
     }
 
