@@ -70,6 +70,18 @@ public class BreakBlock extends StructuredBlock {
         return breaksBlock.getNextFlowBlock();
     }
 
+    /** 
+     * This is called after the analysis is completely done.  It
+     * will remove all PUSH/stack_i expressions, (if the bytecode
+     * is correct).
+     * @param stack the stackmap at begin of the block
+     * @return null since the stack has no successor.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	((BreakableBlock)breaksBlock).mergeBreakedStack(stack);
+	return null;
+    }
+
     /**
      * Tells if this block needs braces when used in a if or while block.
      * @return true if this block should be sorrounded by braces.
