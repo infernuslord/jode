@@ -149,7 +149,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
     
 	public ConstantAnalyzerInfo(int numLocals, 
-				    boolean isStatic, MethodType mt) {
+				    boolean isStatic, String methodTypeSig) {
+	    MethodType mt = Type.tMethod(methodTypeSig);
 	    locals = new ConstantAnalyzerValue[numLocals];
 	    stack = new ConstantAnalyzerValue[0];
 	    int slot = 0;
@@ -992,14 +993,22 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		clsValue = info.getStack(size);
 		cls = clsValue.value;
 		if (cls == ConstantAnalyzerValue.VOLATILE
-		    || cls == null)
+		    || cls == null
+		    || !cls.getClass().getName().equals(ref.getClazz()))
 		    constant = false;
 	    }
-	    if (mt.getReturnType() == Type.tVoid) {
+	    Type retType = mt.getReturnType();
+	    if (retType == Type.tVoid) {
 		handleReference(ref, opcode == opc_invokevirtual 
 				|| opcode == opc_invokeinterface);
 		mergeInfo(instr.nextByAddr, info.pop(size));
 		break;
+	    }
+	    if (constant
+		&& retType != Type.tString
+		&& retType.getTypeSignature().length() != 1) {
+		/* This is not a valid constant type */
+		constant = false;
 	    }
 	    Object methodResult = null;
 	    if (constant) {
@@ -1050,16 +1059,16 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    break;
         }
         case opc_arraylength: {
-	    ConstantAnalyzerValue array = info.getStack(1);
-    	    if (array.value != ConstantAnalyzerValue.VOLATILE
-		&& array.value != null) {
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = new Integer(Array.getLength(array.value));
-		result = new ConstantAnalyzerValue(shortInfo.constant);
-		result.addConstantListener(shortInfo);
-		array.addConstantListener(result);
-	    } else
-		result = unknownValue[0];
+//  	    ConstantAnalyzerValue array = info.getStack(1);
+//  	    if (array.value != ConstantAnalyzerValue.VOLATILE
+//  		&& array.value != null) {
+//  		shortInfo.flags |= CONSTANT;
+//  		shortInfo.constant = new Integer(Array.getLength(array.value));
+//  		result = new ConstantAnalyzerValue(shortInfo.constant);
+//  		result.addConstantListener(shortInfo);
+//  		array.addConstantListener(result);
+//  	    } else
+	    result = unknownValue[0];
 	    mergeInfo(instr.nextByAddr, info.poppush(1, result));
 	    break;
 	}
@@ -1252,6 +1261,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    instr.opcode = opc_pop2;
 		else
 		    instr.opcode = opc_pop;
+		if (Obfuscator.verboseLevel > 2)
+		    Obfuscator.err.println
+			(m + ": Replacing " + instr + " with goto " + pc.addr);
 		instr.alwaysJumps = false;
 		instr.succs[0].removePredecessor(instr);
 		instr.succs = null;
@@ -1287,17 +1299,29 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			/* Next instruction can't be reached logically */
 			instr.nextByAddr.removeInstruction();
 		    }
-		    /* fall through */
+		    if (instr.succs[0] == instr.nextByAddr)
+			instr.removeInstruction();
+		    break;
 		case opc_ifeq: case opc_ifne: 
 		case opc_iflt: case opc_ifge: 
 		case opc_ifgt: case opc_ifle:
+		case opc_ifnull: case opc_ifnonnull:
+		    if (instr.succs[0] == instr.nextByAddr) {
+			instr.opcode = opc_pop;
+			instr.succs[0].removePredecessor(instr);
+			instr.succs = null;
+		    }
+		    break;
+
 		case opc_if_icmpeq: case opc_if_icmpne:
 		case opc_if_icmplt: case opc_if_icmpge: 
 		case opc_if_icmpgt: case opc_if_icmple: 
 		case opc_if_acmpeq: case opc_if_acmpne:
-		case opc_ifnull: case opc_ifnonnull:
-		    if (instr.succs[0] == instr.nextByAddr)
-			instr.removeInstruction();
+		    if (instr.succs[0] == instr.nextByAddr) {
+			instr.opcode = opc_pop2;
+			instr.succs[0].removePredecessor(instr);
+			instr.succs = null;
+		    }
 		    break;
 
 		case opc_putstatic:
