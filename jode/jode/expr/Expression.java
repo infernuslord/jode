@@ -52,7 +52,7 @@ public class Expression extends Instruction {
 	if (e.operator instanceof StoreInstruction) {
 	    StoreInstruction store = (StoreInstruction) e.operator;
 	    Expression search = this;
-	    while (search.subExpressions.length > 0) {
+            while (true) {
 		if (store.matches(search.operator)) {
 		    int i;
 		    for (i=0; i < e.subExpressions.length-1; i++) {
@@ -62,12 +62,20 @@ public class Expression extends Instruction {
 		    }
 		    if (i == e.subExpressions.length-1) {
 			search.operator =
-			    new AssignOperator(store.getOperator(), store);
+                            new AssignOperator(store.getOperator(), store);
 			search.subExpressions = e.subExpressions;
 			return this;
 		    }
 		}
-		search = search.subExpressions[0];
+                if (search.subExpressions.length == 0)
+                    break;
+                if (search.getOperator() instanceof AssignOperator)
+                    search = search.subExpressions[subExpressions.length-1];
+                else if (search.getOperator() instanceof StringAddOperator &&
+                         search.subExpressions[1] == emptyString)
+                    search = search.subExpressions[1];
+                else
+                    search = search.subExpressions[0];
 	    }
 	}
 	return null;
@@ -107,9 +115,8 @@ public class Expression extends Instruction {
         if (operator.getPriority() < minPriority) {
             result = "("+result+")";
         }
-        if (operator.casts.indexOf("/*",0) >= 0 || 
-            operator.casts.indexOf("<-",0) >= 0 && false)
-            result = "<"+operator.casts+" "+result+">";
+        if (operator.getType() == MyType.tError)
+            result = "(/*type error */" + result+")";
         return result;
     }
 
@@ -134,12 +141,16 @@ public class Expression extends Instruction {
         return toString(0);
     }
 
+    static Expression emptyString = 
+        new Expression(new EmptyStringOperator(), new Expression[0]);
+
     Expression simplifyStringBuffer() {
         FieldDefinition field;
         if (operator instanceof InvokeOperator &&
             (field = ((InvokeOperator)operator).getField())
             .getClassDefinition().getName() == 
             Constants.idJavaLangStringBuffer &&
+            !((InvokeOperator)operator).isStatic() &&
             field.getName() == Constants.idAppend &&
             field.getType().getArgumentTypes().length == 1) {
 
@@ -148,20 +159,21 @@ public class Expression extends Instruction {
                 return null;
             
             if (e.operator instanceof EmptyStringOperator &&
-                subExpressions[1].getType() == Type.tString)
+                MyType.isOfType(subExpressions[1].getType(), Type.tString))
                 return subExpressions[1];
 
-            Expression[] exprs = { e, subExpressions[1] };
+            Expression[] exprs = { e, 
+                                   (Expression)subExpressions[1].simplify() };
             return new Expression(new StringAddOperator(), exprs);
         }
         if (operator instanceof ConstructorOperator &&
-            operator.getType() == MyType.tStringBuffer) {
+            MyType.isOfType(operator.getType(), MyType.tStringBuffer)) {
             if (operator.getOperandCount() == 1)
-                return new Expression(new EmptyStringOperator(), 
-                                      new Expression[0]);
+                return emptyString;
             else if (operator.getOperandCount() == 2 &&
-                     subExpressions[1].getType() == MyType.tString)
-                return subExpressions[1];
+                     MyType.isOfType(subExpressions[1].getType(), 
+                                     MyType.tString))
+                return (Expression) subExpressions[1].simplify();
         }
         return null;
     }
@@ -210,14 +222,31 @@ public class Expression extends Instruction {
         if (operator instanceof InvokeOperator &&
             ((InvokeOperator)operator).getField().
             getName() == Constants.idToString &&
+            !((InvokeOperator)operator).isStatic() &&
             ((InvokeOperator)operator).getField().
             getClassDefinition().getType() == MyType.tStringBuffer &&
             operator.getOperandCount() == 1) {
-            Expression e = subExpressions[0].simplifyStringBuffer();
-            if (e != null)
-                return e.simplify();
+            Instruction simple = subExpressions[0].simplifyStringBuffer();
+            if (simple != null)
+                return simple;
         }
-
+        if (operator instanceof InvokeOperator &&
+            ((InvokeOperator)operator).getField().
+            getName() == Constants.idValueOf &&
+            ((InvokeOperator)operator).isStatic() &&
+            ((InvokeOperator)operator).getField().
+            getClassDefinition().getType() == MyType.tString &&
+            operator.getOperandCount() == 1) {
+            if (subExpressions[0].getType() == MyType.tString)
+                return subExpressions[0].simplify();
+            else {
+                Expression[] exprs = {
+                    emptyString, 
+                    (Expression) subExpressions[0].simplify() 
+                };
+                return new Expression(new StringAddOperator(), exprs);
+            }
+        }
         for (int i=0; i< subExpressions.length; i++)
             subExpressions[i] = (Expression) subExpressions[i].simplify();
 

@@ -2,7 +2,7 @@ package jode;
 
 public class SwapOperator extends Instruction {
     public SwapOperator() {
-        super(MyType.tError);
+        super(MyType.tVoid);
     }
 
     public String toString() 

@@ -92,7 +92,7 @@ public class LocalInfo {
      */
     public Type setType(Type newType) {
         if (shadow != null) 
-            return shadow.setType(type);
+            return shadow.setType(newType);
         this.type = MyType.intersection(this.type, newType);
         if (this.type == MyType.tError)
             System.err.println("Type error in "+name.toString());

@@ -147,7 +147,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
         Instruction pred;
         try {
             NopOperator op = (NopOperator) ih.getInstruction();
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             pred = ih.getInstruction();
             if (pred == null)
                 return null;
@@ -168,19 +168,19 @@ public class CodeAnalyzer implements Analyzer, Constants {
             if (ih.getInstruction() instanceof DupOperator)
                 /* this is not the end of the array assign */
                 return null;
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             ArrayStoreOperator store = 
                 (ArrayStoreOperator) ih.getInstruction();
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             Expression lastconst = (Expression) ih.getInstruction();
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             Expression lastindexexpr = (Expression) ih.getInstruction();
             ConstOperator lastindexop = 
                 (ConstOperator) lastindexexpr.getOperator();
-            if (!MyType.isOfType(lastindexop.getType(), MyType.tUInt))
+            if (!MyType.isOfType(lastindexop.getType(), MyType.tInt))
                 return null;
             int lastindex = Integer.parseInt(lastindexop.getValue());
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             DupOperator dup = (DupOperator) ih.getInstruction();
             if (dup.getDepth() != 0 || 
                 dup.getCount() != store.getLValueType().stackSize())
@@ -189,12 +189,12 @@ public class CodeAnalyzer implements Analyzer, Constants {
             consts[lastindex] = lastconst;
 	    count = 1;
             while (lastindex-- > 0) {
-                ih = ih.getUniquePredecessor();
+                ih = ih.getSimpleUniquePredecessor();
                 ArrayStoreOperator store2 = 
                     (ArrayStoreOperator) ih.getInstruction();
-                ih = ih.getUniquePredecessor();
+                ih = ih.getSimpleUniquePredecessor();
 		lastconst = (Expression) ih.getInstruction();
-                ih = ih.getUniquePredecessor();
+                ih = ih.getSimpleUniquePredecessor();
                 Expression indexexpr = (Expression) ih.getInstruction();
                 ConstOperator indexop = 
                     (ConstOperator) indexexpr.getOperator();
@@ -210,14 +210,14 @@ public class CodeAnalyzer implements Analyzer, Constants {
 		    lastindex--;
 		}
                 consts[lastindex] = lastconst;
-                ih = ih.getUniquePredecessor();
+                ih = ih.getSimpleUniquePredecessor();
                 dup = (DupOperator) ih.getInstruction();
                 if (dup.getDepth() != 0 || 
                     dup.getCount() != store.getLValueType().stackSize())
                     return null;
 		count++;
             }
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             Expression newArrayExpr = (Expression) ih.getInstruction();
             NewArrayOperator newArrayOp = 
                 (NewArrayOperator) newArrayExpr.getOperator();
@@ -245,15 +245,13 @@ public class CodeAnalyzer implements Analyzer, Constants {
     public InstructionHeader createExpression(InstructionHeader ih) {
         Operator op;
         Expression exprs[];
-	int count;
+        int params;
         try {
             op = (Operator) ih.getInstruction();
-            int params  = op.getOperandCount();
+            params  = op.getOperandCount();
             exprs = new Expression[params];
-            count = 1;
             for (int i = params-1; i>=0; i--) {
-		count++;
-                ih = ih.getUniquePredecessor();
+                ih = ih.getSimpleUniquePredecessor();
                 exprs[i] = (Expression) ih.getInstruction();
                 if (exprs[i].isVoid()) {
 		    if (i == params-1)
@@ -263,6 +261,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
 			return null;
 		    i++;
 		    exprs[i] = e;
+                    ih.combine(2, e);
 		}
             }
         } catch (NullPointerException ex) {
@@ -270,7 +269,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
         } catch (ClassCastException ex) {
             return null;
         }
-        ih.combine(count, new Expression(op, exprs));
+        ih.combine(params+1, new Expression(op, exprs));
         return ih;
     }
 
@@ -303,7 +302,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
         StoreInstruction store;
         try {
             store = (StoreInstruction) ih.getInstruction();
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
 
             DupOperator dup = (DupOperator) ih.getInstruction();
             if (dup.getDepth() != store.getLValueOperandCount() && 
@@ -337,7 +336,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
                 return null;
             if (iinc.getValue().equals("-1"))
 		op ^= 1;
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
 	    Expression loadExpr = (Expression) ih.getInstruction();
 	    LocalLoadOperator load = 
 		(LocalLoadOperator)loadExpr.getOperator();
@@ -363,7 +362,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
 	    store = (StoreInstruction) ih.getInstruction();
 	    if (store.getLValueOperandCount() == 0)
 		return null;
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             BinaryOperator binOp = (BinaryOperator) ih.getInstruction();
             if (binOp.getOperator() == store.ADD_OP)
                 op = Operator.INC_OP;
@@ -371,7 +370,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
                 op = Operator.DEC_OP;
             else
                 return null;
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             Expression expr = (Expression) ih.getInstruction();
             ConstOperator constOp = (ConstOperator) expr.getOperator();
             if (!constOp.getValue().equals("1") &&
@@ -379,18 +378,18 @@ public class CodeAnalyzer implements Analyzer, Constants {
                 return null;
             if (constOp.getValue().equals("-1"))
 		op ^= 1;
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             DupOperator dup = (DupOperator) ih.getInstruction();
             if (dup.getCount() != store.getLValueType().stackSize() ||
                 dup.getDepth() != store.getLValueOperandCount())
                 return null;
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             Operator load = (Operator) ih.getInstruction();
 
 	    if (!store.matches(load))
 		return null;
 
-	    ih = ih.getUniquePredecessor();
+	    ih = ih.getSimpleUniquePredecessor();
 	    DupOperator dup2 = (DupOperator) ih.getInstruction();
 	    if (dup2.getCount() != store.getLValueOperandCount() ||
 		dup2.getDepth() != 0)
@@ -413,20 +412,20 @@ public class CodeAnalyzer implements Analyzer, Constants {
         BinaryOperator binop;
         try {
             store = (StoreInstruction) ih.getInstruction();
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             binop = (BinaryOperator) ih.getInstruction();
             if (binop.getOperator() <  binop.ADD_OP ||
                 binop.getOperator() >= binop.ASSIGN_OP)
                 return null;
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             rightHandSide = (Expression) ih.getInstruction();
             if (rightHandSide.isVoid())
                 return null; /* XXX */
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             Operator load = (Operator) ih.getInstruction();
             if (!store.matches(load))
                 return null;
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             DupOperator dup = (DupOperator) ih.getInstruction();
             if (dup.getDepth() != 0 && 
                 dup.getCount() != store.getLValueOperandCount())
@@ -455,16 +454,16 @@ public class CodeAnalyzer implements Analyzer, Constants {
             int params  = constrCall.getOperandCount();
             exprs = new Expression[params];
             for (int i = params-1; i>0; i--) {
-                ih = ih.getUniquePredecessor();
+                ih = ih.getSimpleUniquePredecessor();
                 exprs[i] = (Expression) ih.getInstruction();
                 if (exprs[i].isVoid())
                     return null; /* XXX */
             }
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             DupOperator dup = (DupOperator) ih.getInstruction();
             if (dup.getCount() != 1 && dup.getDepth() != 0)
                 return null;
-            ih = ih.getUniquePredecessor();
+            ih = ih.getSimpleUniquePredecessor();
             exprs[0] = (Expression) ih.getInstruction();
             if (exprs[0].isVoid())
                 return null;
@@ -493,7 +492,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
                 return null;
             InstructionHeader[] dests2 = ih2.getSuccessors();
 
-            /* if ih2.getUniquePredecessor.getOperator().isVoid() XXX */
+            /* if ih2.getSimpleUniquePredecessor.getOperator().isVoid() XXX */
 
             Vector predec = ih2.getPredecessors();
             if (predec.size() != 1)
@@ -510,12 +509,12 @@ public class CodeAnalyzer implements Analyzer, Constants {
                 e = new Expression[2];
                 operator = Operator.LOG_AND_OP;
                 e[1] = (Expression)ih2.getInstruction();
-                e[0] = ((Expression)ih2.getInstruction()).negate();
+                e[0] = ((Expression)ih1.getInstruction()).negate();
             } else if (dests1[1] == dests2[1]) {
                 e = new Expression[2];
                 operator = Operator.LOG_OR_OP;
                 e[1] = (Expression)ih2.getInstruction();
-                e[0] = (Expression)ih2.getInstruction();
+                e[0] = (Expression)ih1.getInstruction();
             } else
                 return null;
         } catch (ClassCastException ex) {
@@ -529,6 +528,64 @@ public class CodeAnalyzer implements Analyzer, Constants {
 
 	ih1.combineConditional(cond);
         return ih1;
+    }
+
+    public InstructionHeader createFunnyIfThenElseOp(InstructionHeader ih) {
+        Expression cond = null;
+        try {
+            InstructionHeader ifHeader= ih;
+            if (ifHeader.switchType != MyType.tBoolean)
+                return null;
+            CompareUnaryOperator compare = 
+                (CompareUnaryOperator) ifHeader.getInstruction();
+            if ((compare.getOperator() & ~1) != compare.EQUALS_OP)
+                return null;
+            Enumeration enum = ih.getPredecessors().elements();
+            while (enum.hasMoreElements()) {
+                try {
+                    ih = (InstructionHeader) enum.nextElement();
+                    Expression zeroExpr = (Expression) ih.getInstruction();
+                    ConstOperator zero = 
+                        (ConstOperator) zeroExpr.getOperator();
+                    if (!zero.getValue().equals("0"))
+                        continue;
+
+                    ih = ih.getUniquePredecessor();
+                    if (ih.switchType != MyType.tBoolean)
+                        continue;
+                    
+                    if (compare.getOperator() == compare.EQUALS_OP && 
+                        ih.getSuccessors()[1] != ifHeader.getSuccessors()[0]
+                        || compare.getOperator() == compare.NOTEQUALS_OP &&
+                        ih.getSuccessors()[1] != ifHeader.getSuccessors()[1])
+                        continue;
+                    
+                    cond = (Expression) ih.getInstruction();
+                    break;
+                } catch (ClassCastException ex) {
+                } catch (NullPointerException ex) {
+                }
+            }
+
+            if (cond == null)
+                return null;
+
+        } catch (ClassCastException ex) {
+            return null;
+        } catch (NullPointerException ex) {
+            return null;
+        }
+
+        InstructionHeader next = ih.nextInstruction;
+        ih.nextInstruction = next.nextInstruction;
+        ih.successors[1].predecessors.removeElement(ih);
+        ih.switchType = MyType.tVoid;
+        ih.successors = next.successors;
+        ih.successors[0].predecessors.removeElement(next);
+        ih.successors[0].predecessors.addElement(ih);
+        ih.succs   = next.succs;
+        ih.length += next.length;
+        return ih;
     }
 
     public InstructionHeader createIfThenElseOperator(InstructionHeader ih) {
@@ -551,7 +608,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
                 succs[0].getSuccessors()[0] != succs[1].getSuccessors()[0])
                 return null;
 
-            e[0] = (Expression) ifHeader.getInstruction();
+            e[0] = ((Expression) ifHeader.getInstruction()).negate();
             e[1] = (Expression) succs[0].getInstruction();
             e[2] = (Expression) succs[1].getInstruction();
         } catch (ClassCastException ex) {
@@ -563,11 +620,13 @@ public class CodeAnalyzer implements Analyzer, Constants {
             (MyType.intersection(e[1].getType(),e[2].getType()));
         ifHeader.instr           = new Expression(iteo, e);
         ifHeader.nextInstruction = ih.nextInstruction;
+        ifHeader.length          = ih.addr + ih.length - ifHeader.addr;
+        ifHeader.succs           = ih.succs;
         ifHeader.successors      = ih.successors;
         ifHeader.switchType      = Type.tVoid;
-        ifHeader.nextInstruction.predecessors.removeElement(succs[0]);
-        ifHeader.nextInstruction.predecessors.removeElement(succs[1]);
-        ifHeader.nextInstruction.predecessors.addElement(ifHeader);
+        ifHeader.successors[0].predecessors.removeElement(succs[0]);
+        ifHeader.successors[0].predecessors.removeElement(succs[1]);
+        ifHeader.successors[0].predecessors.addElement(ifHeader);
         return ifHeader;
     }
 
@@ -578,6 +637,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
              ih = next) {
 	    if (env.isVerbose)
 		System.err.print(".");
+//             System.err.println(""+ih.getAddress());
             if ((next = removeNop(ih)) != null) continue;
             if ((next = createExpression(ih)) != null) continue;
             if ((next = createPostIncExpression(ih)) != null) continue;
@@ -585,6 +645,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
             if ((next = createAssignOp(ih)) != null) continue;
             if ((next = combineNewConstructor(ih)) != null) continue;
             if ((next = combineIfGotoExpressions(ih)) != null) continue;
+            if ((next = createFunnyIfThenElseOp(ih)) != null) continue;
             if ((next = createIfThenElseOperator(ih)) != null) continue;
             if ((next = createAssignExpression(ih)) != null) continue;
             if ((next = createConstantArray(ih)) != null) continue;

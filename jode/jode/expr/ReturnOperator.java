@@ -5,9 +5,9 @@ public class ReturnOperator extends SimpleOperator {
     public ReturnOperator(Type type) {
         super(Type.tVoid, 0, (type == Type.tVoid)?0:1);
         if (type != Type.tVoid)
-            operandTypes[0] = type;
+            operandTypes[0] = MyType.tSubType(type);
     }
-
+    
     public int getPriority() {
         return 0;
     }

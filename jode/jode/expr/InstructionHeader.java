@@ -160,9 +160,18 @@ public class InstructionHeader {
         if (predecessors.size() != 1)
             return null;
         InstructionHeader pre = (InstructionHeader)predecessors.elementAt(0);
-        return (pre.getNextInstruction() == this &&
-                pre.getSuccessors().length != 1) ? null : pre;
+        return (pre.getNextInstruction() == this) ? pre : null;
     }
+
+    /**
+     * Get the unique predecessor which mustn't be a (un)conditional jump
+     * @return the predecessor or null if there isn't a such a thing
+     */
+    public InstructionHeader getSimpleUniquePredecessor() {
+        InstructionHeader pre = getUniquePredecessor();
+        return (pre.getSuccessors().length != 1) ? null : pre;
+    }
+
     
     /**
      * Get the predecessors of this instruction.  This function mustn't
@@ -199,6 +208,15 @@ public class InstructionHeader {
 	    writer.println("<"+addr + " - "+(addr+length-1)+">");
 	    writer.tab();
 	}
+        
+//         writer.print("predecs: ");
+//         for (int i=0; i<predecessors.size(); i++) {
+//             if (i>0) writer.print(", ");
+//             writer.print(""+((InstructionHeader)predecessors.elementAt(i)).
+//                          getAddress());
+//         }
+//         writer.println("");
+                 
 	if (!hasDirectPredecessor() && addr != 0)
 	    writer.print("addr_"+addr+": ");
 

@@ -46,7 +46,7 @@ public class ConstOperator extends NoArgOperator {
     }
 
     public String toString(String[] operands) {
-        if (type == Type.tString)
+        if (MyType.isOfType(type, Type.tString))
             return quoted(value);
         if (type == Type.tBoolean) {
             if (value.equals("0"))

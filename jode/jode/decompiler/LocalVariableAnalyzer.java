@@ -196,11 +196,16 @@ public class LocalVariableAnalyzer {
          throws java.io.IOException
     {
 	Enumeration enum = locals.elements();
+    VAR:
 	while (enum.hasMoreElements()) {
 	    LocalInfo li = (LocalInfo) enum.nextElement();
-	    if (!li.isShadow())
+	    if (!li.isShadow()) {
+                for (int i=0; i< argLocals.length; i++)
+                    if (argLocals[i].getLocalInfo() == li)
+                        continue VAR;
 		writer.println(env.getTypeString(li.getType(), 
 						 li.getName())+";");
+            }
 	}
     }
 }
