@@ -39,6 +39,7 @@ public class TransformConstructors {
         StructuredBlock[] sb = new StructuredBlock[constrCount];
         for (int i=0; i< constrCount; ) {
             sb[i] = cons[i].getMethodHeader().block;
+//             System.err.println("constr "+i+": "+sb[i]);
             if (!isStatic) {
                 InstructionBlock ib;
                 if (sb[i] instanceof InstructionBlock)
@@ -66,7 +67,7 @@ public class TransformConstructors {
                     /* This constructor calls another constructor, so we
                      * can skip it.
                      */
-                    System.err.println("skipping this()");
+//                     System.err.println("skipping this()");
                     cons[i] = cons[--constrCount];
                     continue;
                 }
@@ -80,7 +81,7 @@ public class TransformConstructors {
                     sb[i] = sb[i].getSubBlocks()[1];
                 else
                     sb[i] = null;
-                System.err.println("normal constructor");
+//                 System.err.println("normal constructor");
             }
             i++;
         }
@@ -123,9 +124,9 @@ public class TransformConstructors {
             }
 
             for (int i=1; i< constrCount; i++) {
-                ib = (sb[0] instanceof SequentialBlock) 
-                    ? sb[0].getSubBlocks()[0]
-                    : sb[0];
+                ib = (sb[i] instanceof SequentialBlock) 
+                    ? sb[i].getSubBlocks()[0]
+                    : sb[i];
                 if (!(ib instanceof InstructionBlock)
                     || !((InstructionBlock)ib).getInstruction().equals(instr)) {
 //                     System.err.println("constr "+i+" differs: "+ib);
