@@ -36,7 +36,7 @@ public final class InvokeOperator extends Operator
     boolean specialFlag;
     MethodType methodType;
     String methodName;
-    ClassInfo clazz;
+    Type clazz;
 
     public InvokeOperator(CodeAnalyzer codeAnalyzer,
 			  boolean staticFlag, boolean specialFlag, 
@@ -44,13 +44,13 @@ public final class InvokeOperator extends Operator
         super(Type.tUnknown, 0);
         this.methodType = (MethodType) Type.tType(reference.getType());
         this.methodName = reference.getName();
-        this.clazz = ClassInfo.forName(reference.getClazz());
+        this.clazz = Type.tType(reference.getClazz());
         this.type = methodType.getReturnType();
         this.codeAnalyzer  = codeAnalyzer;
 	this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
         if (staticFlag)
-            Type.tClass(clazz.getName()).useType();
+            clazz.useType();
     }
 
     /**
@@ -85,7 +85,7 @@ public final class InvokeOperator extends Operator
     }
 
     public Type getClassType() {
-        return Type.tClass(clazz.getName());
+        return clazz;
     }
 
     public int getPriority() {
@@ -125,7 +125,11 @@ public final class InvokeOperator extends Operator
      * allow super class
      */
     public boolean isThis() {
-        return (clazz == codeAnalyzer.getClazz());
+	if (clazz instanceof ClassInterfacesType) {
+	    return ((ClassInterfacesType) clazz).getClassInfo()
+		== codeAnalyzer.getClazz();
+	}
+	return false;
     }
 
     /**
@@ -133,7 +137,11 @@ public final class InvokeOperator extends Operator
      * @XXX check, if its the first super class that implements the method.
      */
     public boolean isSuperOrThis() {
-        return clazz.superClassOf(codeAnalyzer.getClazz());
+	if (clazz instanceof ClassInterfacesType) {
+	    return ((ClassInterfacesType) clazz).getClassInfo()
+		.superClassOf(codeAnalyzer.getClazz());
+	}
+	return false;
     }
 
     public String toString(String[] operands) {
@@ -147,7 +155,7 @@ public final class InvokeOperator extends Operator
                ? (isThis() ? "" : clazz.toString())
                : (operands[0].equals("this") ? "" 
 		  : operands[0].equals("null") 
-		  ? "((" + clazz.getName() + ") null)"
+		  ? "((" + clazz.toString() + ") null)"
 		  : operands[0]));
 
         int arg = isStatic() ? 0 : 1;
@@ -179,8 +187,8 @@ public final class InvokeOperator extends Operator
 	public Object invokeMethod(Reference ref, boolean isVirtual, 
 				   Object cls, Object[] params) 
 	    throws InterpreterException, InvocationTargetException {
-	    if (ref.getClazz().equals(codeAnalyzer.getClazz().getName())) {
-		
+	    if (ref.getClazz().equals
+		("L"+codeAnalyzer.getClazz().getName().replace('.','/')+";")) {
 		MethodType mt = (MethodType) Type.tType(ref.getType());
 		BytecodeInfo info = codeAnalyzer.getClassAnalyzer()
 		    .getMethod(ref.getName(), mt).getCode().getBytecodeInfo();
