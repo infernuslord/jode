@@ -36,6 +36,9 @@ public class TransformConstructors {
         int constrCount = cons.length;
         StructuredBlock[] sb = new StructuredBlock[constrCount];
         for (int i=0; i< constrCount; ) {
+	    FlowBlock header = cons[i].getMethodHeader();
+	    if (!header.hasNoJumps())
+		return;
             sb[i] = cons[i].getMethodHeader().block;
 //             Decompiler.err.println("constr "+i+": "+sb[i]);
             if (!isStatic) {
@@ -133,8 +136,9 @@ public class TransformConstructors {
             }
 
 
-            if (!clazzAnalyzer.setFieldInitializer(pfo.getFieldName(), 
-						   pfo.getFieldType(), expr)) {
+            if (!(clazzAnalyzer
+		  .getField(pfo.getFieldName(), pfo.getFieldType())
+		  .setInitializer(expr))) {
 //                 Decompiler.err.println("setField failed");
                 break big_loop;
             }
