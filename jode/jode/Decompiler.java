@@ -37,6 +37,7 @@ public class Decompiler {
     public static boolean isDebugging = false;
     public static boolean isTypeDebugging = false;
     public static boolean isFlowDebugging = false;
+    public static boolean usePUSH = false;
     public static boolean debugInOut = false;
     public static boolean debugAnalyze = false;
     public static boolean showLVT = false;
@@ -55,7 +56,7 @@ public class Decompiler {
         err.println("use: jode [-v][--dest <destdir>]"
 			   +"[--imm][--pretty]"
 			   +"[--cp <classpath>]"
-		           +"[--nolvt]"
+		           +"[--nolvt][--usepush]"
                            +"[--import <pkglimit> <clslimit>]"
 		           +"[--debug][--analyze][--flow]"
 			   +"[--type][--inout][--lvt][--check]"
@@ -72,6 +73,8 @@ public class Decompiler {
 		    "search for classes in specified classpath.");
 	err.println("\t--nolvt          "+
 		    "don't use the local variable table.");
+	err.println("\t--usepush        "+
+		    "don't remove non compilable PUSH instrucions.");
 	err.println("\t--style {sun|gnu}"+
 		    " specifies indentation style");
 	err.println("\t--import <pkglimit> <clslimit>");
@@ -120,6 +123,8 @@ public class Decompiler {
                 debugInOut = true;
             else if (params[i].equals("--nolvt"))
                 useLVT = false;
+            else if (params[i].equals("--usepush"))
+                usePUSH = true;
             else if (params[i].equals("--lvt"))
                 showLVT = true;
             else if (params[i].equals("--check"))
