@@ -220,6 +220,6 @@ public class MethodInfo extends BinaryInfo {
 
     public String toString() {
         return "Method "+Modifier.toString(modifier)+" "+
-            typeSig + " " + name;
+            typeSig + " " + clazzInfo.getName() + "."+ name;
     }
 }
