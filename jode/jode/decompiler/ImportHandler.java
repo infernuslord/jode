@@ -137,9 +137,10 @@ public class JodeEnvironment {
          throws java.io.IOException
     {
         writer.println("/* "+ className 
-		       + " - Decompiled by JoDe (Jochen's Decompiler)\n"
-		       + " * Send comments or bug reports to "
-		       + Decompiler.email + "\n */");
+		       + " - Decompiled by JoDe (Jochen's Decompiler)");
+	writer.println(" * Send comments or bug reports to "
+		       + Decompiler.email);
+	writer.println(" */");
         if (pkg.length() != 0)
             writer.println("package "+pkg+";");
 
