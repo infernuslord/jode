@@ -20,7 +20,7 @@
 package jode.bytecode;
 import java.util.Vector;
 import java.util.Enumeration;
-import jode.Type;
+import jode.type.Type;
 
 /**
  * This class represents a field or method reference

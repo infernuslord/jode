@@ -19,8 +19,8 @@
 
 package jode.bytecode;
 import jode.Decompiler/*XXX*/;
-import jode.Type;
-import jode.MethodType;
+import jode.type.Type;
+import jode.type.MethodType;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.ByteArrayInputStream;

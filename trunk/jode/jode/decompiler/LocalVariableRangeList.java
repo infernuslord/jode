@@ -19,7 +19,7 @@
 
 package jode.decompiler;
 import jode.Decompiler;
-import jode.Type;
+import jode.type.Type;
 
 public class LocalVariableRangeList {
 

@@ -18,7 +18,7 @@
  */
 
 package jode.bytecode;
-import jode.Type;
+import jode.type.Type;
 import java.io.*;
 import java.lang.reflect.Modifier;
 
