@@ -217,7 +217,7 @@ public class FlowBlock {
                 elseBlock.outer instanceof SequentialBlock &&
                 elseBlock.outer.getSubBlocks()[0] instanceof IfThenElseBlock &&
                 (elseBlock.outer.getNextFlowBlock() == successor ||
-                 elseBlock.outer.jumpMayBeChanged()) {
+                 elseBlock.outer.jumpMayBeChanged())) {
                 IfThenElseBlock ifBlock = 
                     (IfThenElseBlock)elseBlock.outer.getSubBlocks()[0];
                 if (ifBlock.getElseBlock() == null) {
@@ -228,7 +228,7 @@ public class FlowBlock {
                     } else {
                         jump.parent.removeJump();
                     }
-                    ifBlock.replace(elseBlock.outer)
+                    ifBlock.replace(elseBlock.outer);
                     ifBlock.setElseBlock(elseBlock);
                     if (appendBlock = elseBlock.outer)
                         appendBlock = ifBlock;
@@ -238,55 +238,55 @@ public class FlowBlock {
         return appendBlock;
     }
 
-     /** 
-      * Updates the in/out-Vectors of the structured block of the
+    /** 
+     * Updates the in/out-Vectors of the structured block of the
       * successing flow block simultanous to a T1 transformation.
       * @param successor The flow block which is unified with this flow
       * block.  
       */
-     void updateInOut (FlowBlock successor, boolean t1Transformation) {
-         /* First get the out vectors of all jumps to successor and
-          * calculate the intersection.
-          */
-         VariableSet allOuts = new VariableSet();
-         VariableSet intersectOut = null;
-         Enumeration enum = successors;
-         while (enum.hasMoreElement()) {
-             Jump jump = (Jump) enum.nextElement();
-             if (jump == null || jump.destination != successor)
-                 continue;
+    void updateInOut (FlowBlock successor, boolean t1Transformation) {
+        /* First get the out vectors of all jumps to successor and
+         * calculate the intersection.
+         */
+        VariableSet allOuts = new VariableSet();
+        VariableSet intersectOut = null;
+        Enumeration enum = successors;
+        while (enum.hasMoreElement()) {
+            Jump jump = (Jump) enum.nextElement();
+            if (jump == null || jump.destination != successor)
+                continue;
 
-             allOuts.union(jump.parent.out);
-             if (intersectOut == null) 
-                 intersectOut = jump.parent.out;
-             else
-                 intersectOut = intersectOut.intersect(jump.parent.out);
-         }
+            allOuts.union(jump.parent.out);
+            if (intersectOut == null) 
+                intersectOut = jump.parent.out;
+            else
+                intersectOut = intersectOut.intersect(jump.parent.out);
+        }
 
-         /* Now work on each block of the successor */
-         Stack todo = new Stack();
-         todo.push(successor.block);
-         while (!todo.empty()) {
-             StructuredBlock block = (StructuredBlock) todo.pop();
-             StructuredBlock[] subBlocks = block.getSubBlocks();
-             for (int i=0; i<subBlocks.length; i++)
-                 todo.push(subBlocks[i]);
+        /* Now work on each block of the successor */
+        Stack todo = new Stack();
+        todo.push(successor.block);
+        while (!todo.empty()) {
+            StructuredBlock block = (StructuredBlock) todo.pop();
+            StructuredBlock[] subBlocks = block.getSubBlocks();
+            for (int i=0; i<subBlocks.length; i++)
+                todo.push(subBlocks[i]);
 
-             /* Merge the locals used in successing block with those written
-              * by this blocks
-              */
-             block.in.merge(allOuts);
+            /* Merge the locals used in successing block with those written
+             * by this blocks
+             */
+            block.in.merge(allOuts);
 
-             if (t1Transformation) {
-                 /* Now update in and out set of successing block */
-                 block.in.subtract(intersectOut);
-                 block.out.add(intersectOut);
-             }
-         }
-     }
+            if (t1Transformation) {
+                /* Now update in and out set of successing block */
+                block.in.subtract(intersectOut);
+                block.out.add(intersectOut);
+            }
+        }
+    }
 
 
-     /* Special cases:
+    /* Special cases:
       *
       *   try-header
       *      |- first instruction
@@ -350,116 +350,123 @@ public class FlowBlock {
       *    return_n
       */
 
-     public boolean doT1 {
-         /* search successor with smallest addr. */
-         Enumeration enum = successors.elements();
-         FlowBlock succ = null;
-         while (enum.hasMoreElements()) {
-             Jump jump = (Jump) enum.nextElement();
-             if (jump == null)
-                 continue;
-             FlowBlock fb = jump.destination;
-             if (succ == null || fb.addr < succ.addr) {
-                 succ = fb;
-             }
-         }
-         if (succ == null) {
-             /* There are no successors at all */
-             return false;
-         }
+    public boolean doT1 {
+        /* search successor with smallest addr. */
+        Enumeration enum = successors.elements();
+        FlowBlock succ = null;
+        while (enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+            if (jump == null)
+                continue;
+            FlowBlock fb = jump.destination;
+            if (succ == null || fb.addr < succ.addr) {
+                succ = fb;
+            }
+        }
+        if (succ == null) {
+            /* There are no successors at all */
+            return false;
+        }
 
-         /* check if this successor has only this block as predecessor. */
-         /* if not, return false. */
-         if (succ.predecessors.size() != 1)
-             return false;
+        /* check if this successor has only this block as predecessor. */
+        /* if not, return false. */
+        if (succ.predecessors.size() != 1)
+            return false;
 
          /* First find the innermost block that contains all jumps to this
           * successor and the last modified block.
           */
-         Enumeration enum = successors.elements();
-         StructuredBlock appendBlock = lastModified;
-         while(enum.hasMoreElements()) {
-             Jump jump = (Jump) enum.nextElement();
-             if (jump == null || jump.destination != successors)
-                 continue;
+        Enumeration enum = successors.elements();
+        StructuredBlock appendBlock = lastModified;
+        while(enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+            if (jump == null || jump.destination != successors)
+                continue;
 
-             while (!appendBlock.contains(jump.parent))
-                 appendBlock = appendBlock.outer;
-             /* appendBlock can't be null now, because the
-              * outermost block contains every structured block.  
-              */
-         }
+            while (!appendBlock.contains(jump.parent))
+                appendBlock = appendBlock.outer;
+            /* appendBlock can't be null now, because the
+             * outermost block contains every structured block.  
+             */
+        }
 
-         /* Update the in/out-Vectors now */
-         updateInOut(successor, true);
+        /* Update the in/out-Vectors now */
+        updateInOut(successor, true);
 
-         /* The switch "fall through" case: if the appendBlock is a
+        /* The switch "fall through" case: if the appendBlock is a
           * switch, and the successor is the address of a case, and all
           * other successors are inside the block preceding that case.  
           */
-         if (case != null) {
-             SwitchBlock switchBlock = (StructuredBlock) appendBlock;
+        if (case != null) {
+            SwitchBlock switchBlock = (StructuredBlock) appendBlock;
 
-             /* Now put the succ.block into the next case.
-              */
-             switchBlock.replaceSubBlock(nextcase,succ.block);
-             succ.block.outer = switchBlock;
-             /* nextcase is not referenced any more */
+            /* Now put the succ.block into the next case.
+             */
+            switchBlock.replaceSubBlock(nextcase,succ.block);
+            succ.block.outer = switchBlock;
+            /* nextcase is not referenced any more */
 
-             /* Do the following modifications on the struct block. */
-             appendBlock = precedingcase;
+            /* Do the following modifications on the struct block. */
+            appendBlock = precedingcase;
 
-         } else {
+        } else {
 
-             /* Prepare the unification of the blocks: Make sure that
-              * appendBlock has a successor outside of this block.  This is
-              * always possible, because it contains lastModified.  
-              */
-             if (appendBlock.jump == null) {
-                 /* assert(appendBlock.jump.getNextFlowBlock() != null) */
-                 appendBlock.setJump(appendBlock.getNextFlowBlock());
-             }
+            /* Prepare the unification of the blocks: Make sure that
+             * appendBlock has a successor outside of this block.  This is
+             * always possible, because it contains lastModified.  
+             */
+            if (appendBlock.jump == null) {
+                /* assert(appendBlock.jump.getNextFlowBlock() != null) */
+                appendBlock.setJump(appendBlock.getNextFlowBlock());
+            }
 
-             /* Now unify the blocks: Create a new SequentialBlock
-              * containing appendBlock and successor.block.  Then replace
-              * appendBlock with the new sequential block.
-              */
-             StructuredBlock outer = appendBlock.outer;
-             StructuredBlock sequBlock = 
-                 new SequentialBlock(appendBlock, switchBlock);
-             outer.replaceSubBlock(appendBlock, sequBlock);
-             sequBlock.outer = outer;
-         }
+            /* Now unify the blocks: Create a new SequentialBlock
+             * containing appendBlock and successor.block.  Then replace
+             * appendBlock with the new sequential block.
+             */
+            StructuredBlock outer = appendBlock.outer;
+            StructuredBlock sequBlock = 
+                new SequentialBlock(appendBlock, switchBlock);
+            outer.replaceSubBlock(appendBlock, sequBlock);
+            sequBlock.outer = outer;
+        }
 
-         /* Try to eliminate as many jumps as possible.
-          */
+        /* Try to eliminate as many jumps as possible.
+         */
 
-         optimizeJumps(succ, appendBlock);
+        optimizeJumps(succ, appendBlock);
 
-         /* Now remove the jump of the appendBlock if it points to successor.
-          */
+        /* Now remove the jump of the appendBlock if it points to successor.
+         */
 
-         if (appendBlock.jump == succ)
-             appendBlock.removeJump();
+        if (appendBlock.jump == succ)
+            appendBlock.removeJump();
 
-         /* If there are further jumps, put a do/while(0) block around
-          * appendBlock and replace every remaining jump with a break
-          * to the do/while block.
-          */
+        /* If there are further jumps, put a do/while(0) block around
+         * appendBlock and replace every remaining jump with a break
+         * to the do/while block.
+         */
+        
+        /* Merge the sucessors from the successing flow block
+         */
+        enum = succ.successors.elements();
+        while (enum.hasMoreElements()) {
+            successors.addElement(enum.nextElement());
+        }
 
-         /* Believe it or not: Now the rule, that the first part of a
-          * SequentialBlock shouldn't be another SequentialBlock is
-          * fulfilled. <p>
-          *
-          * This isn't easy to prove, it has a lot to do with the
-          * transformation in optimizeJump and the fact that
-          * appendBlock was the innermost Block containing all jumps
-          * and lastModified.
-          */
+        /* Believe it or not: Now the rule, that the first part of a
+         * SequentialBlock shouldn't be another SequentialBlock is
+         * fulfilled. <p>
+         *
+         * This isn't easy to prove, it has a lot to do with the
+         * transformation in optimizeJump and the fact that
+         * appendBlock was the innermost Block containing all jumps
+         * and lastModified.
+         */
 
-         /* Set last modified to correct value.  */
-         lastModified = succ.lastModified;
-     }
+        /* Set last modified to correct value.  */
+        lastModified = succ.lastModified;
+    }
 
     public boolean doT2() {
         /* If there are no jumps to the beginning of this flow block
@@ -501,7 +508,3 @@ public class FlowBlock {
         successors.setElementAt(null, successors.indexOf(jump));
     }
 }
-
-
-
-
