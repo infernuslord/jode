@@ -29,6 +29,15 @@ public class MethodInfo extends BinaryInfo {
     String name;
     MethodType type;
 
+    public MethodInfo() {
+    }
+
+    public MethodInfo(String name, MethodType type, int modifier) {
+	this.name = name;
+	this.type = type;
+	this.modifier = modifier;
+    }
+
     public void read(ConstantPool constantPool, 
                      DataInputStream input, int howMuch) throws IOException {
 	modifier   = input.readUnsignedShort();
