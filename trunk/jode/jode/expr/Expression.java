@@ -267,7 +267,11 @@ public abstract class Expression {
 	    writer.print("(");
 	}
 
-	dumpExpression(writer);
+	try {
+	    dumpExpression(writer);
+	} catch (RuntimeException ex) {
+	    writer.print("(RUNTIME ERROR IN EXPRESSION)");
+	}
 
 	if (needParen2)
 	    writer.print(")");
