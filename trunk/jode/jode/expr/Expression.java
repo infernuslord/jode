@@ -32,8 +32,12 @@ public abstract class Expression {
         return type;
     }
 
+    public Expression getParent() {
+        return parent;
+    }
+
     public void setType(Type newType) {
-        this.type = newType;
+        type = type.intersection(newType);
     }
 
     public void updateType() {
@@ -56,17 +60,19 @@ public abstract class Expression {
     /**
      * Checks if the given Expression (which should be a StoreInstruction)
      * can be combined into this expression.
-     * @param e The store expression.
+     * @param e The store expression, must be of type void.
      * @return 1, if it can, 0, if no match was found and -1, if a
      * conflict was found.  You may wish to check for >0.
      */
     public int canCombine(Expression e) {
-	if (e instanceof ComplexExpression
-            && e.getOperator() instanceof StoreInstruction) {
-	    StoreInstruction store = (StoreInstruction) e.getOperator();
-	    if (store.matches(getOperator()))
-                return 1;
-	}
+        if (e instanceof IIncOperator
+            && ((IIncOperator)e.getOperator()).matches(getOperator()))
+            return 1;
+        else if (e instanceof ComplexExpression
+                 && e.getOperator() instanceof StoreInstruction
+                 && ((StoreInstruction) e.getOperator())
+                 .matches(getOperator()))
+            return 1;
 	return 0;
     }
 
@@ -78,11 +84,12 @@ public abstract class Expression {
      * @return The combined expression.
      */
     public Expression combine(Expression e) {
-        StoreInstruction store = (StoreInstruction) e.getOperator();
-        ((ComplexExpression)e).operator
-            = new AssignOperator(store.getOperatorIndex(), store);
-        ((ComplexExpression)e).type
-            = this.type.intersection(store.getLValueType());
+        if (e.getOperator() instanceof IIncOperator)
+            ((IIncOperator)e.getOperator()).makeNonVoid();
+        else
+            ((StoreInstruction)e.getOperator()).makeNonVoid();
+        /* Do not call setType, we don't want to intersect. */
+        e.type = e.getOperator().getType();
         return e;
     }
 
@@ -90,7 +97,7 @@ public abstract class Expression {
         return this;
     }
 
-    Expression simplifyStringBuffer() {
+    public Expression simplifyStringBuffer() {
         return null;
     }
 
