@@ -46,7 +46,7 @@ import java.io.DataInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
-public class CodeAnalyzer implements Analyzer, Scope {
+public class CodeAnalyzer implements Analyzer, Scope, ClassDeclarer {
     
     FlowBlock methodHeader;
     BytecodeInfo code;
@@ -62,6 +62,7 @@ public class CodeAnalyzer implements Analyzer, Scope {
      */
     Dictionary anonClasses = new SimpleDictionary();
     Vector anonAnalyzers = new Vector();
+    Vector innerAnalyzers = new Vector();
 
     LocalInfo[] param;
     LocalVariableTable lvt;
@@ -246,26 +247,6 @@ public class CodeAnalyzer implements Analyzer, Scope {
 	    methodHeader.removeOnetimeLocals();
 
 	methodHeader.mergeParams(param);
-	createAnonymousClasses();
-
-        Enumeration enum = allLocals.elements();
-        while (enum.hasMoreElements()) {
-            LocalInfo li = (LocalInfo)enum.nextElement();
-            if (!li.isShadow())
-                imports.useType(li.getType());
-        }
-	for (int i=0; i < param.length; i++) {
-	    param[i].guessName();
-	    for (int j=0; j < i; j++) {
-		if (param[j].getName().equals(param[i].getName())) {
-		    /* A name conflict happened. */
-		    param[i].makeNameUnique();
-		    break; /* j */
-		}
-	    }
-	}
-	methodHeader.makeDeclaration(param);
-	methodHeader.simplify();
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -319,12 +300,13 @@ public class CodeAnalyzer implements Analyzer, Scope {
 
     public void addAnonymousConstructor(ConstructorOperator cop) {
 	ClassInfo cinfo = cop.getClassInfo();
+
 	ConstructorOperator[] cops = 
 	    (ConstructorOperator[]) anonClasses.get(cinfo);
 	ConstructorOperator[] newCops;
-	if (cops == null)
+	if (cops == null) {
 	    newCops = new ConstructorOperator[] { cop };
-	else {
+	} else {
 	    newCops = new ConstructorOperator[cops.length + 1];
 	    System.arraycopy(cops, 0, newCops, 0, cops.length);
 	    newCops[cops.length] = cop;
@@ -340,80 +322,132 @@ public class CodeAnalyzer implements Analyzer, Scope {
             ClassInfo clazz = (ClassInfo) keys.nextElement();
 	    ConstructorOperator[] cops =
 		(ConstructorOperator[]) elts.nextElement();
+	    ClassAnalyzer anonAnalyzer = getParent().getClassAnalyzer(clazz);
+	    int copsNr = 0;
 
-//  	    System.err.println("aac: expr0 = "+cops[0]);
-	    Expression[] subExprs1 = cops[0].getSubExpressions();
-	    int maxOuter = subExprs1.length;
-	    for (int i=1; i < cops.length; i++) {
-//  		System.err.println("aac: expr"+i+" = "+cops[i]);
-		Expression[] subExprs2 = cops[i].getSubExpressions();
-		maxOuter = Math.min(subExprs2.length, maxOuter);
+	    Expression[] outerValues;
+	    int maxOuter;
+	    if (anonAnalyzer != null) {
+		outerValues = anonAnalyzer.getOuterValues();
+		maxOuter = outerValues.length;
+	    } else {
+		System.err.println("aac: expr0 = "+cops[0]);
+		outerValues = new Expression[maxOuter];
+		Expression[] subExprs1 = cops[copsNr++].getSubExpressions();
+		maxOuter = subExprs1.length;
 		for (int j=0; j < maxOuter; j++) {
-		    if (!subExprs2[j].equals(subExprs1[j])) {
-			maxOuter = j;
-			break;
-		    }
-		}
-	    }
-			 
-	    Expression[] outerValues = new Expression[maxOuter];
-	    for (int j=0; j < maxOuter; j++) {
-		Expression expr = subExprs1[j].simplify();
-		if (expr instanceof CheckNullOperator)
-		    expr = ((CheckNullOperator) expr).getSubExpressions()[0];
-		if (expr instanceof ThisOperator) {
-		    outerValues[j] = 
-			new ThisOperator(((ThisOperator)expr).getClassInfo());
-		    continue;
-		}
-		if (expr instanceof LocalLoadOperator) {
-		    LocalLoadOperator llop = (LocalLoadOperator) expr;
-		    LocalInfo li = llop.getLocalInfo();
-		    for (int i=1; i < cops.length; i++) {
-			Expression expr2 = 
-			    cops[i].getSubExpressions()[j].simplify();
-			if (expr2 instanceof CheckNullOperator)
-			    expr2 = ((CheckNullOperator) expr2)
-				.getSubExpressions()[0];
-			LocalInfo li2 = 
-			    ((LocalLoadOperator) expr2).getLocalInfo();
-			li2.combineWith(li);
-		    }
-		    if (li.markFinal()) {
-			outerValues[j] = new OuterLocalOperator(li);
+		    Expression expr = subExprs1[j].simplify();
+		    if (expr instanceof CheckNullOperator)
+			expr = ((CheckNullOperator) expr).getSubExpressions()[0];
+		    if (expr instanceof ThisOperator) {
+			outerValues[j] = 
+			    new ThisOperator(((ThisOperator)expr).getClassInfo());
 			continue;
 		    }
+		    if (expr instanceof LocalLoadOperator) {
+			LocalLoadOperator llop = (LocalLoadOperator) expr;
+			LocalInfo li = llop.getLocalInfo();
+			for (int i=1; i < cops.length; i++) {
+			    Expression expr2 = 
+				cops[i].getSubExpressions()[j].simplify();
+			    if (expr2 instanceof CheckNullOperator)
+				expr2 = ((CheckNullOperator) expr2)
+				    .getSubExpressions()[0];
+			    LocalInfo li2 = 
+				((LocalLoadOperator) expr2).getLocalInfo();
+			    li2.combineWith(li);
+			}
+			if (li.markFinal()) {
+			    outerValues[j] = new OuterLocalOperator(li);
+			    continue;
+			}
+		    }
+		    maxOuter = j;
+		    System.err.println("new maxOuter: "+maxOuter+" ("+expr);
 		}
-		maxOuter = j;
-//  		System.err.println("new maxOuter: "+maxOuter+" ("+expr);
+	    }
+	    for (int i=copsNr; i < cops.length; i++) {
+		Expression[] subExprs = cops[i].getSubExpressions();
+		for (j=0; j < maxOuter; j++) {
+		    Expression expr = subExprs[j].simplify();
+		    if (expr instanceof CheckNullOperator)
+			expr = ((CheckNullOperator) expr).getSubExpressions()[0];
+		    if (expr instanceof ThisOperator
+			&& expr.equals(outerValues[j]))
+			continue;
+		    if (expr instanceof LocalLoadOperator) {
+			// more thorough checks for constructors!
+			// combine locals!
+			// what else? 
+			XXX
+			LocalLoadOperator llop = (LocalLoadOperator) expr;
+			LocalInfo li = llop.getLocalInfo();
+			for (int i=1; i < cops.length; i++) {
+			    Expression expr2 = 
+				cops[i].getSubExpressions()[j].simplify();
+			    if (expr2 instanceof CheckNullOperator)
+				expr2 = ((CheckNullOperator) expr2)
+				    .getSubExpressions()[0];
+			    LocalInfo li2 = 
+				((LocalLoadOperator) expr2).getLocalInfo();
+			    li2.combineWith(li);
+			}
+			if (li.markFinal()) {
+			    outerValues[j] = new OuterLocalOperator(li);
+			    continue;
+			}
+		    }
+		    maxOuter = j;
+		    System.err.println("new maxOuter: "+maxOuter+" ("+expr);
+		}
+	    }
+	    if (maxOuter > outerValues.length) {
 		Expression[] newOuter = new Expression[j];
 		System.arraycopy(outerValues, 0, newOuter, 0, j);
 		outerValues = newOuter;
 		break;
 	    }
-	    
-	    ClassAnalyzer classAna = new ClassAnalyzer(this, clazz, imports,
-						       outerValues);
-	    anonAnalyzers.addElement(classAna);
+
+	    if (anonAnalyzer == null)
+		anonAnalyzer = new ClassAnalyzer(this, clazz, imports,
+						 outerValues);
+	    else
+		anonAnalyzer.setOuterValues(outerValues);
+	    anonAnalyzer.analyze();
+	    anonAnalyzers.addElement(anonAnalyzer);
 	}
 	analyzedAnonymous = true;
     }
+
     public void analyzeAnonymousClasses() {
-	boolean hasAnonymous = false;
-        Enumeration enum = anonAnalyzers.elements();
-	while (enum.hasMoreElements()) {
-	    ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
-	    if (classAna.getName() == null)
-		hasAnonymous = true;
-	    classAna.analyze();
+	createAnonymousClasses();
+    }
+
+    public void makeDeclaration() {
+        for (Enumeration enum = allLocals.elements();
+	     enum.hasMoreElements(); ) {
+            LocalInfo li = (LocalInfo)enum.nextElement();
+            if (!li.isShadow())
+                imports.useType(li.getType());
+        }
+	for (int i=0; i < param.length; i++) {
+	    param[i].guessName();
+	    for (int j=0; j < i; j++) {
+		if (param[j].getName().equals(param[i].getName())) {
+		    /* A name conflict happened. */
+		    param[i].makeNameUnique();
+		    break; /* j */
+		}
+	    }
 	}
-	if (hasAnonymous) {
-	    /* We have to simplify again
-	     * XXX This is because the ConstructorOperator should remove
-	     * the CheckNullOperator, but where is only known after
-	     * analyzing inner classes.
-	     */
-	    methodHeader.simplify();
+
+	methodHeader.makeDeclaration(param);
+	methodHeader.simplify();
+        for (Enumeration enum = anonAnalyzers.elements();
+	     enum.hasMoreElements(); ) {
+	    ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    classAna.makeDeclaration();
+	    addClassAnalyzer(classAna);
 	}
     }
 
@@ -421,19 +455,41 @@ public class CodeAnalyzer implements Analyzer, Scope {
 	return analyzedAnonymous;
     }
 
-    public ClassAnalyzer getAnonymousClass(ClassInfo cinfo) {
-        Enumeration enum = anonAnalyzers.elements();
-	while (enum.hasMoreElements()) {
-	    ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
-	    if (classAna.getClazz().equals(cinfo))
-		return classAna;
-	}
-	throw new java.util.NoSuchElementException(cinfo.toString());
+    public LocalInfo getParamInfo(int nr) {
+	return param[nr];
+    }
+
+    public void addClassAnalyzer(ClassAnalyzer clazzAna) {
+	if (innerAnalyzers == null)
+	    innerAnalyzers = new Vector();
+	innerAnalyzers.addElement(clazzAna);
+	getParent().addClassAnalyzer(clazzAna);
     }
 
 
-    public LocalInfo getParamInfo(int nr) {
-	return param[nr];
+    /**
+     * Get the class analyzer for the given class info.  This searches
+     * the method scoped/anonymous classes in this method and all
+     * outer methods and the outer classes for the class analyzer.
+     * @param cinfo the classinfo for which the analyzer is searched.
+     * @return the class analyzer, or null if there is not an outer
+     * class that equals cinfo, and not a method scope/inner class in
+     * an outer method.
+     */
+    public ClassAnalyzer getClassAnalyzer(ClassInfo cinfo) {
+	if (innerAnalyzers != null) {
+	    Enumeration enum = innerAnalyzers.elements();
+	    while (enum.hasMoreElements()) {
+		ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+		if (classAna.getClazz().equals(cinfo)) {
+		    if (classAna.getParent() != this) {
+			classAna.setParent(this);
+		    }
+		    return classAna;
+		}
+	    }
+	}
+	return getParent().getClassAnalyzer(cinfo);
     }
 
     public ClassAnalyzer getClassAnalyzer() {
@@ -471,5 +527,9 @@ public class CodeAnalyzer implements Analyzer, Scope {
 	if (usageType == AMBIGUOUSNAME || usageType == CLASSNAME)
 	    return findAnonClass(name) != null;
 	return false;
+    }
+
+    public ClassDeclarer getParent() {
+	return getClassAnalyzer();
     }
 }
