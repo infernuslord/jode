@@ -38,6 +38,12 @@ public class InstructionBlock extends InstructionContainer {
      */
     LocalInfo pushedLocal = null;
 
+    /**
+     * Tells if this expression is a initializing declaration.  This
+     * can only be set to true and then never be reset.  It is changed
+     * by makeDeclaration.  */
+    boolean isDeclaration = false;
+
     public InstructionBlock(Expression instr) {
         super(instr);
     }
@@ -91,27 +97,31 @@ public class InstructionBlock extends InstructionContainer {
     }
 
     /**
-     * True if this is a declaration.
+     * Make the declarations, i.e. initialize the declare variable
+     * to correct values.  This will declare every variable that
+     * is marked as used, but not done.
+     * @param done The set of the already declare variables.
      */
-    private boolean isDeclaration = false;
-
-    public void dumpDeclaration(TabbedPrintWriter writer, LocalInfo local)
-	throws java.io.IOException
-    {
-        if (instr instanceof ComplexExpression
-            && instr.getOperator() instanceof LocalStoreOperator
-            && ((LocalStoreOperator) instr.getOperator()).getLocalInfo() 
-            == local.getLocalInfo()) {
-            isDeclaration = true;
-        } else
-            super.dumpDeclaration(writer, local);
-    }
-
-    public void dumpSource(TabbedPrintWriter writer) 
-	throws java.io.IOException
-    {
-        isDeclaration = false;
-        super.dumpSource(writer);
+    public void makeDeclaration(VariableSet done) {
+        if (instr.getOperator() instanceof LocalStoreOperator) {
+	    LocalInfo local = 
+		((LocalStoreOperator) instr.getOperator()).getLocalInfo();
+            if (!done.contains(local)) {
+		/* Special case: This is a variable assignment, and
+		 * the variable has not been declared before.  We can
+		 * change this to a initializing variable declaration.  
+		 */
+		isDeclaration = true;
+		if (instr instanceof ComplexExpression)
+		    ((ComplexExpression) instr)
+			.getSubExpressions()[0].makeInitializer();
+		done.addElement(local);
+		super.makeDeclaration(done);
+		done.removeElement(local);
+		return;
+	    }
+	}
+	super.makeDeclaration(done);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 
@@ -120,16 +130,11 @@ public class InstructionBlock extends InstructionContainer {
         if (isDeclaration) {
             LocalInfo local = ((LocalStoreOperator) instr.getOperator())
                 .getLocalInfo();
-            Expression expr = 
-                ((ComplexExpression) instr).getSubExpressions()[0];
-            expr.makeInitializer();
-            writer.println(local.getType().getHint() + " "
-			   + local.getName() + " = "
-                           + expr.simplify().toString() + ";");
+            writer.println(local.getType().getHint() + " " + instr);
         } else {
             if (instr.getType() != Type.tVoid)
                 writer.print("PUSH ");
-            writer.println(instr.simplify().toString()+";");
+            writer.println(instr.toString()+";");
         }
     }
 }
