@@ -66,7 +66,7 @@ public class BinaryInfo {
 	    unknownAttributes.put(name, data);
     }
 
-    class ConstrainedInputStream extends FilterInputStream {
+    static class ConstrainedInputStream extends FilterInputStream {
 	int length;
 
 	public ConstrainedInputStream(int attrLength, InputStream input) {
