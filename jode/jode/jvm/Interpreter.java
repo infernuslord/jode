@@ -113,14 +113,14 @@ public class Interpreter implements Opcodes {
     }
 
     public static Object interpretMethod
-	(ClassAnalyzer ca, byte[] code, Value[] locals, Value[] stack)
+	(ClassAnalyzer ca, BytecodeInfo code, Value[] locals, Value[] stack)
 	throws InterpreterException, ClassFormatException {
 	try {
-	ConstantPool cpool = ca.getClazz().getConstantPool();
-	int pc = 0;
+	Instruction pc = code.getFirstInstr();
 	int stacktop = 0;
 	for(;;) {
-//  	    System.err.print(pc+": [");
+	    Instruction instr = pc;
+//  	    System.err.print(instr.addr+": [");
 //  	    for (int i=0; i<stacktop; i++) {
 //  		if (i>0)
 //  		    System.err.print(",");
@@ -134,59 +134,29 @@ public class Interpreter implements Opcodes {
 //  	    for (int i=0; i<locals.length; i++)
 //  		System.err.print(locals[i]+",");
 //  	    System.err.println("]");
-	    int opcode = code[pc++] & 0xff;
+	    pc = instr.nextByAddr;
+	    int opcode = instr.opcode;
 	    switch (opcode) {
 	    case opc_nop:
 		break;
 	    case opc_aconst_null:
-		stack[stacktop++].setObject(null);
-		break;
 	    case opc_iconst_m1: 
 	    case opc_iconst_0: case opc_iconst_1: case opc_iconst_2:
 	    case opc_iconst_3: case opc_iconst_4: case opc_iconst_5:
-		stack[stacktop++].setInt(opcode - opc_iconst_0);
-		break;
 	    case opc_lconst_0: case opc_lconst_1:
-		stack[stacktop++].setLong(opcode - opc_lconst_0);
-		break;
 	    case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
-		stack[stacktop++].setFloat(opcode - opc_fconst_0);
-		break;
 	    case opc_dconst_0: case opc_dconst_1:
-		stack[stacktop++].setDouble(opcode - opc_dconst_0);
-		break;
 	    case opc_bipush:
-		stack[stacktop++].setInt(code[pc++]);
-		break;
 	    case opc_sipush:
-		stack[stacktop++].setInt((code[pc++] << 8) 
-					 | (code[pc++] & 0xff));
-		break;
 	    case opc_ldc:
-		stack[stacktop++].setObject
-		    (cpool.getConstant(code[pc++] & 0xff));
-		break;
 	    case opc_ldc_w:
 	    case opc_ldc2_w: {
-		int index = (code[pc++] << 8) & 0xff00 | code[pc++] & 0xff;
-		stack[stacktop++].setObject(cpool.getConstant(index));
+		stack[stacktop++].setObject(instr.objData);
 		break;
 	    }
 	    case opc_iload: case opc_lload: 
 	    case opc_fload: case opc_dload: case opc_aload:
-		stack[stacktop++].setValue(locals[code[pc++]]);
-		break;
-	    case opc_iload_0: case opc_iload_1: 
-	    case opc_iload_2: case opc_iload_3:
-	    case opc_lload_0: case opc_lload_1: 
-	    case opc_lload_2: case opc_lload_3:
-	    case opc_fload_0: case opc_fload_1: 
-	    case opc_fload_2: case opc_fload_3:
-	    case opc_dload_0: case opc_dload_1: 
-	    case opc_dload_2: case opc_dload_3:
-	    case opc_aload_0: case opc_aload_1: 
-	    case opc_aload_2: case opc_aload_3:
-		stack[stacktop++].setValue(locals[(opcode - opc_iload_0) & 3]);
+		stack[stacktop++].setValue(locals[instr.localSlot]);
 		break;
 	    case opc_iaload: case opc_laload: 
 	    case opc_faload: case opc_daload: case opc_aaload:
@@ -217,19 +187,7 @@ public class Interpreter implements Opcodes {
 	    }
 	    case opc_istore: case opc_lstore: 
 	    case opc_fstore: case opc_dstore: case opc_astore:
-		locals[code[pc++]].setValue(stack[--stacktop]);
-		break;
-	    case opc_istore_0: case opc_istore_1: 
-	    case opc_istore_2: case opc_istore_3:
-	    case opc_lstore_0: case opc_lstore_1: 
-	    case opc_lstore_2: case opc_lstore_3:
-	    case opc_fstore_0: case opc_fstore_1:
-	    case opc_fstore_2: case opc_fstore_3:
-	    case opc_dstore_0: case opc_dstore_1:
-	    case opc_dstore_2: case opc_dstore_3:
-	    case opc_astore_0: case opc_astore_1:
-	    case opc_astore_2: case opc_astore_3:
-		locals[(opcode-opc_istore_0) & 3].setValue(stack[--stacktop]);
+		locals[instr.localSlot].setValue(stack[--stacktop]);
 		break;
 	    case opc_iastore: case opc_lastore:
 	    case opc_fastore: case opc_dastore: case opc_aastore:
@@ -464,11 +422,10 @@ public class Interpreter implements Opcodes {
 		stacktop--;
 		break;
 
-	    case opc_iinc: {
-		int slot = code[pc++] & 0xff;
-		locals[slot].setInt(locals[slot].intValue() + code[pc++]);
+	    case opc_iinc:
+		locals[instr.localSlot].setInt
+		    (locals[instr.localSlot].intValue() + instr.intData);
 		break;
-	    }
 	    case opc_i2l:
 		stack[stacktop-1]
 		    .setLong((long)stack[stacktop-1].intValue());
@@ -589,68 +546,43 @@ public class Interpreter implements Opcodes {
 			opcode += opc_ifeq - opc_if_icmpeq;
 		    }
 		}
-		int offset = ((code[pc++] << 8) | (code[pc++] & 0xff)) - 3;
 		if (value > 0 && (opcode == opc_ifgt || opcode == opc_ifge)
 		    || value < 0 && (opcode == opc_iflt || opcode == opc_ifle)
 		    || value == 0 && (opcode == opc_ifge || opcode == opc_ifle
 				      || opcode == opc_ifeq))
-		    pc += offset;
+		    pc = instr.succs[0];
 		break;
 	    }
 	    case opc_jsr:
-		stack[stacktop++].setObject(new ReturnAddress(pc));
+	    case opc_jsr_w:
+		stack[stacktop++].setObject(instr);
 		/* fall through */
 	    case opc_goto:
-		pc = (pc-1) + ((code[pc] << 8) | (code[pc+1] & 0xff));
+	    case opc_goto_w:
+		pc = instr.succs[0];
 		break;
 	    case opc_ret:
-		pc = ((ReturnAddress) locals[code[pc] & 0xff].objectValue())
-		    .getPC();
+		pc = (Instruction)locals[instr.localSlot].objectValue();
 		break;
 	    case opc_tableswitch: {
 		int value = stack[--stacktop].intValue();
-		int start = pc - 1;
-		pc += 3-(start % 4);
-		int dest = (code[pc++] << 24 | (code[pc++] & 0xff) << 16
-			    | (code[pc++] & 0xff) << 8 | (code[pc++] & 0xff));
-		int low  = (code[pc++] << 24 | (code[pc++] & 0xff) << 16
-			    | (code[pc++] & 0xff) << 8 | (code[pc++] & 0xff));
-		int high = (code[pc++] << 24 | (code[pc++] & 0xff) << 16
-			    | (code[pc++] & 0xff) << 8 | (code[pc++] & 0xff));
-		if (value >= low && value <= high) {
-		    pc += (value - low) << 2;
-		    dest = (code[pc++] << 24 | (code[pc++] & 0xff) << 16
-			    | (code[pc++] & 0xff) << 8 | (code[pc++] & 0xff));
-		}
-		pc = start + dest;
+		int low  = instr.intData;
+		if (value >= low && value <= low + instr.succs.length - 2)
+		    pc = instr.succs[value - low];
+		else
+		    pc = instr.succs[instr.succs.length-1];
 		break;
             }
 	    case opc_lookupswitch: {
 		int value = stack[--stacktop].intValue();
-		int start = pc - 1;
-		pc += 3-(start % 4);
-		int dest = (code[pc++] << 24
-			    | (code[pc++] & 0xff) << 16
-			    | (code[pc++] & 0xff) << 8
-			    | (code[pc++] & 0xff));
-		int npairs = (code[pc++] << 24
-			      | (code[pc++] & 0xff) << 16
-			      | (code[pc++] & 0xff) << 8
-			      | (code[pc++] & 0xff));
-		for (int i=0; i < npairs; i++) {
-		    if (value == (code[pc++] << 24
-				  | (code[pc++] & 0xff) << 16
-				  | (code[pc++] & 0xff) << 8 
-				  | (code[pc++] & 0xff))) {
-			dest = (code[pc++] << 24
-				| (code[pc++] & 0xff) << 16
-				| (code[pc++] & 0xff) << 8
-				| (code[pc++] & 0xff));
+		int[] values = (int[]) instr.objData;
+		pc = instr.succs[values.length];
+		for (int i=0; i< values.length; i++) {
+		    if (values[i] == value) {
+			pc = instr.succs[i];
 			break;
 		    }
-		    pc+=2;
 		}
-		pc = start + dest;
 		break;
             }
 	    case opc_ireturn: case opc_lreturn: 
@@ -668,16 +600,13 @@ public class Interpreter implements Opcodes {
 	    case opc_invokespecial:
 	    case opc_invokestatic :
 	    case opc_invokeinterface: {
-		String[] ref = cpool.getRef((code[pc++] << 8) & 0xff00
-					    | code[pc++] & 0xff);
-		int argcount= (opcode == opc_invokeinterface) 
-		    ? (code[pc++] << 8) | (code[pc++] & 0xff) : -1;
+		String[] ref = (String[]) instr.objData;
 		
 		if (ref[0].equals(ca.getClazz().getName().replace('.','/'))) {
 		    boolean isStatic = opcode == opc_invokestatic;
 		    MethodType mt = new MethodType(isStatic, ref[2]);
-		    CodeInfo info = ca.getMethod(ref[1], mt)
-			.getCode().getCodeInfo();
+		    BytecodeInfo info = ca.getMethod(ref[1], mt)
+			.getCode().getBytecodeInfo();
 		    Value[] newLocals = new Value[info.getMaxLocals()];
 		    for (int i=0; i< newLocals.length; i++)
 			newLocals[i] = new Value();
@@ -686,11 +615,10 @@ public class Interpreter implements Opcodes {
 			newStack[i] = new Value();
 		    for (int i=mt.getParameterTypes().length - 1; i >= 0; i--)
 			newLocals[i].setValue(stack[--stacktop]);
-		    Object result = interpretMethod(ca, info.getCode(), 
+		    Object result = interpretMethod(ca, info, 
 						    newLocals, newStack);
-		    if (mt.getReturnType() != Type.tVoid) {
+		    if (mt.getReturnType() != Type.tVoid)
 			stack[stacktop++].setObject(result);
-		    }
 		} else {
 		    Class clazz;
 		    try {
@@ -710,19 +638,19 @@ public class Interpreter implements Opcodes {
 				    break;
 				}
 			    }
-			if (c == null)
-			    throw new InterpreterException("Constructor "
-							   +ref[0]+"."
-							   +ref[1]+" not found.");
-			Object[] args
-			    = new Object[c.getParameterTypes().length];
-			for (int i=args.length - 1; i >= 0; i--)
-			    args[i] = stack[--stacktop].objectValue();
-			NewObject newObj = stack[--stacktop].getNewObject();
-			if (!newObj.getType().equals(ref[0]))
-			    throw new InterpreterException("constructor not called"
-							   +" on new instance");
-			newObj.setObject(c.newInstance(args));
+			    if (c == null)
+				throw new InterpreterException("Constructor "
+							       +ref[0]+"."
+							       +ref[1]+" not found.");
+			    Object[] args
+				= new Object[c.getParameterTypes().length];
+			    for (int i=args.length - 1; i >= 0; i--)
+				args[i] = stack[--stacktop].objectValue();
+			    NewObject newObj = stack[--stacktop].getNewObject();
+			    if (!newObj.getType().equals(ref[0]))
+				throw new InterpreterException("constructor not called"
+							       +" on new instance");
+			    newObj.setObject(c.newInstance(args));
 			} else {
 			    Method[] ms = clazz.getMethods();
 			    Method m = null;
@@ -766,14 +694,13 @@ public class Interpreter implements Opcodes {
 		break;
 	    }
 	    case opc_new: {
-		String clazz = cpool.getClassName((code[pc++] << 8) & 0xff00
-						  | code[pc++] & 0xff);
+		String clazz = (String) instr.objData;
 		stack[stacktop++].setNewObject(new NewObject(clazz));
 		break;
 	    }
 	    case opc_newarray: {
 		int length = stack[--stacktop].intValue();
-		switch (code[pc++]) {
+		switch (instr.intData) {
 		case  4: 
 		    stack[stacktop++].setObject(new boolean[length]); 
 		    break;
@@ -807,10 +734,7 @@ public class Interpreter implements Opcodes {
 		int length = stack[--stacktop].intValue();
 		Class clazz;
 		try {
-		    clazz = Class.forName
-			(cpool.getClassName((code[pc++] << 8) & 0xff00
-					    | code[pc++] & 0xff)
-			 .replace('/','.'));
+		    clazz = Class.forName((String) instr.objData);
 		} catch (ClassNotFoundException ex) {
 		    throw new InterpreterException
 			("Class "+ex.getMessage()+" not found");
@@ -829,10 +753,7 @@ public class Interpreter implements Opcodes {
 	    case opc_checkcast: {
 		Class clazz;
 		try {
-		    clazz = Class.forName
-			(cpool.getClassName((code[pc++] << 8) & 0xff00
-					    | code[pc++] & 0xff)
-			 .replace('/','.'));
+		    clazz = Class.forName((String) instr.objData);
 		} catch (ClassNotFoundException ex) {
 		    throw new InterpreterException
 			("Class "+ex.getMessage()+" not found");
@@ -848,10 +769,7 @@ public class Interpreter implements Opcodes {
 	    case opc_instanceof: {
 		Class clazz;
 		try {
-		    clazz = Class.forName
-			(cpool.getClassName((code[pc++] << 8) & 0xff00
-					    | code[pc++] & 0xff)
-			 .replace('/','.'));
+		    clazz = Class.forName((String) instr.objData);
 		} catch (ClassNotFoundException ex) {
 		    throw new InterpreterException
 			("Class "+ex.getMessage()+" not found");
@@ -868,60 +786,21 @@ public class Interpreter implements Opcodes {
 	    case opc_monitorexit:
 		throw new InterpreterException
 		    ("MonitorEnter/Exit not implemented");
-	    case opc_wide: {
-		opcode = code[pc++] & 0xff;
-		switch (opcode) {
-		case opc_iload: case opc_lload: 
-		case opc_fload: case opc_dload: case opc_aload: {
-		    int slot = (code[pc++] << 8) | (code[pc++] & 0xff);
-		    stack[stacktop++].setValue(locals[slot & 0xffff]);
-		    break;
-		}
-		case opc_istore: case opc_lstore: 
-		case opc_fstore: case opc_dstore: case opc_astore: {
-		    int slot = (code[pc++] << 8) & 0xff00 | code[pc++] & 0xff;
-		    locals[slot & 0xffff].setValue(stack[--stacktop]);
-		    break;
-		}
-		case opc_iinc: {
-		    int slot = (code[pc++] << 8) & 0xff00 | code[pc++] & 0xff;
-		    int value = (code[pc++] << 8) | code[pc++] & 0xff;
-		    locals[slot].setInt(locals[slot].intValue()
-						 + value);
-                }
-		case opc_ret: {
-		    int slot = (code[pc++] << 8) & 0xff00 | code[pc++] & 0xff;
-		    pc = ((ReturnAddress)locals[slot].objectValue()).getPC();
-		}
-		default:
-		    throw new 
-			ClassFormatException("Invalid wide opcode "+opcode);
-		}
-	    }
 	    case opc_multianewarray: {
 		Class clazz;
 		try {
-		    clazz = Class.forName
-			(cpool.getClassName((code[pc++] << 8) & 0xff00
-					    | code[pc++] & 0xff)
-			 .replace('/','.'));
+		    clazz = Class.forName((String) instr.objData);
 		} catch (ClassNotFoundException ex) {
 		    throw new InterpreterException
 			("Class "+ex.getMessage()+" not found");
 		}
-		int dimension = code[pc++] & 0xff;
+		int dimension = instr.intData;
 		int[] dims = new int[dimension];
 		for (int i=dimension-1; i >= 0; i--)
 		    dims[i-1] = stack[--stacktop].intValue();
 		stack[stacktop++].setObject(Array.newInstance(clazz, dims));
 		break;
 	    }
-	    case opc_jsr_w:
-		stack[stacktop++].setObject(new ReturnAddress(pc));
-		/* fall through */
-	    case opc_goto_w:
-		pc = pc-1 + (code[pc] << 24 | ((code[pc+1]&0xff) << 16)
-			     | ((code[pc+2]&0xff) << 8) | code[pc+3]&0xff);
 	    default:
 		throw new ClassFormatException("Invalid opcode "+opcode);
 	    }
