@@ -18,8 +18,7 @@
  */
 
 package jode;
-import gnu.bytecode.CpoolRef;
-import jode.bytecode.ClassHierarchy;
+import jode.bytecode.ClassInfo;
 
 public final class InvokeOperator extends Operator {
     CodeAnalyzer codeAnalyzer;

@@ -18,35 +18,40 @@
  */
 
 package jode;
-import java.util.Enumeration;
-import gnu.bytecode.LocalVarsAttr;
-import gnu.bytecode.Variable;
-import gnu.bytecode.Spy;
+import jode.bytecode.AttributeInfo;
+import jode.bytecode.ConstantPool;
+import java.io.*;
 
 public class LocalVariableTable {
     LocalVariableRangeList[] locals;
 
     public LocalVariableTable(int size, 
-                              ClassAnalyzer cla, LocalVarsAttr attr) {
+                              ClassAnalyzer cla, AttributeInfo attr) {
 
         locals = new LocalVariableRangeList[size];
         for (int i=0; i<size; i++)
             locals[i] = new LocalVariableRangeList(i);
-        
-        Enumeration vars = attr.allVars();
-        while (vars.hasMoreElements()) {
-            Variable var = (Variable) vars.nextElement();
-            
-            int start  = Spy.getStartPC(var);
-            int end    = Spy.getEndPC(var);
-            int slot = Spy.getSlot(var);
-            String name = var.getName();
-            Type type = Type.tType(var.getType().getSignature());
-            locals[slot].addLocal(start, end-start, name, type);
-	    if (Decompiler.showLVT)
-		System.err.println(name + ": " + type
-				   +" range "+start+" - "+end
-				   +" slot "+slot);
+
+        ConstantPool constantPool = cla.getConstantPool();
+
+        DataInputStream stream = new DataInputStream
+            (new ByteArrayInputStream(attr.getContents()));
+        try {
+            int count = stream.readUnsignedShort();
+            for (int i=0; i < count; i++) {
+                int start  = stream.readUnsignedShort();
+                int end    = start + stream.readUnsignedShort();
+                String name = constantPool.getUTF8(stream.readUnsignedShort());
+                Type type = Type.tType(constantPool.getUTF8(stream.readUnsignedShort()));
+                int slot   = stream.readUnsignedShort();
+                locals[slot].addLocal(start, end-start, name, type);
+                if (Decompiler.showLVT)
+                    System.err.println(name + ": " + type
+                                       +" range "+start+" - "+end
+                                       +" slot "+slot);
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
     }
 

@@ -116,8 +116,15 @@ public class ArrayType extends Type {
         return elementType.toString()+"[]";
     }
 
+    private static String pluralize(String singular) {
+        return singular + 
+            ((singular.endsWith("s") || singular.endsWith("x")
+              || singular.endsWith("sh") || singular.endsWith("ch")) 
+             ? "es" : "s");
+    }
+
     public String getDefaultName() {
-        return "arr_"+elementType.getDefaultName();
+        return pluralize(elementType.getDefaultName());
     }
 
     public boolean equals(Object o) {
