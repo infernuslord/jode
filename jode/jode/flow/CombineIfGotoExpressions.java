@@ -68,7 +68,7 @@ public class CombineIfGotoExpressions implements Transformation{
         Expression cond = 
             new Expression(new BinaryOperator(MyType.tBoolean, operator), e);
         cb.setInstruction(cond);
-        cb.replace(cb.outer);
+        cb.replace(cb.outer, cb);
         return true;
     }
 }

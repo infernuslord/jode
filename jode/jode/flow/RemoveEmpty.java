@@ -52,7 +52,7 @@ public class RemoveEmpty implements Transformation {
             return false;
         }
         ((InstructionContainer)block).setInstruction(instr);
-        block.replace(sequBlock);
+        block.replace(sequBlock, block);
         flow.lastModified = block;
         return true;
     }
@@ -64,7 +64,7 @@ public class RemoveEmpty implements Transformation {
             lastBlock.outer.getSubBlocks()[1] == lastBlock) {
             
             StructuredBlock block = lastBlock.outer.getSubBlocks()[0];
-            block.replace(block.outer);
+            block.replace(block.outer, block);
             if (block.jump == null)
                 block.moveJump(lastBlock);
             else
@@ -76,7 +76,7 @@ public class RemoveEmpty implements Transformation {
             lastBlock.outer.getSubBlocks()[0] instanceof EmptyBlock &&
             lastBlock.outer.getSubBlocks()[0].jump == null) {
             
-            lastBlock.replace(lastBlock.outer);
+            lastBlock.replace(lastBlock.outer, lastBlock);
             flow.lastModified = lastBlock;
             return true;
         }

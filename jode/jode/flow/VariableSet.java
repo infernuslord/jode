@@ -48,18 +48,25 @@ public class VariableSet extends java.util.Vector {
      * Merges the current VariableSet with another.  For all slots occuring
      * in both variable sets, all corresponding LocalInfos are merged.
      * The variable sets are not changed (use union for this).
+     * @return The merged variables.
      * @param vs  the other variable set.
      */
-    public void merge(VariableSet vs) {
+    public VariableSet merge(VariableSet vs) {
+        VariableSet merged = new VariableSet();
         for (int i=0; i<elementCount; i++) {
             LocalInfo li1 = ((LocalInfo) elementData[i]).getLocalInfo();
+            boolean didMerge = false;
             for (int j=0; j<vs.elementCount; j++) {
                 LocalInfo li2 = ((LocalInfo) vs.elementData[j]).getLocalInfo();
                 if (li1.getSlot() == li2.getSlot()) {
                     li1.combineWith(li2);
+                    didMerge = true;
                 }
             }
+            if (didMerge)
+                merged.addElement(li1);
         }
+        return merged;
     }
 
     /**
@@ -124,7 +131,7 @@ public class VariableSet extends java.util.Vector {
     }
 
     /**
-     * Substract the other variable set from this one.  This removes
+     * Subtract the other variable set from this one.  This removes
      * every variable from this set, that uses a slot in the other
      * variable set.
      * @param vs The other variable set.
@@ -139,6 +146,34 @@ public class VariableSet extends java.util.Vector {
             for (int j=0; j<vs.elementCount; j++) {
                 LocalInfo li2 = (LocalInfo) vs.elementData[j];
                 if (li1.getSlot() == li2.getSlot()) {
+                    /* remove the element from this variable list. */
+                    newCount--;
+                    elementData[i] = elementData[newCount];
+                    /* break the j-loop */
+                    break;
+                }
+            }
+        }
+        /* Now set the new size */
+        setSize(newCount);
+    }
+
+    /**
+     * Subtract the other variable set from this one.  This removes
+     * every variable from this set, that is in the other
+     * variable set.
+     * @param vs The other variable set.
+     */
+    public void subtractIdentical(VariableSet vs) {
+        /* We count from top to bottom to have easier reorganization.
+         * Note, that the variables have not to be in any particular
+         * order.  */
+        int newCount = elementCount;
+        for (int i=newCount-1; i>=0; i--) {
+            LocalInfo li1 = (LocalInfo) elementData[i];
+            for (int j=0; j<vs.elementCount; j++) {
+                LocalInfo li2 = (LocalInfo) vs.elementData[j];
+                if (li1.getLocalInfo() == li2.getLocalInfo()) {
                     /* remove the element from this variable list. */
                     newCount--;
                     elementData[i] = elementData[newCount];

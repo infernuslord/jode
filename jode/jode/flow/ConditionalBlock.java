@@ -24,13 +24,7 @@ import jode.TabbedPrintWriter;
  * An ConditionalBlock is the structured block representing an if
  * instruction.  The else part may be null.
  */
-public class ConditionalBlock extends StructuredBlock 
-    implements InstructionContainer {
-
-    /**
-     * The condition.  Must be of boolean type.
-     */
-    Instruction cond;
+public class ConditionalBlock extends InstructionContainer {
 
     StructuredBlock trueBlock;
     
@@ -39,35 +33,13 @@ public class ConditionalBlock extends StructuredBlock
      * be called shortly after the creation.
      */
     public ConditionalBlock(Instruction cond, Jump condJump, Jump elseJump) {
-        this.cond = cond;
+        super(cond, elseJump);
         if (cond instanceof LocalVarOperator) {
             LocalVarOperator varOp = (LocalVarOperator) cond;
-            if (varOp.isRead()) {
-                in.addElement(varOp.getLocalInfo());
-            }
-            out.addElement(varOp.getLocalInfo());
+            condJump.out.addElement(varOp.getLocalInfo());
         }
-        this.jump = elseJump;
-        elseJump.prev = this;
         trueBlock = new EmptyBlock(condJump);
         trueBlock.outer = this;
-    }
-
-    public Instruction getInstruction() {
-        return cond;
-    }
-
-    /**
-     * Change the underlying instruction.
-     * @param instr the new underlying instruction.
-     */
-    public void setInstruction(Instruction instr) {
-        this.cond = instr;
-    }
-
-    public Instruction getCondition(Jump forJump) {
-        /*XXX*/
-        return cond;
     }
 
     /* The implementation of getNext[Flow]Block is the standard
@@ -105,7 +77,7 @@ public class ConditionalBlock extends StructuredBlock
     public void dumpInstruction(TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        writer.println("IF ("+cond.toString()+")");
+        writer.println("IF ("+instr.toString()+")");
         writer.tab();
         trueBlock.dumpSource(writer);
         writer.untab();

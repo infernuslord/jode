@@ -21,40 +21,14 @@ import jode.*;
 /**
  * This is the structured block for atomic instructions.
  */
-public class InstructionBlock extends StructuredBlock 
-    implements InstructionContainer {
-    Instruction instr;
+public class InstructionBlock extends InstructionContainer {
 
     public InstructionBlock(Instruction instr) {
-        this.instr = instr;
-        if (instr instanceof LocalVarOperator) {
-            LocalVarOperator varOp = (LocalVarOperator) instr;
-            if (varOp.isRead()) {
-                in.addElement(varOp.getLocalInfo());
-            }
-            out.addElement(varOp.getLocalInfo());
-        }
+        super(instr);
     }
 
     public InstructionBlock(Instruction instr, Jump jump) {
-        this(instr);
-        setJump(jump);
-    }
-
-    /**
-     * Get the underlying instruction.
-     * @return the underlying instruction.
-     */
-    public Instruction getInstruction() {
-        return instr;
-    }
-
-    /**
-     * Change the underlying instruction.
-     * @param instr the new underlying instruction.
-     */
-    public void setInstruction(Instruction instr) {
-        this.instr = instr;
+        super(instr, jump);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 

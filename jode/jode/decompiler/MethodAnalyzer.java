@@ -38,8 +38,8 @@ public class MethodAnalyzer implements Analyzer, Constants {
                 new BinaryCode(bytecode, 
                                env.getConstantPool(),
                                env);
-            lva = new LocalVariableAnalyzer(env, mdef, bc.getMaxLocals());
-            lva.read(bc);
+//             lva = new LocalVariableAnalyzer(env, mdef, bc.getMaxLocals());
+//             lva.read(bc);
             code = new CodeAnalyzer(this, bc, env);
         }
     }
@@ -68,7 +68,7 @@ public class MethodAnalyzer implements Analyzer, Constants {
 	if (code != null) {
             if (Decompiler.isVerbose)
                 System.err.print(mdef.getName().toString()+": ");
-            lva.createLocalInfo(code);
+//             lva.createLocalInfo(code);
             code.analyze();
             if (Decompiler.isVerbose)
                 System.err.println("");
@@ -96,7 +96,8 @@ public class MethodAnalyzer implements Analyzer, Constants {
 		    ((code == null)?
 		     env.getTypeString(paramTypes[i]):
 		     env.getTypeString
-		     (paramTypes[i], lva.getLocal(i+offset).getName()));
+		     (paramTypes[i], 
+                      code.getLocalInfo(-1, i+offset).getName()));
             }
             writer.print(")");
         }
@@ -115,7 +116,7 @@ public class MethodAnalyzer implements Analyzer, Constants {
         if (code != null) {
             writer.println(" {");
             writer.tab();
-	    lva.dumpSource(writer);
+// 	    lva.dumpSource(writer);
             code.dumpSource(writer);
             writer.untab();
             writer.println("}");

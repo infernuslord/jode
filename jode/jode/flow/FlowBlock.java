@@ -41,6 +41,15 @@ public class FlowBlock {
     }
 
     /**
+     * The in locals.  This are the locals, which are used in this
+     * flow block and whose values may be the result of a assignment
+     * outside of this flow block.  That means, that there is a
+     * path from the start of the flow block to the instruction that
+     * uses that variable, on which it is never assigned 
+     */
+    VariableSet in = new VariableSet(); 
+
+    /**
      * The starting address of this flow block.  This is mainly used
      * to produce the source code in code order.
      */
@@ -88,6 +97,7 @@ public class FlowBlock {
         predecessors = new Vector(); // filled in later
         successors   = new Vector();
         block.setFlowBlock(this);
+        block.fillInSet(in);
         block.fillSuccessors(successors);
     }
 
@@ -164,7 +174,7 @@ public class FlowBlock {
                     IfThenElseBlock newIfBlock = 
                         new IfThenElseBlock(((jode.Expression)instr).negate());
 
-                    newIfBlock.replace(sequBlock);
+                    newIfBlock.replace(sequBlock, sequBlock.getSubBlocks()[1]);
                     newIfBlock.setThenBlock(sequBlock.getSubBlocks()[1]);
 
                     newIfBlock.moveJump(sequBlock);
@@ -201,7 +211,7 @@ public class FlowBlock {
                 if (ifBlock.getSubBlocks().length == 1) {
 
                     elseBlock.outer.removeJump();
-                    ifBlock.replace(elseBlock.outer);
+                    ifBlock.replace(elseBlock.outer, elseBlock);
                     if (appendBlock == elseBlock.outer)
                         appendBlock = ifBlock;
                     ifBlock.moveJump(jump.prev);
@@ -217,7 +227,7 @@ public class FlowBlock {
                 SequentialBlock sequBlock = new SequentialBlock();
                 StructuredBlock prevBlock = jump.prev;
                 prevBlock.removeJump();
-                sequBlock.replace(prevBlock);
+                sequBlock.replace(prevBlock, prevBlock);
                 sequBlock.setFirst(prevBlock);
                 sequBlock.setSecond(new ReturnBlock());
                 continue next_jump;
@@ -254,7 +264,8 @@ public class FlowBlock {
                             else
                                 cb.outer.getSubBlocks()[1].moveJump(cb.outer);
                         }
-                        cb.outer.getSubBlocks()[1].replace(cb.outer);
+                        cb.outer.getSubBlocks()[1].replace
+                            (cb.outer, cb.outer.getSubBlocks()[1]);
                         /* cb and cb.outer are not used any more */
                         /* Note that cb.outer != appendBlock because
                          * appendBlock contains loopBlock
@@ -277,7 +288,7 @@ public class FlowBlock {
                         loopBlock.setCondition(((Expression)instr).negate());
                         
                         EmptyBlock empty = new EmptyBlock();
-                        empty.replace(cb);
+                        empty.replace(cb, null);
                         /* cb is not used any more */
                         continue next_jump;
                     }
@@ -309,7 +320,7 @@ public class FlowBlock {
                         else
                             prevBlock.removeJump();
 
-                        sequBlock.replace(prevBlock);
+                        sequBlock.replace(prevBlock, prevBlock);
                         sequBlock.setFirst(prevBlock);
                         sequBlock.setSecond
                             (new BreakBlock((BreakableBlock) surrounder, 
@@ -330,8 +341,9 @@ public class FlowBlock {
      * successing flow block simultanous to a T1 transformation.
      * @param successor The flow block which is unified with this flow
      * block.  
+     * @return The variables that must be defined in this block.
      */
-    void updateInOut (FlowBlock successor, boolean t1Transformation) {
+    VariableSet updateInOut (FlowBlock successor, boolean t1Transformation) {
         /* First get the out vectors of all jumps to successor and
          * calculate the intersection.
          */
@@ -343,33 +355,39 @@ public class FlowBlock {
             if (jump == null || jump.destination != successor)
                 continue;
             
-            allOuts.union(jump.prev.out);
+            allOuts.union(jump.out);
             if (intersectOut == null) 
-                intersectOut = jump.prev.out;
+                intersectOut = jump.out;
             else
-                intersectOut = intersectOut.intersect(jump.prev.out);
+                intersectOut = intersectOut.intersect(jump.out);
         }
-        
-        /* Now work on each block of the successor */
-        Stack todo = new Stack();
-        todo.push(successor.block);
-        while (!todo.empty()) {
-            StructuredBlock block = (StructuredBlock) todo.pop();
-            StructuredBlock[] subBlocks = block.getSubBlocks();
-            for (int i=0; i<subBlocks.length; i++)
-                todo.push(subBlocks[i]);
-            
-            /* Merge the locals used in successing block with those written
-             * by this blocks
-             */
-            block.in.merge(allOuts);
 
-            if (t1Transformation) {
-                /* Now update in and out set of successing block */
-                block.in.subtract(intersectOut);
-                block.out.add(intersectOut);
+        System.err.println("UpdateInOut: allOuts     : "+allOuts);
+        System.err.println("             intersectOut: "+intersectOut);
+        
+        /* Merge the locals used in successing block with those written
+         * by this blocks
+         */
+        VariableSet defineHere = successor.in.merge(allOuts);
+        defineHere.subtractIdentical(in);
+        
+        System.err.println("             defineHere  : "+defineHere);
+        if (t1Transformation) {
+            /* Now update in and out set of successing block */
+            successor.in.subtract(intersectOut);
+            /* The out set must be updated for every jump in the block */
+            enum = successor.successors.elements();
+            while (enum.hasMoreElements()) {
+                Jump jump = (Jump) enum.nextElement();
+                if (jump != null)
+                    jump.out.add(intersectOut);
             }
         }
+        System.err.println("             successor.in: "+successor.in);
+        in.union(successor.in);
+        System.err.println("             in          : "+in);
+        /* XXX - do something with defineHere */
+        return defineHere; /*XXX - correct???*/
     }
     
 
@@ -518,8 +536,10 @@ public class FlowBlock {
 
         try{
             System.err.println("doing T1 analysis on: "+getLabel());
+            System.err.println("***in: "+in);
             checkConsistent();
             System.err.println("and "+succ.getLabel());
+            System.err.println("+++in: "+succ.in);
             succ.checkConsistent();
         } catch (RuntimeException ex) {
             try {
@@ -550,8 +570,7 @@ public class FlowBlock {
         }
 
         /* Update the in/out-Vectors now */
-        updateInOut(succ, true);
-
+        VariableSet defineHere = updateInOut(succ, true);
 
         /* The switch "fall through" case: if the appendBlock is a
          * switch, and the successor is the address of a case, and all
@@ -573,6 +592,7 @@ public class FlowBlock {
             /* Do the following modifications on the struct block. */
             appendBlock = precedingcase;
             succ.block.setFlowBlock(this);
+            switchBlock.define(defineHere);
 
         } else {
 
@@ -595,10 +615,11 @@ public class FlowBlock {
              */
             SequentialBlock sequBlock = 
                 new SequentialBlock();
-            sequBlock.replace(appendBlock);
+            sequBlock.replace(appendBlock, appendBlock);
             sequBlock.setFirst(appendBlock);
             sequBlock.setSecond(succ.block);
             succ.block.setFlowBlock(this);
+            sequBlock.define(defineHere);
         }
 
         /* Merge the sucessors from the successing flow block
@@ -683,13 +704,13 @@ public class FlowBlock {
             StructuredBlock prevBlock = jump.prev;
             prevBlock.removeJump();
             
-            sequBlock.replace(prevBlock);
+            sequBlock.replace(prevBlock, prevBlock);
             sequBlock.setFirst(prevBlock);
             sequBlock.setSecond(new BreakBlock(doWhileFalse, breaklevel > 1));
         }
 
         if (doWhileFalse != null) {
-            doWhileFalse.replace(appendBlock);
+            doWhileFalse.replace(appendBlock, appendBlock);
             doWhileFalse.setBody(appendBlock);
         }
         
@@ -714,6 +735,7 @@ public class FlowBlock {
         /* T1 transformation succeeded */
         try {
             System.err.println("T1 succeeded:");
+            System.err.println("===in: "+in);
             checkConsistent();
         } catch (RuntimeException ex) {
             try {
@@ -727,7 +749,7 @@ public class FlowBlock {
         return true;
     }
 
-    public boolean doT2() {
+    public boolean doT2(Vector triedBlocks) {
         /* If there are no jumps to the beginning of this flow block
          * or if this block has other predecessors with a higher
          * address, return false.  The second condition make sure that
@@ -738,7 +760,8 @@ public class FlowBlock {
         Enumeration preds = predecessors.elements();
         while (preds.hasMoreElements()) {
             FlowBlock predFlow = (FlowBlock) preds.nextElement();
-            if (predFlow != null && predFlow.addr > addr) {
+            if (predFlow != null && predFlow != this
+                && !triedBlocks.contains(predFlow)) {
                 System.err.println("refusing T2 on: "+getLabel()+
                                    " because of "+predFlow.getLabel());
                 /* XXX Is this enough to refuse T2 trafo ??? */
@@ -760,7 +783,7 @@ public class FlowBlock {
         }
 
         /* Update the in/out-Vectors now */
-        updateInOut(this, false);
+        VariableSet defineHere = updateInOut(this, false);
 
         /* If there is only one jump to the beginning and it is the
          * last jump and (there is a do/while(0) block surrounding
@@ -789,8 +812,9 @@ public class FlowBlock {
             LoopBlock whileBlock = 
                 new LoopBlock(LoopBlock.WHILE, LoopBlock.TRUE);
 
-            whileBlock.replace(bodyBlock);
+            whileBlock.replace(bodyBlock, bodyBlock);
             whileBlock.setBody(bodyBlock);
+            whileBlock.define(defineHere);
 
             /* Try to eliminate as many jumps as possible.
              */
@@ -825,7 +849,7 @@ public class FlowBlock {
                 StructuredBlock prevBlock = jump.prev;
                 prevBlock.removeJump();
                 
-                sequBlock.replace(prevBlock);
+                sequBlock.replace(prevBlock, prevBlock);
                 sequBlock.setFirst(prevBlock);
                 sequBlock.setSecond(new ContinueBlock(whileBlock, 
                                                       continuelevel > 1));
@@ -899,6 +923,17 @@ public class FlowBlock {
             writer.println(label+":");
             writer.tab();
         }
+
+        if (jode.Decompiler.isDebugging) {
+            writer.print("in: ");
+            java.util.Enumeration enum = in.elements();
+            while(enum.hasMoreElements()) {
+                writer.print(((jode.LocalInfo)enum.nextElement()).getName()
+                             + " ");
+            }
+            writer.println("");
+        }
+
         block.dumpSource(writer);
         FlowBlock succ = getSuccessor();
         if (succ != null)
