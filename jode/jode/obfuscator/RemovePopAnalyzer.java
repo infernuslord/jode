@@ -24,21 +24,8 @@ import jode.GlobalOptions;
 import jode.type.MethodType;
 import jode.type.Type;
 
-public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
-    MethodIdentifier m;
-    BytecodeInfo bytecode;
-
-    public RemovePopAnalyzer(BytecodeInfo bytecode, MethodIdentifier m) {
-	this.m = m;
-	this.bytecode = bytecode;
-    }
-
-    /**
-     * Reads the opcodes out of the code info and determine its 
-     * references
-     * @return an enumeration of the references.
-     */
-    public void analyzeCode() {
+public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
+    public RemovePopAnalyzer() {
     }
 
     class PopInfo {
@@ -60,8 +47,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 	return popInstr;
     }
 
-    public BytecodeInfo stripCode() {
-	try {
+    public void transformCode(BytecodeInfo bytecode) {
 	int poppush[] = new int[2];
 	Instruction instr = bytecode.getFirstInstr(); 
 	while (instr != null) {
@@ -281,10 +267,5 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 		continue;
 	    }
 	}
-	} catch (RuntimeException ex) {
-	    ex.printStackTrace(GlobalOptions.err);
-	    bytecode.dumpCode(GlobalOptions.err);
-	}
-	return bytecode;
     }
 }
