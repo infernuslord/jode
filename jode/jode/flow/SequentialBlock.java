@@ -168,17 +168,15 @@ public class SequentialBlock extends StructuredBlock {
      * block (this is <i>not</i> the used set).
      */
     public VariableSet propagateUsage() {
-	if (used == null)
-	    used = new VariableSet();/*XXX*/
+	used = new VariableSet();
         VariableSet allUse = new VariableSet();
 	VariableSet childUse0 = subBlocks[0].propagateUsage();
 	VariableSet childUse1 = subBlocks[1].propagateUsage();
 	/* All variables used somewhere inside both sub blocks, are
 	 * used in this block, too.  
 	 * Also the variables used in first block are used in this
-	 * block two, except when it can be declared locally.
-	 * (Note that subBlocks[0].used != childUse0)
-	 */
+	 * block, except when it can be declared locally.  (Note that
+	 * subBlocks[0].used != childUse0) */
 	used.unionExact(subBlocks[0].used);
 	if (subBlocks[0] instanceof LoopBlock)
 	    ((LoopBlock) subBlocks[0]).removeLocallyDeclareable(used);

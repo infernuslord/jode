@@ -70,12 +70,13 @@ public class SynchronizedBlock extends StructuredBlock {
         return true;
     }
 
-    public void dumpDeclaration(TabbedPrintWriter writer, LocalInfo local)
-	throws java.io.IOException
-    {
-        if (local.getLocalInfo() != this.local.getLocalInfo() 
-            || object == null)
-            super.dumpDeclaration(writer, local);
+    public VariableSet getUsed() {
+	VariableSet used = new VariableSet();
+	if (object != null)
+	    object.fillInGenSet(null, used);
+	else
+	    used.addElement(local);
+	return used;
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 

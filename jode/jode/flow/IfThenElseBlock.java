@@ -131,11 +131,10 @@ public class IfThenElseBlock extends StructuredBlock {
 	    elseBlock.removePush();
     }
 
-    public VariableSet propagateUsage() {
-	if (used == null)
-	    used = new VariableSet(); /*XXX*/
+    public VariableSet getUsed() {
+	used = new VariableSet();
 	cond.fillInGenSet(null, used);
-	return super.propagateUsage();
+	return used;
     }
 
     /**
