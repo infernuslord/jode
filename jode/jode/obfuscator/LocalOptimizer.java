@@ -183,7 +183,7 @@ public class LocalOptimizer implements Opcodes {
     }
 
     BytecodeInfo bc;
-    MethodInfo methodInfo;
+    MethodIdentifier methodIdent;
 
     InstrInfo firstInfo;
     Stack changedInfos;
@@ -193,9 +193,9 @@ public class LocalOptimizer implements Opcodes {
 
     LocalInfo[] paramLocals;
 
-    public LocalOptimizer(BytecodeInfo bc, MethodInfo methodInfo) {
+    public LocalOptimizer(MethodIdentifier methodIdent, BytecodeInfo bc) {
+	this.methodIdent = methodIdent;
 	this.bc = bc;
-	this.methodInfo = methodInfo;
     }
 
 
@@ -289,14 +289,14 @@ public class LocalOptimizer implements Opcodes {
 
 	/* Initialize paramLocals */
 	{
-	    int paramCount = methodInfo.isStatic() ? 0 : 1;
+	    int paramCount = methodIdent.info.isStatic() ? 0 : 1;
 	    Type[] paramTypes = 
-		Type.tMethod(methodInfo.getType()).getParameterTypes();
+		Type.tMethod(methodIdent.getType()).getParameterTypes();
 	    for (int i = paramTypes.length; i-- > 0;)
 		paramCount += paramTypes[i].stackSize();
 	    paramLocals = new LocalInfo[paramCount];
 	    int slot = 0;
-	    if (!methodInfo.isStatic()) {
+	    if (!methodIdent.info.isStatic()) {
 		LocalInfo local = new LocalInfo();
 		if (lvt != null) {
 		    LocalVariableInfo lvi = findLVTEntry(lvt, 0, 0);
@@ -738,6 +738,24 @@ public class LocalOptimizer implements Opcodes {
 		}
 	    }
 
+	    if (info.instr.opcode == opc_jsr) {
+		/* On a jsr we do a special merge */
+
+		Instruction jsrTargetInstr = info.instr.succs[0];
+		InstrInfo jsrTargetInfo
+		    = (InstrInfo) instrInfos.get(jsrTargetInstr);
+		InstrInfo retInfo = jsrTargetInfo.retInfo;
+		if (retInfo != null && retInfo.lifeLocals != null) {
+		    LocalInfo[] retLife = (LocalInfo[]) newLife.clone();
+		    for (int i=0; i< maxlocals; i++) {
+			if (retInfo.usedBySub.get(i))
+			    retLife[i] = retInfo.lifeLocals[i];
+		    }
+		    if (promoteLifeLocals(retLife, info.nextInfo))
+			changedInfo.push(info.nextInfo);
+		}
+	    }
+
 	    if (info.jsrTargetInfo != null) {
 		/* On a ret we do a special merge */
 
@@ -746,6 +764,9 @@ public class LocalOptimizer implements Opcodes {
 		    InstrInfo jsrInfo
 			= (InstrInfo) instrInfos.get(jsrTargetInstr.preds[j]);
 
+		    if (jsrInfo.lifeLocals == null)
+			/* life locals are not calculated, yet */
+			continue;
 		    LocalInfo[] retLife = (LocalInfo[]) newLife.clone();
 		    for (int i=0; i< maxlocals; i++) {
 			if (!info.usedBySub.get(i))
@@ -766,8 +787,9 @@ public class LocalOptimizer implements Opcodes {
 		if (currentLocal[i].name != null) {
 		    lvi[i] = new LocalVariableInfo();
 		    lvtEntries.addElement(lvi[i]);
-		    lvi[i].name = currentLocal[i].name;
-		    lvi[i].type = currentLocal[i].type;
+		    lvi[i].name = currentLocal[i].name; /* XXX obfuscation? */
+		    lvi[i].type = Main.getClassBundle()
+			.getTypeAlias(currentLocal[i].type);
 		    lvi[i].start = bc.getFirstInstr();
 		    lvi[i].slot = i;
 		}
@@ -794,7 +816,8 @@ public class LocalOptimizer implements Opcodes {
 			lvi[i] = new LocalVariableInfo();
 			lvtEntries.addElement(lvi[i]);
 			lvi[i].name = currentLocal[i].name;
-			lvi[i].type = currentLocal[i].type;
+			lvi[i].type = Main.getClassBundle()
+			    .getTypeAlias(currentLocal[i].type);
 			lvi[i].start = info.instr;
 			lvi[i].slot = i;
 		    }
