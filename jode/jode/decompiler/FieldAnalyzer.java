@@ -72,29 +72,25 @@ public class FieldAnalyzer implements Analyzer {
 	return isSynthetic;
     }
 
+    public boolean isFinal() {
+	return Modifier.isFinal(modifiers);
+    }
+
     public void analyzedSynthetic() {
 	analyzedSynthetic = true;
     }
 
     public boolean setInitializer(Expression expr) {
-        expr.makeInitializer();
-        if (constant != null)
-            return constant.equals(expr);
-        constant = expr;
-        return true;
-    }
-    
-    public boolean setSpecial(Expression expr) {
-	if (!isSynthetic || !Modifier.isFinal(modifiers))
-	    return false;
-	if (!fieldName.startsWith("this$")) {
-	    if (!(expr instanceof LocalLoadOperator)
-		|| !fieldName.startsWith("val$"))
-		return false;
-	}
 	if (constant != null)
 	    return constant.equals(expr);
-	analyzedSynthetic();
+
+	if (isSynthetic && isFinal()
+	    && (fieldName.startsWith("this$")
+		|| fieldName.startsWith("val$")))
+	    analyzedSynthetic();
+	else
+	    expr.makeInitializer();
+
 	constant = expr;
 	return true;
     }
@@ -116,11 +112,13 @@ public class FieldAnalyzer implements Analyzer {
 	    constant = constant.simplify();
     }
 
+    public boolean skipWriting() {
+	return analyzedSynthetic;
+    }
+
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException 
     {
-	if (analyzedSynthetic)
-	    return; /*XXX*/
 	if (isDeprecated) {
 	    writer.println("/**");
 	    writer.println(" * @deprecated");
