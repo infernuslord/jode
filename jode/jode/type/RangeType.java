@@ -36,37 +36,22 @@ import java.util.Hashtable;
  * @date 98/08/06
  */
 public class RangeType extends Type {
-    final ClassInterfacesType bottomType;
-    final ClassInterfacesType topType;
-//      final Type hintType;
-
-//      public RangeType(Type bottomType, Type topType, Type hintType) {
-//          super(TC_RANGE);
-//          if (bottom.typecode == TC_RANGE
-//              || top.typecode == TC_RANGE)
-//              throw new AssertError("tRange("+bottom+","+top+")");
-//  	if (top.typecode == TC_UNKNOWN)
-//  	    throw new AssertError("tRange(tUnknown, "+top+")");
-//  	this.bottomType = bottomType;
-//  	this.topType    = topType;
-//  	this.hintType   = hintType;
-//      }
-
-    public RangeType(ClassInterfacesType bottomType, 
-		     ClassInterfacesType topType) {
+    final ReferenceType bottomType;
+    final ReferenceType topType;
+    public RangeType(ReferenceType bottomType, 
+		     ReferenceType topType) {
         super(TC_RANGE);
 	if (bottomType == tNull)
 	    throw new jode.AssertError("bottom is NULL");
 	this.bottomType = bottomType;
 	this.topType    = topType;
-//  	this.hintType   = bottomType.isValidType() ? bottomType : topType;
     }
 
-    public ClassInterfacesType getBottom() {
+    public ReferenceType getBottom() {
         return bottomType;
     }
 
-    public ClassInterfacesType getTop() {
+    public ReferenceType getTop() {
         return topType;
     }
 
@@ -88,7 +73,7 @@ public class RangeType extends Type {
 //       * @param bottomType the start point of the range
 //       * @return the range type, or tError if not possible.
 //       */
-//      public ClassInterfacesType createRangeType(ClassInterfacesType bottomType) {
+//      public ReferenceType createRangeType(ReferenceType bottomType) {
 //          throw new AssertError("createRangeType called on RangeType");
 //      }
 
@@ -97,7 +82,7 @@ public class RangeType extends Type {
 //       * @param type the other type.
 //       * @return the common sub type.
 //       */
-//      public ClassInterfacesType getSpecializedType(ClassInterfacesType type) {
+//      public ReferenceType getSpecializedType(ReferenceType type) {
 //          throw new AssertError("getSpecializedType called on RangeType");
 //      }
 
@@ -178,21 +163,18 @@ public class RangeType extends Type {
 	bottom = bottomType.getSpecializedType(type);
 	if (top.equals(bottom))
 	    result = top;
-	else if (top instanceof ClassInterfacesType
-		 && bottom instanceof ClassInterfacesType)
-	    result = ((ClassInterfacesType)top)
-		.createRangeType((ClassInterfacesType)bottom);
+	else if (top instanceof ReferenceType
+		 && bottom instanceof ReferenceType)
+	    result = ((ReferenceType)top)
+		.createRangeType((ReferenceType)bottom);
 	else
 	    result = tError;
 
-        if (result == tError) {
-            Decompiler.err.println("intersecting "+ this +" and "+ type
-				   + " to <" + bottom + "," + top + ">"
-				   + " to <error>");
-        } else if (Decompiler.isTypeDebugging) {
+        if (Decompiler.isTypeDebugging) {
 	    Decompiler.err.println("intersecting "+ this +" and "+ type + 
                                    " to " + result);
 	}	    
         return result;
     }
 }
+

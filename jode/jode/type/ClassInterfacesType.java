@@ -33,7 +33,7 @@ import java.util.Stack;
  * the searched type.
  *
  * @author Jochen Hoenicke */
-public class ClassInterfacesType extends Type {
+public class ClassInterfacesType extends ReferenceType {
 
     ClassInfo clazz;
     ClassInfo ifaces[];
@@ -73,14 +73,6 @@ public class ClassInterfacesType extends Type {
         this.ifaces = ifaces;
     }
 
-    public Type getSuperType() {
-	return (this == tObject) ? tObject : tRange(tObject, this);
-    }
-
-    public Type getSubType() {
-        return tRange(this, tNull);
-    }
-
     static ClassInterfacesType create(ClassInfo clazz, ClassInfo[] ifaces) {
         /* Make sure that every {java.lang.Object} equals tObject */
         if (ifaces.length == 0 && clazz == null) 
@@ -107,14 +99,15 @@ public class ClassInterfacesType extends Type {
      * @param bottom the start point of the range
      * @return the range type, or tError if range is empty.  
      */
-    public Type createRangeType(ClassInterfacesType bottom) {
-
-        if (bottom == tObject)
-            return (this == tObject) ? tObject : tRange(tObject, this);
-        
-        if (bottom.typecode != TC_CLASS)
+    public Type createRangeType(ReferenceType bottomType) {
+        if (bottomType.typecode != TC_CLASS)
             return tError;
 
+	ClassInterfacesType bottom = (ClassInterfacesType) bottomType;
+
+        if (bottomType == tObject)
+            return (this == tObject) ? tObject : tRange(tObject, this);
+        
         if (bottom.clazz != null) {
             /* The searched type must be a class type.
              */
@@ -186,21 +179,6 @@ public class ClassInterfacesType extends Type {
             return tRange(bottom, create(clazz, ifaces));
         }
     }
-
-    protected boolean implementsAllIfaces(ClassInfo[] otherIfaces) {
-    big:
-        for (int i=0; i < otherIfaces.length; i++) {
-            ClassInfo iface = otherIfaces[i];
-            if (clazz != null && iface.implementedBy(clazz))
-                continue big;
-            for (int j=0; j < this.ifaces.length; j++) {
-                if (iface.implementedBy(ifaces[j]))
-                        continue big;
-            }
-            return false;
-        }
-        return true;
-    }
     
     /**
      * Returns the specialized type of this and type.
@@ -244,10 +222,11 @@ public class ClassInterfacesType extends Type {
          * class where at one intersection this doesn't succeed) 
 	 */
         if (clazz == this.clazz 
-            && implementsAllIfaces(other.ifaces))
+            && implementsAllIfaces(this.clazz, this.ifaces, other.ifaces))
             return this;
         else if (clazz == other.clazz 
-                 && other.implementsAllIfaces(this.ifaces))
+                 && implementsAllIfaces(other.clazz, other.ifaces, 
+					this.ifaces))
             return other;
 
         /* The interfaces are simply the union of both interfaces set. 
@@ -333,10 +312,10 @@ public class ClassInterfacesType extends Type {
         }
 
         if (clazz == this.clazz 
-            && other.implementsAllIfaces(this.ifaces))
+            && implementsAllIfaces(other.clazz, other.ifaces, this.ifaces))
             return this;
         else if (clazz == other.clazz 
-                 && this.implementsAllIfaces(other.ifaces))
+                 && implementsAllIfaces(this.clazz, this.ifaces, other.ifaces))
             return other;
 
         /* Now the more complicated part: find all interfaces, that are
@@ -522,52 +501,5 @@ public class ClassInterfacesType extends Type {
             }
         }
         return false;
-    }
-
-    /**
-     * Intersect this type with another type and return the new type.
-     * @param type the other type.
-     * @return the intersection, or tError, if a type conflict happens.
-     */
-    public Type intersection(Type type) {
-	if (type == tError)
-	    return type;
-	if (type == Type.tUnknown)
-	    return this;
-
-	ClassInterfacesType top, bottom;
-//  	if (type instanceof RangeType) {
-//  	    top = ((RangeType)type).getTop();
-//  	    bottom = ((RangeType)type).getBottom();
-//  	} else if (type instanceof ClassInterfacesType) {
-//  	    top = bottom = (ClassInterfacesType) type;
-//  	} else {
-//              Decompiler.err.println("intersecting "+ this +" and "+ type
-//  				   + " to <error>");
-//              if (Decompiler.isTypeDebugging)
-//                  throw new AssertError("type error");
-//  	    return tError;
-//  	}
-	Type newBottom = getSpecializedType(type);
-	Type newTop    = getGeneralizedType(type);
-	Type result;
-	if (newTop.equals(newBottom))
-	    result = newTop;
-	else if (newTop instanceof ClassInterfacesType
-		 && newBottom instanceof ClassInterfacesType)
-	    result = ((ClassInterfacesType) newTop)
-		.createRangeType((ClassInterfacesType) newBottom);
-	else
-	    result = tError;
-
-        if (result == tError) {
-            Decompiler.err.println("intersecting "+ this +" and "+ type
-                               + " to <" + newBottom + "," + newTop + ">"
-                               + " to <error>");
-        } else if (Decompiler.isTypeDebugging) {
-	    Decompiler.err.println("intersecting "+ this +" and "+ type + 
-                                   " to " + result);
-	}	    
-        return result;
     }
 }
