@@ -50,6 +50,13 @@ public class CatchBlock extends StructuredBlock {
         used.addElement(exceptionLocal);
     }
 
+    public Type getExceptionType() {
+	return exceptionType;
+    }
+
+    public LocalInfo getLocal() {
+	return exceptionLocal;
+    }
 
     /** 
      * Sets the catch block.
