@@ -383,7 +383,7 @@ public abstract class Opcodes {
         case opc_lookupswitch: {
             int length = 3-(addr % 4);
             stream.skip(length);
-            int def = stream.readInt();
+            int def = addr + stream.readInt();
             int npairs = stream.readInt();
             int[] dests = new int[npairs+2];
             for (int i=0; i < npairs; i++) {
@@ -425,7 +425,8 @@ public abstract class Opcodes {
             return new int[] { 2, addr+2 };
         }
 
-        if (opcode >= opc_ireturn && opcode <= opc_return)
+        if (opcode == opc_athrow
+            && opcode >= opc_ireturn && opcode <= opc_return)
             return new int[] { 1 };
         if (opcode >= opc_ifeq && opcode <= opc_if_acmpne)
             return new int[] { 3, addr + 3, addr + stream.readShort() };
