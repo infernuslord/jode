@@ -68,6 +68,10 @@ public class LocalInfo {
         getLocalInfo().operators.addElement(operator);
     }
 
+    public int getUseCount() {
+	return getLocalInfo().operators.size();
+    }
+
     /**
      * Combines the LocalInfo with another.  This will make this
      * a shadow object to the other local info.  That is all member
@@ -83,8 +87,8 @@ public class LocalInfo {
         } else {
             if (this != li) {
                 shadow = li;
-//                 Decompiler.err.println("combining "+name+"("+type+") and "
-//                                    +li.name+"("+li.type+")");
+//  		Decompiler.err.println("combining "+name+"("+type+") and "
+//  				       +li.name+"("+li.type+")");
                 li.setType(type);
 
 
@@ -195,12 +199,17 @@ public class LocalInfo {
      * @param  The new type information to be set.
      * @return The new type of the local.
      */
-    public Type setType(Type newType) {
+    public Type setType(Type otherType) {
         LocalInfo li = getLocalInfo();
-        newType = li.type.intersection(newType);
-        if (Decompiler.isTypeDebugging)
+        Type newType = li.type.intersection(otherType);
+	if (newType == Type.tError
+	    && otherType != Type.tError && li.type != Type.tError)
+	    Decompiler.err.println("Type error in local " + getName()+": "
+				   + li.type + " and " + otherType);
+        else if (Decompiler.isTypeDebugging)
             Decompiler.err.println(getName()+" setType, new: "+newType
-                               + " old: "+li.type);
+				   + " old: "+li.type);
+
         if (!li.type.equals(newType)) {
             li.type = newType;
             java.util.Enumeration enum = li.operators.elements();
