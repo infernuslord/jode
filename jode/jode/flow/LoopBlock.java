@@ -336,6 +336,8 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 
 		if (cond != TRUE)
 		    mergeBreakedStack(newStack);
+		if (cond != FALSE)
+		    stack.merge(newStack);
 	    }	    
 	} else {
 	    continueStack = stack;
