@@ -442,15 +442,8 @@ public class PackageIdentifier extends Identifier {
     }
 
     public void buildTable(Renamer renameRule) {
-	super.buildTable(renameRule);
 	loadOnDemand = false;
-	for (Iterator i = loadedClasses.values().iterator(); i.hasNext(); ) {
-	    Identifier ident = (Identifier) i.next();
-	    if (ident instanceof ClassIdentifier)
-		((ClassIdentifier) ident).buildTable(renameRule);
-	    else
-		((PackageIdentifier) ident).buildTable(renameRule);
-	}
+	super.buildTable(renameRule);
     }
 
     public void doTransformations() {
