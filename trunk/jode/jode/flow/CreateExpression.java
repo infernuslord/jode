@@ -40,7 +40,6 @@ public class CreateExpression {
      */
     public static boolean transform(InstructionContainer ic,
                                     StructuredBlock last) {
-
         int params = ic.getInstruction().getOperandCount();
         if (params == 0)
             return false;
@@ -65,31 +64,42 @@ public class CreateExpression {
          */
         Expression lastExpression = null;
         for (int i = params;;) {
+	    
+	    if (i >= 2 && sequBlock.subBlocks[0] instanceof SpecialBlock) {
+		/* Transform (this is for string += under jikes)
+		 *   PUSH arg2
+		 *   PUSH arg1
+		 *   SWAP
+		 */
+		SpecialBlock swap = (SpecialBlock) sequBlock.subBlocks[0];
+		if (swap.type != SpecialBlock.SWAP)
+		    return false;
+		/* XXX check if swapping is possible */
+	    } else {
+		if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
+		    return false;
+		
+		Expression expr =
+		    ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
+		
+		if (!expr.isVoid()) {
+		    if (--i == 0)
+			break;
+		} else if (lastExpression == null
+			   || !(expr.getOperator() 
+				instanceof CombineableOperator)
+			   || lastExpression.canCombine(expr) <= 0)
+		    return false;
+		
+		if (expr.getOperandCount() > 0)
+		    /* This is a not fully resolved expression in the
+		     * middle, we must not touch it.  */
+		    return false;
 
-            if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
-                return false;
-            
-            Expression expr =
-                ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
-            
-            if (!expr.isVoid()) {
-                if (--i == 0)
-                    break;
-            } else if (lastExpression == null
-		       || !(expr.getOperator() 
-			    instanceof CombineableOperator)
-                       || lastExpression.canCombine(expr) <= 0)
-                return false;
-
-            if (expr.getOperandCount() > 0)
-                /* This is a not fully resolved expression in the
-                 * middle, we must not touch it.  */
-                return false;
-
-            lastExpression =  expr;
-            
-            if (!(sequBlock.outer instanceof SequentialBlock))
-                return false;
+		lastExpression =  expr;
+	    }
+	    if (!(sequBlock.outer instanceof SequentialBlock))
+		return false;
             sequBlock = (SequentialBlock) sequBlock.outer;
         }
 
@@ -97,17 +107,38 @@ public class CreateExpression {
          */
         Expression[] exprs = new Expression[params];
         sequBlock = (SequentialBlock) last.outer;
+	int swapping = 0;
         for (int i=params; ;) {
 
-            Expression expr =
-                ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
-            
-            if (!expr.isVoid()) {
-                exprs[--i] = expr;
-                if (i == 0)
-                    break;
-            } else
-                exprs[i] = exprs[i].combine(expr);
+	    if (sequBlock.subBlocks[0] instanceof SpecialBlock) {
+		// This must be a swap (see above).
+		swapping = 1;
+		
+	    } else {
+		Expression expr =
+		    ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
+		
+		if (!expr.isVoid()) {
+		    if (swapping == 1) {
+			// We start swapping:
+			i--;
+			swapping = 2;
+		    } else if (swapping == 2) {
+			// We continue swapping:
+			i += 2;
+			swapping = 3;
+		    } else if (swapping == 3) {
+			// Now we end swapping:
+			i--;
+			swapping = 0;
+		    }
+		    exprs[--i] = expr;
+		    if (i == 0 && swapping == 0
+			|| i == 1 && swapping == 3)
+			break;
+		} else
+		    exprs[i] = exprs[i].combine(expr);
+	    }
             
             sequBlock = (SequentialBlock)sequBlock.outer;
         }
