@@ -21,14 +21,9 @@ package jode.type;
 import jode.AssertError;
 import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
-///#ifdef JDK12
-///import java.lang.ref.WeakReference;
-///import java.lang.ref.ReferenceQueue;
-///import java.util.Map;
-///import java.util.HashMap;
-///#else
-import java.util.Hashtable;
-///#endif
+import jode.util.UnifyHash;
+
+import @COLLECTIONS@.Iterator;
 
 /**
  * This is my type class.  It differs from java.lang.class, in that it
@@ -58,18 +53,9 @@ public class Type {
     public static final int TC_RANGE = 103;
     public static final int TC_INTEGER = 107;
 
-///#ifdef JDK12
-///    private static final Map classHash = new HashMap();
-///    private static final ReferenceQueue classQueue = new ReferenceQueue();
-///    private static final Map arrayHash = new HashMap();    
-///    private static final ReferenceQueue arrayQueue = new ReferenceQueue();
-///    private static final Map methodHash = new HashMap();    
-///    private static final ReferenceQueue methodQueue = new ReferenceQueue();
-///#else
-    private static final Hashtable classHash = new Hashtable();
-    private static final Hashtable arrayHash = new Hashtable();    
-    private static final Hashtable methodHash = new Hashtable();    
-///#endif
+    private static final UnifyHash classHash = new UnifyHash();
+    private static final UnifyHash arrayHash = new UnifyHash();    
+    private static final UnifyHash methodHash = new UnifyHash();    
 
     /**
      * This type represents the singleton set containing the boolean type.
@@ -234,24 +220,16 @@ public class Type {
      * @return a singleton set containing the given type.
      */
     public static final ClassInterfacesType tClass(ClassInfo clazzinfo) {
-///#ifdef JDK12
-///	java.lang.ref.Reference died;
-///	while ((died = classQueue.poll()) != null)
-///	    classHash.values().remove(died);
-///	WeakReference ref = (WeakReference) classHash.get(clazzinfo);
-///        Object result = (ref == null) ? null : ref.get();
-///#else
-        Object result = classHash.get(clazzinfo);
-///#endif
-        if (result == null) {
-            result = new ClassInterfacesType(clazzinfo);
-///#ifdef JDK12
-///            classHash.put(clazzinfo, new WeakReference(result, classQueue));
-///#else
-            classHash.put(clazzinfo, result);
-///#endif
-        }
-        return (ClassInterfacesType) result;
+	int hash = clazzinfo.hashCode();
+	Iterator iter = classHash.iterateHashCode(hash);
+	while (iter.hasNext()) {
+	    ClassInterfacesType type = (ClassInterfacesType) iter.next();
+	    if (type.getClassInfo() == clazzinfo)
+		return type;
+	}
+	ClassInterfacesType type = new ClassInterfacesType(clazzinfo);
+	classHash.put(hash, type);
+        return type;
     }
 
     /**
@@ -263,24 +241,17 @@ public class Type {
     public static final Type tArray(Type type) {
         if (type == tError) 
             return type;
-///#ifdef JDK12
-///	java.lang.ref.Reference died;
-///	while ((died = arrayQueue.poll()) != null)
-///	    arrayHash.values().remove(died);
-///	WeakReference ref = (WeakReference) arrayHash.get(type);
-///        Type result = (ref == null) ? null : (Type) ref.get();
-///#else
-        Type result = (Type) arrayHash.get(type);
-///#endif
-        if (result == null) {
-            result = new ArrayType(type);
-///#ifdef JDK12
-///            arrayHash.put(type, new WeakReference(result, arrayQueue));
-///#else
-            arrayHash.put(type, result);
-///#endif
-        }
-        return result;
+
+	int hash = type.hashCode();
+	Iterator iter = arrayHash.iterateHashCode(hash);
+	while (iter.hasNext()) {
+	    ArrayType arrType = (ArrayType) iter.next();
+	    if (arrType.getElementType().equals(type))
+		return arrType;
+	}
+	ArrayType arrType = new ArrayType(type);
+	arrayHash.put(hash, arrType);
+        return arrType;
     }
 
     /**
@@ -289,24 +260,16 @@ public class Type {
      * @return a method type (a singleton set).
      */
     public static MethodType tMethod(String signature) {
-///#ifdef JDK12
-///	java.lang.ref.Reference died;
-///	while ((died = methodQueue.poll()) != null)
-///	    methodHash.values().remove(died);
-///	WeakReference ref = (WeakReference) methodHash.get(signature);
-///        MethodType result = (ref == null) ? null : (MethodType) ref.get();
-///#else
-	MethodType result = (MethodType) methodHash.get(signature);
-///#endif
-	if (result == null) {
-	    result = new MethodType(signature);
-///#ifdef JDK12
-///	    methodHash.put(signature, new WeakReference(result, methodQueue));
-///#else
-            methodHash.put(signature, result);
-///#endif
-        }
-        return result;
+	int hash = signature.hashCode();
+	Iterator iter = methodHash.iterateHashCode(hash);
+	while (iter.hasNext()) {
+	    MethodType methodType = (MethodType) iter.next();
+	    if (methodType.getTypeSignature().equals(signature))
+		return methodType;
+	}
+	MethodType methodType = new MethodType(signature);
+	methodHash.put(hash, methodType);
+        return methodType;
     }
 
     /**
