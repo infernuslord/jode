@@ -17,7 +17,7 @@
  * $Id$
  */
 
-package jode.flow;
+package jode.util;
 
 public class ArrayEnum implements java.util.Enumeration {
     int index = 0;
