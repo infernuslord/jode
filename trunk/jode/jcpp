@@ -1,11 +1,12 @@
 #!/usr/bin/perl
-
-# This is a program to allow preprocessing of java files.  The key idea is,
-# not to have a file that must go through the preprocessor, but to work on
-# the java files directly and make use of comments.
+#
+# This is a program to allow conditional compiled code in java files.
+# The key idea is, not to run the file always through the
+# preprocessor, but to modify the java files directly and make use of
+# comments.
 #
 # The comments all have the form /// to distinguish them from normal
-# comments. You should use such comments yourself.
+# comments. You should not use such comments yourself.
 #
 # Usage is simple:  jcpp -Ddefine1 -Ddefine2 first.java second.java
 # The files should contain comments of the form
@@ -106,7 +107,7 @@ for (@files) {
 		# remove comments in true branch;
 		print NEW "$line\n";
 	    } else {
-		# print out with directly:
+		# print out the full line with comments:
 		print NEW $_;
 	    }
 	} else {
@@ -119,4 +120,3 @@ for (@files) {
 	}
     }
 }
-
