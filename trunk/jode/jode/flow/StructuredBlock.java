@@ -26,9 +26,13 @@ import jode.decompiler.Declarable;
 import jode.util.SimpleSet;
 
 ///#ifdef JDK12
+///import java.util.Collections;
 ///import java.util.Iterator;
+///import java.util.Set;
 ///#else
+import jode.util.Collections;
 import jode.util.Iterator;
+import jode.util.Set;
 ///#endif
 
 /**
@@ -71,17 +75,17 @@ public abstract class StructuredBlock {
      */
 
     /**
-     * The SimpleSet containing all Declarables that are used in this
+     * The Set containing all Declarables that are used in this
      * block. 
      */
-    SimpleSet used;
+    Set used;
 
     /**
-     * The SimpleSet containing all Declarables we must declare.
+     * The Set containing all Declarables we must declare.
      * The analyzation is done in makeDeclaration
      */
-    SimpleSet declare;
-    SimpleSet done;
+    Set declare;
+    Set done;
 
     /**
      * The surrounding structured block.  If this is the outermost
@@ -218,16 +222,6 @@ public abstract class StructuredBlock {
      * will be moved to this block (may be this).  
      */
     void moveDefinitions(StructuredBlock from, StructuredBlock sub) {
-//          while (from != sub && from != this) {
-//              used.unionExact(from.used);
-//              from.used.removeAllElements();
-//              StructuredBlock[] subs = from.getSubBlocks();
-//              if (subs.length == 0)
-//                  return;
-//              for (int i=0; i<subs.length - 1; i++)
-//                  moveDefinitions(subs[i], sub);
-//              from = subs[subs.length-1];
-//          }
     }
 
     /**
@@ -347,8 +341,8 @@ public abstract class StructuredBlock {
 	return false;
     }
 
-    public SimpleSet getDeclarables() {
-	return new SimpleSet();
+    public Set getDeclarables() {
+	return Collections.EMPTY_SET;
     }
 
     /**
@@ -359,16 +353,18 @@ public abstract class StructuredBlock {
      *
      * @return all locals that are used in this block or in some sub
      * block (this is <i>not</i> the used set).  */
-    public SimpleSet propagateUsage() {
-	used = getDeclarables();
+    public Set propagateUsage() {
+	used = new SimpleSet();
+	used.addAll(getDeclarables());
         StructuredBlock[] subs = getSubBlocks();
-        SimpleSet allUse = (SimpleSet) used.clone();
+        Set allUse = new SimpleSet();
+	allUse.addAll(used);
         for (int i=0; i<subs.length; i++) {
-            SimpleSet childUse = subs[i].propagateUsage();
+            Set childUse = subs[i].propagateUsage();
             /* All variables used in more than one sub blocks, are
              * used in this block, too.  
              */
-	    SimpleSet intersection = new SimpleSet();
+	    Set intersection = new SimpleSet();
 	    intersection.addAll(childUse);
 	    intersection.retainAll(allUse);
 	    used.addAll(intersection);
@@ -443,8 +439,10 @@ public abstract class StructuredBlock {
      *
      * @param done The set of the already declare variables.
      */
-    public void makeDeclaration(SimpleSet done) {
-	this.done = (SimpleSet) done.clone();
+    public void makeDeclaration(Set done) {
+	this.done = new SimpleSet();
+	this.done.addAll(done);
+
 	declare = new SimpleSet();
 	Iterator iter = used.iterator();
     next_used:
@@ -532,7 +530,7 @@ public abstract class StructuredBlock {
             subs[i].checkConsistent();
         }
         if (jump != null && jump.destination != null) {
-            Jump jumps = (Jump) flowBlock.successors.get(jump.destination);
+            Jump jumps = (Jump) flowBlock.getJumps(jump.destination);
             for (; jumps != jump; jumps = jumps.next) {
                 if (jumps == null)
                     throw new AssertError("Inconsistency");
@@ -567,7 +565,7 @@ public abstract class StructuredBlock {
      * Fill all in variables into the given VariableSet.
      * @param in The VariableSet, the in variables should be stored to.
      */
-    public void fillInGenSet(VariableSet in, VariableSet gen) {
+    public void fillInGenSet(Set in, Set gen) {
         /* overwritten by InstructionContainer */
     }
 

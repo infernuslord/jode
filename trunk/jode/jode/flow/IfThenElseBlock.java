@@ -24,6 +24,12 @@ import jode.expr.Expression;
 import jode.type.Type;
 import jode.util.SimpleSet;
 
+///#ifdef JDK12
+///import java.util.Set;
+///#else
+import jode.util.Set;
+///#endif
+
 /**
  * An IfThenElseBlock is the structured block representing an if
  * instruction.  The else part may be null.
@@ -132,8 +138,8 @@ public class IfThenElseBlock extends StructuredBlock {
 	    elseBlock.removePush();
     }
 
-    public SimpleSet getDeclarables() {
-	SimpleSet used = new SimpleSet();
+    public Set getDeclarables() {
+	Set used = new SimpleSet();
 	cond.fillDeclarables(used);
 	return used;
     }

@@ -24,6 +24,12 @@ import jode.expr.InvokeOperator;
 import jode.expr.LocalVarOperator;
 import jode.util.SimpleSet;
 
+///#ifdef JDK12
+///import java.util.Set;
+///#else
+import jode.util.Set;
+///#endif
+
 /**
  * This is a method for block containing a single instruction.
  */
@@ -40,11 +46,6 @@ public abstract class InstructionContainer extends StructuredBlock {
     public InstructionContainer(Expression instr, Jump jump) {
 	this(instr);
         setJump(jump);
-	if (instr != null) {
-	    VariableSet gen = new VariableSet();
-	    instr.fillInGenSet(null, jump.gen);
-	    instr.fillInGenSet(null, jump.kill);
-	}
     }
 
     /** 
@@ -66,13 +67,13 @@ public abstract class InstructionContainer extends StructuredBlock {
      * Fill all in variables into the given VariableSet.
      * @param in The VariableSet, the in variables should be stored to.
      */
-    public void fillInGenSet(VariableSet in, VariableSet gen) {
+    public void fillInGenSet(Set in, Set gen) {
 	if (instr != null)
 	    instr.fillInGenSet(in, gen);
     }
 
-    public SimpleSet getDeclarables() {
-	SimpleSet used = new SimpleSet();
+    public Set getDeclarables() {
+	Set used = new SimpleSet();
 	if (instr != null)
 	    instr.fillDeclarables(used);
 	return used;

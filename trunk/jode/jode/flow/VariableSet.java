@@ -21,6 +21,16 @@ package jode.flow;
 import jode.decompiler.LocalInfo;
 import jode.util.ArrayEnum;
 
+///#ifdef JDK12
+///import java.util.Collection;
+///import java.util.AbstractSet;
+///import java.util.Iterator;
+///#else
+import jode.util.Collection;
+import jode.util.AbstractSet;
+import jode.util.Iterator;
+///#endif
+
 /**
  * This class represents a set of Variables, which are mainly used in
  * the in/out sets of StructuredBlock.  The type of the Variables is
@@ -32,7 +42,7 @@ import jode.util.ArrayEnum;
  * Note that a variable set can contain LocalInfos that use the same
  * slot, but are different.
  */
-public final class VariableSet implements Cloneable {
+public final class VariableSet extends AbstractSet implements Cloneable {
     LocalInfo[] locals;
     int count;
 
@@ -68,23 +78,32 @@ public final class VariableSet implements Cloneable {
     }
 
     /**
-     * Adds a local info to this variable set.  It doesn't check for
-     * duplicates.
+     * Adds a local info to this variable set.
      */
-    public void addElement(LocalInfo li) {
+    public boolean add(Object li) {
+	if (contains(li))
+	    return false;
         grow(1);
-        locals[count++] = li;
+        locals[count++] = (LocalInfo) li;
+	return true;
     }
 
     /**
      * Checks if the variable set contains the given local info.
      */
-    public boolean contains(LocalInfo li) {
-        li = li.getLocalInfo();
+    public boolean contains(Object li) {
+        li = ((LocalInfo) li).getLocalInfo();
         for (int i=0; i<count;i++)
             if (locals[i].getLocalInfo() == li)
                 return true;
         return false;
+    }
+
+    /**
+     * Checks if the variable set contains a local with the given name.
+     */
+    public final boolean containsSlot(int slot) {
+	return findSlot(slot) != null;
     }
 
     /**
@@ -98,37 +117,61 @@ public final class VariableSet implements Cloneable {
     }
 
     /**
-     * Removes a local info from this variable set.  
+     * Checks if the variable set contains a local with the given slot.
      */
-    public void removeElement(LocalInfo li) {
-        li = li.getLocalInfo();
+    public LocalInfo findSlot(int slot) {
         for (int i=0; i<count;i++)
-            if (locals[i].getLocalInfo() == li)
-                locals[i] = locals[--count];
+            if (locals[i].getSlot() == slot)
+                return locals[i];
+        return null;
     }
 
-    public LocalInfo elementAt(int i) {
-	return locals[i];
+    /**
+     * Removes a local info from this variable set.  
+     */
+    public boolean remove(Object li) {
+        li = ((LocalInfo) li).getLocalInfo();
+        for (int i=0; i<count;i++) {
+            if (locals[i].getLocalInfo() == li) {
+                locals[i] = locals[--count];
+		return true;
+	    }
+	}
+	return false;
     }
-    
+
     public int size() {
 	return count;
+    }
+
+    public Iterator iterator() {
+	return new Iterator() {
+	    int pos = 0;
+
+	    public boolean hasNext() {
+		return pos < count;
+	    }
+	    
+	    public Object next() {
+		return locals[pos++];
+	    }
+	  
+	    public void remove() {
+		if (pos < count)
+		    System.arraycopy(locals, pos, 
+				     locals, pos-1, count - pos);
+		count--;
+		pos--;
+	    }
+	};
     }
     
     /**
      * Removes everything from this variable set.  
      */
-    public void removeAllElements() {
+    public void clear() {
         locals = null;
         count = 0;
-    }
-
-    public java.util.Enumeration elements() {
-        return new ArrayEnum(count, locals);
-    }
-
-    public boolean isEmpty() {
-        return count == 0;
     }
 
     public Object clone() {
@@ -145,39 +188,6 @@ public final class VariableSet implements Cloneable {
     }
 
     /**
-     * Merges the current VariableSet with another.  For all slots occuring
-     * in both variable sets, all corresponding LocalInfos are merged.
-     * The variable sets are not changed (use union for this).
-     * @return The merged variables.
-     * @param vs the other variable set.  */
-    public VariableSet merge(VariableSet vs) {
-        VariableSet merged = new VariableSet();
-        merged.grow(Math.min(count,vs.count));
-    big_loop:
-        for (int i=0; i<count; i++) {
-            LocalInfo li1 = locals[i];
-            int slot = li1.getSlot();
-            boolean didMerge = false;
-            for (int k=0; k< merged.count; k++) {
-                if (slot == merged.locals[k].getSlot()) {
-                    /* This slot was already merged. */
-                    li1.combineWith(merged.locals[k]);
-                    continue big_loop;
-                }
-            }
-            for (int j=0; j<vs.count; j++) {
-                if (li1.getSlot() == vs.locals[j].getSlot()) {
-                    li1.combineWith(vs.locals[j]);
-                    didMerge = true;
-                }
-            }
-            if (didMerge)
-                merged.locals[merged.count++] = li1;
-        }
-        return merged;
-    }
-
-    /**
      * Intersects the current VariableSet with another and returns the
      * intersection.  The existing VariableSet are not changed.  
      * @param vs the other variable set.  
@@ -189,80 +199,11 @@ public final class VariableSet implements Cloneable {
         for (int i=0; i<count; i++) {
             LocalInfo li = locals[i];
             int slot = li.getSlot();
-            for (int j=0; j<vs.count; j++) {
-                if (slot == vs.locals[j].getSlot()) {
-                    for (int k=0; k<intersection.count; k++) {
-                        if (slot == intersection.locals[k].getSlot())
-                            continue big_loop;
-                    }
-                    intersection.locals[intersection.count++] 
-                        = li.getLocalInfo();
-                    continue big_loop;
-                }
-            }
+	    if (vs.containsSlot(slot)
+		&& !intersection.containsSlot(slot))
+		intersection.locals[intersection.count++] = li.getLocalInfo();
         }
         return intersection;
-    }
-
-    /**
-     * Intersects the current VariableSet with another and returns the
-     * intersection.  The existing VariableSet are not changed.  
-     * @param vs the other variable set.  
-     */
-    public VariableSet intersectExact(VariableSet vs) {
-        VariableSet intersection = new VariableSet();
-        intersection.grow(Math.min(count, vs.count));
-    big_loop:
-        for (int i=0; i<count; i++) {
-            LocalInfo li1 = locals[i].getLocalInfo();
-            for (int j=0; j<vs.count; j++) {
-                if (li1 == vs.locals[j].getLocalInfo()) {
-                    if (!intersection.contains(li1))
-                        intersection.locals[intersection.count++] = li1;
-                    continue big_loop;
-                }
-            }
-        }
-        return intersection;
-    }           
-
-    /**
-     * Union the other variable set to the current.
-     */
-    public void unionExact(VariableSet vs) {
-        grow(vs.count);
-    big_loop:
-        for (int i=0; i< vs.count; i++) {
-            LocalInfo li2 = (vs.locals[i]).getLocalInfo();
-            /* check if this particular local info is already in the set */
-            for (int j=0; j< count; j++) {
-                LocalInfo li1 = (locals[j]).getLocalInfo();
-                if (li1 == li2)
-                    /* Yes it is, take next variable */
-                    continue big_loop;
-            }
-            locals[count++] = li2;
-        }
-    }
-
-    /**
-     * Add the other variable set to the current, except when the slot
-     * is already in the current set.  
-     */
-    public void add(VariableSet vs) {
-        grow(vs.count);
-    big_loop:
-        for (int i=0; i< vs.count; i++) {
-            LocalInfo li2 = vs.locals[i];
-            int slot2 = li2.getSlot();
-            /* check if this slot is already in the current set */
-            for (int j=0; j< count; j++) {
-                if (locals[j].getSlot() == slot2)
-                    /* Yes it is, take next variable */
-                    continue big_loop;
-            }
-            locals[count++] = li2.getLocalInfo();
-        }
     }
 
     /**
@@ -271,72 +212,13 @@ public final class VariableSet implements Cloneable {
      * @param gen The gen set.
      * @param kill The kill set.
      */
-    public void mergeGenKill(VariableSet gen, VariableSet kill) {
-        grow(gen.count);
+    public void mergeGenKill(Collection gen, SlotSet kill) {
+        grow(gen.size());
     big_loop:
-        for (int i=0; i< gen.count; i++) {
-            LocalInfo li2 = gen.locals[i];
-            int slot = li2.getSlot();
-            /* check if this slot is in the kill set) */
-            for (int j=0; j< kill.count; j++) {
-                if (slot == kill.locals[j].getSlot())
-                    /* Yes it is, take next variable */
-                    continue big_loop;
-            }
-            locals[count++] = li2.getLocalInfo();
+        for (Iterator i = gen.iterator(); i.hasNext(); ) {
+            LocalInfo li2 = (LocalInfo) i.next();
+	    if (!kill.containsSlot(li2.getSlot()))
+		add(li2.getLocalInfo());
         }
-    }
-
-    /**
-     * Subtract the other variable set from this one.  This removes
-     * every variable from this set, that uses a slot in the other
-     * variable set.
-     * @param vs The other variable set.
-     */
-    public void subtract(VariableSet vs) {
-    big_loop:
-        for (int i=0; i < count;) {
-            LocalInfo li1 = locals[i];
-            int slot = li1.getSlot();
-            for (int j=0; j<vs.count; j++) {
-                if (slot == vs.locals[j].getSlot()) {
-                    /* remove the element from this variable list. */
-                    locals[i] = locals[--count].getLocalInfo();
-                    continue big_loop;
-                }
-            }
-            i++;
-        }
-    }
-
-    /**
-     * Subtract the other variable set from this one.  This removes
-     * every variable from this set, that is in the other
-     * variable set.
-     * @param vs The other variable set.
-     */
-    public void subtractExact(VariableSet vs) {
-    big_loop:
-        for (int i=0; i < count;) {
-            LocalInfo li1 = locals[i].getLocalInfo();
-            for (int j=0; j<vs.count; j++) {
-                if (li1 == vs.locals[j].getLocalInfo()) {
-                    /* remove the element from this variable list. */
-                    locals[i] = locals[--count].getLocalInfo();
-                    continue big_loop;
-                }
-            }
-            i++;
-        }
-    }
-
-    public String toString() {
-        StringBuffer result = new StringBuffer("[");
-        for (int i=0; i < count; i++) {
-            if (i>0)
-                result.append(", ");
-            result.append(locals[i].getName());
-        }
-        return result.append("]").toString();
     }
 }

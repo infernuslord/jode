@@ -62,9 +62,9 @@ public class TransformExceptionHandlers {
 	    Handler second = (Handler) o;
 
 	    /* First sort by start offsets, highest address first...*/
-	    if (start.addr != second.start.addr)
+	    if (start.getAddr() != second.start.getAddr())
 		/* this subtraction is save since addresses are only 16 bit */
-		return second.start.addr - start.addr;
+		return second.start.getAddr() - start.getAddr();
 
 	    /* ...Second sort by end offsets, lowest address first...
 	     * this will move the innermost blocks to the beginning. */
@@ -72,8 +72,8 @@ public class TransformExceptionHandlers {
 		return endAddr - second.endAddr;
 
 	    /* ...Last sort by handler offsets, lowest first */
-	    if (handler.addr != second.handler.addr)
-		return handler.addr - second.handler.addr;
+	    if (handler.getAddr() != second.handler.getAddr())
+		return handler.getAddr() - second.handler.getAddr();
 	    
 	    /* ...Last sort by typecode signature.  Shouldn't happen to often.
 	     */
@@ -102,54 +102,6 @@ public class TransformExceptionHandlers {
     public void addHandler(FlowBlock tryBlock, int end, 
 			   FlowBlock catchBlock, Type type) {
 	handlers.add(new Handler(tryBlock, end, catchBlock, type));
-    }
-
-    /** 
-     * Updates the in/out-Vectors of the structured block of the
-     * successing flow block for a try catch block.  The main difference
-     * to updateInOut in FlowBlock is, that this function works, as if
-     * every instruction would have a jump.  This is because every
-     * instruction can throw an exception and thus enter the catch block.<br>
-     *
-     * For example this code prints <code>0</code>:
-     * <pre>
-     *   int a=3;
-     *   try {
-     *     a = 5 / (a=0);
-     *   } catch (DivideByZeroException ex) {
-     *     System.out.println(a);
-     *   }
-     * </pre>
-     *
-     * @param successor The flow block which is unified with this flow
-     * block.  
-     * @return The variables that must be defined in this block.
-     */
-    static void updateInOutCatch (FlowBlock tryFlow, FlowBlock catchFlow) {
-        VariableSet gens = ((TryBlock)tryFlow.block).gen;
-
-        /* Merge the locals used in the catch block with those written
-         * by the try block
-         */
-        catchFlow.in.merge(gens);
-        
-        /* The gen/kill sets must be updated for every jump 
-         * in the catch block */
-        Iterator succs = catchFlow.successors.values().iterator();
-        while (succs.hasNext()) {
-            for (Jump succJumps = (Jump) succs.next();
-                 succJumps != null; succJumps = succJumps.next) {
-                succJumps.gen.mergeGenKill(gens, succJumps.kill);
-            }
-        }
-        tryFlow.in.unionExact(catchFlow.in);
-        tryFlow.gen.unionExact(catchFlow.gen);
-    
-        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_INOUT) != 0) {
-            GlobalOptions.err.println("UpdateInOutCatch: gens : "+gens);
-            GlobalOptions.err.println("                  s.in : "+catchFlow.in);
-            GlobalOptions.err.println("                  in   : "+tryFlow.in);
-        }
     }
 
 
@@ -230,8 +182,8 @@ public class TransformExceptionHandlers {
      * @param subRoutine the FlowBlock of the sub routine.
      */
     private void removeJSR(FlowBlock tryFlow, FlowBlock subRoutine) {
-        for (Jump jumps = (Jump)tryFlow.successors.remove(subRoutine);
-             jumps != null; jumps = jumps.next) {
+        for (Jump jumps = tryFlow.removeJumps(subRoutine); 
+	     jumps != null; jumps = jumps.next) {
 
             StructuredBlock prev = jumps.prev;
             prev.removeJump();
@@ -296,12 +248,13 @@ public class TransformExceptionHandlers {
     }
     
     public void checkAndRemoveJSR(FlowBlock tryFlow, FlowBlock subRoutine) {
-        Iterator iter = tryFlow.successors.entrySet().iterator();
+        Iterator iter = tryFlow.getSuccessors().iterator();
         while (iter.hasNext()) {
-	    Map.Entry entry = (Map.Entry) iter.next();
-            Jump jumps = (Jump) entry.getValue();
-            if (entry.getKey() == subRoutine)
+	    FlowBlock dest = (FlowBlock) iter.next();
+            if (dest == subRoutine)
                 continue;
+
+            Jump jumps = tryFlow.getJumps(dest);
 
             for ( ; jumps != null; jumps = jumps.next) {
 
@@ -372,10 +325,10 @@ public class TransformExceptionHandlers {
     public void checkAndRemoveMonitorExit(FlowBlock tryFlow, LocalInfo local, 
                                           int startMonExit, int endMonExit) {
         FlowBlock subRoutine = null;
-        Iterator succs = tryFlow.successors.values().iterator();
+        Iterator succs = tryFlow.getSuccessors().iterator();
     dest_loop:
         while (succs.hasNext()) {
-            for (Jump jumps = (Jump) succs.next();
+            for (Jump jumps = tryFlow.getJumps((FlowBlock) succs.next());
                  jumps != null; jumps = jumps.next) {
 
                 StructuredBlock prev = jumps.prev;
@@ -628,10 +581,10 @@ public class TransformExceptionHandlers {
 
                 /* Check if the try block has no exit (except throws)
                  */
-                Jump throwJumps = (Jump) 
-                    tryFlow.successors.get(FlowBlock.END_OF_METHOD);
-                if (tryFlow.successors.size() > 1
-                    || (tryFlow.successors.size() > 0 && throwJumps == null))
+                Jump throwJumps = tryFlow.getJumps(FlowBlock.END_OF_METHOD);
+                if (tryFlow.getSuccessors().size() > 1
+                    || (tryFlow.getSuccessors().size() > 0
+			&& throwJumps == null))
                     return false;
 
                 for (/**/; throwJumps != null; throwJumps = throwJumps.next) {
@@ -649,7 +602,7 @@ public class TransformExceptionHandlers {
                 finallyBlock.replace(catchFlow.block);
                 transformSubRoutine(finallyBlock);
 
-                updateInOutCatch(tryFlow, catchFlow);
+                tryFlow.updateInOutCatch(catchFlow);
                 tryFlow.mergeAddr(catchFlow);
                 finallyBlock = catchFlow.block;
                 tryFlow.mergeSuccessors(catchFlow);
@@ -667,7 +620,7 @@ public class TransformExceptionHandlers {
 
                 checkAndRemoveJSR(tryFlow, subRoutine);
 
-                updateInOutCatch(tryFlow, subRoutine);                
+                tryFlow.updateInOutCatch(subRoutine);                
                 tryFlow.mergeAddr(subRoutine);
                 tryFlow.mergeSuccessors(subRoutine);
                 finallyBlock = subRoutine.block;
@@ -676,9 +629,9 @@ public class TransformExceptionHandlers {
                  * and the jump of the throw instruction.
                  */
                 catchBlock.getSubBlocks()[0].getSubBlocks()[0]
-                    .jump.destination.predecessors.removeElement(catchFlow);
+                    .jump.destination.predecessors.remove(catchFlow);
                 catchBlock.getSubBlocks()[1]
-                    .jump.destination.predecessors.removeElement(catchFlow);
+                    .jump.destination.predecessors.remove(catchFlow);
             }
                 
             TryBlock tryBlock = (TryBlock)tryFlow.block;
@@ -715,19 +668,18 @@ public class TransformExceptionHandlers {
              */
 
             FlowBlock succ = (firstInstr.jump != null) ?
-                          firstInstr.jump.destination : null;
+		firstInstr.jump.destination : null;
             boolean hasExit = false;
-            Iterator iter = tryFlow.successors.entrySet().iterator();
+            Iterator iter = tryFlow.getSuccessors().iterator();
             while (iter.hasNext()) {
-		Map.Entry entry = (Map.Entry) iter.next();
-                Object key = entry.getKey();
-                if (key == succ)
+		FlowBlock dest = (FlowBlock) iter.next();
+                if (dest == succ)
                     continue;
-                if (key != FlowBlock.END_OF_METHOD) {
+                if (dest != FlowBlock.END_OF_METHOD) {
                     /* There is another exit in the try block, bad */
                     return false;
                 }
-                for (Jump throwJumps = (Jump) entry.getValue();
+                for (Jump throwJumps = (Jump) tryFlow.getJumps(dest);
                      throwJumps != null; throwJumps = throwJumps.next) {
                     if (!(throwJumps.prev instanceof ThrowBlock)) {
                         /* There is a return exit in the try block */
@@ -741,8 +693,8 @@ public class TransformExceptionHandlers {
             tryFlow.mergeAddr(catchFlow);
 
             if (succ != null) {
-                Jump jumps = (Jump) tryFlow.successors.remove(succ);
-                succ.predecessors.removeElement(tryFlow);
+                Jump jumps = tryFlow.removeJumps(succ);
+                succ.predecessors.remove(tryFlow);
                 /* Handle the jumps in the tryFlow.
                  */
                 jumps = tryFlow.resolveSomeJumps(jumps, succ);
@@ -765,7 +717,7 @@ public class TransformExceptionHandlers {
             if (succ != null && succ.predecessors.size() == 1) {
                 while (succ.analyze(catchFlow.getNextAddr(), end));
 		tryFlow.mergeAddr(succ);
-                tryFlow.successors.remove(succ);
+                tryFlow.removeJumps(succ);
                 newBlock.setCatchBlock(succ.block);
                 tryFlow.mergeSuccessors(succ);
             } else {
@@ -792,23 +744,23 @@ public class TransformExceptionHandlers {
 	    Handler last = null;
 	    for (Iterator i = handlers.iterator(); i.hasNext(); ) {
 		Handler exc = (Handler) i.next();
-		int start = exc.start.addr;
+		int start = exc.start.getAddr();
 		int end = exc.endAddr;
-		int handler = exc.handler.addr;
+		int handler = exc.handler.getAddr();
 		if (start >= end || handler < end)
 		    throw new AssertError
 			("ExceptionHandler order failed: not "
 			 + start + " < " + end + " <= " + handler);
 		if (last != null
-		    && (last.start.addr != start || last.endAddr != end)) {
+		    && (last.start.getAddr() != start || last.endAddr != end)) {
 		    /* The last handler does catch another range. 
 		     * Due to the order:
-		     *  start < last.start.addr || end > last.end.addr
+		     *  start < last.start.getAddr() || end > last.end.getAddr()
 		     */
-		    if (end > last.start.addr && end < last.endAddr)
+		    if (end > last.start.getAddr() && end < last.endAddr)
 			throw new AssertError
 			    ("Exception handlers ranges are intersecting: ["
-			 + last.start.addr+", "+last.endAddr+"] and ["
+			 + last.start.getAddr()+", "+last.endAddr+"] and ["
 			     + start+", "+end+"].");
 		}
 		last = exc;
@@ -836,11 +788,11 @@ public class TransformExceptionHandlers {
 		     & GlobalOptions.DEBUG_ANALYZE) != 0)
 		    GlobalOptions.err.println
 			("analyzeTry("
-			 + exc.start.addr + ", " + exc.endAddr+")");
-		while (tryFlow.analyze(tryFlow.addr, exc.endAddr));
+			 + exc.start.getAddr() + ", " + exc.endAddr+")");
+		while (tryFlow.analyze(tryFlow.getAddr(), exc.endAddr));
 
 		if (last == null
-		    || last.start.addr != exc.start.addr
+		    || last.start.getAddr() != exc.start.getAddr()
 		    || last.endAddr != exc.endAddr) {
 		    /* The last handler does catch another range. 
 		     * Create a new try block.
@@ -869,7 +821,7 @@ public class TransformExceptionHandlers {
 		     */
 		    EmptyBlock jump = new EmptyBlock(new Jump(catchFlow));
 		    FlowBlock newFlow = new FlowBlock(catchFlow.method,
-						      catchFlow.addr, 0);
+						      catchFlow.getAddr(), 0);
 		    newFlow.setBlock(jump);
 		    catchFlow.prevByAddr.setNextByAddr(newFlow);
 		    newFlow.setNextByAddr(catchFlow);
@@ -879,11 +831,11 @@ public class TransformExceptionHandlers {
 			 & GlobalOptions.DEBUG_ANALYZE) != 0)
 			GlobalOptions.err.println
 			    ("analyzeCatch("
-			     + catchFlow.addr + ", " + endHandler + ")");
-		    while (catchFlow.analyze(catchFlow.addr, endHandler));
+			     + catchFlow.getAddr() + ", " + endHandler + ")");
+		    while (catchFlow.analyze(catchFlow.getAddr(), endHandler));
 		}
 		    
-		updateInOutCatch(tryFlow, catchFlow);
+		tryFlow.updateInOutCatch(catchFlow);
 		if (exc.type != null)
 		    analyzeCatchBlock(exc.type, tryFlow, catchFlow);
 		
@@ -898,8 +850,8 @@ public class TransformExceptionHandlers {
 		if ((GlobalOptions.debuggingFlags
 		     & GlobalOptions.DEBUG_ANALYZE) != 0)
 		    GlobalOptions.err.println
-			("analyzeCatch(" + tryFlow.addr + ", "
-			 + (tryFlow.addr + tryFlow.length) + ") done.");
+			("analyzeCatch(" + tryFlow.getAddr() + ", "
+			 + tryFlow.getNextAddr() + ") done.");
 	    }
 	}
     }

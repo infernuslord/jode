@@ -19,7 +19,14 @@
 
 package jode.flow;
 import jode.decompiler.LocalInfo;
-import jode.util.SimpleSet;
+
+///#ifdef JDK12
+///import java.util.Collections;
+///import java.util.Set;
+///#else
+import jode.util.Collections;
+import jode.util.Set;
+///#endif
 
 /** 
  * This block represents a ret instruction.  A ret instruction is
@@ -42,9 +49,9 @@ public class RetBlock extends StructuredBlock {
      * Fill all in variables into the given VariableSet.
      * @param in The VariableSet, the in variables should be stored to.
      */
-    public void fillInGenSet(VariableSet in, VariableSet gen) {
-	in.addElement(local);
-	gen.addElement(local);
+    public void fillInGenSet(Set in, Set gen) {
+	in.add(local);
+	gen.add(local);
     }
 
     /**
@@ -59,10 +66,8 @@ public class RetBlock extends StructuredBlock {
 	return null;
     }
 
-    public SimpleSet getDeclarables() {
-	SimpleSet used = new SimpleSet();
-	used.add(local);
-	return used;
+    public Set getDeclarables() {
+	return Collections.singleton(local);
     }
 
     public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 
