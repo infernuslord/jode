@@ -160,6 +160,7 @@ public class Obfuscator {
             return;
         }
 
+	err.println("Loading classes");
         ClassInfo.setClassPath(sourcePath);
         ClassBundle bundle = new ClassBundle();
         for (; i< params.length; i++)
