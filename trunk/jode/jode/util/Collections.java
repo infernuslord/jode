@@ -1,4 +1,4 @@
-// This interface is taken from the Classpath project.  
+// This class is taken from the Classpath project.  
 // Please note the different copyright holder!  
 // The changes I did is this comment, the package line, some
 // imports from java.util and some minor jdk12 -> jdk11 fixes.
