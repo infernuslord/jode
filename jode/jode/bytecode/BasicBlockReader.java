@@ -22,11 +22,11 @@ package jode.bytecode;
 import jode.GlobalOptions;
 import java.io.DataInputStream;
 import java.io.IOException;
-///#def COLLECTIONS java.util
-import java.util.Arrays;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.Enumeration;
+///#def COLLECTIONS java.util
+import java.util.Arrays;
 ///#enddef
 
 /**
