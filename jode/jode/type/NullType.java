@@ -78,6 +78,8 @@ public class NullType extends ReferenceType {
      * @return the intersection, or tError, if a type conflict happens.
      */
     public Type intersection(Type type) {
-	throw new AssertError("NULL.intersection");
+	if (type == this)
+	    return type;
+	return tError;
     }
 }
