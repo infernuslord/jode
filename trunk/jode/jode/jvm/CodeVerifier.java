@@ -204,7 +204,8 @@ public class CodeVerifier implements Opcodes {
 		|| t2.getTypeCode() == Type.TC_ARRAY)) {
 	    if (t1.getTypeCode() == Type.TC_ARRAY) {
 		if (t2.getTypeCode() == Type.TC_CLASS)
-		    return (t2 == Type.tObject);
+		    return (((ClassInterfacesType)t2).getClazz()
+			    == ClassInfo.javaLangObject);
 		Type e1 = ((ArrayType)t1).getElementType();
 		Type e2 = ((ArrayType)t2).getElementType();
 		if ((e1.getTypeCode() == Type.TC_CLASS
