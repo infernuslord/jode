@@ -57,6 +57,7 @@ public class NewArrayOperator extends Operator {
 	writer.print("new ");
 	writer.printType(flat.getHint());
 	for (int i=0; i< depth; i++) {
+	    writer.breakOp();
 	    writer.print("[");
             if (i < subExpressions.length)
 		subExpressions[i].dumpExpression(writer, 0);

@@ -19,6 +19,7 @@
 
 package jode.expr;
 import jode.type.Type;
+import jode.bytecode.ClassPath;
 import jode.decompiler.FieldAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
 
@@ -86,10 +87,11 @@ public class IfThenElseOperator extends Operator {
 			.equals(Type.tString))) {
 		    String clazz = (String)
 			((ConstOperator)invoke.subExpressions[0]).getValue();
+		    ClassPath cp = field.getClassAnalyzer().getClassPath();
 		    if (field.setClassConstant(clazz))
-			return new ClassFieldOperator(clazz.charAt(0) == '[' 
-						      ? Type.tType(clazz)
-						      : Type.tClass(clazz));
+			return new ClassFieldOperator
+			    (clazz.charAt(0) == '[' 
+			     ? Type.tType(cp, clazz) : Type.tClass(cp, clazz));
 		}
 	    }
 	}

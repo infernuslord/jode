@@ -262,7 +262,7 @@ public class ClassIdentifier extends Identifier {
 	/* add a field serializableVersionUID if not existent */
 	long serialVersion = calcSerialVersionUID();
 	FieldInfo UIDField = new FieldInfo
-	    (info, "serialVersionUID", "J", 
+	    ("serialVersionUID", "J", 
 	     Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
 	UIDField.setConstant(new Long(serialVersion));
 	FieldIdentifier UIDident = new FieldIdentifier(this, UIDField);
@@ -452,6 +452,7 @@ public class ClassIdentifier extends Identifier {
 	}
 	if (extraClasses != null) {
 	    for (int i=0; i < extraClasses.length; i++) {
+		System.err.println("ec["+i+"]:"+extraClasses[i].getName());
 		Main.getClassBundle()
 		    .getClassIdentifier(extraClasses[i].getName());
 	    }

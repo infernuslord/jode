@@ -18,6 +18,7 @@
  */
 
 package jode.type;
+import jode.bytecode.ClassPath;
 
 /** 
  * This type represents an method type.
@@ -28,9 +29,11 @@ public class MethodType extends Type {
     final String signature;
     final Type[] parameterTypes;
     final Type returnType;
+    final ClassPath cp;
 
-    public MethodType(String signature) {
+    public MethodType(ClassPath cp, String signature) {
 	super(TC_METHOD);
+	this.cp = cp;
         this.signature = signature;
         int index = 1, types = 0;
         while (signature.charAt(index) != ')') {
@@ -53,9 +56,9 @@ public class MethodType extends Type {
                 index = signature.indexOf(';', index);
             index++;
             parameterTypes[types++] 
-                = Type.tType(signature.substring(lastindex,index));
+                = Type.tType(cp, signature.substring(lastindex,index));
         }
-        returnType = Type.tType(signature.substring(index+1));
+        returnType = Type.tType(cp, signature.substring(index+1));
     }
 
     public final int stackSize() {
@@ -63,6 +66,10 @@ public class MethodType extends Type {
 	for (int i=0; i<parameterTypes.length; i++)
 	    size -= parameterTypes[i].stackSize();
 	return size;
+    }
+
+    public ClassPath getClassPath() {
+	return cp;
     }
 
     public Type[] getParameterTypes() {
@@ -90,11 +97,5 @@ public class MethodType extends Type {
 
     public String toString() {
         return signature;
-    }
-
-    public boolean equals(Object o) {
-        MethodType mt;
-        return (o instanceof MethodType
-                && signature.equals((mt = (MethodType)o).signature));
     }
 }

@@ -25,6 +25,7 @@ import jode.GlobalOptions;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.zip.ZipOutputStream;
@@ -47,7 +48,6 @@ public class Main extends Options {
 	new LongOpt("verbose", LongOpt.OPTIONAL_ARGUMENT, null, 'v'),
 	new LongOpt("debug", LongOpt.OPTIONAL_ARGUMENT, null, 'D'),
 	new LongOpt("import", LongOpt.REQUIRED_ARGUMENT, null, 'i'),
-	new LongOpt("style", LongOpt.REQUIRED_ARGUMENT, null, 's'),
 	new LongOpt("lvt", LongOpt.OPTIONAL_ARGUMENT, null, 
 		    OPTION_START+0),
 	new LongOpt("inner", LongOpt.OPTIONAL_ARGUMENT, null, 
@@ -86,40 +86,6 @@ public class Main extends Options {
 		    "The directories should be separated by ','.");
 	err.println("  -d, --dest <dir>     "+
 		    "write decompiled files to disk into directory destdir.");
-	err.println("  -s, --style {sun|gnu}  "+
-		    "specify indentation style");
-	err.println("  -i, --import <pkglimit>,<clslimit>");
-	err.println("                       "+
-		    "import classes used more than clslimit times");
-	err.println("                       "+
-		    "and packages with more then pkglimit used classes.");
-	err.println("                       "+
-		    "Limit 0 means, never import, default is 0,1.");
-
-	err.println("The following options can be turned on or off with `yes' or `no' argument.");
-	err.println("      --inner          "+
-		    "decompile inner classes (default).");
-	err.println("      --anonymous      "+
-		    "decompile anonymous classes (default).");
-	err.println("      --contrafo       "+
-		    "transform constructors of inner classes (default).");
-	err.println("      --lvt            "+
-		    "use the local variable table (default).");
-	err.println("      --pretty         "+
-		    "use `pretty' names for local variables.");
-	err.println("      --push           "+
-		    "allow PUSH instructions in output.");
-	err.println("      --decrypt        "+
-		    "decrypt encrypted strings (default).");
-	err.println("      --onetime        "+
-		    "remove locals, that are used only one time.");
-	err.println("      --immediate      "+
-		    "output source immediately (may produce buggy code).");
-	err.println("      --verify         "+
-		    "verify code before decompiling it.");
-	err.println("Debugging options, mainly used to debug this decompiler:");
-	err.println("  -D, --debug=...      "+
-		    "use --debug=help for more information.");
     }
 
     public static boolean handleOption(int option, int longind, String arg) {
@@ -195,19 +161,6 @@ public class Main extends Options {
 		if (arg == null)
 		    arg = "help";
 		errorInParams |= !GlobalOptions.setDebugging(arg);
-		break;
-	    }
-	    case 's': {
-		String arg = g.getOptarg();
-		if ("sun".startsWith(arg))
-		    outputStyle = SUN_STYLE;
-		else if ("gnu".startsWith(arg))
-		    outputStyle = GNU_STYLE;
-		else {
-		    GlobalOptions.err.println
-			("jode.decompiler.Main: Unknown style `"+arg+"'.");
-		    errorInParams = true;
-		}
 		break;
 	    }
 	    case 'i': {
@@ -311,6 +264,12 @@ public class Main extends Options {
 		    writer.close();
 		/* Now is a good time to clean up */
 		System.gc();
+	    } catch (FileNotFoundException ex) {
+		GlobalOptions.err.println
+		    ("Can't read "+ex.getMessage()+".");
+		GlobalOptions.err.println
+		    ("Check the class path ("+classPathStr+
+		     ") and check that you use the java class name.");
 	    } catch (IOException ex) {
 		GlobalOptions.err.println
 		    ("Can't write source of "+params[i]+".");

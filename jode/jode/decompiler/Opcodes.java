@@ -140,6 +140,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
     public static void addOpcode(FlowBlock flow, Instruction instr, 
 				 MethodAnalyzer ma)
     {
+	ClassPath cp = ma.getClassAnalyzer().getClassPath();
         int opcode = instr.getOpcode();
         switch (opcode) {
         case opc_nop:
@@ -373,7 +374,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 	    break;
         }
         case opc_new: {
-            Type type = Type.tType(instr.getClazzType());
+            Type type = Type.tType(cp, instr.getClazzType());
             ma.useType(type);
             flow.appendBlock(createNormal(ma, instr, new NewOperator(type)));
 	    break;
@@ -388,14 +389,14 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 			      new ThrowBlock(new NopOperator(Type.tUObject))));
 	    break;
         case opc_checkcast: {
-            Type type = Type.tType(instr.getClazzType());
+            Type type = Type.tType(cp, instr.getClazzType());
             ma.useType(type);
             flow.appendBlock(createNormal
 			     (ma, instr, new CheckCastOperator(type)));
 	    break;
         }
         case opc_instanceof: {
-            Type type = Type.tType(instr.getClazzType());
+            Type type = Type.tType(cp, instr.getClazzType());
             ma.useType(type);
             flow.appendBlock(createNormal
 			     (ma, instr, new InstanceOfOperator(type)));
@@ -410,7 +411,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 					  new MonitorExitOperator()));
 	    break;
         case opc_multianewarray: {
-            Type type = Type.tType(instr.getClazzType());
+            Type type = Type.tType(cp, instr.getClazzType());
 	    ma.useType(type);
             int dimension = instr.getDimensions();
             flow.appendBlock(createNormal

@@ -18,8 +18,8 @@
  */
 
 package jode.obfuscator;
-import jode.bytecode.BytecodeInfo;
+import jode.bytecode.BasicBlocks;
 
 public interface CodeTransformer {
-    public void transformCode(BytecodeInfo bytecode);
+    public void transformCode(BasicBlocks bb);
 }

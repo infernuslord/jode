@@ -22,7 +22,8 @@ import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 import jode.type.Type;
 import jode.type.ArrayType;
-import jode.type.ClassInterfacesType;
+import jode.type.ClassInfoType;
+import jode.type.ClassType;
 import jode.type.NullType;
 
 ///#def COLLECTIONS java.util
@@ -274,7 +275,13 @@ public class ImportHandler {
 	    clazz = outer;
 	}
 		
-	String name = clazz.getName();
+	useClass(clazz.getName());
+    }
+
+    /* Marks the clazz as used, so that it will be imported if used often
+     * enough.
+     */
+    public void useClass(String name) {
 	
 	Integer i = (Integer) imports.get(name);
 	if (i == null) {
@@ -308,8 +315,10 @@ public class ImportHandler {
     public final void useType(Type type) {
 	if (type instanceof ArrayType)
 	    useType(((ArrayType) type).getElementType());
-	else if (type instanceof ClassInterfacesType)
-	    useClass(((ClassInterfacesType) type).getClassInfo());
+	else if (type instanceof ClassInfoType)
+	    useClass(((ClassInfoType) type).getClassInfo());
+	else if (type instanceof ClassType)
+	    useClass(((ClassType) type).getClassName());
     }
 
     /**
@@ -327,7 +336,24 @@ public class ImportHandler {
      * @return a legal string representation of clazz.  
      */
     public String getClassString(ClassInfo clazz) {
-	String name = clazz.getName();
+	return getClassString(clazz.getName());
+    }
+
+    /**
+     * Check if clazz is imported and maybe remove package delimiter from
+     * full qualified class name.
+     * <p>
+     * Known Bug 1: If this is called before the imports are cleaned up,
+     * (that is only for debugging messages), the result is unpredictable.
+     * <p>
+     * Known Bug 2: It is not checked if the class name conflicts with
+     * a local variable, field or method name.  This is very unlikely
+     * since the java standard has different naming convention for those
+     * names. (But maybe an intelligent obfuscator may use this fact.)
+     * This can only happen with static fields or static methods.
+     * @return a legal string representation of clazz.  
+     */
+    public String getClassString(String name) {
         if (cachedClassNames == null)
             /* We are not yet clean, return the full name */
             return name;
@@ -358,8 +384,10 @@ public class ImportHandler {
     public String getTypeString(Type type) {
 	if (type instanceof ArrayType)
 	    return getTypeString(((ArrayType) type).getElementType()) + "[]";
-	else if (type instanceof ClassInterfacesType)
-	    return getClassString(((ClassInterfacesType) type).getClassInfo());
+	else if (type instanceof ClassInfoType)
+	    return getClassString(((ClassInfoType) type).getClassInfo());
+	else if (type instanceof ClassType)
+	    return getClassString(((ClassType) type).getClassName());
 	else if (type instanceof NullType)
 	    return "Object";
 	else

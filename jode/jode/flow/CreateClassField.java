@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.expr.*;
+import jode.bytecode.ClassPath;
 import jode.type.Type;
 import jode.decompiler.LocalInfo;
 
@@ -71,10 +72,11 @@ public class CreateClassField {
 	    && ((ConstOperator)param).getValue() instanceof String) {
 	    String clazz = (String) ((ConstOperator)param).getValue();
 	    if (put.getField().setClassConstant(clazz)) {
+		ClassPath cp = invoke.getClassPath();
 		cmp.setSubExpressions
 		    (0, new ClassFieldOperator(clazz.charAt(0) == '[' 
-					       ? Type.tType(clazz)
-					       : Type.tClass(clazz)));
+					       ? Type.tType(cp, clazz)
+					       : Type.tClass(cp, clazz)));
 		EmptyBlock empty = new EmptyBlock();
 		empty.moveJump(ifBlock.thenBlock.jump);
 		ifBlock.setThenBlock(empty);

@@ -10,12 +10,15 @@ FULL_CLASSPATH := $(shell $(SUBSTCP) $(top_srcdir):$(top_builddir):$(CLASSPATH):
 
 MY_JAVA_FILES = \
   ArrayType.java \
-  ClassInterfacesType.java \
+  ClassType.java \
+  ClassInfoType.java \
   IntegerType.java \
   MethodType.java \
+  MultiClassType.java \
   NullType.java \
   RangeType.java \
   ReferenceType.java \
+  SystemClassType.java \
   Type.java
 
 noinst_DATA = $(MY_JAVA_FILES:.java=.class)

@@ -25,6 +25,7 @@ import jode.bytecode.Reference;
 import jode.obfuscator.modules.WildCard;
 import jode.obfuscator.modules.MultiIdentifierMatcher;
 import jode.obfuscator.modules.SimpleAnalyzer;
+import jode.obfuscator.modules.IdentityRenamer;
 import java.io.*;
 import java.util.zip.ZipOutputStream;
 
@@ -427,27 +428,7 @@ public class ClassBundle implements OptionHandler {
 	if (postTrafos == null)
 	    postTrafos = new CodeTransformer[0];
 	if (renamer == null)
-	    renamer = new Renamer() {
-		public Iterator generateNames(Identifier ident) {
-		    final String base = ident.getName();
-		    return new Iterator() {
-			int last = 0;
-			
-			public boolean hasNext() {
-			    return true;
-			}
-			
-			public Object next() {
-			    return (last++ == 0 ? base : base + last);
-			}
-			
-			public void remove() {
-			    throw new UnsupportedOperationException();
-			}
-		    };
-		}
-	    };
-
+	    renamer = new IdentityRenamer();
 
 	Runtime runtime = Runtime.getRuntime();
 	long free = runtime.freeMemory();

@@ -57,9 +57,9 @@ public class RangeType extends Type {
      * depends on what ReferenceType class it implements:
      *
      * <dl>
-     * <dt>ClassInterfacesType</dt>
-     * <dd>All types in this range must be widening castable to all interfaces
-     * and to the class in the bottomType</dd>
+     * <dt>MultiClassType</dt>
+     * <dd>All types in this range must be widening castable to all classes
+     * in the bottomType</dd>	
      * <dt>ArrayType</dt>
      * <dd>All types in this range must be of the bottomType, or the
      * NullType.</dd>
@@ -213,8 +213,9 @@ public class RangeType extends Type {
 	    result = tError;
 
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0) {
-	    GlobalOptions.err.println("intersecting "+ this +" and "+ type + 
-				      " to " + result);
+	    GlobalOptions.err.println("intersecting "+ this +" and "+ type +
+				      " to <" + bottom + "," + top +
+				      "> to " + result);
 	}	    
         return result;
     }

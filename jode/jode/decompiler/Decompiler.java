@@ -42,19 +42,26 @@ public class Decompiler {
     private int importPackageLimit = ImportHandler.DEFAULT_PACKAGE_LIMIT;
     private int importClassLimit = ImportHandler.DEFAULT_CLASS_LIMIT;
 
+    private int tabWidth    = 8;
+    private int indentSize  = 4;
+    private int outputStyle = TabbedPrintWriter.BRACE_AT_EOL;
+    private int lineWidth   = 79;
+
     /**
      * We need a different pathSeparatorChar, since ':' (used for most
      * UNIX System) is used a protocol separator in URLs.  
      *
      * We currently allow both pathSeparatorChar and
      * altPathSeparatorChar and decide if it is a protocol separator
-     * by context.  
+     * by context.
      */
     public static final char altPathSeparatorChar
 	= ClassPath.altPathSeparatorChar;
 
     /**
-     * Create a new decompiler.
+     * Create a new decompiler.  Normally you need only one, but you
+     * can have more around, with different options and different
+     * class paths.
      */
     public Decompiler() {
     }
@@ -108,12 +115,26 @@ public class Decompiler {
      */
     public void setOption(String option, String value) {
 	if (option.equals("style")) {
-	    if (value.equals("gnu"))
-		Options.outputStyle = Options.GNU_STYLE;
-	    else if (value.equals("sun"))
-		Options.outputStyle = Options.SUN_STYLE;
-	    else
+	    if (value.equals("gnu")) {
+		outputStyle = 0;
+		indentSize = 2;
+	    } else if (value.equals("sun")) {
+		outputStyle = TabbedPrintWriter.BRACE_AT_EOL;
+		indentSize = 4;
+	    } else
 		throw new IllegalArgumentException("Invalid style "+value);
+	    return;
+	}
+	if (option.equals("tabwidth")) {
+	    tabWidth = Integer.parseInt(value);
+	    return;
+	}
+	if (option.equals("indent")) {
+	    indentSize = Integer.parseInt(value);
+	    return;
+	}
+	if (option.equals("linewidth")) {
+	    lineWidth = Integer.parseInt(value);
 	    return;
 	}
 	if (option.equals("import")) {
@@ -133,6 +154,10 @@ public class Decompiler {
 	}
 	if (option.equals("verbose")) {
 	    GlobalOptions.verboseLevel = Integer.parseInt(value);
+	    return;
+	}
+	if (option.equals("debug")) {
+	    GlobalOptions.setDebugging(value);
 	    return;
 	}
 	for (int i=0; i < optionStrings.length; i++) {
@@ -184,8 +209,11 @@ public class Decompiler {
 			 ProgressListener progress) 
      throws java.io.IOException {
        if (classPath == null) {
-	   String cp = System.getProperty("java.class.path")
-	       .replace(File.pathSeparatorChar, altPathSeparatorChar);
+	   String cp = System.getProperty("java.class.path");
+	   String bootcp = System.getProperty("sun.boot.class.path");
+	   if (bootcp != null)
+	       cp = bootcp + altPathSeparatorChar + cp;
+	   cp = cp.replace(File.pathSeparatorChar, altPathSeparatorChar);
 	   classPath = new ClassPath(cp);
        }
 
@@ -196,7 +224,9 @@ public class Decompiler {
        ImportHandler imports = new ImportHandler(importPackageLimit,
 						 importClassLimit);
        TabbedPrintWriter tabbedWriter = 
-	 new TabbedPrintWriter(writer, imports, false);
+	   new TabbedPrintWriter(writer, imports, false, 
+				 outputStyle, indentSize, 
+				 tabWidth, lineWidth);
        ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
        clazzAna.dumpJavaFile(tabbedWriter, progress);
        writer.flush();

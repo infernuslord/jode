@@ -63,9 +63,10 @@ public final class InvokeOperator extends Operator
     MethodType methodType;
     String methodName;
     int skippedArgs;
-    Type classType;
+    ClassType classType;
     Type[] hints;
     ClassInfo classInfo;
+    ClassPath classPath;
     String callerPackage;
 
     /**
@@ -105,6 +106,20 @@ public final class InvokeOperator extends Operator
 	Type[] hint0C  = new Type[] { null, tCharHint };
 	Type[] hint0C0 = new Type[] { null, tCharHint, null };
 
+	ClassType tWriter = 
+	    Type.tSystemClass("java.io.Writer", 
+			      Type.tObject, Type.EMPTY_IFACES, false, false);
+	ClassType tReader = 
+	    Type.tSystemClass("java.io.Reader", 
+			      Type.tObject, Type.EMPTY_IFACES, false, false);
+	ClassType tFilterReader = 
+	    Type.tSystemClass("java.io.FilterReader", 
+			      tReader, Type.EMPTY_IFACES, false, false);
+	ClassType tPBReader = 
+	    Type.tSystemClass("java.io.PushBackReader", 
+			      tFilterReader, Type.EMPTY_IFACES, 
+			      false, false);
+
 	Map hintString0CMap = new SimpleMap
 	    (Collections.singleton
 	     (new SimpleMap.SimpleEntry(Type.tString, hint0C)));
@@ -118,24 +133,26 @@ public final class InvokeOperator extends Operator
 	hintTypes.put("write.(I)V", new SimpleMap
 		      (Collections.singleton
 		       (new SimpleMap.SimpleEntry
-			(Type.tClass("java.io.Writer"), hint0C))));
+			(tWriter, hint0C))));
 	hintTypes.put("read.()I", new SimpleMap
 		      (Collections.singleton
 		       (new SimpleMap.SimpleEntry
-			(Type.tClass("java.io.Reader"), hintC))));
+			(tReader, hintC))));
 	hintTypes.put("unread.(I)V", new SimpleMap
 		      (Collections.singleton
 		       (new SimpleMap.SimpleEntry
-			(Type.tClass("java.io.PushbackReader"), hint0C))));
+			(tPBReader, hint0C))));
     }
 
 
     public InvokeOperator(MethodAnalyzer methodAnalyzer,
 			  int methodFlag, Reference reference) {
         super(Type.tUnknown, 0);
-        this.methodType = Type.tMethod(reference.getType());
+	this.classPath = methodAnalyzer.getClassAnalyzer().getClassPath();
+        this.methodType = Type.tMethod(classPath, reference.getType());
         this.methodName = reference.getName();
-        this.classType = Type.tType(reference.getClazz());
+        this.classType = (ClassType) 
+	    Type.tType(classPath, reference.getClazz());
 	this.hints = null;
 	Map allHints = (Map) hintTypes.get(methodName+"."+methodType);
 	if (allHints != null) {
@@ -161,8 +178,8 @@ public final class InvokeOperator extends Operator
 	callerPackage = methodAnalyzer.getClassAnalyzer().getClass().getName();
 	int dot = callerPackage.lastIndexOf('.');
 	callerPackage = callerPackage.substring(0, dot);
-	if (classType instanceof ClassInterfacesType) {
-	    classInfo = ((ClassInterfacesType) classType).getClassInfo();
+	if (classType instanceof ClassInfoType) {
+	    classInfo = ((ClassInfoType) classType).getClassInfo();
 	    if ((Options.options & Options.OPTION_ANON) != 0
 		|| (Options.options & Options.OPTION_INNER) != 0) {
 		try {
@@ -173,6 +190,10 @@ public final class InvokeOperator extends Operator
 		checkAnonymousClasses();
 	    }
 	}
+    }
+
+    public final ClassPath getClassPath() {
+	return classPath;
     }
 
     public final boolean isStatic() {
@@ -207,13 +228,13 @@ public final class InvokeOperator extends Operator
     public void updateSubTypes() {
 	int offset = 0;
         if (!isStatic()) {
-	    subExpressions[offset++].setType(Type.tSubType(getClassType()));
+	    subExpressions[offset++].setType(getClassType().getSubType());
         }
 	Type[] paramTypes = methodType.getParameterTypes();
 	for (int i=0; i < paramTypes.length; i++) {
 	    Type pType = (hints != null && hints[i+1] != null) 
 		? hints[i+1] : paramTypes[i];
-	    subExpressions[offset++].setType(Type.tSubType(pType));
+	    subExpressions[offset++].setType(pType.getSubType());
 	}
     }
 
@@ -320,11 +341,10 @@ public final class InvokeOperator extends Operator
      * outer instance.
      */
     public boolean isOuter() {
-	if (classType instanceof ClassInterfacesType) {
-	    ClassInfo clazz = ((ClassInterfacesType) classType).getClassInfo();
+	if (classInfo != null) {
 	    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
 	    while (true) {
-		if (clazz == ana.getClazz())
+		if (classInfo == ana.getClazz())
 		    return true;
 		if (ana.getParent() == null)
 		    break;
@@ -362,17 +382,8 @@ public final class InvokeOperator extends Operator
      * Checks, whether this is a call of a method from the super class.
      */
     public boolean isSuperOrThis() {
-	ClassInfo clazz = getClassInfo();
-	if (clazz != null) {
-	    try {
-		return clazz.superClassOf(methodAnalyzer.getClazz());
-	    } catch (IOException ex) {
-		/* Assume it is not a super class.  This will print
-		 * a warning.
-		 */
-	    }
-	}
-	return false;
+	return classType.maybeSubTypeOf
+	    (Type.tClass(methodAnalyzer.getClazz()));
     }
 
     public boolean isConstant() {
@@ -664,11 +675,11 @@ public final class InvokeOperator extends Operator
 	    realClassType = paramTypes[0];
 	}
 
-	if (!(realClassType instanceof ClassInterfacesType)) {
+	if (!(realClassType instanceof ClassInfoType)) {
 	    /* Arrays don't have overloaded methods, all okay */
 	    return false;
 	}
-	ClassInfo clazz = ((ClassInterfacesType) realClassType).getClassInfo();
+	ClassInfo clazz = ((ClassInfoType) realClassType).getClassInfo();
 	int offset = skippedArgs;
 	
 	Type[] myParamTypes = methodType.getParameterTypes();
@@ -687,7 +698,8 @@ public final class InvokeOperator extends Operator
 		    continue next_method;
 
 		Type[] otherParamTypes
-		    = Type.tMethod(methods[i].getType()).getParameterTypes();
+		    = Type.tMethod(classPath, methods[i].getType())
+		    .getParameterTypes();
 		if (otherParamTypes.length != myParamTypes.length) {
 		    /* parameter count doesn't match*/
 		    continue next_method;
@@ -783,7 +795,8 @@ public final class InvokeOperator extends Operator
 	    }
 	}
 
-	if ((Options.options & Options.OPTION_INNER) != 0
+	if ((~Options.options & (Options.OPTION_INNER
+				 | Options.OPTION_CONTRAFO)) == 0
 	    && clazz.getOuterClass() != null
 	    && !Modifier.isStatic(clazz.getModifiers())) {
 	    
@@ -873,8 +886,7 @@ public final class InvokeOperator extends Operator
 	    /* clazz != null, since an array doesn't have a constructor */
 	    
 	    clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
-	    if ((~Options.options & 
-		 (Options.OPTION_ANON | Options.OPTION_CONTRAFO)) == 0
+	    if ((Options.options & Options.OPTION_ANON) != 0
 		&& clazzAna != null && clazz.isMethodScoped()) {
 		
 		/* This is a known method scoped class, skip the outerValues */

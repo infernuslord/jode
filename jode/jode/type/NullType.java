@@ -19,6 +19,10 @@
 
 package jode.type;
 import jode.AssertError;
+import java.util.Stack;
+///#def COLLECTIONEXTRA java.lang
+import java.lang.UnsupportedOperationException;
+///#enddef
 
 /**
  * This class represents the NullType.  The null type is special as it
@@ -53,7 +57,9 @@ public class NullType extends ReferenceType {
     public Type getGeneralizedType(Type type) {
 	if (type.typecode == TC_RANGE)
 	    type = ((RangeType) type).getTop();
-	return type;
+	if (type instanceof ReferenceType)
+	    return type;
+	return tError;
     }
 
     /**
@@ -65,11 +71,17 @@ public class NullType extends ReferenceType {
     public Type getSpecializedType(Type type) {
 	if (type.typecode == TC_RANGE)
 	    type = ((RangeType) type).getBottom();
-	return type;
+	if (type != tNull)
+	    return tError;
+	return tNull;
     }
 
     public String toString() {
 	return "tNull";
+    }
+
+    public Type findCommonClassTypes(Stack otherTypes) {
+	throw new UnsupportedOperationException();
     }
 
     /**

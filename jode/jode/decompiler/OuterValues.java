@@ -30,30 +30,30 @@ import java.util.Vector;
 import java.util.Enumeration;
 
 /**
- * A list of local variables that a method scoped class inherits
- * from its declaring method.
+ * <p>A list of local variables that a method scoped class inherits
+ * from its declaring method.</p>
  *
- * A method scoped class is a class that is declared in a method and
- * it can access other (final) local variables declared earlier.  To
- * realize this the java compiler adds hidden parameters to the
+ * <p>A method scoped class is a class that is declared in a method
+ * and it can access other (final) local variables declared earlier.
+ * To realize this the java compiler adds hidden parameters to the
  * constructor of the method scoped class, where it passes the values
  * of the local varaiables.  If a method scoped class has more than
  * one constructor, each gets this hidden parameters.  These hidden
  * parameters are the outerValues, because they are used to transport
- * a value of a local variable from an outer method.
+ * a value of a local variable from an outer method.</p>
  *
- * Unfortunately there is no definite way to distinguish this outer
+ * <p>Unfortunately there is no definite way to distinguish this outer
  * value parameters from the real parameters, so jode has to do a
  * guess: It first assumes that everything is an outer value parameter
  * added by the compiler and if this leads to contradiction shrinks
  * the count of these parameters.  A contradiction can occur, because
- * the constructor is called two times with different values.
+ * the constructor is called two times with different values.</p>
  *
- * On the other hand the TransformConstructor class assumes at some
+ * <p>On the other hand the TransformConstructor class assumes at some
  * point that some parameters are outer values.  If later a
- * contradiction occurs, jode has to give up and complain loudly.
+ * contradiction occurs, jode has to give up and complain loudly.</p>
  *
- * Every class interested in outer values, may register itself as
+ * <p>Every class interested in outer values, may register itself as
  * OuterValueListener.  It will then be notified every time the outer
  * values shrink.  Sometimes there are real listener queues: if
  * another method scoped class creates instances of the first in its
@@ -63,28 +63,26 @@ import java.util.Enumeration;
  * the second class's constructor is really an outer value, we have to
  * add a listener.  If later a constructor invokation for the second
  * class is found, where a parameter does not have the right outer
- * value, the listener will also shrink the outer values list of the 
- * first class.
+ * value, the listener will also shrink the outer values list of the
+ * first class.</p>
  *
- * A non static _class_ scoped class (i.e. a normal inner class) also
+ * <p>A non static _class_ scoped class (i.e. a normal inner class) also
  * has a hidden parameter, namely the instance of its outer class.
  * This hidden parameter is not considered as outer value though.
  * Note that you can even explicitly invoke the constructor with a
  * different outer class instance, by using the
  * <code>outerInstance.new InnerClass()</code> construct.  This
- * exception doesn't apply to method scoped classes, though.
+ * exception doesn't apply to method scoped classes, though.</p>
  *
- * Anonymous classes can of course also extend class or method scoped
+ * <p>Anonymous classes can of course also extend class or method scoped
  * classes.  If they are compiled by jikes the constructor takes as
  * last parameter the outer instance of its super class.  This should
  * really be the first parameter just after the outerValues, as it
  * is under javac.  We mark such classes as jikesAnonymousInner.  This
- * is done in the initialize() pass.
+ * is done in the initialize() pass.</p>
  *
- * @see #shrinkOuterValues
  * @see #addOuterValueListener
- * @since 1.0.93 
- */
+ * @since 1.0.93 */
 public class OuterValues 
 {
     private ClassAnalyzer clazzAnalyzer;
@@ -331,7 +329,6 @@ public class OuterValues
     public void setCount(int newHeadCount) {
 	if (newHeadCount >= headCount)
 	    return;
-	headCount = newHeadCount;
 
 	if ((GlobalOptions.debuggingFlags
 	     & GlobalOptions.DEBUG_CONSTRS) != 0) {
@@ -339,6 +336,7 @@ public class OuterValues
 	    new Throwable().printStackTrace(GlobalOptions.err);
 	}
 	    
+	headCount = newHeadCount;
 	if (newHeadCount < headMinCount) {
 	    GlobalOptions.err.println
 		("WARNING: something got wrong with scoped class "
@@ -374,5 +372,3 @@ public class OuterValues
 	return sb.append("]").toString();
     }
 }
-
-

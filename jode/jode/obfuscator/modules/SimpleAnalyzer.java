@@ -18,10 +18,11 @@
  */
 
 package jode.obfuscator.modules;
-import jode.bytecode.Handler;
 import jode.bytecode.Opcodes;
 import jode.bytecode.ClassInfo;
-import jode.bytecode.BytecodeInfo;
+import jode.bytecode.BasicBlocks;
+import jode.bytecode.Block;
+import jode.bytecode.Handler;
 import jode.bytecode.Instruction;
 import jode.bytecode.Reference;
 import jode.bytecode.TypeSignature;
@@ -30,6 +31,7 @@ import jode.obfuscator.*;
 import jode.GlobalOptions;
 
 ///#def COLLECTIONS java.util
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.ListIterator;
 ///#enddef
@@ -93,94 +95,108 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
      * references
      * @return an enumeration of the references.
      */
-    public void analyzeCode(MethodIdentifier m, BytecodeInfo bytecode) {
-	for (Iterator iter = bytecode.getInstructions().iterator(); 
-	     iter.hasNext(); ) {
-	    Instruction instr = (Instruction) iter.next();
-	    switch (instr.getOpcode()) {
-	    case opc_checkcast:
-	    case opc_instanceof:
-	    case opc_multianewarray: {
-		String clName = instr.getClazzType();
-		int i = 0;
-		while (i < clName.length() && clName.charAt(i) == '[')
-		    i++;
-		if (i < clName.length() && clName.charAt(i) == 'L') {
-		    clName = clName.substring(i+1, clName.length()-1)
-			.replace('/','.');
-		    Main.getClassBundle().reachableClass(clName);
-		}
-		break;
-	    }
-	    case opc_invokespecial:
-	    case opc_invokestatic:
-	    case opc_invokeinterface:
-	    case opc_invokevirtual:
-	    case opc_putstatic:
-	    case opc_putfield:
-		m.setGlobalSideEffects();
-		/* fall through */
-	    case opc_getstatic:
-	    case opc_getfield: {
-		Identifier ident = canonizeReference(instr);
-		if (ident != null) {
-		    if (instr.getOpcode() == opc_putstatic
-			|| instr.getOpcode() == opc_putfield) {
-			FieldIdentifier fi = (FieldIdentifier) ident;
-			if (!fi.isNotConstant())
-			    fi.setNotConstant();
-		    } else if (instr.getOpcode() == opc_invokevirtual
-			       || instr.getOpcode() == opc_invokeinterface) {
-			((ClassIdentifier) ident.getParent())
-			    .reachableReference(instr.getReference(), true);
-		    } else {
-			ident.setReachable();
+    public void analyzeCode(MethodIdentifier m, BasicBlocks bb) {
+	Block[] blocks = bb.getBlocks();
+	for (int i=0; i < blocks.length; i++) {
+	    Instruction[] instrs = blocks[i].getInstructions();
+	    for (int idx = 0; idx < instrs.length; idx++) {
+		int opcode = instrs[idx].getOpcode();
+		switch (opcode) {
+		case opc_checkcast:
+		case opc_instanceof:
+		case opc_multianewarray: {
+		    String clName = instrs[idx].getClazzType();
+		    int k = 0;
+		    while (k < clName.length() && clName.charAt(k) == '[')
+			k++;
+		    if (k < clName.length() && clName.charAt(k) == 'L') {
+			clName = clName.substring(k+1, clName.length()-1)
+			    .replace('/','.');
+			Main.getClassBundle().reachableClass(clName);
 		    }
+		    break;
 		}
-		break;
-	    }
+		case opc_invokespecial:
+		case opc_invokestatic:
+		case opc_invokeinterface:
+		case opc_invokevirtual:
+		case opc_putstatic:
+		case opc_putfield:
+		    m.setGlobalSideEffects();
+		    /* fall through */
+		case opc_getstatic:
+		case opc_getfield: {
+		    Identifier ident = canonizeReference(instrs[idx]);
+		    if (ident != null) {
+			if (opcode == opc_putstatic 
+			    || opcode == opc_putfield) {
+			    FieldIdentifier fi = (FieldIdentifier) ident;
+			    if (!fi.isNotConstant())
+				fi.setNotConstant();
+			} else if (opcode == opc_invokevirtual ||
+				   opcode == opc_invokeinterface) {
+			    ((ClassIdentifier) ident.getParent())
+				.reachableReference
+				(instrs[idx].getReference(), true);
+			} else {
+			    ident.setReachable();
+			}
+		    }
+		    break;
+		}
+		}
 	    }
 	}
 
-	Handler[] handlers = bytecode.getExceptionHandlers();
+	Handler[] handlers = bb.getExceptionHandlers();
 	for (int i=0; i< handlers.length; i++) {
-	    if (handlers[i].type != null)
+	    if (handlers[i].getType() != null)
 		Main.getClassBundle()
-		    .reachableClass(handlers[i].type);
+		    .reachableClass(handlers[i].getType());
 	}
     }
 
-    public void transformCode(BytecodeInfo bytecode) {
-	for (ListIterator iter = bytecode.getInstructions().listIterator(); 
-	     iter.hasNext(); ) {
-	    Instruction instr = (Instruction) iter.next();
-	    if (instr.getOpcode() == opc_putstatic
-		|| instr.getOpcode() == opc_putfield) {
-		Reference ref = instr.getReference();
-		FieldIdentifier fi = (FieldIdentifier)
-		    Main.getClassBundle().getIdentifier(ref);
-		if (fi != null
-		    && (Main.stripping & Main.STRIP_UNREACH) != 0
-		    && !fi.isReachable()) {
-		    /* Replace instruction with pop opcodes. */
-		    int stacksize = 
-			(instr.getOpcode() 
-			 == Instruction.opc_putstatic) ? 0 : 1;
-		    stacksize += TypeSignature.getTypeSize(ref.getType());
-		    switch (stacksize) {
-		    case 1:
-			iter.set(new Instruction(Instruction.opc_pop));
-			break;
-		    case 2:
-			iter.set(new Instruction(Instruction.opc_pop2));
-			break;
-		    case 3:
-			iter.set(new Instruction(Instruction.opc_pop2));
-			iter.add(new Instruction(Instruction.opc_pop));
-			break;
+    public void transformCode(BasicBlocks bb) {
+	Block[] blocks = bb.getBlocks();
+	for (int i=0; i < blocks.length; i++) {
+	    Instruction[] instrs = blocks[i].getInstructions();
+	    ArrayList newCode = new ArrayList();
+	    Block[] newSuccs = blocks[i].getSuccs();
+	    for (int idx = 0; idx < instrs.length; idx++) {
+		int opcode = instrs[idx].getOpcode();
+		if (opcode == opc_putstatic || opcode == opc_putfield) {
+		    Reference ref = instrs[idx].getReference();
+		    FieldIdentifier fi = (FieldIdentifier)
+			Main.getClassBundle().getIdentifier(ref);
+		    if (fi != null
+			&& (Main.stripping & Main.STRIP_UNREACH) != 0
+			&& !fi.isReachable()) {
+			/* Replace instruction with pop opcodes. */
+			int stacksize = 
+			    (opcode == Instruction.opc_putstatic) ? 0 : 1;
+			stacksize += TypeSignature.getTypeSize(ref.getType());
+			switch (stacksize) {
+			case 1:
+			    newCode.add(Instruction.forOpcode
+					(Instruction.opc_pop));
+			    continue;
+			case 2:
+			    newCode.add(Instruction.forOpcode
+					(Instruction.opc_pop2));
+			    continue;
+			case 3:
+			    newCode.add(Instruction.forOpcode
+					(Instruction.opc_pop2));
+			    newCode.add(Instruction.forOpcode
+					(Instruction.opc_pop));
+			    continue;
+			}
 		    }
 		}
+		newCode.add(instrs[idx]);
 	    }
+	    blocks[i].setCode((Instruction []) newCode.toArray(instrs),
+			      newSuccs);
 	}
     }
 }

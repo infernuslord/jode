@@ -139,6 +139,16 @@ public class IntegerType extends Type {
     }
 
     /**
+     * Returns true, if this is a sub type of type.
+     */
+    public boolean isSubtypeOf(Type type) {
+	if (type.typecode != TC_INTEGER)
+	    return false;
+	int otherTypes = ((IntegerType)type).possTypes;
+	return (otherTypes & possTypes) == otherTypes;
+    }
+
+    /**
      * Check if this and &lt;unknown -- type&rt; are not disjunct.
      * @param type  a simple type; this mustn't be a range type.
      * @return true if this is the case.
