@@ -24,11 +24,17 @@ import java.lang.reflect.*;
 
 public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 
+    public Class findClazz(String clName) throws ClassNotFoundException {
+	if (clName.charAt(0) == 'L')
+	    clName = clName.substring(1, clName.length()-1);
+	return Class.forName(clName.replace('/','.'));
+    }
+
     public Object getField(Reference ref, Object obj)
 	throws InterpreterException {
 	Field f;
 	try {
-	    Class clazz = Class.forName(ref.getClazz());
+	    Class clazz = findClazz(ref.getClazz());
 	    try {
 		f = clazz.getField(ref.getName());
 	    } catch (NoSuchFieldException ex) {
@@ -55,7 +61,7 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 	throws InterpreterException {
 	Field f;
 	try {
-	    Class clazz = Class.forName(ref.getClazz());
+	    Class clazz = findClazz(ref.getClazz());
 	    try {
 		f = clazz.getField(ref.getName());
 	    } catch (NoSuchFieldException ex) {
@@ -83,7 +89,7 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 	throws InterpreterException, InvocationTargetException {
 	Constructor c;
 	try {
-	    Class clazz = Class.forName(ref.getClazz());
+	    Class clazz = findClazz(ref.getClazz());
 	    MethodType mt = (MethodType) Type.tType(ref.getType());
 	    Class[] paramTypes = mt.getParameterClasses();
 	    try {
@@ -122,7 +128,7 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment {
 		("Can't invoke nonvirtual Method " + ref + ".");
 	MethodType mt = (MethodType) Type.tType(ref.getType());
 	try {
-	    Class clazz = Class.forName(ref.getClazz());
+	    Class clazz = findClazz(ref.getClazz());
 	    Class[] paramTypes = mt.getParameterClasses();
 	    try {
 		m = clazz.getMethod(ref.getName(), paramTypes);

@@ -35,7 +35,7 @@ public class PutFieldOperator extends StoreInstruction {
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
 	this.ref = ref;
-        this.classType = Type.tClass(ref.getClazz());
+        this.classType = Type.tType(ref.getClazz());
         if (staticFlag)
             classType.useType();
     }
@@ -50,8 +50,7 @@ public class PutFieldOperator extends StoreInstruction {
      * allow super class
      */
     public boolean isThis() {
-        return (classType.equals(Type.tClass(codeAnalyzer.getClazz().
-                                             getName())));
+        return (classType.equals(Type.tClass(codeAnalyzer.getClazz())));
     }
 
     public FieldAnalyzer getField() {
@@ -92,7 +91,7 @@ public class PutFieldOperator extends StoreInstruction {
     public String getLValueString(String[] operands) {
 	String fieldName = getFieldName();
         return staticFlag
-            ? (classType.equals(Type.tClass(codeAnalyzer.getClazz().getName()))
+            ? (classType.equals(Type.tClass(codeAnalyzer.getClazz()))
                && codeAnalyzer.findLocal(fieldName) == null
                ? fieldName 
                : classType.toString() + "." + fieldName)
