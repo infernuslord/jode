@@ -142,7 +142,5 @@ jode/swingui/PackagesTreeModel.java
 bin/Makefile
 bin/jode
 doc/Makefile
-test/Makefile)
-
-AC_OUTPUT_COMMANDS(chmod 755 javaDependencies.pl)
-AC_OUTPUT_COMMANDS(chmod 755 bin/jode)
+test/Makefile,
+[chmod 755 javaDependencies.pl bin/jode])
