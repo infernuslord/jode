@@ -1,4 +1,4 @@
-/* JsrBlock Copyright (C) 1997-1998 Jochen Hoenicke.
+/* JsrBlock Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,8 +16,10 @@
  *
  * $Id$
  */
+
 package jode.flow;
 import jode.decompiler.LocalInfo;
+import jode.Type;
 
 /** 
  * This block represents a jsr instruction.  A jsr instruction is
@@ -74,7 +76,13 @@ public class JsrBlock extends StructuredBlock {
 	/* The innerBlock is startet with a new stack entry (return address)
 	 * It should GOTO immediately and never complete.
 	 */
-	innerBlock.mapStackToLocal(stack.push(new LocalInfo()));
+	LocalInfo retAddr = new LocalInfo();
+	retAddr.setType(Type.tUObject);
+	innerBlock.mapStackToLocal(stack.push(retAddr));
+	if (jump != null) {
+	    jump.stackMap = stack;
+	    return null;
+	}
 	return stack;
     }
 
