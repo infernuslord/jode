@@ -46,7 +46,6 @@ public class ClassInfo extends BinaryInfo {
     private ClassInfo[]  interfaces;
     private FieldInfo[]  fields;
     private MethodInfo[] methods;
-    private AttributeInfo[] attributes;
 
     public final static ClassInfo javaLangObject = forName("java.lang.Object");
     
@@ -83,8 +82,9 @@ public class ClassInfo extends BinaryInfo {
                 String name = (String) enum.nextElement();
                 if (!name.endsWith(".class"))
                     throw new jode.AssertError("Wrong file name");
-                name.substring(0, name.length()-6);
-                return ClassInfo.forName(packageName+"."+ name);
+                return ClassInfo.forName(packageName + "."
+					 + name.substring(0, name.length()-6));
+
             }
         };
     }
@@ -156,7 +156,6 @@ public class ClassInfo extends BinaryInfo {
             }
         } else {
             int count = input.readUnsignedShort();
-            fields = new FieldInfo[count];
             for (int i=0; i< count; i++) {
                 input.readUnsignedShort();  // modifier
                 input.readUnsignedShort();  // name
@@ -178,7 +177,6 @@ public class ClassInfo extends BinaryInfo {
             }
         } else {
             int count = input.readUnsignedShort();
-            fields = new FieldInfo[count];
             for (int i=0; i< count; i++) {
                 input.readUnsignedShort();  // modifier
                 input.readUnsignedShort();  // name
