@@ -20,6 +20,7 @@
 package jode;
 import java.io.*;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.SearchPath;
 import jode.bytecode.InnerClassInfo;
 import jode.decompiler.*;
 import java.util.zip.ZipOutputStream;
@@ -67,6 +68,8 @@ public class Decompiler {
 		    "be verbose (multiple times means more verbose).");
 	err.println("\t--cp <classpath> "+
 		    "search for classes in specified classpath.");
+	err.println("\t                 "+
+		    "The paths should be separated by ','.");
 	err.println("\t--dest <destdir> "+
 	    "write decompiled files to disk into directory destdir.");
 	err.println("\t--style {sun|gnu}"+
@@ -115,7 +118,8 @@ public class Decompiler {
 
     public static void main(String[] params) {
         int i;
-        String classPath = System.getProperty("java.class.path");
+        String classPath = System.getProperty("java.class.path")
+	    .replace(File.pathSeparatorChar, SearchPath.pathSeparatorChar);
 	File destDir = null;
 	ZipOutputStream destZip = null;
 	int importPackageLimit = ImportHandler.DEFAULT_PACKAGE_LIMIT;
