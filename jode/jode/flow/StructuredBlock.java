@@ -371,10 +371,13 @@ public abstract class StructuredBlock {
             }
             subs[i].checkConsistent();
         }
-        if (jump != null
-            && !((java.util.Stack) 
-                 flowBlock.successors.get(jump.destination)).contains(jump))
-                throw new AssertError("Inconsistency");
+        if (jump != null) {
+            Jump jumps = (Jump) flowBlock.successors.get(jump.destination);
+            for (; jumps != jump; jumps = jumps.next) {
+                if (jumps == null)
+                    throw new AssertError("Inconsistency");
+            }
+        }
     }
 
     /**

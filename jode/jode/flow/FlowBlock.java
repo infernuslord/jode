@@ -86,7 +86,8 @@ public class FlowBlock {
     /**
      * This contains a map of all successing flow blocks and there
      * jumps.  The key of this dictionary are the flow blocks, while
-     * the elements are Stacks of jumps.
+     * the elements is the first jump to that dictionary.  The other
+     * jumps are accessible via the jump.next field.
      */
     Dictionary successors = new Hashtable();
 
@@ -121,28 +122,28 @@ public class FlowBlock {
 
     /**
      * This method optimizes the jumps to successor.
-     * @param jumps The jumps that jump to successor.  All jumps that
-     * can be optimized are removed from this stack.
+     * @param jumps The list of jumps with that successor.  
+     * @return The remaining jumps, that couldn't be optimized.
      */
-    public void optimizeJumps(Stack jumps, FlowBlock succ) {
-        Stack remainingJumps = new Stack();
+    public Jump optimizeJumps(Jump jumps, FlowBlock succ) {
+        Jump remainingJumps = null;
 
         if (lastModified.jump == null) {
-            Jump jump = new Jump(succ);
-            lastModified.setJump(jump);
-            remainingJumps.push(jump);
+            Jump lastJump = new Jump(succ);
+            lastModified.setJump(lastJump);
+            remainingJumps = lastJump;
         }
 
     next_jump:
-        while (!jumps.isEmpty()) {
-            Jump jump = (Jump) jumps.pop();
-
-            FlowBlock successor = jump.destination;
+        while (jumps != null) {
+            Jump jump = jumps;
+            jumps = jumps.next;
 
             /* if the jump is the jump of the lastModified, skip it.
              */
             if (jump.prev == lastModified) {
-                remainingJumps.push(jump);
+                jump.next = remainingJumps;
+                remainingJumps = jump;
                 continue;
             }
 
@@ -188,7 +189,7 @@ public class FlowBlock {
                     
                     /* Consider this jump again
                      */
-                    jumps.push(jump);
+                    jumps = jump;
                     continue;
                 }
 
@@ -213,11 +214,12 @@ public class FlowBlock {
                     if (loopBlock.getCondition() == LoopBlock.TRUE &&
                         loopBlock.getType() != LoopBlock.DOWHILE &&
                         (loopBlock.jumpMayBeChanged()
-                         || loopBlock.getNextFlowBlock() == successor)) {
+                         || loopBlock.getNextFlowBlock() == succ)) {
                         
                         if (loopBlock.jump == null) {
+                            /* consider this jump again */
                             loopBlock.moveJump(jump);
-                            jumps.push(jump);
+                            jumps = jump;
                         } else
                             jump.prev.removeJump();
 
@@ -247,11 +249,12 @@ public class FlowBlock {
                         if (loopBlock.getCondition() == LoopBlock.TRUE &&
                             loopBlock.getType() == LoopBlock.WHILE &&
                             (loopBlock.jumpMayBeChanged()
-                             || loopBlock.getNextFlowBlock() == successor)) {
+                             || loopBlock.getNextFlowBlock() == succ)) {
                             
                             if (loopBlock.jump == null) {
+                                /* consider this jump again */
                                 loopBlock.moveJump(jump);
-                                jumps.push(jump);
+                                jumps = jump;
                             } else
                                 jump.prev.removeJump();
 
@@ -270,7 +273,7 @@ public class FlowBlock {
 		 */
                 if (cb.outer instanceof SequentialBlock && 
                     cb.outer.getSubBlocks()[0] == cb &&
-                    (cb.outer.getNextFlowBlock() == successor ||
+                    (cb.outer.getNextFlowBlock() == succ ||
                      cb.outer.jumpMayBeChanged())) {
 
                     SequentialBlock sequBlock = (SequentialBlock) cb.outer;
@@ -284,7 +287,7 @@ public class FlowBlock {
                     newIfBlock.setThenBlock(thenBlock);
 
                     if (thenBlock.contains(lastModified)) {
-                        if (lastModified.jump.destination == successor) {
+                        if (lastModified.jump.destination == succ) {
                             newIfBlock.moveJump(lastModified.jump);
                             lastModified = newIfBlock;
                             jump.prev.removeJump();
@@ -295,7 +298,7 @@ public class FlowBlock {
 
                     newIfBlock.moveJump(jump);
                     /* consider this jump again */
-                    jumps.push(jump);
+                    jumps = jump;
                     continue;
                 }
             } else {
@@ -329,14 +332,14 @@ public class FlowBlock {
 		    StructuredBlock elseBlock = sequBlock.subBlocks[1];
                     
                     if (ifBlock.elseBlock == null
-                        && (elseBlock.getNextFlowBlock() == successor
+                        && (elseBlock.getNextFlowBlock() == succ
                             || elseBlock.jumpMayBeChanged())) {
                         
                         ifBlock.replace(sequBlock);
                         ifBlock.setElseBlock(elseBlock);
 
                         if (elseBlock.contains(lastModified)) {
-                            if (lastModified.jump.destination == successor) {
+                            if (lastModified.jump.destination == succ) {
                                 ifBlock.moveJump(lastModified.jump);
                                 lastModified = ifBlock;
                                 jump.prev.removeJump();
@@ -347,7 +350,7 @@ public class FlowBlock {
                             
                         /* consider this jump again */
                         ifBlock.moveJump(jump);
-                        jumps.push(jump);
+                        jumps = jump;
                         continue;
                     }
 		}
@@ -363,34 +366,34 @@ public class FlowBlock {
             for (StructuredBlock surrounder = jump.prev.outer;
                  surrounder != null; surrounder = surrounder.outer) {
                 if (surrounder instanceof BreakableBlock) {
-                    if (surrounder.getNextFlowBlock() != successor
+                    if (surrounder.getNextFlowBlock() != succ
                         && surrounder.jumpMayBeChanged()) {
 
-                        surrounder.setJump(new Jump(successor));
-                        jumps.push(surrounder.jump);
+                        surrounder.setJump(new Jump(succ));
+                        surrounder.jump.next = jumps;
+                        jumps = surrounder.jump;
                         break;
                     }
                 }
             }
-            remainingJumps.push(jump);
+            jump.next = remainingJumps;
+            remainingJumps = jump;
         }
-        while(!remainingJumps.isEmpty())
-            jumps.push(remainingJumps.pop());
+        return remainingJumps;
     }
 
     /**
      * Resolve remaining jumps to the successor by generating break
      * instructions.  As last resort generate a do while(false) block.
-     * @param jumps The jumps that should be resolved.
+     * @param jumps The jump list that need to be resolved.
      */
-    void resolveRemaining(Stack jumps) {
+    void resolveRemaining(Jump jumps) {
         LoopBlock doWhileFalse = null;
         StructuredBlock outerMost = lastModified;
         boolean removeLast = false;
     next_jump:
-        while (!jumps.isEmpty()) {
-            Jump jump = (Jump) jumps.pop();
-            StructuredBlock prevBlock = jump.prev;
+        for (; jumps != null; jumps = jumps.next) {
+            StructuredBlock prevBlock = jumps.prev;
 	    
             if (prevBlock == lastModified) {
                 /* handled below */
@@ -404,7 +407,7 @@ public class FlowBlock {
                  surrounder != null; surrounder = surrounder.outer) {
                 if (surrounder instanceof BreakableBlock) {
                     breaklevel++;
-                    if (surrounder.getNextFlowBlock() == jump.destination) {
+                    if (surrounder.getNextFlowBlock() == jumps.destination) {
                         breakToBlock = (BreakableBlock) surrounder;
                         break;
                     }
@@ -421,7 +424,6 @@ public class FlowBlock {
                 if (doWhileFalse == null) {
                     doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
                                                  LoopBlock.FALSE);
-                    doWhileFalse.setJump(new Jump(jump.destination));
                 }
                 /* Adapt outermost, so that it contains the break. */
                 while (!outerMost.contains(prevBlock))
@@ -439,7 +441,6 @@ public class FlowBlock {
         if (doWhileFalse != null) {
             doWhileFalse.replace(outerMost);
             doWhileFalse.setBody(outerMost);
-            doWhileFalse.jump = null;
             lastModified = doWhileFalse;
         }
     }
@@ -452,19 +453,20 @@ public class FlowBlock {
         /* Merge the sucessors from the successing flow block
          */
         Enumeration keys = succ.successors.keys();
-        Enumeration stacks = succ.successors.elements();
+        Enumeration succs = succ.successors.elements();
         while (keys.hasMoreElements()) {
             FlowBlock dest = (FlowBlock) keys.nextElement();
-            Stack hisJumps = (Stack) stacks.nextElement();
-            Stack myJumps = (Stack) successors.get(dest);
+            Jump hisJumps = (Jump) succs.nextElement();
+            Jump myJumps = (Jump) successors.get(dest);
 
             dest.predecessors.removeElement(succ);
             if (myJumps == null) {
                 dest.predecessors.addElement(this);
                 successors.put(dest, hisJumps);
             } else {
-                while (!hisJumps.isEmpty())
-                    myJumps.push(hisJumps.pop());
+                while (myJumps.next != null)
+                    myJumps = myJumps.next;
+                myJumps.next = hisJumps;
             }
         }
     }
@@ -474,25 +476,22 @@ public class FlowBlock {
      * successing flow block simultanous to a T1 transformation.
      * @param successor The flow block which is unified with this flow
      * block.  
+     * @param jumps The list of jumps to successor in this block.
      * @return The variables that must be defined in this block.
      */
-    void updateInOut (FlowBlock successor, boolean t1Transformation,
-                      Stack jumps) {
+    void updateInOut (FlowBlock successor, Jump jumps) {
         /* First get the out vectors of all jumps to successor and
          * calculate the intersection.
          */
         VariableSet gens = new VariableSet();
         VariableSet kills =  null;
 
-        Enumeration enum = jumps.elements();
-        while (enum.hasMoreElements()) {
-            Jump jump = (Jump) enum.nextElement();
-
-            gens.unionExact(jump.gen);
+        for (;jumps != null; jumps = jumps.next) {
+            gens.unionExact(jumps.gen);
             if (kills == null) 
-                kills = jump.kill;
+                kills = jumps.kill;
             else
-                kills = kills.intersect(jump.kill);
+                kills = kills.intersect(jumps.kill);
         }
         
         /* Merge the locals used in successing block with those written
@@ -502,22 +501,19 @@ public class FlowBlock {
         
         /* Now update in and out set of successing block */
 
-        if (t1Transformation)
+        if (successor != this)
             successor.in.subtract(kills);
 
         /* The gen/kill sets must be updated for every jump 
          * in the other block */
-        Enumeration stacks = successor.successors.elements();
-        while (stacks.hasMoreElements()) {
-            enum = ((Stack) stacks.nextElement()).elements();
-            while (enum.hasMoreElements()) {
+        Enumeration succSuccs = successor.successors.elements();
+        while (succSuccs.hasMoreElements()) {
+            Jump succJumps = (Jump) succSuccs.nextElement();
+            for (; succJumps != null; succJumps = succJumps.next) {
 
-                Jump jump = (Jump) enum.nextElement();
-                if (jump != null) {
-                    jump.gen.mergeGenKill(gens, jump.kill);
-                    if (t1Transformation)
-                        jump.kill.add(kills);
-                }
+                succJumps.gen.mergeGenKill(gens, succJumps.kill);
+                if (successor != this)
+                    succJumps.kill.add(kills);
             }
         }
         this.in.unionExact(successor.in);
@@ -567,28 +563,27 @@ public class FlowBlock {
             throw new AssertError("Inconsistency");
 
         Enumeration keys = successors.keys();
-        Enumeration stacks = successors.elements();
+        Enumeration succs = successors.elements();
         while (keys.hasMoreElements()) {
             FlowBlock dest = (FlowBlock) keys.nextElement();
             if (!dest.predecessors.contains(this))
                 throw new AssertError("Inconsistency");
                 
-            Enumeration enum = ((Stack)stacks.nextElement()).elements();
-            if (!enum.hasMoreElements())
+            Jump jumps = (Jump)succs.nextElement();
+            if (jumps == null)
                 throw new AssertError("Inconsistency");
                 
-            while (enum.hasMoreElements()) {
-                Jump jump = (Jump) enum.nextElement();
+            for (; jumps != null; jumps = jumps.next) {
                     
-                if (jump.destination != dest)
+                if (jumps.destination != dest)
                     throw new AssertError("Inconsistency");
                     
-                if (jump.prev.flowBlock != this ||
-                    jump.prev.jump != jump)
+                if (jumps.prev.flowBlock != this ||
+                    jumps.prev.jump != jumps)
                     throw new AssertError("Inconsistency");
                     
             prev_loop:
-                for (StructuredBlock prev = jump.prev; prev != block;
+                for (StructuredBlock prev = jumps.prev; prev != block;
                      prev = prev.outer) {
                     if (prev.outer == null)
                         throw new RuntimeException("Inconsistency");
@@ -620,14 +615,14 @@ public class FlowBlock {
         checkConsistent();
         succ.checkConsistent();
 
-        Stack jumps = (Stack) successors.remove(succ);
+        Jump jumps = (Jump) successors.remove(succ);
 
         /* Update the in/out-Vectors now */
-        updateInOut(succ, true, jumps);
+        updateInOut(succ, jumps);
 
         /* Try to eliminate as many jumps as possible.
          */
-        optimizeJumps(jumps, succ);
+        jumps = optimizeJumps(jumps, succ);
         resolveRemaining(jumps);
 
         /* Now unify the blocks.
@@ -668,10 +663,10 @@ public class FlowBlock {
 
         checkConsistent();
 
-        Stack jumps = (Stack) successors.remove(this);
+        Jump jumps = (Jump) successors.remove(this);
 
         /* Update the in/out-Vectors now */
-        updateInOut(this, false, jumps);
+        updateInOut(this, jumps);
 
         StructuredBlock bodyBlock = block;
 
@@ -685,8 +680,8 @@ public class FlowBlock {
 
         boolean createdForBlock = false;
 
-        if (jumps.size() == 1
-            && ((Jump)jumps.peek()).prev == lastModified 
+        if (jumps.next == null
+            && jumps.prev == lastModified 
             && lastModified instanceof InstructionBlock) {
             
             Expression instr = 
@@ -749,7 +744,7 @@ public class FlowBlock {
             
             /* Try to eliminate as many jumps as possible.
              */
-            optimizeJumps(jumps, this);
+            jumps = optimizeJumps(jumps, this);
             
             LoopBlock whileBlock = 
                 new LoopBlock(LoopBlock.WHILE, LoopBlock.TRUE);
@@ -760,16 +755,17 @@ public class FlowBlock {
             /* if there are further jumps to this, replace every jump with a
              * continue to while block and return true.  
              */
-            while (!jumps.isEmpty()) {
-                Jump jump = (Jump) jumps.pop();
+            for (; jumps != null; jumps = jumps.next) {
                 
-                if (jump.prev == lastModified)
+                if (jumps.prev == lastModified)
                     /* handled later */
                     continue;
                 
+                StructuredBlock prevBlock = jumps.prev;
+
                 int breaklevel = 0, continuelevel = 0;
                 BreakableBlock breakToBlock = null;
-                for (StructuredBlock surrounder = jump.prev.outer;
+                for (StructuredBlock surrounder = prevBlock.outer;
                      surrounder != whileBlock; 
                      surrounder = surrounder.outer) {
                     if (surrounder instanceof BreakableBlock) {
@@ -782,7 +778,6 @@ public class FlowBlock {
                         }
                     }
                 }
-                StructuredBlock prevBlock = jump.prev;
                 prevBlock.removeJump();
                 if (breakToBlock == null)
                     prevBlock.appendBlock
@@ -816,34 +811,34 @@ public class FlowBlock {
     public void mergeEndBlock() {
         checkConsistent();
 
-        Stack allJumps = (Stack) successors.remove(END_OF_METHOD);
+        Jump allJumps = (Jump) successors.remove(END_OF_METHOD);
         if (allJumps == null)
             return;
 
         /* First remove all implicit jumps to the END_OF_METHOD block.
          */
-        Stack jumps = new Stack();
-        Enumeration enum = allJumps.elements();
-        while (enum.hasMoreElements()) {
-            Jump jump = (Jump) enum.nextElement();
+        Jump jumps = null;
+        for (; allJumps != null; ) {
+            Jump jump = allJumps;
+            allJumps = allJumps.next;
 
             if (jump.prev instanceof ReturnBlock) {
                 /* This jump is implicit */
                 jump.prev.removeJump();
                 continue;
             }
-            jumps.push(jump);
+            jump.next = jumps;
+            jumps = jump;
         }
             
         /* Try to eliminate as many jumps as possible.
          */
-        optimizeJumps(jumps, END_OF_METHOD);
+        jumps = optimizeJumps(jumps, END_OF_METHOD);
             
     next_jump:
-        while (!jumps.isEmpty()) {
-            Jump jump = (Jump) jumps.pop();
+        for (; jumps != null; jumps = jumps.next) {
 
-            StructuredBlock prevBlock = jump.prev;
+            StructuredBlock prevBlock = jumps.prev;
 	    
             if (lastModified == prevBlock)
                 /* handled later */
@@ -1097,30 +1092,30 @@ public class FlowBlock {
                         || (nextFlow.predecessors.size() > 1
                             && (lastFlow == null
                                 || !nextFlow.predecessors.contains(lastFlow)))
-                        || ((Stack)successors.get(nextFlow)).size() > 1)
+                        || ((Jump)successors.get(nextFlow)).next != null)
                         break;
 
                     checkConsistent();
                     
-                    Stack jumps = (Stack) successors.remove(nextFlow);
-                    /* note that jumps.size() == 1 */
+                    Jump jumps = (Jump) successors.remove(nextFlow);
+                    /* note that this is the single caseBlock jump */
 
                     if (nextFlow.predecessors.size() == 2) {
-                        Stack lastJumps = 
-                            (Stack) lastFlow.successors.remove(nextFlow);
+                        Jump lastJumps = 
+                            (Jump) lastFlow.successors.remove(nextFlow);
 
                         /* Do the in/out analysis with all jumps 
                          * Note that this won't update lastFlow.in, but
                          * this will not be used anymore.
                          */
-                        lastJumps.push(jumps.peek());
-                        updateInOut(nextFlow, true, lastJumps);
-                        lastJumps.pop();
+                        jumps.next = lastJumps;
+                        updateInOut(nextFlow, jumps);
 
-                        lastFlow.optimizeJumps(lastJumps, nextFlow);
+                        lastJumps = 
+                            lastFlow.optimizeJumps(lastJumps, nextFlow);
                         lastFlow.resolveRemaining(lastJumps);
                     } else
-                        updateInOut(nextFlow, true, jumps);
+                        updateInOut(nextFlow, jumps);
                     
                     if (lastFlow != null) {
                         lastFlow.block.replace
@@ -1180,21 +1175,30 @@ public class FlowBlock {
     }
 
     public void removeSuccessor(Jump jump) {
-        Stack destJumps = (Stack) successors.get(jump.destination);
-        if (!destJumps.removeElement(jump))
+        Jump destJumps = (Jump) successors.get(jump.destination);
+        Jump prev = null;
+        while (destJumps != jump && destJumps != null) {
+            prev = destJumps;
+            destJumps = destJumps.next;
+        }
+        if (destJumps == null)
             throw new AssertError("removing non existent jump");
-        if (destJumps.isEmpty())
-            successors.remove(jump.destination);
+        if (prev != null)
+            prev.next = destJumps.next;
+        else {
+            if (destJumps.next == null)
+                successors.remove(jump.destination);
+            else
+                successors.put(jump.destination, destJumps.next);
+        }
     }
 
     public void addSuccessor(Jump jump) {
-        Stack destJumps = (Stack) successors.get(jump.destination);
-        if (destJumps == null) {
+        jump.next = (Jump) successors.get(jump.destination);
+        if (jump.next == null)
             jump.destination.predecessors.addElement(this);
-            destJumps = new Stack();
-            successors.put(jump.destination, destJumps);
-        }
-        destJumps.push(jump);
+        
+        successors.put(jump.destination, jump);
     }
 
     public void makeDeclaration(VariableSet param) {
