@@ -18,6 +18,7 @@
  */
 package jode.bytecode;
 import java.io.*;
+import jode.Type;
 
 /**
  * This class represent the constant pool.
@@ -96,12 +97,112 @@ public class ConstantPool {
 	}
     }
 
+    public int getTag(int i) throws ClassFormatException {
+        if (i == 0)
+            throw new ClassFormatException("null tag");
+        return tags[i];
+    }
+
     public String getUTF8(int i) throws ClassFormatException {
         if (i == 0)
             return null;
         if (tags[i] != UTF8)
             throw new ClassFormatException("Tag mismatch");
         return (String)constants[i];
+    }
+
+    public String[] getRef(int i) throws ClassFormatException {
+        if (i == 0)
+            return null;
+        if (tags[i] != FIELDREF
+            && tags[i] != METHODREF && tags[i] != INTERFACEMETHODREF)
+            throw new ClassFormatException("Tag mismatch");
+        int classIndex = indices1[i];
+        int nameTypeIndex = indices2[i];
+        if (tags[nameTypeIndex] != NAMEANDTYPE)
+            throw new ClassFormatException("Tag mismatch");
+        return new String[] {
+            getClassName(classIndex), 
+            getUTF8(indices1[nameTypeIndex]), getUTF8(indices2[nameTypeIndex])
+        };
+    }
+
+    public Type getConstantType(int i) throws ClassFormatException
+    {
+        if (i == 0)
+            throw new ClassFormatException("null constant");
+        switch(tags[i]) {
+        case INTEGER: {
+            int value = ((Integer)constants[i]).intValue();
+            return ((value < Short.MIN_VALUE || value > Character.MAX_VALUE) 
+                    ? Type.tInt
+                    : (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) 
+                    ? Type.tRange(Type.tInt, Type.tChar)
+                    : Type.tUInt);
+        }
+        case FLOAT  : return Type.tFloat ;
+        case LONG   : return Type.tLong  ;
+        case DOUBLE : return Type.tDouble;
+        case STRING : return Type.tString;
+        default:
+            throw new ClassFormatException
+                ("invalid constant tag: " + tags[i]);
+        }
+    }
+
+    private static String quoted(String str) {
+        StringBuffer result = new StringBuffer("\"");
+        for (int i=0; i< str.length(); i++) {
+            char c;
+            switch (c = str.charAt(i)) {
+            case '\0':
+                result.append("\\0");
+                break;
+            case '\t':
+                result.append("\\t");
+                break;
+            case '\n':
+                result.append("\\n");
+                break;
+            case '\r':
+                result.append("\\r");
+                break;
+            case '\\':
+                result.append("\\\\");
+                break;
+            case '\"':
+                result.append("\\\"");
+                break;
+            default:
+                if (c < 32) {
+                    String oct = Integer.toOctalString(c);
+                    result.append("\\000".substring(0, 4-oct.length()))
+                        .append(oct);
+                } else if (c >= 32 && c < 127)
+                    result.append(str.charAt(i));
+                else {
+                    String hex = Integer.toHexString(c);
+                    result.append("\\u0000".substring(0, 6-hex.length()))
+                        .append(hex);
+                }
+            }
+        }
+        return result.append("\"").toString();
+    }
+
+    public String getConstantString(int i) throws ClassFormatException {
+        if (i == 0)
+            throw new ClassFormatException("null constant");
+        switch (tags[i]) {
+        case ConstantPool.INTEGER: 
+        case ConstantPool.FLOAT:
+        case ConstantPool.LONG:
+        case ConstantPool.DOUBLE:
+            return constants[i].toString();
+        case ConstantPool.STRING: 
+            return quoted(getUTF8(indices1[i]));
+        }
+        throw new ClassFormatException("unknown constant tag");
     }
 
     public String getClassName(int i) throws ClassFormatException {
