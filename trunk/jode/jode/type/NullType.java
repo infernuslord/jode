@@ -35,6 +35,10 @@ public class NullType extends ReferenceType {
 	super(TC_NULL);
     }
 
+    public Type getSubType() {
+	return this;
+    }
+
     public Type createRangeType(ReferenceType bottomType) {
 	return tRange(bottomType, this);
     }
@@ -65,7 +69,7 @@ public class NullType extends ReferenceType {
     }
 
     public String toString() {
-	return "<NULL>";
+	return "tNull";
     }
 
     /**
@@ -77,4 +81,3 @@ public class NullType extends ReferenceType {
 	throw new AssertError("NULL.intersection");
     }
 }
-
