@@ -18,13 +18,21 @@
  */
 
 package jode;
-import java.io.*;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.SearchPath;
 import jode.bytecode.InnerClassInfo;
-import jode.decompiler.*;
+import jode.decompiler.ClassAnalyzer;
+import jode.decompiler.ImportHandler;
+import jode.decompiler.TabbedPrintWriter;
+
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipEntry;
+
 import gnu.getopt.LongOpt;
 import gnu.getopt.Getopt;
 

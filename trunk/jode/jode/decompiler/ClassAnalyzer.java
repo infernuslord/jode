@@ -20,7 +20,8 @@
 package jode.decompiler;
 import jode.GlobalOptions;
 import jode.Decompiler;
-import jode.type.*;
+import jode.type.MethodType;
+import jode.type.Type;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.MethodInfo;
@@ -32,10 +33,11 @@ import jode.expr.ConstructorOperator;
 import jode.flow.TransformConstructors;
 import jode.flow.StructuredBlock;
 
+import java.lang.reflect.Modifier;
 import java.util.NoSuchElementException;
 import java.util.Vector;
 import java.util.Enumeration;
-import java.lang.reflect.Modifier;
+import java.io.IOException;
 
 public class ClassAnalyzer 
     implements Analyzer, Scope, Declarable, ClassDeclarer 
@@ -256,7 +258,7 @@ public class ClassAnalyzer
             fields[j] = new FieldAnalyzer(this, finfos[j], imports);
 
         staticConstructor = null;
-        java.util.Vector constrVector = new java.util.Vector();
+        Vector constrVector = new Vector();
         for (int j=0; j < methods.length; j++) {
             methods[j] = new MethodAnalyzer(this, minfos[j], imports);
 
@@ -339,13 +341,12 @@ public class ClassAnalyzer
         for (int j=0; j < methods.length; j++)
 	    methods[j].makeDeclaration();
     }
-    public void dumpDeclaration(TabbedPrintWriter writer)
-        throws java.io.IOException
+    public void dumpDeclaration(TabbedPrintWriter writer) throws IOException
     {
 	dumpSource(writer);
     }
 
-    public void dumpBlock(TabbedPrintWriter writer) throws java.io.IOException
+    public void dumpBlock(TabbedPrintWriter writer) throws IOException
     {
 	writer.pushScope(this);
 	boolean needFieldNewLine = false;
@@ -412,7 +413,7 @@ public class ClassAnalyzer
 	writer.popScope();
     }
 
-    public void dumpSource(TabbedPrintWriter writer) throws java.io.IOException
+    public void dumpSource(TabbedPrintWriter writer) throws IOException
     {
         if (fields == null) {
             /* This means that the class could not be loaded.
@@ -469,8 +470,7 @@ public class ClassAnalyzer
 	    writer.closeBrace();
     }
 
-    public void dumpJavaFile(TabbedPrintWriter writer) 
-	throws java.io.IOException {
+    public void dumpJavaFile(TabbedPrintWriter writer) throws IOException {
 	imports.init(clazz.getName());
 	LocalInfo.init();
 	analyze();

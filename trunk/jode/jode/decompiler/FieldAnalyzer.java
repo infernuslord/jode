@@ -18,14 +18,16 @@
  */
 
 package jode.decompiler;
-import java.lang.reflect.Modifier;
-import jode.type.*;
+import jode.type.Type;
 import jode.bytecode.FieldInfo;
 import jode.expr.Expression;
 import jode.expr.ThisOperator;
 import jode.expr.LocalLoadOperator;
 import jode.expr.ConstOperator;
 import jode.expr.OuterLocalOperator;
+
+import java.lang.reflect.Modifier;
+import java.io.IOException;
 
 public class FieldAnalyzer implements Analyzer {
     ClassAnalyzer clazz;
@@ -144,8 +146,7 @@ public class FieldAnalyzer implements Analyzer {
 	return analyzedSynthetic;
     }
 
-    public void dumpSource(TabbedPrintWriter writer) 
-         throws java.io.IOException 
+    public void dumpSource(TabbedPrintWriter writer) throws IOException 
     {
 	if (isDeprecated) {
 	    writer.println("/**");
