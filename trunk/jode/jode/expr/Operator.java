@@ -68,11 +68,9 @@ public abstract class Operator extends Instruction {
 
     /**
      * Sets the return type of this operator.
-     * @return true if the operand types changed
      */
-    public boolean setType(Type type) {
+    public void setType(Type type) {
         this.type = type;
-        return false;
     }
 
     public String getOperatorString() {

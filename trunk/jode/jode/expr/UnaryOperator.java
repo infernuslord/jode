@@ -35,16 +35,11 @@ public class UnaryOperator extends SimpleOperator {
 
     /**
      * Sets the return type of this operator.
-     * @return true if the operand types changed
      */
-    public boolean setType(Type type) {
+    public void setType(Type type) {
         super.setType(type);
         Type newOpType = MyType.intersection(type, operandTypes[0]);
-        if (newOpType != operandTypes[0]) {
-            operandTypes[0] = newOpType;
-            return true;
-        }
-        return false;
+        operandTypes[0] = newOpType;
     }
 
     public boolean equals(Object o) {

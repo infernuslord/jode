@@ -34,10 +34,9 @@ public class ConditionalBlock extends InstructionContainer {
      */
     public ConditionalBlock(Instruction cond, Jump condJump, Jump elseJump) {
         super(cond, elseJump);
-        if (cond instanceof LocalVarOperator) {
-            LocalVarOperator varOp = (LocalVarOperator) cond;
-            condJump.out.addElement(varOp.getLocalInfo());
-        }
+        /* cond is a CompareBinary or CompareUnary operator, so no
+         * check for LocalVarOperator (for condJump) is needed here.  
+         */
         trueBlock = new EmptyBlock(condJump);
         trueBlock.outer = this;
     }

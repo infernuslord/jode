@@ -74,15 +74,9 @@ public class BinaryOperator extends Operator {
 
     /**
      * Sets the return type of this operator.
-     * @return true if the operand types changed
      */
-    public boolean setType(Type newType) {
-        operandType = MyType.intersection(operandType, newType);
-        if (type != operandType) {
-            type = operandType;
-            return true;
-        }
-        return false;
+    public void setType(Type newType) {
+        type = operandType = MyType.intersection(operandType, newType);
     }
 
     public boolean equals(Object o) {

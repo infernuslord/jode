@@ -135,7 +135,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
             writer.println(label+":");
             writer.tab();
         }
-        boolean needBrace = ! (bodyBlock instanceof InstructionBlock);
+        boolean needBrace = bodyBlock.needsBraces();
         switch (type) {
         case WHILE:
             writer.print("while ("+cond.toString()+")");

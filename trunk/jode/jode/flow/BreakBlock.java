@@ -63,6 +63,14 @@ public class BreakBlock extends StructuredBlock {
         return breaksBlock.getNextFlowBlock();
     }
 
+    /**
+     * Tells if this block needs braces when used in a if or while block.
+     * @return true if this block should be sorrounded by braces.
+     */
+    public boolean needsBraces() {
+        return false;
+    }
+
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {

@@ -50,12 +50,10 @@ public class AssignOperator extends Operator {
 
     /**
      * Sets the return type of this operator.
-     * @return true if the operand types changed
      */
-    public boolean setType(Type type) {
-        boolean result = store.setLValueType(type);
+    public void setType(Type type) {
+        store.setLValueType(type);
         super.setType(store.getLValueType());
-        return result;
     }
 
     /**

@@ -43,7 +43,7 @@ implements LocalVarOperator {
 //     }
 
     public LocalInfo getLocalInfo() {
-	return local;
+	return local.getLocalInfo();
     }
 
     public Type getType() {
@@ -51,9 +51,9 @@ implements LocalVarOperator {
 	return local.getType();
     }
 
-    public boolean setType(Type type) {
+    public void setType(Type type) {
 // 	System.err.println("LocalLoad.setType of "+local.getName()+": "+local.getType());
-	return super.setType(local.setType(type));
+	super.setType(local.setType(type));
     }
 
 //     public int getSlot() {

@@ -151,6 +151,16 @@ public abstract class StructuredBlock {
     }
 
     /**
+     * Tells if the sub block is the single exit point of the current block.
+     * @param subBlock the sub block.
+     * @return true, if the sub block is the single exit point of the
+     * current block.  
+     */
+    public boolean isSingleExit(StructuredBlock subBlock) {
+	return false;
+    }
+
+    /**
      * Replaces the given sub block with a new block.
      * @param oldBlock the old sub block.
      * @param newBlock the new sub block.
@@ -179,12 +189,9 @@ public abstract class StructuredBlock {
         return (child == this);
     }
 
-    /**
-     * Removes the given jump if it is our jump.  This does also
-     * update the successors vector of the flow block.  
-     *
-     * @param jump  The jump that should be removed.  
-     */
+    /** 
+     * Removes the jump.  This does also update the successors vector
+     * of the flow block.  */
     public void removeJump() {
         if (jump != null) {
             jump.prev = null;
@@ -211,8 +218,8 @@ public abstract class StructuredBlock {
             while (enum.hasMoreElements()) {
                 LocalInfo var = 
                     ((LocalInfo) enum.nextElement()).getLocalInfo();
-                used.addElement(var);
-                var.setDefining(this);
+                if (!used.contains(var))
+                    used.addElement(var);
             }
             from.used.removeAllElements();
             StructuredBlock[] subs = from.getSubBlocks();
@@ -236,8 +243,7 @@ public abstract class StructuredBlock {
     public void replace(StructuredBlock sb, StructuredBlock sub) {
         moveDefinitions(sb, sub);
         outer = sb.outer;
-        flowBlock = sb.flowBlock;
-
+        setFlowBlock(sb.flowBlock);
         if (outer != null) {
             outer.replaceSubBlock(sb, this);
         } else {
@@ -246,16 +252,43 @@ public abstract class StructuredBlock {
     }
 
     /**
-     * This function moves the jumps from sb to this block.  
-     * The jump field of sb is removed afterwards.  
-     * @param sb  The structured block whose jump is copied.
+     * This function swaps the jump with another block.
+     * @param block The block whose jump is swapped.
      */
-    public void moveJump(StructuredBlock sb) {
-        jump = sb.jump;
+    public void swapJump(StructuredBlock block) {
+        Jump tmp = block.jump;
+        block.jump = jump;
+        jump = tmp;
+        
+        jump.prev = this;
+        block.jump.prev = block;
+    }
+
+    /**
+     * This function moves the jump to this block.  
+     * The jump field of the previous owner is cleared afterwards.  
+     * If the given jump is null, nothing bad happens.
+     * @param jump The jump that should be moved, may be null.
+     */
+    public void moveJump(Jump jump) {
+	removeJump();
+        this.jump = jump;
         if (jump != null) {
+            jump.prev.jump = null;
             jump.prev = this;
-            sb.jump = null;
         }
+    }
+
+    /**
+     * Appends a block to this block.
+     * @return the new combined block.
+     */
+    public StructuredBlock appendBlock(StructuredBlock block) {
+	SequentialBlock sequBlock = new SequentialBlock();
+	sequBlock.replace(this, this);
+	sequBlock.setFirst(this);
+	sequBlock.setSecond(block);
+	return sequBlock;
     }
 
     /**
@@ -277,18 +310,14 @@ public abstract class StructuredBlock {
 
     public VariableSet propagateUsage() {
         StructuredBlock[] subs = getSubBlocks();
-        VariableSet[] childUse = new VariableSet[subs.length];
         VariableSet allUse = (VariableSet) used.clone();
         for (int i=0; i<subs.length; i++) {
-            childUse[i] = subs[i].propagateUsage();
-            allUse.addExact(childUse[i]);
-        }
-        if (subs.length == 2) {
-            /* All variables used in both sub blocks, are used in
-             * this block, too.  
-	     */
-            VariableSet newUse = childUse[0].intersectExact(childUse[1]);
-	    used.addExact(newUse);
+            VariableSet childUse = subs[i].propagateUsage();
+            /* All variables used in more than one sub blocks, are
+             * used in this block, too.  
+             */
+            used.addExact(allUse.intersectExact(childUse));
+            allUse.addExact(childUse);
         }
         return allUse;
     }
@@ -341,9 +370,18 @@ public abstract class StructuredBlock {
             this.flowBlock = flowBlock;
             StructuredBlock[] subs = getSubBlocks();
             for (int i=0; i<subs.length; i++) {
-                subs[i].setFlowBlock(flowBlock);
+                if (subs[i] != null)
+                    subs[i].setFlowBlock(flowBlock);
             }
         }
+    }
+
+    /**
+     * Tells if this block needs braces when used in a if or while block.
+     * @return true if this block should be sorrounded by braces.
+     */
+    public boolean needsBraces() {
+        return true;
     }
 
     /**
@@ -377,13 +415,17 @@ public abstract class StructuredBlock {
     public void dumpSource(jode.TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        if (jode.Decompiler.isDebugging)
-            writer.println("declaring: "+declare);
+	if (declare != null) {
+	    if (jode.Decompiler.isDebugging) {
+		writer.println("declaring: "+declare);
+		writer.println("using: "+used);
+            }
 
-	java.util.Enumeration enum = declare.elements();
-	while (enum.hasMoreElements()) {
-	    LocalInfo local = (LocalInfo) enum.nextElement();
-	    dumpDeclaration(writer, local);
+	    java.util.Enumeration enum = declare.elements();
+	    while (enum.hasMoreElements()) {
+		LocalInfo local = (LocalInfo) enum.nextElement();
+		dumpDeclaration(writer, local);
+	    }
 	}
         dumpInstruction(writer);
 
