@@ -97,6 +97,10 @@ public class MethodAnalyzer implements Analyzer {
         return code != null ? code.getMethodHeader() : null;
     }
 
+    public CodeAnalyzer getCode() {
+	return code;
+    }
+
     public boolean isConstructor() {
         return isConstructor;
     }
