@@ -40,15 +40,49 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 
 ///#ifdef JDK12
 ///    /**
+///     * The byte code for this method, or null if there isn't any.
+///     */
+///    SoftReference byteCodeRef;
+///    /**
 ///     * The code analyzer of this method, or null if there isn't any.
 ///     */
 ///    SoftReference codeAnalyzerRef;
 ///#else
     /**
+     * The byte code for this method, or null if there isn't any.
+     */
+    BytecodeInfo byteCode;
+    /**
      * The code analyzer of this method, or null if there isn't any.
      */
     CodeAnalyzer codeAnalyzer;
 ///#endif
+
+    public BytecodeInfo getBytecode() {
+///#ifdef JDK12
+///	if (byteCodeRef != null && byteCodeRef.get() != null) 
+///	    return (BytecodeInfo) byteCodeRef.get();
+///	BytecodeInfo byteCode = null;
+///#else
+	if (byteCode != null) 
+	    return byteCode;
+///#endif
+        AttributeInfo codeattr = info.findAttribute("Code");
+	try {
+	    if (codeattr != null) {
+		DataInputStream stream = new DataInputStream
+		    (new ByteArrayInputStream(codeattr.getContents()));
+		byteCode = new BytecodeInfo();
+		byteCode.read(clazz.info.getConstantPool(), stream);
+///#ifdef JDK12
+///		byteCodeRef = new SoftReference(byteCode);
+///#endif
+	    }
+	} catch (IOException ex) {
+	    ex.printStackTrace(Obfuscator.err);
+	}
+	return byteCode;
+    }
 
     public CodeAnalyzer getCodeAnalyzer() {
 ///#ifdef JDK12
@@ -59,19 +93,8 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	if (codeAnalyzer != null)
 	    return codeAnalyzer;
 ///#endif
-		
-        AttributeInfo codeattr = info.findAttribute("Code");
-	BytecodeInfo code = null;
-	try {
-	    if (codeattr != null) {
-		DataInputStream stream = new DataInputStream
-		    (new ByteArrayInputStream(codeattr.getContents()));
-		code = new BytecodeInfo();
-		code.read(clazz.info.getConstantPool(), stream);
-	    }
-	} catch (IOException ex) {
-	    ex.printStackTrace(Obfuscator.err);
-	}
+
+	BytecodeInfo code = getBytecode();
 	if (code != null) {
 	    codeAnalyzer = new ConstantAnalyzer(code, this);
 ///#ifdef JDK12
@@ -197,7 +220,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     int nameIndex;
     int descriptorIndex;
     int codeIndex;
-    BytecodeInfo bytecode;
+    BytecodeInfo strippedBytecode;
     byte[] code;
     int exceptionsIndex;
     int[] excIndices;
@@ -211,22 +234,23 @@ public class MethodIdentifier extends Identifier implements Opcodes {
      */
     public void doCodeTransformations(GrowableConstantPool gcp) {
 	if (getCodeAnalyzer() != null) {
-	    bytecode = getCodeAnalyzer().stripCode();
-//  	    bytecode.dumpCode(Obfuscator.err);
+	    strippedBytecode = getCodeAnalyzer().stripCode();
+//  	    strippedBytecode.dumpCode(Obfuscator.err);
 	    /* XXX This should be in a if (Obfuscator.distributeLocals) */
-	    LocalOptimizer localOpt = new LocalOptimizer(bytecode);
+	    LocalOptimizer localOpt = new LocalOptimizer(strippedBytecode);
 	    localOpt.calcLocalInfo();
 	    localOpt.stripLocals();
 	    localOpt.distributeLocals();
 //  	    if (Obfuscator.isDebugging)
 //  		localOpt.dumpLocals();
-//  	    bytecode.dumpCode(Obfuscator.err);
+//  	    strippedBytecode.dumpCode(Obfuscator.err);
 	    
-	    RemovePopAnalyzer remPop = new RemovePopAnalyzer(bytecode, this);
+	    RemovePopAnalyzer remPop = 
+		new RemovePopAnalyzer(strippedBytecode, this);
 	    remPop.stripCode();
-//  	    bytecode.dumpCode(Obfuscator.err);
+//  	    strippedBytecode.dumpCode(Obfuscator.err);
 
-	    for (Instruction instr = bytecode.getFirstInstr(); 
+	    for (Instruction instr = strippedBytecode.getFirstInstr(); 
 		 instr != null; instr = instr.nextByAddr) {
 		switch (instr.opcode) {
 		case opc_invokespecial:
@@ -287,7 +311,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		}
 	    }
 	
-	    Handler[] handlers = bytecode.getExceptionHandlers();
+	    Handler[] handlers = strippedBytecode.getExceptionHandlers();
 	    for (int i=0; i< handlers.length; i++) {
 		if (handlers[i].type != null) {
 		    ClassIdentifier ci = (ClassIdentifier) 
@@ -297,7 +321,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		}
 	    }
 
-	    bytecode.prepareWriting(gcp);
+	    strippedBytecode.prepareWriting(gcp);
 	}
     }
 
@@ -306,18 +330,18 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	descriptorIndex = gcp.putUTF(clazz.bundle.getTypeAlias(getType()));
 
 	codeIndex = 0;
-        if (bytecode != null) {
+        if (strippedBytecode != null) {
 	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
 	    DataOutputStream output = new DataOutputStream(baos);
 	    try {
-		bytecode.writeCode(gcp, clazz.bundle, output);
+		strippedBytecode.writeCode(gcp, clazz.bundle, output);
 		output.close();
 		code = baos.toByteArray();
 		codeIndex = gcp.putUTF("Code");
 	    } catch (IOException ex) {
 		code = null;
 	    }
-	    bytecode = null;
+	    strippedBytecode = null;
 	}
 	if (exceptions != null) {
 	    exceptionsIndex = gcp.putUTF("Exceptions");
