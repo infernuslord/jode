@@ -23,9 +23,9 @@ import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 
 ///#ifdef JDK12
-///import java.util.Set;
+///import java.util.Collection;
 ///#else
-import jode.util.Set;
+import jode.util.Collection;
 ///#endif
 
 public abstract class Operator extends Expression {
@@ -163,7 +163,7 @@ public abstract class Operator extends Expression {
 	return this;
     }
 
-    public void fillInGenSet(Set in, Set gen) {
+    public void fillInGenSet(Collection in, Collection gen) {
 	if (this instanceof LocalVarOperator) {
             LocalVarOperator varOp = (LocalVarOperator) this;
             if (varOp.isRead() && in != null)
@@ -175,7 +175,7 @@ public abstract class Operator extends Expression {
 	    subExpressions[i].fillInGenSet(in,gen);
     }
 
-    public void fillDeclarables(Set used) {
+    public void fillDeclarables(Collection used) {
 	if (this instanceof LocalVarOperator) {
 	    used.add(((LocalVarOperator) this).getLocalInfo());
 	}

@@ -33,9 +33,9 @@ import jode.decompiler.Scope;
 
 import java.lang.reflect.Modifier;
 ///#ifdef JDK12
-///import java.util.Set;
+///import java.util.Collection;
 ///#else
-import jode.util.Set;
+import jode.util.Collection;
 ///#endif
 
 public class ConstructorOperator extends Operator 
@@ -165,7 +165,7 @@ public class ConstructorOperator extends Operator
      * We add the named method scoped classes to the declarables, and
      * only fillDeclarables on the parameters we will print.
      */
-    public void fillDeclarables(Set used) {
+    public void fillDeclarables(Collection used) {
 	ClassInfo clazz = getClassInfo();
 	InnerClassInfo outer = getOuterClassInfo(clazz);
 	ClassAnalyzer clazzAna = methodAnalyzer.getClassAnalyzer(clazz);

@@ -23,9 +23,9 @@ import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 
 ///#ifdef JDK12
-///import java.util.Set;
+///import java.util.Collection;
 ///#else
-import jode.util.Set;
+import jode.util.Collection;
 ///#endif
 
 /**
@@ -74,13 +74,13 @@ public class CheckNullOperator extends Operator {
 	local.remove();
     }
 
-    public void fillInGenSet(Set in, Set gen) {
+    public void fillInGenSet(Collection in, Collection gen) {
 	if (gen != null)
 	    gen.add(local);
 	super.fillInGenSet(in, gen);
     }
 
-    public void fillDeclarables(Set used) {
+    public void fillDeclarables(Collection used) {
 	used.add(local);
 	super.fillDeclarables(used);
     }

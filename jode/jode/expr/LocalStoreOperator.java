@@ -35,6 +35,7 @@ public class LocalStoreOperator extends LValueExpression
     }
 
     public boolean isRead() {
+	/* if it is part of a += operator, this is a read. */
         return parent != null && parent.getOperatorIndex() != ASSIGN_OP;
     }
 

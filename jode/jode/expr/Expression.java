@@ -23,9 +23,9 @@ import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 
 ///#ifdef JDK12
-///import java.util.Set;
+///import java.util.Collection;
 ///#else
-import jode.util.Set;
+import jode.util.Collection;
 ///#endif
 
 public abstract class Expression {
@@ -228,10 +228,10 @@ public abstract class Expression {
         return true;
     }
 
-    public void fillInGenSet(Set in, Set gen) {
+    public void fillInGenSet(Collection in, Collection gen) {
     }
 
-    public void fillDeclarables(Set used) {
+    public void fillDeclarables(Collection used) {
     }
 
     public abstract void dumpExpression(TabbedPrintWriter writer) 
