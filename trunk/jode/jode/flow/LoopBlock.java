@@ -37,9 +37,9 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public static final int POSSFOR = 3;
 
     public static final Expression TRUE = 
-        new ConstOperator(Type.tBoolean, "1");
+        new ConstOperator(Boolean.TRUE);
     public static final Expression FALSE = 
-        new ConstOperator(Type.tBoolean, "0");
+        new ConstOperator(Boolean.FALSE);
 
     /**
      * The condition.  Must be of boolean type.
