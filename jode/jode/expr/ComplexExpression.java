@@ -469,8 +469,51 @@ public class ComplexExpression extends Expression {
             /* xx != false */
             if (operator.getOperatorIndex() == operator.NOTEQUALS_OP)
                 return subExpressions[0].simplify();
-        } 
-        else {
+        } else if (operator instanceof IfThenElseOperator) {
+	    if ((subExpressions[0] instanceof ComplexExpression)
+		&& (subExpressions[0].getOperator() 
+		    instanceof CompareUnaryOperator)
+		&& (subExpressions[0].getOperator().getOperatorIndex()
+		    == Operator.NOTEQUALS_OP)
+		&& (subExpressions[1] instanceof GetFieldOperator)
+		&& (subExpressions[2] instanceof ComplexExpression)
+		&& (subExpressions[2].getOperator()
+		    instanceof PutFieldOperator)) {
+		// Check for
+		//   class$classname != null ? class$classname :
+		//       (class$classname = class$("classname"))
+		// and replace with
+		//   classname.class
+		ComplexExpression cmp = (ComplexExpression) subExpressions[0];
+		GetFieldOperator get = (GetFieldOperator) subExpressions[1];
+		ComplexExpression ass = (ComplexExpression) subExpressions[2];
+		PutFieldOperator put = (PutFieldOperator) ass.getOperator();
+		if (put.isSynthetic() && put.matches(get)
+		    && cmp.subExpressions[0] instanceof GetFieldOperator
+		    && put.matches((GetFieldOperator)cmp.subExpressions[0])
+		    && ass.subExpressions[0] instanceof ComplexExpression
+		    && (ass.subExpressions[0].getOperator() 
+			instanceof InvokeOperator)) {
+		    InvokeOperator invoke = (InvokeOperator) 
+			ass.subExpressions[0].getOperator();
+		    Expression param = 
+			((ComplexExpression)ass.subExpressions[0])
+			.subExpressions[0];
+		    if (invoke.isGetClass()
+			&& param instanceof ConstOperator
+			&& param.getType().equals(Type.tString)) {
+			String clazz = ((ConstOperator)param).getValue();
+			clazz = clazz.substring(1, clazz.length()-1);
+			if (put.getFieldName()
+			    .equals("class$" + clazz.replace('.', '$'))
+			    || put.getFieldName()
+			    .equals("class$L" + clazz.replace('.', '$'))) {
+			    return new ClassFieldOperator(Type.tClass(clazz));
+			}
+		    }
+		}
+	    }
+        } else {
             Expression stringExpr = simplifyString();
             if (stringExpr != this)
                 return stringExpr.simplify();
