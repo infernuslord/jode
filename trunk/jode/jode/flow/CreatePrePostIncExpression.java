@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.expr.*;
-import jode.Type;
+import jode.type.Type;
 
 public class CreatePrePostIncExpression {
 
@@ -67,7 +67,7 @@ public class CreatePrePostIncExpression {
 	int op;
 	if (iinc.getOperatorIndex() == iinc.ADD_OP + iinc.OPASSIGN_OP)
 	    op = Operator.INC_OP;
-	else if (iinc.getOperatorIndex() == iinc.NEG_OP + iinc.OPASSIGN_OP)
+	else if (iinc.getOperatorIndex() == iinc.SUB_OP + iinc.OPASSIGN_OP)
 	    op = Operator.DEC_OP;
 	else
 	    return false;
@@ -141,7 +141,7 @@ public class CreatePrePostIncExpression {
         int op;
         if (binOp.getOperatorIndex() == store.ADD_OP)
             op = Operator.INC_OP;
-        else if (binOp.getOperatorIndex() == store.NEG_OP)
+        else if (binOp.getOperatorIndex() == store.SUB_OP)
             op = Operator.DEC_OP;
         else
             return false;
