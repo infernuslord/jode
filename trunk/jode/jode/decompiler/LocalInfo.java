@@ -23,6 +23,7 @@ import java.util.Vector;
 import jode.GlobalOptions;
 import jode.Decompiler;
 import jode.type.Type;
+import jode.expr.Expression;
 import jode.expr.LocalVarOperator;
 
 /**
@@ -36,7 +37,7 @@ import jode.expr.LocalVarOperator;
  * then unifies locals.  One of the local is then a shadow object which
  * calls the member functions of the other local.<p>
  */
-public class LocalInfo {
+public class LocalInfo implements Declarable {
     private static int serialnr = 0;
     private static int nextAnonymousSlot = -1;
     private int slot;
@@ -48,6 +49,8 @@ public class LocalInfo {
     private Vector operators = new Vector();
     private Vector hints = new Vector();
     private boolean removed = false;
+    private boolean isFinal = false;
+    private Expression constExpr = null;
 
     /**
      * Create a new local info with an anonymous slot.
@@ -100,10 +103,17 @@ public class LocalInfo {
             if (this != li) {
                 shadow = li;
 		if (!nameIsGenerated)
-		    shadow.name = li.name;
+		    shadow.name = name;
+		if (constExpr != null) {
+		    if (shadow.constExpr != null)
+			throw new jode.AssertError
+			    ("local has multiple constExpr");
+		    shadow.constExpr = constExpr;
+		}
+			
 //  		GlobalOptions.err.println("combining "+name+"("+type+") and "
-//  				       +li.name+"("+li.type+")");
-                li.setType(type);
+//  				       +shadow.name+"("+shadow.type+")");
+                shadow.setType(type);
 
 
                 boolean needTypeUpdate = !li.type.equals(type);
@@ -113,7 +123,8 @@ public class LocalInfo {
                     LocalVarOperator lvo = 
                         (LocalVarOperator) enum.nextElement();
                     if (needTypeUpdate) {
-                        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+                        if ((GlobalOptions.debuggingFlags 
+			     & GlobalOptions.DEBUG_TYPES) != 0)
                             GlobalOptions.err.println("updating " + lvo);
                         lvo.updateType();
                     }
@@ -210,7 +221,7 @@ public class LocalInfo {
     }
 
     public boolean isNameGenerated() {
-	return nameIsGenerated;
+	return getLocalInfo().nameIsGenerated;
     }
 
     /**
@@ -288,6 +299,15 @@ public class LocalInfo {
         return li.type;
     }
 
+    public void setExpression(Expression expr) {
+	setType(expr.getType());
+	getLocalInfo().constExpr = expr;
+    }
+
+    public Expression getExpression() {
+	return getLocalInfo().constExpr;
+    }
+
     public boolean isShadow() {
 	return (shadow != null);
     }
@@ -305,7 +325,32 @@ public class LocalInfo {
 	return removed;
     }
 
+    public boolean markFinal() {
+	LocalInfo li = getLocalInfo();
+	Enumeration enum = li.operators.elements();
+	int writes = 0;
+	while (enum.hasMoreElements()) {
+	    if (((LocalVarOperator) enum.nextElement()).isWrite())
+		writes++;
+	}
+	if (writes > 1)
+	    return false;
+	li.isFinal = true;
+	return true;
+    }
+
     public String toString() {
         return getName().toString();
     }
+
+    public void dumpDeclaration(TabbedPrintWriter writer)
+        throws java.io.IOException
+    {
+	LocalInfo li = getLocalInfo();
+	if (li.isFinal)
+	    writer.print("final ");
+	writer.printType(li.getType().getHint());
+	writer.print(" " + li.getName().toString());
+    }
 }
+
