@@ -27,14 +27,12 @@ import jode.bytecode.ConstantPool;
 public class LocalVariableTable {
     LocalVariableRangeList[] locals;
 
-    public LocalVariableTable(int size, 
-                              ClassAnalyzer cla, AttributeInfo attr) {
+    public LocalVariableTable(int size, ConstantPool constantPool, 
+			      AttributeInfo attr) {
 
         locals = new LocalVariableRangeList[size];
         for (int i=0; i<size; i++)
             locals[i] = new LocalVariableRangeList(i);
-
-        ConstantPool constantPool = cla.getConstantPool();
 
         DataInputStream stream = new DataInputStream
             (new ByteArrayInputStream(attr.getContents()));
