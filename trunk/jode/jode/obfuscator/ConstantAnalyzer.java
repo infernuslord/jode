@@ -57,9 +57,10 @@ import jode.util.Iterator;
  */
 public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     boolean working;
-    MethodIdentifier m;
-    BytecodeInfo bytecode;
     Map constInfos;
+
+    BytecodeInfo bytecode;
+    Identifier listener;
 
     private static ConstantRuntimeEnvironment runtime
 	= new ConstantRuntimeEnvironment();
@@ -410,9 +411,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 
     private static ConstantInfo unknownConstInfo = new ConstantInfo();
 
-    public ConstantAnalyzer(BytecodeInfo code, MethodIdentifier method) {
-	this.bytecode = code;
-	this.m = method;
+    public ConstantAnalyzer() {
     }
 
     public void mergeInfo(Instruction instr, 
@@ -423,6 +422,50 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    info.enqueue();
 	} else
 	    ((StackLocalInfo)instr.tmpInfo).merge(info);
+    }
+
+    public Identifier canonizeReference(Instruction instr) {
+	Reference ref = (Reference) instr.objData;
+	Identifier ident = Main.getClassBundle().getIdentifier(ref);
+	String clName = ref.getClazz();
+	String realClazzName;
+	if (ident != null) {
+	    ClassIdentifier clazz = (ClassIdentifier)ident.getParent();
+	    realClazzName = "L" + (clazz.getFullName()
+				   .replace('.', '/')) + ";";
+	} else {
+	    /* We have to look at the ClassInfo's instead, to
+	     * point to the right method.
+	     */
+	    ClassInfo clazz;
+	    if (clName.charAt(0) == '[') {
+		/* Arrays don't define new methods (well clone(),
+		 * but that can be ignored).
+		 */
+		clazz = ClassInfo.javaLangObject;
+	    } else {
+		clazz = ClassInfo.forName
+		    (clName.substring(1, clName.length()-1)
+		     .replace('/','.'));
+	    }
+	    while (clazz != null
+		   && clazz.findMethod(ref.getName(), 
+				       ref.getType()) == null)
+		clazz = clazz.getSuperclass();
+
+	    if (clazz == null) {
+		GlobalOptions.err.println("WARNING: Can't find reference: "
+					  +ref);
+		realClazzName = clName;
+	    } else
+		realClazzName = "L" + clazz.getName().replace('.', '/') + ";";
+	}
+	if (!realClazzName.equals(ref.getClazz())) {
+	    ref = Reference.getReference(realClazzName, 
+					 ref.getName(), ref.getType());
+	    instr.objData = ref;
+	}
+	return ident;
     }
 
     public void handleReference(Reference ref, boolean isVirtual) {
@@ -1135,10 +1178,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 
 	case opc_putstatic:
 	case opc_putfield: {
+	    FieldIdentifier fi = (FieldIdentifier) canonizeReference(instr);
 	    int size = (opcode == opc_putstatic) ? 0 : 1;
 	    Reference ref = (Reference) instr.objData;
-	    FieldIdentifier fi = (FieldIdentifier) 
-		Main.getClassBundle().getIdentifier(ref);
 	    if (fi != null && !fi.isNotConstant()) {
 		fi.setNotConstant();
 		fieldNotConstant(fi);
@@ -1150,10 +1192,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	case opc_getstatic:
 	case opc_getfield: {
 	    int size = (opcode == opc_getstatic) ? 0 : 1;
+	    FieldIdentifier fi = (FieldIdentifier) canonizeReference(instr);
 	    Reference ref = (Reference) instr.objData;
 	    Type type = Type.tType(ref.getType());
-	    FieldIdentifier fi = (FieldIdentifier) 
-		Main.getClassBundle().getIdentifier(ref);
 	    if (fi != null) {
 		if (fi.isNotConstant()) {
 		    fi.setReachable();
@@ -1168,7 +1209,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    shortInfo.constant = obj;
 		    result = new ConstValue(obj);
 		    result.addConstantListener(shortInfo);
-		    fi.addFieldListener(m);
+		    fi.addFieldListener(listener);
 		}
 	    } else
 		result = unknownValue[type.stackSize()-1];
@@ -1179,6 +1220,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	case opc_invokestatic:
 	case opc_invokeinterface:
 	case opc_invokevirtual: {
+	    canonizeReference(instr);
 	    Reference ref = (Reference) instr.objData;
 	    MethodType mt = (MethodType) Type.tType(ref.getType());
 	    boolean constant = true;
@@ -1243,8 +1285,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    if (!constant) {
 		handleReference(ref, opcode == opc_invokevirtual 
 				|| opcode == opc_invokeinterface);
-		returnVal = 
-		    unknownValue[mt.getReturnType().stackSize()-1];
+		returnVal = unknownValue[mt.getReturnType().stackSize()-1];
 	    } else {
 		ConstantInfo shortInfo = new ConstantInfo();
 		constInfos.put(instr, shortInfo);
@@ -1329,13 +1370,15 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
     }
 
-    public void analyzeCode() {
+    public void analyzeCode(MethodIdentifier listener, BytecodeInfo bytecode) {
+	this.bytecode = bytecode;
 	working = true;	
 	if (constInfos == null)
 	    constInfos = new HashMap();
 	Set modifiedQueue = new HashSet();
+	MethodInfo minfo = bytecode.getMethodInfo();
 	StackLocalInfo firstInfo = new StackLocalInfo 
-	    (bytecode.getMaxLocals(), m.info.isStatic(), m.info.getType(), 
+	    (bytecode.getMaxLocals(), minfo.isStatic(), minfo.getType(), 
 	     modifiedQueue);
 	firstInfo.instr = bytecode.getFirstInstr();
 	firstInfo.instr.tmpInfo = firstInfo;
@@ -1447,11 +1490,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	dest.addPredecessor(second);
     }
     
-    public BytecodeInfo stripCode() {
-	if (constInfos == null)
-	    analyzeCode();
-
-// 	bytecode.dumpCode(GlobalOptions.err);
+    public void transformCode(BytecodeInfo bytecode) {
 	for (Instruction instr = bytecode.getFirstInstr();
 	     instr != null; instr = instr.nextByAddr) {
 	    ConstantInfo info = (ConstantInfo) constInfos.get(instr);
@@ -1469,7 +1508,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    instr.objData = info.constant;
 		    if (GlobalOptions.verboseLevel > 2)
 			GlobalOptions.err.println
-			    (m + ": Replacing " + instr
+			    (bytecode + ": Replacing " + instr
 			     + " with constant " + info.constant);
 		}
 	    } else if ((info.flags & CONSTANTFLOW) != 0) {
@@ -1481,7 +1520,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    instr.opcode = opc_pop;
 		if (GlobalOptions.verboseLevel > 2)
 		    GlobalOptions.err.println
-			(m + ": Replacing " + instr + " with goto " + pc.addr);
+			(bytecode + ": Replacing " + instr
+			 + " with goto " + pc.addr);
 		instr.alwaysJumps = false;
 		for (int i = 0; i< instr.succs.length; i++)
 		    instr.succs[i].removePredecessor(instr);
@@ -1559,6 +1599,5 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		}
 	    }
 	}
-	return bytecode;
     }
 }
