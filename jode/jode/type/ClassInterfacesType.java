@@ -483,7 +483,7 @@ public class ClassInterfacesType extends ReferenceType {
         else
             type = ClassInfo.javaLangObject;
         String name = type.getName();
-        int dot = name.lastIndexOf('.');
+        int dot = Math.max(name.lastIndexOf('.'), name.lastIndexOf('$'));
         if (dot >= 0)
             name = name.substring(dot+1);
         if (Character.isUpperCase(name.charAt(0)))
