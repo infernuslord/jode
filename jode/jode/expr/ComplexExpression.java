@@ -211,9 +211,11 @@ public class ComplexExpression extends Expression {
         boolean changed = false;
         for (int i=0; i < subExpressions.length; i++) {
             Type opType;
-            if (i == 0 && operator instanceof ArrayStoreOperator) {
+            if (operator instanceof CheckNullOperator
+		|| i == 0 && operator instanceof ArrayStoreOperator) {
                 /* No rule without exception:
                  * We can always use tSubType, except for the
+		 * check null operator and the
                  * array operand of an array store instruction.
                  */
                 opType = operator.getOperandType(i);
@@ -239,11 +241,12 @@ public class ComplexExpression extends Expression {
                 Type types[] = new Type[subExpressions.length];
                 boolean changed = false;
                 for (int i=0; i < types.length; i++) {
-                    if (i == 0 && operator instanceof ArrayStoreOperator) {
+                    if (operator instanceof CheckNullOperator
+			|| i == 0 && operator instanceof ArrayStoreOperator) {
                         /* No rule without exception:
-                     * We can always use tSuperType, except for the
-                     * array operand of an array store instruction.
-                     */
+			 * We can always use tSuperType, except for the
+			 * array operand of an array store instruction.
+			 */
                         types[i] = subExpressions[i].getType();
                     } else
                         types[i] = Type.tSuperType
