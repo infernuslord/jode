@@ -200,7 +200,8 @@ public class JodeWindow
 	}
     }
 
-    public class AreaOutputStream extends OutputStream { 
+    public class AreaOutputStream extends OutputStream {
+	boolean initialized = false;
 	private TextArea area;
 
 	public AreaOutputStream(TextArea a) {
@@ -208,6 +209,10 @@ public class JodeWindow
 	}
 
 	public void write(int b) throws IOException {
+	    if (!initialized) {
+		area.setText("");
+		initialized = true;
+	    }
 ///#ifdef AWT10
 ///	    area.appendText(String.valueOf((char)b));
 ///#else
@@ -216,6 +221,10 @@ public class JodeWindow
 	}
 
 	public void write(byte[] b, int off, int len) throws IOException {
+	    if (!initialized) {
+		area.setText("");
+		initialized = true;
+	    }
 ///#ifdef AWT10
 ///	    area.appendText(new String(b, off, len));
 ///#else
@@ -255,17 +264,12 @@ public class JodeWindow
 		     +"and without .class ending");
 		return;
 	    }
-	    imports.init(lastClassName);
 
-	    ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
-	    clazzAna.analyze();
-	    
-	    sourcecodeArea.setText("");
 	    TabbedPrintWriter writer = 
 		new TabbedPrintWriter(new AreaOutputStream(sourcecodeArea)
 				      , imports);
-	    imports.dumpHeader(writer);
-	    clazzAna.dumpSource(writer);
+	    ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
+	    clazzAna.dumpJavaFile(writer);
 
 ///#ifdef AWT10
 ///	    saveButton.enable();
