@@ -21,6 +21,7 @@ package jode.flow;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.LocalInfo;
 import jode.expr.LocalStoreOperator;
+import jode.expr.StoreInstruction;
 
 /**
  * A sequential block combines exactly two structured blocks to a new
@@ -97,17 +98,17 @@ public class SequentialBlock extends StructuredBlock {
 	     * return.  
 	     */
 
-	    if (first.getInstruction().getOperator() 
-		instanceof LocalStoreOperator) {
-		LocalStoreOperator store = (LocalStoreOperator) 
-		    first.getInstruction().getOperator();
-		if (store.getLocalInfo().getUseCount() == 2
-		    && (second.getInstruction().canCombine
-			(first.getInstruction()) > 0)) {
+	    if (first.getInstruction() instanceof StoreInstruction) {
+		StoreInstruction store 
+		    = (StoreInstruction) first.getInstruction();
+		if (store.getLValue() instanceof LocalStoreOperator
+		    && (((LocalStoreOperator) store.getLValue())
+			.getLocalInfo().getUseCount() == 2)
+		    && (second.getInstruction().canCombine(store) > 0)) {
 		    System.err.println("before: "+first+second);
 
 		    second.setInstruction(second.getInstruction()
-					  .combine(first.getInstruction()));
+					  .combine(store));
 		    System.err.println("after: "+second);
 		    StructuredBlock sb = subBlocks[1];
 		    sb.moveDefinitions(this, sb);
@@ -173,10 +174,13 @@ public class SequentialBlock extends StructuredBlock {
 	/* All variables used somewhere inside both sub blocks, are
 	 * used in this block, too.  
 	 * Also the variables used in first block are used in this
-	 * block two. (Note that subBlocks[0].used != childUse0)
+	 * block two, except when it can be declared locally.
+	 * (Note that subBlocks[0].used != childUse0)
 	 */
-	used.unionExact(childUse0.intersectExact(childUse1));
 	used.unionExact(subBlocks[0].used);
+	if (subBlocks[0] instanceof LoopBlock)
+	    ((LoopBlock) subBlocks[0]).removeLocallyDeclareable(used);
+	used.unionExact(childUse0.intersectExact(childUse1));
 	allUse.unionExact(childUse0);
 	allUse.unionExact(childUse1);
         return allUse;
@@ -191,7 +195,7 @@ public class SequentialBlock extends StructuredBlock {
     public void makeDeclaration(VariableSet done) {
 	super.makeDeclaration(done);
 	if (subBlocks[0] instanceof InstructionBlock)
-	    /* A instruction block my declare a variable for us.
+	    /* An instruction block may declare a variable for us.
 	     */
 	    ((InstructionBlock) subBlocks[0]).checkDeclaration(this.declare);
     }
