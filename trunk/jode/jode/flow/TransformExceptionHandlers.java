@@ -24,7 +24,13 @@ import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.expr.*;
 
-import java.util.Enumeration;
+///#ifdef JDK12
+///import java.util.Map;
+///import java.util.Iterator;
+///#else
+import jode.util.Map;
+import jode.util.Iterator;
+///#endif
 
 /**
  * 
@@ -124,7 +130,7 @@ public class TransformExceptionHandlers {
      *   try {
      *     a = 5 / (a=0);
      *   } catch (DivideByZeroException ex) {
-     *     System.err.println(a);
+     *     System.out.println(a);
      *   }
      * </pre>
      *
@@ -142,9 +148,9 @@ public class TransformExceptionHandlers {
         
         /* The gen/kill sets must be updated for every jump 
          * in the catch block */
-        Enumeration succs = catchFlow.successors.elements();
-        while (succs.hasMoreElements()) {
-            for (Jump succJumps = (Jump) succs.nextElement();
+        Iterator succs = catchFlow.successors.values().iterator();
+        while (succs.hasNext()) {
+            for (Jump succJumps = (Jump) succs.next();
                  succJumps != null; succJumps = succJumps.next) {
                 succJumps.gen.mergeGenKill(gens, succJumps.kill);
             }
@@ -303,11 +309,11 @@ public class TransformExceptionHandlers {
     }
     
     public void checkAndRemoveJSR(FlowBlock tryFlow, FlowBlock subRoutine) {
-        Enumeration keys = tryFlow.successors.keys();
-        Enumeration succs = tryFlow.successors.elements();
-        while (keys.hasMoreElements()) {
-            Jump jumps = (Jump) succs.nextElement();
-            if (keys.nextElement() == subRoutine)
+        Iterator iter = tryFlow.successors.entrySet().iterator();
+        while (iter.hasNext()) {
+	    Map.Entry entry = (Map.Entry) iter.next();
+            Jump jumps = (Jump) entry.getValue();
+            if (entry.getKey() == subRoutine)
                 continue;
 
             for ( ; jumps != null; jumps = jumps.next) {
@@ -379,10 +385,10 @@ public class TransformExceptionHandlers {
     public void checkAndRemoveMonitorExit(FlowBlock tryFlow, LocalInfo local, 
                                           int startMonExit, int endMonExit) {
         FlowBlock subRoutine = null;
-        Enumeration succs = tryFlow.successors.elements();
+        Iterator succs = tryFlow.successors.values().iterator();
     dest_loop:
-        while (succs.hasMoreElements()) {
-            for (Jump jumps = (Jump) succs.nextElement();
+        while (succs.hasNext()) {
+            for (Jump jumps = (Jump) succs.next();
                  jumps != null; jumps = jumps.next) {
 
                 StructuredBlock prev = jumps.prev;
@@ -724,16 +730,17 @@ public class TransformExceptionHandlers {
             FlowBlock succ = (firstInstr.jump != null) ?
                           firstInstr.jump.destination : null;
             boolean hasExit = false;
-            Enumeration keys = tryFlow.successors.keys();
-            while (keys.hasMoreElements()) {
-                Object key = keys.nextElement();
+            Iterator iter = tryFlow.successors.entrySet().iterator();
+            while (iter.hasNext()) {
+		Map.Entry entry = (Map.Entry) iter.next();
+                Object key = entry.getKey();
                 if (key == succ)
                     continue;
                 if (key != FlowBlock.END_OF_METHOD) {
                     /* There is another exit in the try block, bad */
                     return false;
                 }
-                for (Jump throwJumps = (Jump) tryFlow.successors.get(key);
+                for (Jump throwJumps = (Jump) entry.getValue();
                      throwJumps != null; throwJumps = throwJumps.next) {
                     if (!(throwJumps.prev instanceof ThrowBlock)) {
                         /* There is a return exit in the try block */
