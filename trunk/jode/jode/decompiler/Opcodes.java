@@ -279,7 +279,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
             return createNormal
                 (ca, addr, 1, new ConstOperator
-                 (Type.tFloat, (char) (opcode + ('0'-opc_fconst_0)) + ".0F"));
+                 (Type.tFloat, (char) (opcode + ('0'-opc_fconst_0)) + ".0"));
         case opc_dconst_0: case opc_dconst_1:
             return createNormal
                 (ca, addr, 1, new ConstOperator
