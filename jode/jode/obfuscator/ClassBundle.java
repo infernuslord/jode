@@ -60,7 +60,8 @@ public class ClassBundle {
 
     public void setPreserved(int preserveRule, Vector fullqualifiednames) {
 	this.preserveRule = preserveRule;
-	
+
+	basePackage.applyPreserveRule(preserveRule);
 	Enumeration enum = fullqualifiednames.elements();
 	while (enum.hasMoreElements()) {
 	    basePackage.preserveIdentifier((String) enum.nextElement());
