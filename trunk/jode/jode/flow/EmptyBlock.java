@@ -59,6 +59,10 @@ public class EmptyBlock extends StructuredBlock {
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-        writer.println("/* empty */");
+	/* Only print the comment if jump null, since otherwise the block
+	 * isn't completely empty ;-)
+	 */
+        if (jump == null)
+	    writer.println("/* empty */");
     }
 }
