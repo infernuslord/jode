@@ -698,6 +698,7 @@ two_op_instr:
 	ldc  0x30000
 	iand
 	iconst_2
+	swap
 	ifeq second_op_single
 	iinc 5 -1
 	iconst_2
