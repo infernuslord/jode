@@ -1,3 +1,9 @@
+2001-07-30  Jochen Hoenicke  <jochen@gnu.org>
+
+	* jode/bytecode/BasicBlockReader.java: Fixed import of non
+	collection java.util classes.
+	* jode/bytecode/BasicBlockWriter.java: likewise.
+
 2001-07-28  Jochen Hoenicke  <jochen@gnu.org>
 
 	* jode/AssertError.java: removed, all uses are now replaced

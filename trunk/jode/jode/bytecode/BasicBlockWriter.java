@@ -22,11 +22,11 @@ package jode.bytecode;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.BitSet;
+import java.util.Stack;
 ///#def COLLECTIONS java.util
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Stack;
 ///#enddef
 
 /**
