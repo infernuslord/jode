@@ -114,6 +114,22 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
     }
 
     /**
+     * Skips the specified number of bytes in the input stream.  This calls
+     * skip as long until the bytes are all skipped.
+     * @param is the inputstream to skip.
+     * @param count the number of bytes to skip.
+     */
+    private final static void skip(InputStream is, long count) 
+	throws IOException {
+	while (count > 0) {
+	    long skipped = is.skip(count);
+	    if (skipped == 0)
+		throw new EOFException("Can't skip");
+	    count -= skipped;
+	}
+    }
+
+    /**
      * Read an opcode out of a data input stream and determine its size
      * and its successors.
      * @param addr    The current address.
@@ -127,10 +143,10 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         int opcode = stream.readUnsignedByte();
         switch (opcode) {
         case opc_multianewarray:
-            stream.skip(3);
+            skip(stream, 3);
             return new int[] { 4, addr+4 };
         case opc_invokeinterface:
-            stream.skip(4);
+            skip(stream, 4);
             return new int[] { 5, addr+5 };
 
         case opc_wide: {
@@ -139,21 +155,21 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             case opc_fload: case opc_dload: case opc_aload:
             case opc_istore: case opc_lstore: 
             case opc_fstore: case opc_dstore: case opc_astore:
-                stream.skip(2);
+                skip(stream, 2);
                 return new int[] { 4, addr+4 };
 
             case opc_iinc:
-                stream.skip(4);
+                skip(stream, 4);
                 return new int[] { 6, addr+6 };
             case opc_ret:
-                stream.skip(2);
+                skip(stream, 2);
                 return new int[] { 4 };
             default:
                 throw new ClassFormatError("Invalid wide opcode "+opcode);
             }
         }
         case opc_ret:
-            stream.skip(1);
+            skip(stream, 1);
             return new int[] { 2 };
 
         case opc_jsr_w:
@@ -166,7 +182,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 
         case opc_tableswitch: {
             int length = 3-(addr % 4);
-            stream.skip(length);
+            skip(stream, length);
             int def  = addr + stream.readInt();
             int low  = stream.readInt();
             int high = stream.readInt();
@@ -180,7 +196,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         }
         case opc_lookupswitch: {
             int length = 3-(addr % 4);
-            stream.skip(length);
+            skip(stream, length);
             int def = addr + stream.readInt();
             int npairs = stream.readInt();
             int[] dests = new int[npairs+2];
@@ -212,14 +228,14 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_anewarray:
         case opc_checkcast:
         case opc_instanceof:
-            stream.skip(2);
+            skip(stream, 2);
             return new int[] { 3, addr+3 };
         }
 
         if (opcode == opc_newarray
             || (opcode >= opc_bipush && opcode <= opc_aload)
             || (opcode >= opc_istore && opcode <= opc_astore)) {
-            stream.skip(1);
+            skip(stream, 1);
             return new int[] { 2, addr+2 };
         }
 
@@ -475,7 +491,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                  ca.getLocalInfo(addr, stream.readUnsignedByte()));
         case opc_tableswitch: {
             int length = 3-(addr % 4);
-            stream.skip(length);
+            skip(stream, length);
             int def  = addr + stream.readInt();
             int low  = stream.readInt();
             int high = stream.readInt();
@@ -492,7 +508,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             }
         case opc_lookupswitch: {
             int length = 3-(addr % 4);
-            stream.skip(length);
+            skip(stream, length);
             int def    = addr + stream.readInt();
             int npairs = stream.readInt();
             int[] cases = new int[npairs];

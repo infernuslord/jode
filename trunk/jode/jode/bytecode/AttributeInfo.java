@@ -38,8 +38,14 @@ public class AttributeInfo {
             name = attrName;
             data = new byte[length];
             input.readFully(data);
-        } else 
-            input.skip(length);
+        } else {
+	    while (length > 0) {
+		int skipped = (int) input.skip(length);
+		if (skipped == 0)
+		    throw new EOFException("Can't skip. EOF?");
+		length -= skipped;
+	    }
+	}
     }
 
     public String getName() {
