@@ -742,7 +742,7 @@ public class FlowBlock {
             if (pred == null)
                 /* The special start marker */
                 continue;
-            if (pred.successors.get(this) == null)
+            if (!pred.successors.containsKey(this))
                 throw new AssertError("Inconsistency");
         }
 
@@ -1481,6 +1481,8 @@ public class FlowBlock {
     }
 
     public Jump removeJumps(FlowBlock dest) {
+	if (dest != END_OF_METHOD)
+	    dest.predecessors.remove(this);
 	return ((SuccessorInfo) successors.remove(dest)).jumps;
     }
 
