@@ -20,6 +20,7 @@
 package jode.flow;
 import jode.decompiler.*;
 import jode.Type;
+import jode.LocalInfo;
 
 public class CreateCheckNull {
 
@@ -60,7 +61,9 @@ public class CreateCheckNull {
 		 .equals("()Ljava/lang/Class;")))
 	    return false;
 
-	ic.setInstruction(new CheckNullOperator(Type.tUObject));
+	LocalInfo li = new LocalInfo();
+	ic.setInstruction(new CheckNullOperator(Type.tUObject, li));
+	ic.used.addElement(li);
 	last.replace(last.outer);
         return true;
     }
@@ -85,8 +88,10 @@ public class CreateCheckNull {
 	    || !(expr.getOperator().getOperandType(0).isOfType(Type.tUObject)))
 	    return false;
 
+	LocalInfo li = new LocalInfo();
 	InstructionContainer ic = 
-	    new InstructionBlock(new CheckNullOperator(Type.tUObject));
+	    new InstructionBlock(new CheckNullOperator(Type.tUObject, li));
+	ic.used.addElement(li);
 	ifBlock.flowBlock.removeSuccessor(ifBlock.thenBlock.jump);
 	ic.moveJump(ifBlock.jump);
 	if (last == ifBlock) {
