@@ -429,37 +429,38 @@ public class ClassInterfacesType extends ReferenceType {
 	return sb.append("}").toString();
     }
 
-//      /**
-//       * Checks if we need to cast to a middle type, before we can cast from
-//       * fromType to this type.
-//       * @return the middle type, or null if it is not necessary.
-//       */
-//      public Type getCastHelper(Type fromType) {
-//  	Type topType = fromType.getTop();
-//  	switch (topType.getTypeCode()) {
-//  	case TC_ARRAY:
-//  	    if (clazz == null
-//  		&& ArrayType.implementsAllIfaces(this.ifaces))
-//  		return null;
-//  	    else
-//  		return tObject;
-//  	case TC_CLASS:
-//  	    ClassInterfacesType top = (ClassInterfacesType) topType;
-//  	    if (top.clazz == null || clazz == null
-//  		|| clazz.superClassOf(top.clazz)
-//  		|| top.clazz.superClassOf(clazz))
-//  		return null;
-//  	    ClassInfo superClazz = clazz.getSuperclass();
-//  	    while (superClazz != null
-//  		   && !superClazz.superClassOf(top.clazz)) {
-//  		superClazz = superClazz.getSuperclass();
-//  	    }
-//  	    return tClass(superClazz.getName());
-//  	case TC_UNKNOWN:
-//  	    return null;
-//  	}
-//  	return tObject;
-//      }
+    /**
+     * Checks if we need to cast to a middle type, before we can cast from
+     * fromType to this type.
+     * @return the middle type, or null if it is not necessary.
+     */
+    public Type getCastHelper(Type fromType) {
+	Type hintType = fromType.getHint();
+	switch (hintType.getTypeCode()) {
+	case TC_ARRAY:
+	    if (clazz == null
+		&& implementsAllIfaces(null, ArrayType.arrayIfaces, 
+				       this.ifaces))
+		return null;
+	    else
+		return tObject;
+	case TC_CLASS:
+	    ClassInterfacesType hint = (ClassInterfacesType) hintType;
+	    if (hint.clazz == null || clazz == null
+		|| clazz.superClassOf(hint.clazz)
+		|| hint.clazz.superClassOf(clazz))
+		return null;
+	    ClassInfo superClazz = clazz.getSuperclass();
+	    while (superClazz != null
+		   && !superClazz.superClassOf(hint.clazz)) {
+		superClazz = superClazz.getSuperclass();
+	    }
+	    return tClass(superClazz.getName());
+	case TC_UNKNOWN:
+	    return null;
+	}
+	return tObject;
+    }
 
     /**
      * Checks if this type represents a valid type instead of a list
