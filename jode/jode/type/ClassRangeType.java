@@ -111,8 +111,9 @@ public class ClassRangeType extends MyType {
 	ClassDeclaration c2 = new ClassDeclaration(top.getClassName());
 	
 	try {
-	    if (c1.getClassDefinition(env).superClassOf(env, c2) ||
- 		c1.getClassDefinition(env).implementedBy(env, c2))
+	    if (c2.getClassDefinition(env).isInterface()
+		|| c1.getClassDefinition(env).superClassOf(env, c2)
+ 		|| c1.getClassDefinition(env).implementedBy(env, c2))
 		return new ClassRangeType(bottom, top);
 	} catch (ClassNotFound ex) {
 	}
@@ -183,20 +184,18 @@ public class ClassRangeType extends MyType {
 	 * I currently only handle the simple case where one of the
 	 * two objects implements the other or is a child of it.
 	 *
-	 * Forget the following setences, java tells us if the local
-	 * is an interface or an object.
-	 *
 	 * There are really complicated cases that are currently
 	 * ignored: imaging, c1 and c2 are both disjunct interfaces
 	 * and there are some object which implements them both.
 	 * There is no way for us to guess which.
 	 *
+	 * Another possibility is that c1 is an interface and c2
+	 * an Object that doesn't implement c1.  This is not an error,
+	 * because it may be a sub class of c1 and c2 that implements
+	 * c1 and c2.
+	 *
 	 * What can we do about this?  We probably need something more 
 	 * powerful than a simple class range.
-	 * But maybe this isn't needed at all.  How should someone
-	 * use an object which implements two interfaces in a local 
-	 * variable without casting?  The information which object 
-	 * to use must be somewhere in the method.
 	 *
 	 * But think of this code fragment:
 	 *
@@ -337,9 +336,12 @@ public class ClassRangeType extends MyType {
 
 	Type newType = createRangeType(bottom,top);
         if (newType == tError) {
+            boolean oldTypeDebugging = Decompiler.isTypeDebugging;
+            Decompiler.isTypeDebugging = true;
             System.err.println("intersecting "+ this +" and "+ type + 
                                " to <" + bottom + "-" + top + 
                                "> to <error>");
+            Decompiler.isTypeDebugging = oldTypeDebugging;
             Thread.dumpStack();
         } else if (Decompiler.isTypeDebugging) {
             System.err.println("intersecting "+ this +" and "+ type + 

@@ -47,6 +47,16 @@ public class ComplexExpression extends Expression {
 	this.type = operator.getType();
     }
 
+    public int getOperandCount() {
+        if (subExpressions.length == 0)
+            return 0;
+        else
+            /* The only sub expression that may have non resolved
+             * operands may be the first.
+             */
+            return subExpressions[0].getOperandCount();
+    }
+
     public Expression negate() {
         if (operator.operator >= operator.COMPARE_OP && 
             operator.operator < operator.COMPARE_OP+6) {
@@ -182,9 +192,10 @@ public class ComplexExpression extends Expression {
         }
         if (operator instanceof ConstructorOperator &&
             MyType.isOfType(operator.getType(), MyType.tStringBuffer)) {
-            if (operator.getOperandCount() == 1)
+            /* subExpressions[0] is always a "new StringBuffer" */
+            if (subExpressions.length == 1)
                 return emptyString;
-            else if (operator.getOperandCount() == 2 &&
+            else if (subExpressions.length == 2 &&
                      MyType.isOfType(subExpressions[1].getType(), 
                                      MyType.tString))
                 return (Expression) subExpressions[1].simplify();
@@ -281,7 +292,7 @@ public class ComplexExpression extends Expression {
             !((InvokeOperator)operator).isStatic() &&
             ((InvokeOperator)operator).getField().
             getClassDefinition().getType() == MyType.tStringBuffer &&
-            operator.getOperandCount() == 1) {
+            subExpressions.length == 1) {
             Instruction simple = subExpressions[0].simplifyStringBuffer();
             if (simple != null)
                 return simple;
@@ -292,7 +303,7 @@ public class ComplexExpression extends Expression {
             ((InvokeOperator)operator).isStatic() &&
             ((InvokeOperator)operator).getField().
             getClassDefinition().getType() == MyType.tString &&
-            operator.getOperandCount() == 1) {
+            subExpressions.length == 1) {
             if (subExpressions[0].getType() == MyType.tString)
                 return subExpressions[0].simplify();
             else {

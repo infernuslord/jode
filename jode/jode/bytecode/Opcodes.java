@@ -360,9 +360,9 @@ public abstract class Opcodes implements RuntimeConstants {
             }
             case opc_ireturn: case opc_lreturn: 
             case opc_freturn: case opc_dreturn: case opc_areturn: {
-                Type retType = MyType.intersection
+                Type retType = MyType.tSubType(MyType.intersection
                     (ca.getMethod().mdef.getType().getReturnType(),
-                     types[0][opcode-opc_ireturn]);
+                     types[0][opcode-opc_ireturn]));
 		return createBlock
 		    (ca, addr, 1, new ReturnBlock(new NopOperator(retType)));
             }

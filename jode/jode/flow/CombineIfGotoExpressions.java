@@ -39,6 +39,25 @@ public class CombineIfGotoExpressions implements Transformation{
 
             // jode.Assert.assert(sequBlock.jump == null)
 
+            e = new Expression[2];
+            e[1] = (Expression)cb.getInstruction();
+            while (sequBlock.subBlocks[0] instanceof InstructionBlock) {
+                InstructionBlock ib = 
+                    (InstructionBlock) sequBlock.subBlocks[0];
+                Expression expr = (Expression) ib.getInstruction();
+                if (!expr.isVoid())
+                    return false;
+
+                Expression combined = e[1].tryToCombine(expr);
+                if (combined == null)
+                    return false;
+                
+                cb.replace(sequBlock, cb);
+                cb.setInstruction(combined);
+                e[1] = combined;
+                sequBlock = (SequentialBlock) cb.outer;
+            }
+
             ConditionalBlock cbprev = 
                 (ConditionalBlock) sequBlock.subBlocks[0];
 
@@ -48,15 +67,11 @@ public class CombineIfGotoExpressions implements Transformation{
             prevJump = ((EmptyBlock) cbprev.trueBlock).jump;
 
             if (prevJump.destination == cb.jump.destination) {
-                e = new Expression[2];
                 operator = BinaryOperator.LOG_AND_OP;
-                e[1] = (Expression)cb.getInstruction();
                 e[0] = ((Expression)cbprev.getInstruction()).negate();
             } else if (prevJump.destination
                        == ((EmptyBlock) cb.trueBlock).jump.destination) {
-                e = new Expression[2];
                 operator = BinaryOperator.LOG_OR_OP;
-                e[1] = (Expression)cb.getInstruction();
                 e[0] = (Expression)cbprev.getInstruction();
             } else
                 return false;
