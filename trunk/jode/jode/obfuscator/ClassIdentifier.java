@@ -172,6 +172,27 @@ public class ClassIdentifier extends Identifier {
 
 	FieldInfo[] finfos   = info.getFields();
 	MethodInfo[] minfos  = info.getMethods();
+	if (Obfuscator.swapOrder) {
+	    Random rand = new Random();
+	    for (int i=1; i < finfos.length; i++) {
+		int j = (Math.abs(rand.nextInt()) % (i+1)); 
+		// XXX replace with nextInt(i+1) for JDK12.
+		if (j != i) {
+		    FieldInfo tmp = finfos[i];
+		    finfos[i] = finfos[j];
+		    finfos[j] = tmp;
+		}
+	    }
+	    for (int i=1; i < minfos.length; i++) {
+		int j = (Math.abs(rand.nextInt()) % (i+1)); 
+		// XXX replace with nextInt(i+1) for JDK12.
+		if (j != i) {
+		    MethodInfo tmp = minfos[i];
+		    minfos[i] = minfos[j];
+		    minfos[j] = tmp;
+		}
+	    }
+	}
 	fieldCount = finfos.length;
 	identifiers = new Identifier[finfos.length + minfos.length];
 	for (int i=0; i< fieldCount; i++) {

@@ -28,6 +28,7 @@ public class Obfuscator {
     public static boolean isDebugging = false;
 
     public static boolean shouldStrip = true;
+    public static boolean swapOrder   = false;
 
     public static PrintStream err = System.err;
     public static final int PRESERVE_NONE = 0;
@@ -44,38 +45,40 @@ public class Obfuscator {
     public static final int RENAME_TABLE  = 4;
 
     public static void usage() {
-        Obfuscator.err.println("usage: jode.Obfuscator flags* [class | package]*");
-        Obfuscator.err.println("\t[-v]               "+"Verbose output");
-        Obfuscator.err.println("\t[-debug]           "+"Debugging");
-        Obfuscator.err.println("\t[-nostrip]         "+
+        err.println("usage: jode.Obfuscator flags* [class | package]*");
+        err.println("\t[-v]               "+"Verbose output");
+        err.println("\t[-debug]           "+"Debugging");
+        err.println("\t[-nostrip]         "+
                            "Don't strip not needed methods");
         
-        Obfuscator.err.println("\t[-cp <classpath>]  "+
+        err.println("\t[-cp <classpath>]  "+
                            "The class path; should contain classes.zip");
-        Obfuscator.err.println("\t[-d <directory>]   "+
+        err.println("\t[-d <directory>]   "+
                            "Destination directory for output classes");
-        Obfuscator.err.println("Preserve options: ");
-        Obfuscator.err.println("\t[-package]         "+
+        err.println("Preserve options: ");
+        err.println("\t[-package]         "+
                            "Preserve all package members");
-        Obfuscator.err.println("\t[-protected]       "+
+        err.println("\t[-protected]       "+
                            "Preserve all protected members");
-        Obfuscator.err.println("\t[-public]          "+
+        err.println("\t[-public]          "+
                            "Preserve all public members");
-        Obfuscator.err.println("\t[-preserve <name>] "+
+        err.println("\t[-preserve <name>] "+
                            "Preserve only the given name (allowed multiple times)");
-        Obfuscator.err.println("Obfuscating options: ");
-        Obfuscator.err.println("\t[-strong]          "+
+        err.println("Obfuscating options: ");
+        err.println("\t[-strong]          "+
                            "Rename identifiers to random unicode identifier");
-        Obfuscator.err.println("\t[-weak]            "+
+        err.println("\t[-weak]            "+
                            "Rename to random, but legal java identifier");
-        Obfuscator.err.println("\t[-unique]          "+
+        err.println("\t[-unique]          "+
                            "Rename to unique legal java identifier");
-        Obfuscator.err.println("\t[-none]            "+
+        err.println("\t[-none]            "+
                            "Don't rename any method.");
-        Obfuscator.err.println("\t[-table <file>]    "+
+        err.println("\t[-table <file>]    "+
                            "Read translation table from file");
-        Obfuscator.err.println("\t[-revtable <file>] "+
+        err.println("\t[-revtable <file>] "+
                            "Write reversed translation table to file");
+        err.println("\t[-swaporder]       "+
+                           "Swap the order of fields and methods.");
     }
 
     public static void main(String[] params) {
@@ -133,18 +136,20 @@ public class Obfuscator {
             else if (params[i].equals("-revtable")) {
                 toTable = params[++i];
             } 
+            else if (params[i].equals("-swaporder"))
+		swapOrder = true;
             else if (params[i].equals("--")) {
                 i++;
                 break;
             } else {
                 if (!params[i].startsWith("-h"))
-                    Obfuscator.err.println("Unknown option: "+params[i]);
+                    err.println("Unknown option: "+params[i]);
                 usage();
                 return;
             }
         }
         if (i == params.length) {
-            Obfuscator.err.println("No package or classes specified.");
+            err.println("No package or classes specified.");
             usage();
             return;
         }
