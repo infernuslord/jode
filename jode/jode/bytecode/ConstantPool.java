@@ -26,7 +26,7 @@ import java.io.IOException;
  *
  * @author Jochen Hoenicke
  */
-public class ConstantPool {
+class ConstantPool {
     public final static int CLASS              =  7;
     public final static int FIELDREF           =  9;
     public final static int METHODREF          = 10;
