@@ -1,4 +1,4 @@
-/* OuterValues Copyright (C) 1998-1999 Jochen Hoenicke.
+/* OuterValues Copyright (C) 1998-2001 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -94,6 +94,7 @@ public class OuterValues
     private Expression[] head;
     private Vector ovListeners;
     private boolean jikesAnonymousInner;
+    private boolean implicitOuterClass;
 
     /**
      * The maximal number of parameters used for outer values.
@@ -293,6 +294,17 @@ public class OuterValues
 	return jikesAnonymousInner;
     }
 
+    /**
+     * Javac 1.3 doesn't give an outer class reference for anonymous
+     * classes that extend inner classes, provided the outer class is
+     * the normal this parameter.  Instead it takes a normal outer
+     * value parameter for this.  This method tells if this is such a
+     * class.
+     */
+    public boolean isImplicitOuterClass() {
+	return implicitOuterClass;
+    }
+
     public void addOuterValueListener(OuterValueListener l) {
 	if (ovListeners == null)
 	    ovListeners = new Vector();
@@ -306,6 +318,10 @@ public class OuterValues
      */
     public void setJikesAnonymousInner(boolean value) {
 	jikesAnonymousInner = value;
+    }
+
+    public void setImplicitOuterClass(boolean value) {
+	implicitOuterClass = value;
     }
 
     private static int countSlots(Expression[] exprs, int length) {
@@ -369,6 +385,8 @@ public class OuterValues
 	}
 	if (jikesAnonymousInner)
 	    sb.append("!jikesAnonymousInner");
+	if (implicitOuterClass)
+	    sb.append("!implicitOuterClass");
 	return sb.append("]").toString();
     }
 }

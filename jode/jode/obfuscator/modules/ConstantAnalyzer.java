@@ -1040,9 +1040,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    boolean known = value1.value != ConstValue.VOLATILE
 		&& value2.value != ConstValue.VOLATILE;
 	    if (known) {
-		if ((opcode == opc_idiv 
+		if (((opcode == opc_idiv || opcode == opc_irem)
 		     && ((Integer)value2.value).intValue() == 0)
-		    || (opcode == opc_ldiv 
+		    || ((opcode == opc_ldiv || opcode == opc_lrem)
 			&& ((Long)value2.value).longValue() == 0))
 		    known = false;
 	    }

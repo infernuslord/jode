@@ -1,8 +1,7 @@
-Before installing, make sure you have a java compiler (e.g javac or
-jikes) and the java 1.1 runtime class library installed.  If you want
-to run this program you need at least a 1.1 compatible java virtual
-machine.  There are some bugs in javac included in the SUN JDK 1.1, it
-won't work.
+Before installing, make sure you have at least version 1.1 of the java
+developement kit installed.  If you want to run this program you only
+need the java runtime environment.  Version 1.1 is quite old, I
+recommend using Java 2 (jdk1.2 or above).
 
 This package was designed to use the GNU standard for configuration
 and makefiles.  To build and install do the following:
@@ -44,7 +43,3 @@ give a path to the directory where it resides, otherwise it is
 searched in the path.
 
 3).  Type "make" to build the package.
-
-4).  Type "make install" to install the package.  This doesn't work yet.
-
-  Jochen

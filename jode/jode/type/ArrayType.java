@@ -64,12 +64,18 @@ public class ArrayType extends ClassType {
     }
 
     public Type getSuperType() {
-	return tRange(tObject, 
-		      (ReferenceType) tArray(elementType.getSuperType()));
+	if (elementType instanceof IntegerType)
+	    return tRange(tObject, this);
+	else
+	    return tRange(tObject, 
+			  (ReferenceType) tArray(elementType.getSuperType()));
     }
 
     public Type getSubType() {
-        return tArray(elementType.getSubType());
+	if (elementType instanceof IntegerType)
+	    return this;
+	else
+	    return tArray(elementType.getSubType());
     }
 
     public Type getHint() {
@@ -113,8 +119,9 @@ public class ArrayType extends ClassType {
      */
     public Type getSpecializedType(Type type) {
         /*  
+	 *  tArray(x), iface     -> tArray(x) iff tArray implements iface
 	 *  tArray(x), tArray(y) -> tArray(x.intersection(y))
-         *  tArray(x), other     -> tArray(x) iff tArray implements object
+         *  tArray(x), other     -> tError
          */
 	if (type.getTypeCode() == TC_RANGE) {
 	    type = ((RangeType) type).getBottom();
@@ -137,10 +144,10 @@ public class ArrayType extends ClassType {
      * @return the common super type.
      */
     public Type getGeneralizedType(Type type) {
-        /*  tArray(x), tNull     -> tArray(x)
-         *  tArray(x), tClass(y) -> common ifaces of tArray and tClass
-         *  tArray(x), tArray(y) -> tArray(x.intersection(y)) or tObject
-         *  tArray(x), other     -> tError
+	/*  tArray(x), tNull     -> tArray(x)
+	 *  tArray(x), tClass(y) -> common ifaces of tArray and tClass
+	 *  tArray(x), tArray(y) -> tArray(x.intersection(y)) or tObject
+	 *  tArray(x), other     -> tError
          */
 	if (type.getTypeCode() == TC_RANGE) {
 	    type = ((RangeType) type).getTop();
@@ -150,7 +157,9 @@ public class ArrayType extends ClassType {
         if (type.getTypeCode() == TC_ARRAY) {
 	    Type elType = elementType.intersection
 		(((ArrayType)type).elementType);
-	    return elType != tError ? tArray(elType) : tObject;
+	    if (elType != tError)
+		return tArray(elType);
+	    return MultiClassType.create(arrayIfaces);
 	}
 	if (!(type instanceof ReferenceType))
 	    return tError;

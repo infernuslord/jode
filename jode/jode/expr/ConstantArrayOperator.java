@@ -48,7 +48,7 @@ public class ConstantArrayOperator extends Operator {
 	    
         empty = new ConstOperator(emptyVal);
 	empty.setType(argType);
-        empty.makeInitializer();
+        empty.makeInitializer(argType);
 	initOperands(size);
 	for (int i=0; i < subExpressions.length; i++)
 	    setSubExpressions(i, empty);
@@ -74,7 +74,7 @@ public class ConstantArrayOperator extends Operator {
         setType(Type.tSuperType(Type.tArray(value.getType())));
         subExpressions[index] = value;
         value.parent = this;
-        value.makeInitializer();
+        value.makeInitializer(argType);
         return true;
     }
 
@@ -82,8 +82,9 @@ public class ConstantArrayOperator extends Operator {
         return 200;
     }
 
-    public void makeInitializer() {
-        isInitializer = true;
+    public void makeInitializer(Type type) {
+	if (type.getHint().isOfType(getType()))
+	    isInitializer = true;
     }
 
     public Expression simplify() {

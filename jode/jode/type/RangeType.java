@@ -107,13 +107,18 @@ public class RangeType extends Type {
     /**
      * Returns the hint type of this range type set.  This returns the
      * singleton set containing only the first top type, except if it
-     * is null and there is a unique bottom type, in which case it returns
-     * the bottom type.
+     * is null and there is a unique bottom type, in which case it
+     * returns the bottom type.
      * @return the hint type.  
      */
     public Type getHint() {
-	return topType == tNull && bottomType.equals(bottomType.getHint()) 
-	    ? bottomType.getHint(): topType.getHint();
+	Type bottomHint = bottomType.getHint();
+	Type topHint = topType.getHint();
+	
+	if (topType == tNull && bottomType.equals(bottomHint))
+	    return bottomHint;
+
+	return topHint;
     }
 
     /**

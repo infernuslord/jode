@@ -356,26 +356,36 @@ public class Main
 	for (int i=0; i < numUsage ; i++)
 	    err.println(bundle.getString("usage."+i));
     }
-
+    
     public static void main(String[] params) {
 	bundle = ResourceBundle.getBundle("jode.swingui.Resources");
 	String cp = System.getProperty("java.class.path", "");
 	cp = cp.replace(File.pathSeparatorChar, 
 			Decompiler.altPathSeparatorChar);
-	for (int i=0; i<params.length; i++) {
+	String bootClassPath = System.getProperty("sun.boot.class.path");
+	if (bootClassPath != null)
+	    cp += Decompiler.altPathSeparatorChar
+		+ bootClassPath.replace(File.pathSeparatorChar, 
+					Decompiler.altPathSeparatorChar);
+	int i;
+	for (i = 0; i < params.length; i++) {
 	    if (params[i].equals("--classpath")
 		|| params[i].equals("--cp")
 		|| params[i].equals("-c"))
 		cp = params[++i];
-	    else {
+	    else if (params[i].startsWith("-")) {
+		if (!params[i].equals("--help")
+		    && !params[i].equals("-h"))
+		    System.err.println("Unknown option: "+params[i]);
 		usage();
 		return;
-	    }
+	    } else
+		cp = params[i];
 	}
 	StringTokenizer st = new StringTokenizer
 	    (cp, ""+Decompiler.altPathSeparatorChar);
 	String[] splitcp = new String[st.countTokens()];
-	for (int i = 0; i< splitcp.length; i++)
+	for (i = 0; i< splitcp.length; i++)
 	    splitcp[i] = st.nextToken();
 	Main win = new Main(splitcp);
 	win.show();

@@ -1,6 +1,11 @@
-New in 1.0.94
+New in 1.2
+* New bytecode interface
+* Faster and better flow analyzation
+
+New in 1.1
 * break long lines
-* small bug fixes
+* handle most of javac v8 constructs (jdk 1.3)
+* bug fixes
 
 New in 1.0.93
 * anonymous and inner class decompilation reworked.

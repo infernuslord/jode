@@ -388,8 +388,7 @@ public class LocalInfo implements Declarable {
 	    if (((LocalVarOperator) enum.nextElement()).isWrite())
 		writes++;
 	}
-	if (writes > 1)
-	    return false;
+	/* FIXME: Check if declaring final is okay */
 	li.isFinal = true;
 	return true;
     }

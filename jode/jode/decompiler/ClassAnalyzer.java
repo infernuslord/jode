@@ -59,6 +59,12 @@ public class ClassAnalyzer
      * The minimal visible complexity.
      */
     private static double STEP_COMPLEXITY = 0.03;
+    /**
+     * The value of the strictfp modifier.
+     * JDK1.1 doesn't define it.
+     */
+    private static int STRICTFP = 0x800;
+
     double methodComplexity = 0.0;
     double innerComplexity = 0.0;
 
@@ -147,6 +153,10 @@ public class ClassAnalyzer
 
     public final boolean isStatic() {
         return Modifier.isStatic(modifiers);
+    }
+
+    public final boolean isStrictFP() {
+        return (modifiers & STRICTFP) != 0;
     }
 
     public FieldAnalyzer getField(int index) {
@@ -261,6 +271,17 @@ public class ClassAnalyzer
                     staticConstructor = methods[j];
                 else
                     constrVector.addElement(methods[j]);
+
+		/* Java bytecode can't have strictfp modifier for
+		 * classes, while java can't have strictfp modifier
+		 * for constructors.  We handle the difference here.
+		 *
+		 * If only a few constructors are strictfp and the
+		 * methods aren't this would add too much strictfp,
+		 * but that isn't really dangerous.
+		 */
+		if (methods[j].isStrictFP())
+		    modifiers |= STRICTFP;
             }
 	    methodComplexity += methods[j].getComplexity();
         }
@@ -435,9 +456,78 @@ public class ClassAnalyzer
 
     public void dumpDeclaration(TabbedPrintWriter writer) throws IOException
     {
-	dumpSource(writer);
+	dumpDeclaration(writer, null, 0.0, 0.0);
     }
 
+    public void dumpDeclaration(TabbedPrintWriter writer,
+				ProgressListener pl, double done, double scale)
+	throws IOException
+    {
+        if (fields == null) {
+            /* This means that the class could not be loaded.
+             * give up.
+             */
+            return;
+        }
+
+	writer.startOp(writer.NO_PAREN, 0);
+	/* Clear the SUPER bit, which is also used as SYNCHRONIZED bit. */
+	int modifiedModifiers = modifiers & ~(Modifier.SYNCHRONIZED
+					      | STRICTFP);
+	if (clazz.isInterface())
+	    /* interfaces are implicitily abstract */
+	    modifiedModifiers &= ~Modifier.ABSTRACT;
+	if (parent instanceof MethodAnalyzer) {
+	    /* method scope classes are implicitly private */
+	    modifiedModifiers &= ~Modifier.PRIVATE;
+	    /* anonymous classes are implicitly final */
+	    if (name == null)
+		modifiedModifiers &= ~Modifier.FINAL;
+	}
+        String modif = Modifier.toString(modifiedModifiers);
+        if (modif.length() > 0)
+            writer.print(modif + " ");
+	if (isStrictFP()) {
+	    /* The STRICTFP modifier is set.
+	     * We handle it, since java.lang.reflect.Modifier is too dumb.
+	     */
+	    writer.print("strictfp ");
+	}
+	/* interface is in modif */
+	if (!clazz.isInterface())
+	    writer.print("class ");
+	writer.print(name);
+	ClassInfo superClazz = clazz.getSuperclass();
+	if (superClazz != null && 
+	    superClazz.getName() != "java.lang.Object") {
+	    writer.breakOp();
+	    writer.print(" extends " + (writer.getClassString
+				       (superClazz, Scope.CLASSNAME)));
+	}
+	ClassInfo[] interfaces = clazz.getInterfaces();
+	if (interfaces.length > 0) {
+	    writer.breakOp();
+	    writer.print(clazz.isInterface() ? " extends " : " implements ");
+	    writer.startOp(writer.EXPL_PAREN, 1);
+	    for (int i=0; i < interfaces.length; i++) {
+		if (i > 0) {
+		    writer.print(", ");
+		    writer.breakOp();
+		}
+		writer.print(writer.getClassString
+			     (interfaces[i], Scope.CLASSNAME));
+	    }
+	    writer.endOp();
+	}
+	writer.println();
+
+	writer.openBraceClass();
+	writer.tab();
+	dumpBlock(writer, pl, done, scale);
+	writer.untab();
+	writer.closeBraceClass();
+    }
+    
     public void dumpBlock(TabbedPrintWriter writer)
 	throws IOException
     {
@@ -448,6 +538,7 @@ public class ClassAnalyzer
 			  ProgressListener pl, double done, double scale) 
 	throws IOException
     {
+
 	double subScale = scale / getComplexity();
 	writer.pushScope(this);
 	boolean needFieldNewLine = false;
@@ -541,6 +632,7 @@ public class ClassAnalyzer
 	    needNewLine = true;
 	}
 	writer.popScope();
+        clazz.drop(clazz.DECLARATIONS);
     }
 
     public void dumpSource(TabbedPrintWriter writer)
@@ -553,64 +645,8 @@ public class ClassAnalyzer
 			   ProgressListener pl, double done, double scale)
 	throws IOException
     {
-        if (fields == null) {
-            /* This means that the class could not be loaded.
-             * give up.
-             */
-            return;
-        }
-
-	writer.startOp(writer.NO_PAREN, 0);
-	/* Clear the SUPER bit, which is also used as SYNCHRONIZED bit. */
-	int modifiedModifiers = modifiers & ~Modifier.SYNCHRONIZED;
-	if (clazz.isInterface())
-	    /* interfaces are implicitily abstract */
-	    modifiedModifiers &= ~Modifier.ABSTRACT;
-	if (parent instanceof MethodAnalyzer) {
-	    /* method scope classes are implicitly private */
-	    modifiedModifiers &= ~Modifier.PRIVATE;
-	    /* anonymous classes are implicitly final */
-	    if (name == null)
-		modifiedModifiers &= ~Modifier.FINAL;
-	}
-        String modif = Modifier.toString(modifiedModifiers);
-        if (modif.length() > 0)
-            writer.print(modif + " ");
-	/* interface is in modif */
-	if (!clazz.isInterface())
-	    writer.print("class ");
-	writer.print(name);
-	ClassInfo superClazz = clazz.getSuperclass();
-	if (superClazz != null && 
-	    superClazz.getName() != "java.lang.Object") {
-	    writer.breakOp();
-	    writer.print(" extends " + (writer.getClassString
-				       (superClazz, Scope.CLASSNAME)));
-	}
-	ClassInfo[] interfaces = clazz.getInterfaces();
-	if (interfaces.length > 0) {
-	    writer.breakOp();
-	    writer.print(clazz.isInterface() ? " extends " : " implements ");
-	    writer.startOp(writer.EXPL_PAREN, 1);
-	    for (int i=0; i < interfaces.length; i++) {
-		if (i > 0) {
-		    writer.print(", ");
-		    writer.breakOp();
-		}
-		writer.print(writer.getClassString
-			     (interfaces[i], Scope.CLASSNAME));
-	    }
-	    writer.endOp();
-	}
+	dumpDeclaration(writer, pl, done, scale);
 	writer.println();
-
-	writer.openBraceClass();
-	writer.tab();
-	dumpBlock(writer, pl, done, scale);
-	writer.untab();
-	writer.closeBraceClass();
-	writer.println();
-        clazz.drop(clazz.DECLARATIONS);
     }
 
     public void dumpJavaFile(TabbedPrintWriter writer)
@@ -648,7 +684,11 @@ public class ClassAnalyzer
     }
 
     public boolean conflicts(String name, int usageType) {
-	ClassInfo info = clazz;
+	return conflicts(clazz, name, usageType);
+    }
+
+    private static boolean conflicts(ClassInfo info, 
+				     String name, int usageType) {
 	while (info != null) {
 	    if (usageType == NOSUPERMETHODNAME || usageType == METHODNAME) {
 		MethodInfo[] minfos = info.getMethods();
@@ -676,6 +716,11 @@ public class ClassAnalyzer
 	    if (usageType == NOSUPERFIELDNAME
 		|| usageType == NOSUPERMETHODNAME)
 		return false;
+
+	    ClassInfo[] ifaces = info.getInterfaces();
+	    for (int i = 0; i < ifaces.length; i++)
+		if (conflicts(ifaces[i], name, usageType))
+		    return true;
 	    info = info.getSuperclass();
 	}
 	return false;

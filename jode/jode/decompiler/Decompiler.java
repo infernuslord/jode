@@ -221,11 +221,9 @@ public class Decompiler {
 	   classPath = new ClassPath(cp);
        }
 
-       /* XXX, comment the next line, as soon as ClassInfo.forName is
-	* no longer used.  */
-       ClassInfo.setClassPath(classPath);
        ClassInfo clazz = classPath.getClassInfo(className);
-       ImportHandler imports = new ImportHandler(importPackageLimit,
+       ImportHandler imports = new ImportHandler(classPath,
+						 importPackageLimit,
 						 importClassLimit);
        TabbedPrintWriter tabbedWriter = 
 	   new TabbedPrintWriter(writer, imports, false, 

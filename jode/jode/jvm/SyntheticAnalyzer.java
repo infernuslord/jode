@@ -33,6 +33,7 @@ import jode.type.Type;
 import jode.type.MethodType;
 
 import java.lang.reflect.Modifier;
+import java.io.IOException;
 
 ///#def COLLECTIONS java.util
 import java.util.Arrays;
@@ -49,6 +50,8 @@ public class SyntheticAnalyzer implements Opcodes {
     public final static int ACCESSPUTSTATIC = 6;
     public final static int ACCESSSTATICMETHOD = 7;
     public final static int ACCESSCONSTRUCTOR = 8;
+    public final static int ACCESSDUPPUTFIELD = 9;
+    public final static int ACCESSDUPPUTSTATIC = 10;
     
     int kind = UNKNOWN;
 
@@ -160,8 +163,7 @@ public class SyntheticAnalyzer implements Opcodes {
 	return true;
     }
 
-    private final int modifierMask = (Modifier.PRIVATE | Modifier.PROTECTED | 
-				      Modifier.PUBLIC);
+    private final int modifierMask = Modifier.PUBLIC;
 
     /**
      * Check if this is a field/method access method.  We have only
@@ -184,6 +186,7 @@ public class SyntheticAnalyzer implements Opcodes {
 	    (succBlocks.length == 1 && succBlocks[0] != null))
 	    return false;
 	Iterator iter = Arrays.asList(startBlock.getInstructions()).iterator();
+	boolean dupSeen = false;
 
 	if (!iter.hasNext())
 	    return false;
@@ -209,13 +212,18 @@ public class SyntheticAnalyzer implements Opcodes {
 	    if (params != 0)
 		return false;
 	    Reference ref = instr.getReference();
-	    String refClazz = ref.getClazz().substring(1);
-	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(classInfo.getName().replace('.','/'))))
+	    ClassInfo refClazz = TypeSignature
+		.getClassInfo(classInfo.getClassPath(), ref.getClazz());
+	    try {
+		if (!refClazz.superClassOf(classInfo))
+		    return false;
+	    } catch (IOException ex) {
+		/* Can't get enough info to ensure that refClazz is correct */
 		return false;
+	    }
 	    FieldInfo refField
-		= classInfo.findField(ref.getName(), ref.getType());
-	    if ((refField.getModifiers() & modifierMask) != Modifier.PRIVATE)
+		= refClazz.findField(ref.getName(), ref.getType());
+	    if ((refField.getModifiers() & modifierMask) != 0)
 		return false;
 	    if (!iter.hasNext())
 		return false;
@@ -228,6 +236,16 @@ public class SyntheticAnalyzer implements Opcodes {
 	    kind = (isStatic ? ACCESSGETSTATIC : ACCESSGETFIELD);
 	    return true;
 	}
+	if (instr.getOpcode() == (opc_dup - 3) + 3 * slot) {
+	    /* This is probably a opc_dup or opc_dup2, 
+	     * preceding a opc_putfield
+	     */
+	    instr = (Instruction) iter.next();
+	    if (instr.getOpcode() != opc_putstatic
+		&& instr.getOpcode() != opc_putfield)
+		return false;
+	    dupSeen = true;
+	}
 	if (instr.getOpcode() == opc_putfield 
 	    || instr.getOpcode() == opc_putstatic) {
 	    boolean isStatic = instr.getOpcode() == opc_putstatic;
@@ -237,18 +255,30 @@ public class SyntheticAnalyzer implements Opcodes {
 		return false;
 	    /* For valid bytecode the type of param matches automatically */
 	    Reference ref = instr.getReference();
-	    String refClazz = ref.getClazz().substring(1);
-	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(classInfo.getName().replace('.','/'))))
+	    ClassInfo refClazz = TypeSignature
+		.getClassInfo(classInfo.getClassPath(), ref.getClazz());
+	    try {
+		if (!refClazz.superClassOf(classInfo))
+		    return false;
+	    } catch (IOException ex) {
+		/* Can't get enough info to ensure that refClazz is correct */
 		return false;
+	    }
 	    FieldInfo refField
-		= classInfo.findField(ref.getName(), ref.getType());
-	    if ((refField.getModifiers() & modifierMask) != Modifier.PRIVATE)
+		= refClazz.findField(ref.getName(), ref.getType());
+	    if ((refField.getModifiers() & modifierMask) != 0)
 		return false;
-	    if (iter.hasNext())
-		return false;
+	    if (dupSeen) {
+		if (instr.getOpcode() < opc_ireturn
+		    || instr.getOpcode() > opc_areturn)
+		    return false;
+		kind = (isStatic ? ACCESSDUPPUTSTATIC : ACCESSDUPPUTFIELD);
+	    } else {
+		if (iter.hasNext())
+		    return false;
+		kind = (isStatic ? ACCESSPUTSTATIC : ACCESSPUTFIELD);
+	    }
 	    reference = ref;
-	    kind = (isStatic ? ACCESSPUTSTATIC : ACCESSPUTFIELD);
 	    return true;
 	}
 	if (instr.getOpcode() == opc_invokestatic
@@ -257,15 +287,20 @@ public class SyntheticAnalyzer implements Opcodes {
 	    if (!isStatic)
 		params--;
 	    Reference ref = instr.getReference();
-	    String refClazz = ref.getClazz().substring(1);
-	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(classInfo.getName().replace('.','/'))))
+	    ClassInfo refClazz = TypeSignature
+		.getClassInfo(classInfo.getClassPath(), ref.getClazz());
+	    try {
+		if (!refClazz.superClassOf(classInfo))
+		    return false;
+	    } catch (IOException ex) {
+		/* Can't get enough info to ensure that refClazz is correct */
 		return false;
+	    }
 	    MethodInfo refMethod
-		= classInfo.findMethod(ref.getName(), ref.getType());
+		= refClazz.findMethod(ref.getName(), ref.getType());
 	    MethodType refType = Type.tMethod(classInfo.getClassPath(),
 					      ref.getType());
-	    if ((refMethod.getModifiers() & modifierMask) != Modifier.PRIVATE
+	    if ((refMethod.getModifiers() & modifierMask) != 0
 		|| refType.getParameterTypes().length != params)
 		return false;
 	    if (refType.getReturnType() == Type.tVoid) {
@@ -336,15 +371,15 @@ public class SyntheticAnalyzer implements Opcodes {
 	}
 	if (params > 0 && instr.getOpcode() == opc_invokespecial) {
 	    Reference ref = instr.getReference();
-	    String refClazz = ref.getClazz().substring(1);
-	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(classInfo.getName().replace('.','/'))))
+	    ClassInfo refClazz = TypeSignature
+		.getClassInfo(classInfo.getClassPath(), ref.getClazz());
+	    if (refClazz != classInfo)
 		return false;
 	    MethodInfo refMethod
-		= classInfo.findMethod(ref.getName(), ref.getType());
+		= refClazz.findMethod(ref.getName(), ref.getType());
 	    MethodType refType = Type.tMethod(classInfo.getClassPath(),
 					      ref.getType());
-	    if ((refMethod.getModifiers() & modifierMask) != Modifier.PRIVATE
+	    if ((refMethod.getModifiers() & modifierMask) != 0
 		|| !refMethod.getName().equals("<init>")
 		|| unifyParam == -1
 		|| refType.getParameterTypes().length != params - 2)

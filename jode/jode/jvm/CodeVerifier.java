@@ -1290,12 +1290,6 @@ public class CodeVerifier implements Opcodes {
 	    Handler[] catchers = block.getCatchers();
 	    if (catchers.length > 0) {
 		VerifyInfo excInfo = (VerifyInfo) info.clone();
-
-		for (int j = 0; j < info.locals.length; j++) {
-		    if (info.locals[j].getTypeSig().charAt(0) == 'N')
-			throw new VerifyException
-			    ("Uninitialized local in try block");
-		}
 		excInfo.stackHeight = 1;		
 		for (int i=0; i < catchers.length; i++) {
 		    String type = catchers[i].getType();
@@ -1321,10 +1315,6 @@ public class CodeVerifier implements Opcodes {
 		if (catchers.length > 0 && instr.isStore()) {
 		    for (int i=0; i < catchers.length; i++) {
 			int slot = instr.getLocalSlot();
-			if (info.locals[slot].getTypeSig().charAt(0) == 'N')
-			    throw new VerifyException
-				("Uninitialized local in try block");
-
 			Block catcher = catchers[i].getCatcher();
 			int catcherNr = catcher.getBlockNr();
 			VerifyInfo oldInfo = verifyInfos[catcherNr];

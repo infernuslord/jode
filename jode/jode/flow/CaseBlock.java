@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.expr.ConstOperator;
+import jode.type.Type;
 
 /** 
  * This block represents a case instruction.  A case instruction is a
@@ -171,8 +172,9 @@ public class CaseBlock extends StructuredBlock {
 		writer.untab();
 	    }
             ConstOperator constOp = new ConstOperator(new Integer(value));
-	    constOp.setType(((SwitchBlock)outer).getInstruction().getType());
-            constOp.makeInitializer();
+	    Type type = ((SwitchBlock)outer).getInstruction().getType();
+	    constOp.setType(type);
+            constOp.makeInitializer(type);
 	    writer.print("case " + constOp.toString() + ":");
         }
 	if (subBlock instanceof EmptyBlock
