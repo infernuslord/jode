@@ -143,7 +143,7 @@ public class JodeWindow
 	startButton.addActionListener(this);
 	saveButton.addActionListener(this);
 ///#endif
-	Decompiler.err = new PrintStream(new AreaOutputStream(errorArea));
+	GlobalOptions.err = new PrintStream(new AreaOutputStream(errorArea));
     }
 
     public void setClasspath(String cp) {
@@ -188,14 +188,14 @@ public class JodeWindow
 		out.close();
 	    } catch (IOException ex) {
 		errorArea.setText("");
-		Decompiler.err.println("Couldn't write to file " 
+		GlobalOptions.err.println("Couldn't write to file " 
 				       + fileName + ": ");
-		ex.printStackTrace(Decompiler.err);
+		ex.printStackTrace(GlobalOptions.err);
 	    } catch (SecurityException ex) {
 		errorArea.setText("");
-		Decompiler.err.println("Couldn't write to file " 
+		GlobalOptions.err.println("Couldn't write to file " 
 				       + fileName + ": ");
-		ex.printStackTrace(Decompiler.err);
+		ex.printStackTrace(GlobalOptions.err);
 	    }
 	}
     }
@@ -225,7 +225,7 @@ public class JodeWindow
     }
 
     public void run() {
-	Decompiler.isVerbose = verboseCheck.getState();
+	GlobalOptions.verboseLevel = verboseCheck.getState() ? 1 : 0;
 	Decompiler.prettyLocals = prettyCheck.getState();
 	errorArea.setText("");
 ///#ifdef AWT10
@@ -286,7 +286,7 @@ public class JodeWindow
     }
 
     public static void main(String argv[]) {
-	Frame frame = new Frame(Decompiler.copyright);
+	Frame frame = new Frame(GlobalOptions.copyright);
 	JodeWindow win = new JodeWindow(frame);
 
 	String cp = System.getProperty("java.class.path");
