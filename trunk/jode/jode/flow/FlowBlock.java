@@ -206,16 +206,15 @@ public class FlowBlock {
                         (loopBlock.jumpMayBeChanged()
                          || loopBlock.getNextFlowBlock() == successor)) {
                         
-                        loopBlock.setCondition(instr.negate());
-                        loopBlock.moveDefinitions(cb, null);
-
-                        cb.removeBlock();
                         if (loopBlock.jumpMayBeChanged()) {
                             loopBlock.moveJump(jump);
                             jumps.push(jump);
-                            continue;
-                        }
-                        jump.prev.removeJump();
+                        } else
+                            jump.prev.removeJump();
+
+                        loopBlock.setCondition(instr.negate());
+                        loopBlock.moveDefinitions(cb, null);
+                        cb.removeBlock();
                         continue;
                     }
 
@@ -241,18 +240,16 @@ public class FlowBlock {
                             (loopBlock.jumpMayBeChanged()
                              || loopBlock.getNextFlowBlock() == successor)) {
                             
-                            loopBlock.setType(LoopBlock.DOWHILE);
-                            loopBlock.setCondition(instr.negate());
-                            loopBlock.moveDefinitions(cb, null);
-                            cb.removeBlock();
-                            
                             if (loopBlock.jumpMayBeChanged()) {
                                 loopBlock.moveJump(jump);
                                 jumps.push(jump);
-                                continue;
-                            }
-                            
-                            jump.prev.removeJump();
+                            } else
+                                jump.prev.removeJump();
+
+                            loopBlock.setType(LoopBlock.DOWHILE);
+                            loopBlock.setCondition(instr.negate());
+                            loopBlock.moveDefinitions(cb, null);
+                            cb.removeBlock();                            
                             continue;
                         }
                     }
@@ -472,7 +469,7 @@ public class FlowBlock {
      * @return The variables that must be defined in this block.
      */
     void updateInOut (FlowBlock successor, boolean t1Transformation,
-                             Stack jumps) {
+                      Stack jumps) {
         /* First get the out vectors of all jumps to successor and
          * calculate the intersection.
          */
@@ -1066,7 +1063,10 @@ public class FlowBlock {
     }
 
     public void removeJSR(FlowBlock subRoutine) {
-        Enumeration enum = ((Stack)successors.remove(subRoutine)).elements();
+        Stack jumps = (Stack)successors.remove(subRoutine);
+        if (jumps == null)
+            return;
+        Enumeration enum = jumps.elements();
         while (enum.hasMoreElements()) {
             Jump jump = (Jump)enum.nextElement();
 
@@ -1468,8 +1468,10 @@ public class FlowBlock {
                     .jump.destination.predecessors.removeElement(catchFlow);
                 
                 subRoutine.analyzeSubRoutine(addr+length, end);
-                updateInOut(subRoutine, true, 
-                            (Stack)successors.get(subRoutine));
+                Stack jumps = (Stack)successors.get(subRoutine);
+                if (jumps != null)
+                    updateInOut(subRoutine, true, jumps);
+                            
                 if (subRoutine.successors.size() != 0)
                     throw new AssertError("Jump inside subroutine");
                 length += subRoutine.length;
@@ -1480,6 +1482,7 @@ public class FlowBlock {
                 newBlock.setTryBlock(tryFlow.block);
                 mergeSuccessors(tryFlow);
                 newBlock.setFinallyBlock(subRoutine.block);
+                mergeSuccessors(subRoutine);
                 newBlock.moveJump(rawBlock.jump);
                 lastModified = newBlock;
                 changed = true;
@@ -1625,8 +1628,8 @@ public class FlowBlock {
                         updateInOut(nextFlow, true, lastJumps);
                         lastJumps.pop();
 
-                        lastFlow.optimizeJumps(jumps);
-                        lastFlow.resolveRemaining(jumps);
+                        lastFlow.optimizeJumps(lastJumps);
+                        lastFlow.resolveRemaining(lastJumps);
                     } else
                         updateInOut(nextFlow, true, jumps);
                     
