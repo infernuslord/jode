@@ -308,21 +308,20 @@ public class ClassAnalyzer
 	// First analyze constructors and synthetic fields:
 	constrAna = null;
 	if (constructors.length > 0) {
-	    for (int j=0; j< constructors.length; j++)
-		{
-		    if (pl != null) {
-			double constrCompl = constructors[j].getComplexity()
-			    * subScale;
-			if (constrCompl > STEP_COMPLEXITY)
-			    constructors[j].analyze(pl, done, constrCompl);
-			else {
-			    pl.updateProgress(done, name);
-			    constructors[j].analyze(null, 0.0, 0.0);
-			}
-			done += constrCompl;
-		    } else
+	    for (int j=0; j< constructors.length; j++) {
+		if (pl != null) {
+		    double constrCompl = constructors[j].getComplexity()
+			* subScale;
+		    if (constrCompl > STEP_COMPLEXITY)
+			constructors[j].analyze(pl, done, constrCompl);
+		    else {
+			pl.updateProgress(done, name);
 			constructors[j].analyze(null, 0.0, 0.0);
-		}
+		    }
+			done += constrCompl;
+		} else
+		    constructors[j].analyze(null, 0.0, 0.0);
+	    }
 	    constrAna = new TransformConstructors(this, false, constructors);
 	    constrAna.removeSynthInitializers();
         }
@@ -408,6 +407,7 @@ public class ClassAnalyzer
     }
 
     public void makeDeclaration(Set done) {
+	// First prepare constructors:
 	if (constrAna != null)
 	    constrAna.transform();
         if (staticConstructor != null) {

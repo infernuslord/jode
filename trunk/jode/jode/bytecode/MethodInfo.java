@@ -54,7 +54,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 		   && name.equals("Exceptions")) {
 	    int count = input.readUnsignedShort();
 	    exceptions = new String[count];
-	    for (int i=0; i< count; i++)
+	    for (int i = 0; i < count; i++)
 		exceptions[i] = cp.getClassName(input.readUnsignedShort());
 	    if (length != 2 * (count + 1))
 		throw new ClassFormatException
@@ -95,7 +95,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	}
 	if (exceptions != null) {
 	    gcp.putUTF8("Exceptions");
-	    for (int i=0; i< exceptions.length; i++)
+	    for (int i = 0; i < exceptions.length; i++)
 		gcp.putClassName(exceptions[i]);
 	}
 	if (syntheticFlag)
@@ -130,7 +130,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	    output.writeShort(gcp.putUTF8("Exceptions"));
 	    output.writeInt(2 + count * 2);
 	    output.writeShort(count);
-	    for (int i=0; i< count; i++)
+	    for (int i = 0; i < count; i++)
 		output.writeShort(gcp.putClassName(exceptions[i]));
 	}
 	if (syntheticFlag) {
