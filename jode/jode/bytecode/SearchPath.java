@@ -19,8 +19,7 @@
 package jode.bytecode;
 import java.io.*;
 import java.net.*;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.zip.*;
 import java.util.*;
 import jode.Decompiler;
 
@@ -38,6 +37,7 @@ public class SearchPath  {
      */
     public static final char protocolSeparator = 31;
     URL[] bases;
+    byte[][] urlzips;
     File[] dirs;
     ZipFile[] zips;
     Hashtable[] zipEntries;
@@ -73,6 +73,78 @@ public class SearchPath  {
 	    addEntry(zipEntries[nr], name);
 	}
     }
+
+    private void readURLZip(int nr, URLConnection conn) {
+	int length = conn.getContentLength();
+	if (length <= 0)
+	    // Give a approximation if length is unknown
+	    length = 10240;
+	else
+	    // Increase the length by one, so we hopefully don't need
+	    // to grow the array later (we need a little overshot to
+	    // know when the end is reached).
+	    length++;
+
+	urlzips[nr] = new byte[length];
+	try {
+	    InputStream is = conn.getInputStream();
+	    int pos = 0;
+	    for (;;) {
+		// This is ugly, is.available() may return zero even
+		// if there are more bytes.
+		int avail = Math.max(is.available(), 1);
+		if (pos + is.available() > urlzips[nr].length) {
+		    // grow the byte array.
+		    byte[] newarr = new byte 
+			[Math.max(2*urlzips[nr].length, pos + is.available())];
+		    System.arraycopy(urlzips[nr], 0, newarr, 0, pos);
+		    urlzips[nr] = newarr;
+		}
+		int count = is.read(urlzips[nr], pos, urlzips[nr].length-pos);
+		if (count == -1)
+		    break;
+		pos += count;
+	    }
+	    if (pos < urlzips[nr].length) {
+		// shrink the byte array again.
+		byte[] newarr = new byte[pos];
+		System.arraycopy(urlzips[nr], 0, newarr, 0, pos);
+		urlzips[nr] = newarr;
+	    }
+	} catch (IOException ex) {
+	    Decompiler.err.println("IOException while reading "
+				   +"remote zip file "+bases[nr]);
+	    // disable entry
+	    bases[nr] = null;
+	    urlzips[nr] = null;
+	    return;
+	}
+	try {
+	    // fill entries into hash table
+	    ZipInputStream zis = new ZipInputStream
+		(new ByteArrayInputStream(urlzips[nr]));
+	    zipEntries[nr] = new Hashtable();
+	    ZipEntry ze;
+	    while ((ze = zis.getNextEntry()) != null) {
+		String name = ze.getName();
+		if (name.endsWith("/"))
+		    name = name.substring(0, name.length()-1);
+		if (ze.isDirectory() && !zipEntries[nr].containsKey(name))
+		    zipEntries[nr].put(name, new Vector());
+		addEntry(zipEntries[nr], name);
+		zis.closeEntry();
+	    }
+	    zis.close();
+	} catch (IOException ex) {
+	    Decompiler.err.println("Remote zip file "+bases[nr]
+				   +" is corrupted.");
+	    // disable entry
+	    bases[nr] = null;
+	    urlzips[nr] = null;
+	    zipEntries[nr] = null;
+	    return;
+	}
+    }
     
     /**
      * Creates a new search path for the given path.
@@ -86,6 +158,7 @@ public class SearchPath  {
         int length = tokenizer.countTokens();
         
 	bases = new URL[length];
+	urlzips = new byte[length][];
         dirs = new File[length];
         zips = new ZipFile[length];
         zipEntries = new Hashtable[length];
@@ -99,6 +172,20 @@ public class SearchPath  {
 		// This looks like an URL.
 		try {
 		    bases[i] = new URL(token);
+		    try {
+			URLConnection connection = bases[i].openConnection();
+			if (token.endsWith(".zip") || token.endsWith(".jar")
+			    || connection.getContentType().endsWith("/zip")) {
+			    // This is a zip file.  Read it into memory.
+			    readURLZip(i, connection);
+			}
+		    } catch (IOException ex) {
+			// ignore
+		    } catch (SecurityException ex) {
+			Decompiler.err.println("Warning: Security exception "
+					       +"while accessing "
+					       +bases[i]+".");
+		    }
 		} catch (MalformedURLException ex) {
 		    /* disable entry */
 		    bases[i] = null;
@@ -127,6 +214,22 @@ public class SearchPath  {
 
     public boolean exists(String filename) {
         for (int i=0; i<dirs.length; i++) {
+	    if (zipEntries[i] != null) {
+		if (zipEntries[i].get(filename) != null)
+		    return true;
+
+		String dir = "";
+		String name = filename;
+		int index = filename.lastIndexOf('/');
+		if (index >= 0) {
+		    dir = filename.substring(0, index);
+		    name = filename.substring(index+1);
+		}
+		Vector directory = (Vector)zipEntries[i].get(dir);
+		if (directory != null && directory.contains(name))
+		    return true;
+		continue;
+	    }
 	    if (bases[i] != null) {
 		try {
 		    URL url = new URL(bases[i], filename);
@@ -169,6 +272,35 @@ public class SearchPath  {
      */
     public InputStream getFile(String filename) throws IOException {
         for (int i=0; i<dirs.length; i++) {
+	    if (urlzips[i] != null) {
+		ZipInputStream zis = new ZipInputStream
+		    (new ByteArrayInputStream(urlzips[i]));
+		ZipEntry ze;
+		while ((ze = zis.getNextEntry()) != null) {
+		    if (ze.getName().equals(filename)) {
+			// The skip method in jdk1.1.7 ZipInputStream
+			// is buggy.  We return a wrapper that fixes
+			// this.
+			return new FilterInputStream(zis) {
+			    private byte[] tmpbuf = new byte[512];
+			    public long skip(long n) throws IOException {
+				long skipped = 0;
+				while (n > 0) {
+				    int count = read(tmpbuf, 0, 
+						     (int)Math.min(n, 512L));
+				    if (count == -1)
+					return skipped;
+				    skipped += count;
+				    n -= count;
+				}
+				return skipped;
+			    }
+			};
+		    }
+		    zis.closeEntry();
+		}
+		continue;
+	    }
 	    if (bases[i] != null) {
 		try {
 		    URL url = new URL(bases[i], filename);
@@ -222,9 +354,10 @@ public class SearchPath  {
         for (int i=0; i<dirs.length; i++) {
             if (dirs[i] == null)
                 continue;
-            if (zips[i] != null) {
-		if (zipEntries[i] == null)
-		    fillZipEntries(i);
+            if (zips[i] != null && zipEntries[i] == null)
+		fillZipEntries(i);
+
+	    if (zipEntries[i] != null) {
 		if (zipEntries[i].containsKey(filename))
 		    return true;
             } else {
@@ -287,9 +420,10 @@ public class SearchPath  {
                     if (pathNr == dirs.length)
                         return null;
 
-                    if (zips[pathNr] != null) {
-			if (zipEntries[pathNr] == null)
-			    fillZipEntries(pathNr);
+                    if (zips[pathNr] != null && zipEntries[pathNr] == null)
+			fillZipEntries(pathNr);
+
+		    if (zipEntries[pathNr] != null) {
 			Vector entries = 
 			    (Vector) zipEntries[pathNr].get(dirName);
 			if (entries != null)
