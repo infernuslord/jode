@@ -26,9 +26,14 @@ import java.lang.reflect.InvocationTargetException;
  * invoke methods, etc. <br>
  *
  * The objects used in this runtime environment need not to be of the
- * real class, but could also be of some wrapper class.  The only
- * exception are arrays, which must be arrays (but not necessarily of
- * the real element type). <br>
+ * real type, but can be some other type of your choice.  But some
+ * mappings must be preserved, since they are used inside the
+ * Interpreter:
+ * <ul> <li>boolean, byte, short, char and int are mapped to Integer. </li>
+ * <li> float, long, double are mapped to Float, Long, Double resp. </li>
+ * <li> array of primitive type is mapped to itself (not array of Integer)</li>
+ * <li> array of other types are mapped to array of mapped other type </li>
+ * </ul>
  * 
  * @author Jochen Hoenicke */
 public interface RuntimeEnvironment {
@@ -65,28 +70,52 @@ public interface RuntimeEnvironment {
      * @param isVirtual true, iff the call is virtual
      * @param cls the object on which the method should be called, null
      * if the method is static.
-     * @param params the params of the method.  Primitive types are
-     * wrapped to Object.
-     * @return the return value of the method.  Primitive types are
-     * wrapped to Object,  void type is ignored, may be null.
+     * @param params the params of the method.
+     * @return the return value of the method.  Void type is ignored,
+     * may be null.
      * @exception InterpreterException if the field does not exists, the
      * object is not supported etc.  */
     public Object invokeMethod(Reference methodRef, boolean isVirtual, 
 			       Object cls, Object[] params)
 	throws InterpreterException, InvocationTargetException;
+
+    /**
+     * Create a new instance of an object.
+     * @param methodRef the reference of the constructor to invoke
+     * @param params the params of the method.
+     * @return the new object.
+     */
     public Object invokeConstructor(Reference methodRef, Object[] params)
 	throws InterpreterException, InvocationTargetException;
 
+    /**
+     * Check if obj is an instance of className
+     * @param className the type signature of the class.
+     * @return true, if obj is an instance of className, false otherwise.
+     */
     public boolean instanceOf(Object obj, String className)
 	throws InterpreterException;
 
+    /**
+     * Create a new multidimensional Array.
+     * @param type the type of the elements.
+     * @param dimensions the size in every dimension.
+     * @return the new array (this must be an array, see class comment).
+     */
     public Object newArray(String type, int[] dimensions)
 	throws InterpreterException;
 
+    /**
+     * Enter a monitor.
+     * @param object the object whose monitor should be taken.
+     */
     public void enterMonitor(Object obj)
 	throws InterpreterException;
+    /**
+     * Exit a monitor.
+     * @param object the object whose monitor should be freed.
+     */
     public void exitMonitor(Object obj)
 	throws InterpreterException;
 }
-
 
