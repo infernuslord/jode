@@ -190,7 +190,8 @@ public class ClassBundle {
 		basePackage.storeClasses(zip);
 		zip.close();
 	    } catch (IOException ex) {
-		System.err.println("Can't write zip file: "+destination);
+		GlobalOptions.err.println
+		    ("Can't write zip file: "+destination);
 		ex.printStackTrace(GlobalOptions.err);
 	    }
 	} else {

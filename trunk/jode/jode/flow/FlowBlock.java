@@ -739,7 +739,7 @@ public class FlowBlock {
             }
         }
 	} catch (AssertError err) {
-	    System.err.println("Inconsistency in: "+this);
+	    GlobalOptions.err.println("Inconsistency in: "+this);
 	    throw err;
 	}
     }
@@ -1378,7 +1378,7 @@ public class FlowBlock {
         }
 	
 	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
-	    System.err.println("after analyzeSwitch: "+this);
+	    GlobalOptions.err.println("after analyzeSwitch: "+this);
         checkConsistent();
         return changed;
     }
@@ -1460,7 +1460,8 @@ public class FlowBlock {
 	    stack = succ.stackMap;
 	    for (/**/; jumps != null; jumps = jumps.next) {
 		if (jumps.stackMap == null)
-		    System.err.println("Dead jump? "+jumps.prev+" in "+this);
+		    GlobalOptions.err.println("Dead jump? "+jumps.prev
+					      +" in "+this);
 		
 		stack = VariableStack.merge(stack, jumps.stackMap);
 	    }
