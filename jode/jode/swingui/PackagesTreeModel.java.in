@@ -18,7 +18,7 @@
  */
 
 package jode.swingui;
-import jode.Decompiler;
+import jode.decompiler.Options;
 import jode.bytecode.ClassInfo;
 
 import @JAVAX_SWING@.tree.TreeModel;
@@ -122,7 +122,7 @@ public class PackagesTreeModel implements TreeModel {
 		String fqn = prefix + name;
 		boolean isClass = !ClassInfo.isPackage(fqn);
 
-		if (isClass && Decompiler.skipClass(ClassInfo.forName(fqn)))
+		if (isClass && Options.skipClass(ClassInfo.forName(fqn)))
 		    continue;
 		TreeElement newElem = new TreeElement(prefix, name, isClass);
 		v.add(newElem);
