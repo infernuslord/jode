@@ -1,4 +1,4 @@
-/* LocalVariableTable Copyright (C) 1998-1999 Jochen Hoenicke.
+/* Applet Copyright (C) 1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,26 +18,24 @@
  */
 
 package jode.decompiler;
-import jode.type.Type;
-import jode.bytecode.LocalVariableInfo;
 
-public class LocalVariableTable {
-    LocalVariableRangeList[] locals;
+public class Applet extends java.applet.Applet {
+    Window jodeWin = new Window(this);
 
-    public LocalVariableTable(int maxLocals, LocalVariableInfo[] lvt) {
-        locals = new LocalVariableRangeList[maxLocals];
-        for (int i=0; i < maxLocals; i++)
-            locals[i] = new LocalVariableRangeList();
-
-	for (int i=0; i<lvt.length; i++)
-	    locals[lvt[i].slot].addLocal(lvt[i].start.getAddr(), 
-					 lvt[i].end.getAddr(),
-					 lvt[i].name, Type.tType(lvt[i].type));
-    }
-
-    public LocalVarEntry getLocal(int slot, int addr) 
-         throws ArrayIndexOutOfBoundsException
-    {
-        return locals[slot].getInfo(addr);
+///#ifdef AWT10
+///    public boolean action(Event e, Object arg) {
+///	jodeWin.action(e, arg);
+///	return true;
+///    }
+///#endif
+    	
+    public void init() {
+	String cp = getParameter("classpath");
+	if (cp != null)
+	    jodeWin.setClasspath(cp);
+	String cls = getParameter("class");
+	if (cls != null)
+	    jodeWin.setClass(cls);
     }
 }
+

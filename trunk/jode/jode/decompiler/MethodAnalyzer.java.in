@@ -19,7 +19,6 @@
 
 package jode.decompiler;
 import jode.AssertError;
-import jode.Decompiler;
 import jode.GlobalOptions;
 import jode.bytecode.BytecodeInfo;
 import jode.bytecode.ClassInfo;
@@ -57,6 +56,7 @@ import @COLLECTIONS@.Map;
 import @COLLECTIONS@.Collection;
 import @COLLECTIONS@.ArrayList;
 import @COLLECTIONS@.Iterator;
+import @COLLECTIONS@.Set;
 
 /**
  * A method analyzer is the main class for analyzation of methods.
@@ -75,7 +75,7 @@ import @COLLECTIONS@.Iterator;
  * <dd>This will determine when to declare variables. For constructors
  * it will do special transformations like field initialization.</dd>
  */
-public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
+public class MethodAnalyzer implements Scope, ClassDeclarer {
     /**
      * The import handler where we should register our types.
      */
@@ -200,7 +200,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	if (minfo.getBytecode() != null) {
 	    code = minfo.getBytecode();
 
-	    if ((Decompiler.options & Decompiler.OPTION_VERIFY) != 0) {
+	    if ((Options.options & Options.OPTION_VERIFY) != 0) {
 		CodeVerifier verifier
 		    = new CodeVerifier(getClazz(), minfo, code);
 		try {
@@ -211,7 +211,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		}
 	    }
 	
-	    if ((Decompiler.options & Decompiler.OPTION_LVT) != 0) {
+	    if ((Options.options & Options.OPTION_LVT) != 0) {
 		LocalVariableInfo[] localvars = code.getLocalVariableTable();
 		if (localvars != null)
 		    lvt = new LocalVariableTable(code.getMaxLocals(), 
@@ -552,10 +552,10 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
         excHandlers.analyze();
         methodHeader.analyze();
 
-	if ((Decompiler.options & Decompiler.OPTION_PUSH) == 0
+	if ((Options.options & Options.OPTION_PUSH) == 0
 	    && methodHeader.mapStackToLocal())
 	    methodHeader.removePush();
-	if ((Decompiler.options & Decompiler.OPTION_ONETIME) != 0)
+	if ((Options.options & Options.OPTION_ONETIME) != 0)
 	    methodHeader.removeOnetimeLocals();
 
 	methodHeader.mergeParams(param);
@@ -621,29 +621,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
      * the types and names of the local variables and where to declare them.
      * It will also determine where to declare method scoped local variables.
      */
-    public void makeDeclaration() {
-        for (Enumeration enum = allLocals.elements();
-	     enum.hasMoreElements(); ) {
-            LocalInfo li = (LocalInfo)enum.nextElement();
-            if (!li.isShadow())
-                imports.useType(li.getType());
-        }
-	for (int i=0; i < param.length; i++) {
-	    param[i].guessName();
-	    for (int j=0; j < i; j++) {
-		if (param[j].getName().equals(param[i].getName())) {
-		    /* A name conflict happened. */
-		    param[i].makeNameUnique();
-		    break; /* j */
-		}
-	    }
-	}
-	
-	if (code != null) {
-	    methodHeader.makeDeclaration(param);
-	    methodHeader.simplify();
-	}
-	    
+    public void makeDeclaration(Set done) {
 	if (innerAnalyzers != null) {
 	    for (Enumeration enum = innerAnalyzers.elements();
 		 enum.hasMoreElements(); ) {
@@ -659,9 +637,37 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 				li.markFinal();
 			}
 		    }
-		    classAna.makeDeclaration();
 		}
 	    }
+	}
+
+        for (Enumeration enum = allLocals.elements();
+	     enum.hasMoreElements(); ) {
+            LocalInfo li = (LocalInfo)enum.nextElement();
+            if (!li.isShadow())
+                imports.useType(li.getType());
+        }
+	for (int i=0; i < param.length; i++) {
+	    param[i].guessName();
+	    Iterator doneIter = done.iterator();
+	    while (doneIter.hasNext()) {
+		Declarable previous = (Declarable) doneIter.next();
+		if (param[i].getName().equals(previous.getName())) {
+		    /* A name conflict happened. */
+		    param[i].makeNameUnique();
+		    break;
+		}
+	    }
+	    done.add(param[i]);
+	}
+	
+	if (code != null) {
+	    methodHeader.makeDeclaration(done);
+	    methodHeader.simplify();
+	}
+	for (int i=0; i < param.length; i++) {
+	    done.remove(param[i]);
+	    // remove the parameters, since we leave the scope
 	}
     }
 
@@ -677,8 +683,8 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		return true;
 	    if (synth.getKind() >= synth.ACCESSGETFIELD
 		&& synth.getKind() <= synth.ACCESSCONSTRUCTOR
-		&& (Decompiler.options & Decompiler.OPTION_INNER) != 0
-		&& (Decompiler.options & Decompiler.OPTION_ANON) != 0)
+		&& (Options.options & Options.OPTION_INNER) != 0
+		&& (Options.options & Options.OPTION_ANON) != 0)
 		return true;
 	}
 
@@ -750,7 +756,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	int modifiedModifiers = minfo.getModifiers();
 
 	if (isConstructor() && !isStatic()
-	    && (Decompiler.options & Decompiler.OPTION_CONTRAFO) != 0
+	    && (Options.options & Options.OPTION_CONTRAFO) != 0
 	    && classAnalyzer.outerValues != null)
 	    skipParams = classAnalyzer.outerValues.getCount();
 
@@ -771,11 +777,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 
 	writer.pushScope(this);
 
-	if (minfo.isSynthetic()
-	    && (classAnalyzer.getName() != null
-		|| !isConstructor()))
-	    writer.print("/*synthetic*/ ");
-
 	/*
 	 * JLS-1.0, section 9.4:
 	 *
@@ -793,15 +794,31 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	 */
 	if (classAnalyzer.getClazz().isInterface())
 	    modifiedModifiers &= ~Modifier.ABSTRACT;
+
+	/* Don't ask me why, but jikes declares the static constructor
+	 * as final.
+	 */
+	if (isConstructor() && isStatic())
+	    modifiedModifiers &= ~Modifier.FINAL;
+
+
+	String delim ="";
+	if (minfo.isSynthetic()) {
+	    writer.print("/*synthetic*/");
+	    delim = " ";
+	}
+
 	String modif = Modifier.toString(modifiedModifiers);
+	writer.print(delim + modif);
 	if (modif.length() > 0)
-	    writer.print(modif+" ");
+	    delim = " ";
         if (isConstructor
 	    && (isStatic()
 		|| (classAnalyzer.getName() == null
 		    && skipParams == methodType.getParameterTypes().length))) {
             /* static block or unnamed constructor */
         } else { 
+	    writer.print(delim);
             if (declareAsConstructor)
 		writer.print(classAnalyzer.getName());
             else {
