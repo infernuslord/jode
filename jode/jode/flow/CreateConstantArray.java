@@ -38,41 +38,37 @@ public class CreateConstantArray {
 
 	    SequentialBlock sequBlock = (SequentialBlock) last.outer;
 
-            if (!(ic.getInstruction() instanceof ArrayStoreOperator)
-                || !(sequBlock.subBlocks[0] instanceof InstructionBlock)
-                || !(sequBlock.outer instanceof SequentialBlock))
-                return false;
-            ArrayStoreOperator store 
-                = (ArrayStoreOperator) ic.getInstruction();
-            InstructionBlock ib = (InstructionBlock)sequBlock.subBlocks[0];
-            sequBlock = (SequentialBlock) sequBlock.outer;
-
-            if (!(sequBlock.subBlocks[0] instanceof InstructionBlock)
-                || !(sequBlock.outer instanceof SequentialBlock))
-                return false;
-
-            Expression expr = ib.getInstruction();
-            ib = (InstructionBlock)sequBlock.subBlocks[0];
-            sequBlock = (SequentialBlock) sequBlock.outer;
-
-            if (expr.getOperandCount() > 0 
-                || !(ib.getInstruction() instanceof ConstOperator)
+	    Operator storeOp = ic.getInstruction().getOperator();
+            if (!(ic.getInstruction() instanceof ComplexExpression)
+		|| !(ic.getInstruction().getOperator() 
+		     instanceof ArrayStoreOperator)
+		|| ic.getInstruction().getOperandCount() != 1
                 || !(sequBlock.subBlocks[0] instanceof SpecialBlock)
                 || !(sequBlock.outer instanceof SequentialBlock))
                 return false;
-                
-            ConstOperator indexOp = (ConstOperator) ib.getInstruction();
+
+	    ComplexExpression storeExpr
+		= (ComplexExpression) ic.getInstruction();
+            ArrayStoreOperator store
+		= (ArrayStoreOperator) storeExpr.getOperator();
+
+	    Expression[] storeSub = storeExpr.getSubExpressions();
+	    if (!(storeSub[0] instanceof NopOperator)
+		|| !(storeSub[1] instanceof ConstOperator))
+		return false;
+
+            Expression expr = storeSub[2];
+            ConstOperator indexOp = (ConstOperator) storeSub[1];
             SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
             sequBlock = (SequentialBlock) sequBlock.outer;
 
-            if (!indexOp.getType().isOfType(Type.tUInt)
-                || dup.type != SpecialBlock.DUP
+            if (dup.type != SpecialBlock.DUP
                 || dup.depth != 0 || dup.count != 1
                 || !(sequBlock.subBlocks[0] instanceof InstructionBlock))
                 return false;
 
             int index = Integer.parseInt(indexOp.getValue());
-            ib = (InstructionBlock)sequBlock.subBlocks[0];
+            InstructionBlock ib = (InstructionBlock)sequBlock.subBlocks[0];
 
             if (ib.getInstruction() instanceof ComplexExpression
                 && (ib.getInstruction().getOperator()
