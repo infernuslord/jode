@@ -22,9 +22,13 @@ import jode.decompiler.TabbedPrintWriter;
 import jode.expr.Expression;
 
 /**
- * This is the structured block for an Return block.
+ * This is the structured block for a Return block.
  */
 public class ReturnBlock extends InstructionContainer {
+    /**
+     * The loads that are on the stack before instr is executed.
+     */
+    VariableStack stack;
 
     public ReturnBlock() {
 	super(null);
@@ -32,6 +36,28 @@ public class ReturnBlock extends InstructionContainer {
 
     public ReturnBlock(Expression instr) {
         super(instr, new Jump(-1));
+    }
+
+    /**
+     * This does take the instr into account and modifies stack
+     * accordingly.  It then calls super.mapStackToLocal.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	VariableStack newStack;
+	int params = instr.getOperandCount();
+	if (params > 0) {
+	    this.stack = stack.peek(params);
+	    newStack = stack.pop(params);
+	} else 
+	    newStack = stack;
+	return null;
+    }
+
+    public void removePush() {
+	if (stack != null)
+	    instr = stack.mergeIntoExpression(instr, used);
     }
 
     /**

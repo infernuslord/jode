@@ -16,8 +16,10 @@
  * $Id$
  */
 package jode.flow;
+import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 import jode.expr.Expression;
+import jode.Type;
 
 /**
  * An IfThenElseBlock is the structured block representing an if
@@ -29,6 +31,11 @@ public class IfThenElseBlock extends StructuredBlock {
      * The condition.  Must be of boolean type.
      */
     Expression cond;
+    /**
+     * The loads that are on the stack before cond is executed.
+     */
+    VariableStack condStack;
+    
 
     /**
      * The then part.  This is always a valid block and not null 
@@ -86,6 +93,34 @@ public class IfThenElseBlock extends StructuredBlock {
         else
             return false;
         return true;
+    }
+
+    /**
+     * This does take the instr into account and modifies stack
+     * accordingly.  It then calls super.mapStackToLocal.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	VariableStack newStack;
+	int params = cond.getOperandCount();
+	if (params > 0) {
+	    condStack = stack.peek(params);
+	    newStack = stack.pop(params);
+	} else
+	    newStack = stack;
+
+	return VariableStack.merge(thenBlock.mapStackToLocal(newStack),
+				   elseBlock == null ? newStack
+				   : elseBlock.mapStackToLocal(newStack));
+    }
+
+    public void removePush() {
+	if (condStack != null)
+	    cond = condStack.mergeIntoExpression(cond, used);
+        thenBlock.removePush();
+	if (elseBlock != null)
+	    elseBlock.removePush();
     }
 
     /**

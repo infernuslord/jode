@@ -52,6 +52,19 @@ public class SpecialBlock extends StructuredBlock {
         setJump(jump);
     }
 
+    /**
+     * This does take the instr into account and modifies stack
+     * accordingly.  It then calls super.mapStackToLocal.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	/* a SpecialBlock is special :-) */
+	VariableStack after = stack.executeSpecial(this);
+	return super.mapStackToLocal(after);
+    }
+
+
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {

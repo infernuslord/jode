@@ -16,6 +16,7 @@
  * $Id$
  */
 package jode.flow;
+import jode.Type;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.LocalInfo;
 import jode.expr.ComplexExpression;
@@ -26,6 +27,14 @@ import jode.expr.LocalStoreOperator;
  * This is the structured block for atomic instructions.
  */
 public class InstructionBlock extends InstructionContainer {
+    /**
+     * The loads that are on the stack before cond is executed.
+     */
+    VariableStack stack;
+    /**
+     * The local to which we push to, if the instruction is non void
+     */
+    LocalInfo pushedLocal = null;
 
     public InstructionBlock(Expression instr) {
         super(instr);
@@ -33,6 +42,41 @@ public class InstructionBlock extends InstructionContainer {
 
     public InstructionBlock(Expression instr, Jump jump) {
         super(instr, jump);
+    }
+
+    /**
+     * This does take the instr into account and modifies stack
+     * accordingly.  It then calls super.mapStackToLocal.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	VariableStack newStack;
+	int params = instr.getOperandCount();
+	if (params > 0)
+	    this.stack = stack.peek(params);
+
+	if (instr.getType() != Type.tVoid) {
+	    pushedLocal = new LocalInfo();
+	    newStack = stack.poppush(params, pushedLocal);
+	} else if (params > 0) {
+	    newStack = stack.pop(params);
+	} else
+	    newStack = stack;
+	return super.mapStackToLocal(newStack);
+    }
+
+    public void removePush() {
+	if (stack != null)
+	    instr = stack.mergeIntoExpression(instr, used);
+	if (pushedLocal != null) {
+	    LocalStoreOperator store = new LocalStoreOperator
+		(pushedLocal.getType(), pushedLocal, 
+		 LocalStoreOperator.ASSIGN_OP);
+	    instr = new ComplexExpression(store, new Expression[] { instr });
+	    used.addElement(pushedLocal);
+	}
+	super.removePush();
     }
 
     /**

@@ -351,6 +351,45 @@ public abstract class StructuredBlock {
         return allUse;
     }
 
+    /** 
+     * This is called after the analysis is completely done.  It
+     * will remove all PUSH/stack_i expressions, (if the bytecode
+     * is correct). <p>
+     * The default implementation merges the stack after each sub block.
+     * This may not be, what you want. <p>
+     *
+     * @param initialStack the stackmap at begin of the block
+     * @return the stack after the block has executed.
+     * @throw RuntimeException if something did get wrong.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	StructuredBlock[] subBlocks = getSubBlocks();
+	VariableStack after;
+	if (subBlocks.length == 0)
+	    after = stack;
+	else {
+	    after = null;
+	    for (int i=1; i< subBlocks.length; i++) {
+		after = VariableStack.merge
+		    (after, subBlocks[i].mapStackToLocal(stack));
+	    }
+	}
+	if (jump != null)
+	    /* assert(after != null) */
+	    jump.stackMap = after;
+	return after;
+    }
+
+    /** 
+     * This is called after mapStackToLocal to do the stack to local
+     * transformation.
+     */
+    public void removePush() {
+	StructuredBlock[] subBlocks = getSubBlocks();
+	for (int i=0; i< subBlocks.length; i++)
+	    subBlocks[i].removePush();
+    }
+
     /**
      * Make the declarations, i.e. initialize the declare variable
      * to correct values.  This will declare every variable that

@@ -46,6 +46,10 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      */
     Expression cond;
     /**
+     * The stack the condition eats.
+     */
+    VariableStack condStack;
+    /**
      * The init instruction, only valid if type == FOR or POSSFOR
      */
     InstructionBlock init;
@@ -65,9 +69,19 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     int type;
 
     /**
-     * The body of this loop.  This is always a valid block and not null 
+     * The body of this loop.  This is always a valid block and not null.
      */
     StructuredBlock bodyBlock;
+
+    /**
+     * The stack after the break.
+     */
+    VariableStack breakedStack;
+
+    /**
+     * The stack at begin of the loop.
+     */
+    VariableStack continueStack;
 
     /*{ invariant { type != POSSFOR ||
                     (incr != null
@@ -295,6 +309,58 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      */
     public void setBreaked() {
 	mayChangeJump = false;
+    }
+
+    /** 
+     * This is called after the analysis is completely done.  It
+     * will remove all PUSH/stack_i expressions, (if the bytecode
+     * is correct).
+     * @param stack the stack at begin of the block
+     * @return null if there is no way to the end of this block,
+     * otherwise the stack after the block has executed.  
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	continueStack = stack;
+	VariableStack newStack;
+	int params = cond.getOperandCount();
+	if (params > 0) {
+	    condStack = stack.peek(params);
+	    newStack = stack.pop(params);
+	} else
+	    newStack = stack;
+
+	VariableStack afterBody = bodyBlock.mapStackToLocal(newStack);
+	if (afterBody != null)
+	    mergeContinueStack(afterBody);
+	
+	return breakedStack;
+    }
+
+    /**
+     * Is called by BreakBlock, to tell us what the stack can be after a
+     * break.
+     * @return false if the stack is inconsistent.
+     */
+    public void mergeContinueStack(VariableStack stack) {
+	continueStack.merge(stack);
+    }
+
+    /**
+     * Is called by BreakBlock, to tell us what the stack can be after a
+     * break.
+     * @return false if the stack is inconsistent.
+     */
+    public void mergeBreakedStack(VariableStack stack) {
+	if (breakedStack != null)
+	    breakedStack.merge(stack);
+	else
+	    breakedStack = stack;
+    }
+
+    public void removePush() {
+	if (condStack != null)
+	    cond = condStack.mergeIntoExpression(cond, used);
+	bodyBlock.removePush();
     }
 
     /**

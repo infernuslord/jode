@@ -90,6 +90,23 @@ public class TryBlock extends StructuredBlock {
         return subBlocks;
     }
 
+    /**
+     * This does take the instr into account and modifies stack
+     * accordingly.  It then calls super.mapStackToLocal.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	// first the try block.
+	VariableStack after = subBlocks[0].mapStackToLocal(stack);
+	for (int i = 1; i<subBlocks.length; i++) {
+	    // now merge the catch blocks; they start on empty stack.
+	    after = VariableStack.merge
+		(after, subBlocks[i].mapStackToLocal(VariableStack.EMPTY));
+	}
+	return after;
+    }
+
     public void dumpInstruction(TabbedPrintWriter writer) 
         throws java.io.IOException {
         writer.print("try");
