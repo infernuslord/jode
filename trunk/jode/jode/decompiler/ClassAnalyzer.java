@@ -131,6 +131,10 @@ public class ClassAnalyzer
         }
 	return null;
     }
+
+    public int getModifiers() {
+	return modifiers;
+    }
     
     public ClassDeclarer getParent() {
         return parent;
