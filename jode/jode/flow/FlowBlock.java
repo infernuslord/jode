@@ -380,7 +380,7 @@ public class FlowBlock {
          * by this blocks
          */
         VariableSet defineHere = successor.in.merge(allOuts);
-        defineHere.subtractIdentical(in);
+        defineHere.subtractExact(in);
         
         System.err.println("             defineHere  : "+defineHere);
         if (t1Transformation) {
@@ -889,10 +889,6 @@ public class FlowBlock {
         return true;
     }
 
-    public void makeDeclaration() {
-	block.makeDeclaration();
-    }
-    
     /**
      * Resolves the destinations of all jumps.
      */
@@ -922,6 +918,11 @@ public class FlowBlock {
         successors.setElementAt(null, successors.indexOf(jump));
     }
 
+    public void makeDeclaration(VariableSet param) {
+	in.merge(param);
+	in.subtract(param);
+	block.makeDeclaration(param);
+    }
 
     /**
      * Print the source code for this structured block.  This handles
@@ -939,14 +940,8 @@ public class FlowBlock {
             writer.tab();
         }
 
-        if (jode.Decompiler.isDebugging) {
-            writer.print("in: ");
-            java.util.Enumeration enum = in.elements();
-            while(enum.hasMoreElements()) {
-                writer.print(((jode.LocalInfo)enum.nextElement()).getName()
-                             + " ");
-            }
-            writer.println("");
+        if (!in.isEmpty()) {
+            writer.print("in: "+in);
         }
 
         block.dumpSource(writer);

@@ -61,11 +61,16 @@ public abstract class StructuredBlock {
      */
 
     /**
-     * The variable set containing all variables that must be defined
-     * in this block (or maybe an outer block, this changes as the
-     * blocks are put together).
+     * The variable set containing all variables that are used in
+     * this block.
      */
-    VariableSet defineHere = new VariableSet();
+    VariableSet used = new VariableSet();
+
+    /**
+     * The variable set containing all variables we must declare.
+     * The analyzation is done in makeDeclaration
+     */
+    VariableSet declare = new VariableSet();
 
     /**
      * The surrounding structured block.  If this is the outermost
@@ -202,14 +207,14 @@ public abstract class StructuredBlock {
             /* define(...) will not move from blocks, that are not sub blocks,
              * so we do it by hand.
              */
-            java.util.Enumeration enum = from.defineHere.elements();
+            java.util.Enumeration enum = from.used.elements();
             while (enum.hasMoreElements()) {
                 LocalInfo var = 
                     ((LocalInfo) enum.nextElement()).getLocalInfo();
-                defineHere.addElement(var);
+                used.addElement(var);
                 var.setDefining(this);
             }
-            from.defineHere.removeAllElements();
+            from.used.removeAllElements();
             StructuredBlock[] subs = from.getSubBlocks();
             for (int i=0; i<subs.length; i++)
                 moveDefinitions(subs[i], sub);
@@ -266,22 +271,24 @@ public abstract class StructuredBlock {
         java.util.Enumeration enum = vars.elements();
         while (enum.hasMoreElements()) {
             LocalInfo var = ((LocalInfo) enum.nextElement()).getLocalInfo();
-            StructuredBlock previous = var.getDefining();
-            if (previous != null) {
-                if (previous == this || !contains(previous))
-                    continue;
-                previous.defineHere.removeElement(var);
-            }
-            defineHere.addElement(var);
-            var.setDefining(this);
+            used.addElement(var);
         }
     }
 
-    public void makeDeclaration() {
+    /**
+     * Make the declarations, i.e. initialize the declare variable
+     * to correct values.  This will declare every variable that
+     * is marked as used, but not done.
+     * @param done The set of the already declare variables.
+     */
+    public void makeDeclaration(VariableSet done) {
+	declare.addExact(used);
+	declare.subtractExact(done);
+	done.addExact(declare);
+
         StructuredBlock[] subs = getSubBlocks();
-        for (int i=0; i<subs.length; i++) {
-	    subs[i].makeDeclaration();
-	}
+	for (int i=0; i<subs.length; i++)
+	    subs[i].makeDeclaration(done);
     }
 
     public void checkConsistent() {
@@ -346,13 +353,30 @@ public abstract class StructuredBlock {
     public void dumpSource(jode.TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        if (!defineHere.isEmpty() || jode.Decompiler.isDebugging)
-            writer.println("defining: "+defineHere);
-        /* XXX declare variables needed in this block */
+        if (jode.Decompiler.isDebugging)
+            writer.println("declaring: "+declare);
+
+	java.util.Enumeration enum = declare.elements();
+	while (enum.hasMoreElements()) {
+	    LocalInfo local = (LocalInfo) enum.nextElement();
+	    dumpDeclaration(writer, local);
+	}
         dumpInstruction(writer);
 
         if (jump != null)
             jump.dumpSource(writer);
+    }
+
+    /**
+     * Print the code for the declaration of a local variable.
+     * @param writer The tabbed print writer, where we print to.
+     * @param local  The local that should be declared.
+     */
+    public void dumpDeclaration(jode.TabbedPrintWriter writer, LocalInfo local)
+        throws java.io.IOException
+    {
+	writer.println(local.getType().typeString(local.getName().toString())
+		       + ";");
     }
 
     /**

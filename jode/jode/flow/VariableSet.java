@@ -92,6 +92,28 @@ public class VariableSet extends java.util.Vector {
     }           
 
     /**
+     * Intersects the current VariableSet with another and returns the
+     * intersection.  The existing VariableSet are not changed.  
+     * @param vs the other variable set.  
+     */
+    public VariableSet intersectExact(VariableSet vs) {
+        VariableSet intersection = new VariableSet();
+        for (int i=0; i<elementCount; i++) {
+            LocalInfo li1 = ((LocalInfo) elementData[i]).getLocalInfo();
+            for (int j=0; j<vs.elementCount; j++) {
+                LocalInfo li2 = ((LocalInfo) vs.elementData[j]).getLocalInfo();
+                if (li1.getLocalInfo() == li2.getLocalInfo()) {
+                    if (!intersection.contains(li1))
+                        intersection.addElement(li1);
+                    if (!intersection.contains(li2))
+                        intersection.addElement(li2);
+                }
+            }
+        }
+        return intersection;
+    }           
+
+    /**
      * Union the other variable set to the current.
      */
     public void union(VariableSet vs) {
@@ -131,6 +153,26 @@ public class VariableSet extends java.util.Vector {
     }
 
     /**
+     * Add the other variable set to the current, except when the slot
+     * is already in the current set.  
+     */
+    public void addExact(VariableSet vs) {
+        int oldSize = elementCount;
+    iloop:
+        for (int i=0; i< vs.elementCount; i++) {
+            LocalInfo li2 = ((LocalInfo) vs.elementData[i]).getLocalInfo();
+            /* check if this slot was already overwritten by this block */
+            for (int j=0; j< oldSize; j++) {
+                LocalInfo li1 = (LocalInfo) elementData[j];
+                if (li1.getLocalInfo() == li2)
+                    /* Yes it was, take next variable */
+                    continue iloop;
+            }
+            addElement(li2);
+        }
+    }
+
+    /**
      * Subtract the other variable set from this one.  This removes
      * every variable from this set, that uses a slot in the other
      * variable set.
@@ -164,7 +206,7 @@ public class VariableSet extends java.util.Vector {
      * variable set.
      * @param vs The other variable set.
      */
-    public void subtractIdentical(VariableSet vs) {
+    public void subtractExact(VariableSet vs) {
         /* We count from top to bottom to have easier reorganization.
          * Note, that the variables have not to be in any particular
          * order.  */
