@@ -20,7 +20,6 @@
 package jode.obfuscator;
 import jode.bytecode.BytecodeInfo;
 
-public interface CodeAnalyzer {
-    public void analyzeCode();
-    public BytecodeInfo stripCode();
+public interface CodeAnalyzer extends CodeTransformer {
+    public void analyzeCode(MethodIdentifier parent, BytecodeInfo bytecode);
 }
