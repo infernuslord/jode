@@ -290,7 +290,7 @@ public class JodeWindow
 	String cp = System.getProperty("java.class.path");
 	if (cp != null)
 	    win.setClasspath(cp.replace(File.pathSeparatorChar, 
-					SearchPath.pathSeparatorChar));
+					SearchPath.altPathSeparatorChar));
 	String cls = win.getClass().getName();
 	win.setClass(cls);
 
