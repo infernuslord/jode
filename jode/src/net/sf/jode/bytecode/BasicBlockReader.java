@@ -544,7 +544,7 @@ class BasicBlockReader implements Opcodes {
 		case opc_ldc: {
 		    int index = input.readUnsignedByte();
 		    int tag = cp.getTag(index);
-		    if (tag != cp.STRING
+		    if (tag != cp.STRING && tag != cp.CLASS
 			 && tag != cp.INTEGER && tag != cp.FLOAT)
 			throw new ClassFormatException
 			    ("wrong constant tag: "+tag);
@@ -556,7 +556,7 @@ class BasicBlockReader implements Opcodes {
 		case opc_ldc_w: {
 		    int index = input.readUnsignedShort();
 		    int tag = cp.getTag(index);
-		    if (tag != cp.STRING
+		    if (tag != cp.STRING && tag != cp.CLASS
 			 && tag != cp.INTEGER && tag != cp.FLOAT)
 			throw new ClassFormatException
 			    ("wrong constant tag: "+tag);

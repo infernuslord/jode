@@ -71,6 +71,10 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
     String[] exceptions;
     boolean syntheticFlag;
     boolean deprecatedFlag;
+    /**
+     * The type signature that also contains template information.
+     */
+    private String signature;
 
     public MethodInfo() {
     }
@@ -106,6 +110,8 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	    if (length != 0)
 		throw new ClassFormatException
 		    ("Deprecated attribute has wrong length");
+	} else if (name.equals("Signature")) {
+	    signature = cp.getUTF8(input.readUnsignedShort());
 	} else
 	    super.readAttribute(name, length, cp, input, howMuch);
     }

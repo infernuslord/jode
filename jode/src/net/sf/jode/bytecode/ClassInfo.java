@@ -252,6 +252,11 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     private MethodInfo[] methods;
     private String sourceFile;
     private boolean hasInnerClassesAttr;
+    
+    /**
+     * The type signature that also contains template information.
+     */
+    private String signature;
 
     private final static ClassInfo[] EMPTY_INNER = new ClassInfo[0];
 
@@ -394,7 +399,8 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 
     /****** READING CLASS FILES ***************************************/
 
-    private static int javaModifiersToBytecode(int javaModifiers) {
+    private static int javaModifiersToBytecode(int javaModifiers) 
+    {
 	int modifiers = javaModifiers & (Modifier.FINAL
 					 | 0x20 /*ACC_SUPER*/
 					 | Modifier.INTERFACE
@@ -406,7 +412,9 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    return modifiers;
     }
     
-    private void mergeModifiers(int newModifiers) {
+    private void mergeModifiers(int newModifiers)
+	throws ClassFormatException
+    {
 	if (modifiers == -1) {
 	    modifiers = newModifiers;
 	    return;
@@ -417,18 +425,18 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	}
 	
 	int oldSimple = javaModifiersToBytecode(modifiers);
-	if (((oldSimple ^ newModifiers) & ~0x20) == 0) {
+	if (((oldSimple ^ newModifiers) & 0xfdf) == 0) {
 	    modifiers |= newModifiers & 0x20;
 	    return;
 	}
 
 	int newSimple = javaModifiersToBytecode(newModifiers);
-	if (((newSimple ^ modifiers) & ~0x20) == 0) {
+	if (((newSimple ^ modifiers) & 0xfdf) == 0) {
 	    modifiers = newModifiers | (modifiers & 0x20);
 	    return;
 	}
 
-	throw new ClassFormatError
+	throw new ClassFormatException
 	    ("modifiers in InnerClass info doesn't match: "
              + modifiers + "<->" + newModifiers);
     }
@@ -566,6 +574,8 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    if (length != 0)
 		throw new ClassFormatException
 		    ("Deprecated attribute has wrong length");
+	} else if (name.equals("Signature")) {
+	    signature = cp.getUTF8(input.readUnsignedShort());
 	} else
 	    super.readAttribute(name, length, cp, input, howMuch);
     }

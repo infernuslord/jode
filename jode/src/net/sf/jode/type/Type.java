@@ -194,6 +194,14 @@ public class Type {
 		     true, false);
     /**
      * This type represents the singleton set containing 
+     * <code>java.lang.StringBuffer</code>.
+     */
+    public static final SystemClassType tStringBuilder =
+	tSystemClass("java.lang.StringBuilder", 
+		     tObject, new ClassType[] { tSerializable },
+		     true, false);
+    /**
+     * This type represents the singleton set containing 
      * <code>java.lang.Class</code>.
      */
     public static final SystemClassType tJavaLangClass =

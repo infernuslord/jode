@@ -67,6 +67,10 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
     Object constant;
     boolean syntheticFlag;
     boolean deprecatedFlag;
+    /**
+     * The type signature that also contains template information.
+     */
+    private String signature;
     
     /**
      * Creates a new empty field info.
@@ -109,6 +113,8 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	    if (length != 0)
 		throw new ClassFormatException
 		    ("Deprecated attribute has wrong length");
+	} else if (name.equals("Signature")) {
+	    signature = cp.getUTF8(input.readUnsignedShort());
 	} else
 	    super.readAttribute(name, length, cp, input, howMuch);
     }
