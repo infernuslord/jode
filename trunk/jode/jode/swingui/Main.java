@@ -152,7 +152,10 @@ public class MainWindow
 
     public void run() {
 //  	Decompiler.isVerbose = verboseCheck.getState();
-//  	Decompiler.prettyLocals = prettyCheck.getState();
+//  	if (prettyCheck.getState())
+//  	    Decompiler.options |= Decompiler.OPTION_PRETTY;
+//  	else
+//  	    Decompiler.options &= ~Decompiler.OPTION_PRETTY;
 	errorArea.setText("");
 //  	saveButton.setEnabled(false);
 
