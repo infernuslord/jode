@@ -41,10 +41,10 @@ public class PackagesTreeModel implements TreeModel {
 	String name;
 	boolean leaf;
 
-	public TreeElement(String prefix, String name) {
+	public TreeElement(String prefix, String name, boolean isLeaf) {
 	    this.fullName = prefix+name;
 	    this.name = name;
-	    this.leaf = !ClassInfo.isPackage(fullName);
+	    this.leaf = isLeaf;
 	}
 
 	public String getFullName() {
@@ -81,7 +81,7 @@ public class PackagesTreeModel implements TreeModel {
 	}
     }
 
-    TreeElement root = new TreeElement("","");
+    TreeElement root = new TreeElement("", "", false);
     Vector listeners = new Vector();
 
     public void rebuild() {
@@ -107,10 +107,13 @@ public class PackagesTreeModel implements TreeModel {
 	    while (enum.hasMoreElements()) {
 		//insert sorted and remove double elements;
 		String name = (String)enum.nextElement();
-		if (Decompiler.skipClass(ClassInfo.forName(prefix+name)))
+		String fqn = prefix+name;
+		boolean isClass = !ClassInfo.isPackage(fqn);
+
+		if (isClass && Decompiler.skipClass(ClassInfo.forName(fqn)))
 		    continue;
 
-		TreeElement newElem = new TreeElement(prefix, name);
+		TreeElement newElem = new TreeElement(prefix, name, isClass);
 		for (int i=0; ; i++) {
 		    if (i == v.size()) {
 			v.addElement(newElem);
