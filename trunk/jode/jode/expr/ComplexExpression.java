@@ -24,6 +24,7 @@ import jode.Type;
 public class ComplexExpression extends Expression {
     Operator     operator;
     Expression[] subExpressions;
+    int operandcount = 0;
 
     public ComplexExpression(Operator op, Expression[] sub) {
         super(Type.tUnknown);
@@ -34,19 +35,15 @@ public class ComplexExpression extends Expression {
         operator = op;
         operator.parent = this;
         subExpressions = sub;
-        for (int i=0; i< subExpressions.length; i++)
+        for (int i=0; i< subExpressions.length; i++) {
             subExpressions[i].parent = this;
+	    operandcount += subExpressions[i].getOperandCount();
+	}
         updateType();
     }
 
     public int getOperandCount() {
-        if (subExpressions.length == 0)
-            return 0;
-        else
-            /* The only sub expression that may have non resolved
-             * operands may be the first.
-             */
-            return subExpressions[0].getOperandCount();
+	return operandcount;
     }
 
     public Expression negate() {
@@ -69,6 +66,22 @@ public class ComplexExpression extends Expression {
         Operator negop = 
             new UnaryOperator(Type.tBoolean, Operator.LOG_NOT_OP);
         return new ComplexExpression(negop, new Expression[] { this });
+    }
+
+    /**
+     * Checks if the value of the given expression can change, due to
+     * side effects in this expression.  If this returns false, the 
+     * expression can safely be moved behind the current expresion.
+     * @param expr the expression that should not change.
+     */
+    public boolean hasSideEffects(Expression expr) {
+	if (operator.hasSideEffects(expr))
+	    return true;
+	for (int i=0; i < subExpressions.length; i++) {
+	    if (subExpressions[i].hasSideEffects(expr))
+		return true;
+	}
+	return false;
     }
 
     /**
@@ -103,7 +116,23 @@ public class ComplexExpression extends Expression {
     }
 
     /**
-     * Checks if this expression contains a load, that matches the
+     * Checks if this expression contains a conflicting load, that
+     * matches the given CombineableOperator.  The sub expressions are
+     * not checked.
+     * @param op The combineable operator.
+     * @return if this expression contains a matching load.  */
+    public boolean containsConflictingLoad(CombineableOperator op) {
+	if (op.matches(operator))
+	    return true;
+	for (int i=0; i < subExpressions.length; i++) {
+	    if (subExpressions[i].containsConflictingLoad(op))
+		return true;
+	}
+	return false;
+    }
+
+    /**
+     * Checks if this expression contains a conflicting load, that matches the
      * given Expression (which must be a
      * StoreInstruction/IIncOperator).
      * @param e The store expression.
@@ -169,9 +198,15 @@ public class ComplexExpression extends Expression {
     }
 
     public void setSubExpressions(int i, Expression expr) {
+	int diff = expr.getOperandCount()
+	    - subExpressions[i].getOperandCount();
         subExpressions[i] = expr;
+	for (ComplexExpression ce = this; ce != null; 
+	     ce = (ComplexExpression) ce.parent)
+	    ce.operandcount += diff;
         updateType();
     }
+
     void updateSubTypes() {
         boolean changed = false;
         for (int i=0; i < subExpressions.length; i++) {
@@ -456,5 +491,4 @@ public class ComplexExpression extends Expression {
                 return false;
         return true;
     }
-
 }

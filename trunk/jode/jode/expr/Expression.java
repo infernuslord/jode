@@ -59,6 +59,17 @@ public abstract class Expression {
     }
 
     /**
+     * Checks if the value of the given expression can change, due to
+     * side effects in this expression.  If this returns false, the 
+     * expression can safely be moved behind the current expresion.
+     * @param expr the expression that should not change.
+     */
+    public boolean hasSideEffects(Expression expr) {
+	// Most expression don't have side effects.
+	return false;
+    }
+
+    /**
      * Checks if the given Expression (which should be a CombineableOperator)
      * can be combined into this expression.
      * @param e The store expression, must be of type void.
@@ -80,6 +91,16 @@ public abstract class Expression {
      */
     public boolean containsMatchingLoad(Expression e) {
         return ((CombineableOperator)e.getOperator()).matches(getOperator());
+    }
+
+    /**
+     * Checks if this expression contains a conflicting load, that
+     * matches the given CombineableOperator.  The sub expressions are
+     * not checked.
+     * @param op The combineable operator.
+     * @return if this expression contains a matching load.  */
+    public boolean containsConflictingLoad(CombineableOperator op) {
+        return op.matches(getOperator());
     }
 
     /**
@@ -110,7 +131,8 @@ public abstract class Expression {
         return this;
     }
 
-    static Expression EMPTYSTRING = new ConstOperator(Type.tString, "\"\"");
+    public static Expression EMPTYSTRING
+	= new ConstOperator(Type.tString, "\"\"");
 
     public Expression simplifyStringBuffer() {
         return null;
