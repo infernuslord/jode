@@ -186,6 +186,8 @@ public class CodeAnalyzer implements Analyzer {
             
         excHandlers.analyze();
         methodHeader.analyze();
+	if (!Decompiler.usePUSH && methodHeader.mapStackToLocal())
+	    methodHeader.removePush();
     } 
 
     public void analyze()
