@@ -50,11 +50,11 @@ public class IfThenElseOperator extends Operator {
 		&& subExpressions[2] instanceof ConstOperator) {
                 ConstOperator c1 = (ConstOperator) subExpressions[1];
                 ConstOperator c2 = (ConstOperator) subExpressions[2];
-                if (c1.getValue().equals("1") &&
-                    c2.getValue().equals("0"))
+                if (c1.getValue().equals(new Integer(1)) &&
+                    c2.getValue().equals(new Integer(0)))
                     return subExpressions[0].simplify();
-                if (c2.getValue().equals("1") &&
-                    c1.getValue().equals("0"))
+                if (c2.getValue().equals(new Integer(1)) &&
+                    c1.getValue().equals(new Integer(0)))
                     return subExpressions[0].negate().simplify();
             }
         }
@@ -84,7 +84,7 @@ public class IfThenElseOperator extends Operator {
 		    && invoke.subExpressions[0] instanceof ConstOperator
 		    && (invoke.subExpressions[0].getType()
 			.equals(Type.tString))) {
-		    String clazz = 
+		    String clazz = (String)
 			((ConstOperator)invoke.subExpressions[0]).getValue();
 		    if (field.setClassConstant(clazz))
 			return new ClassFieldOperator(clazz.charAt(0) == '[' 

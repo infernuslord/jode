@@ -41,11 +41,22 @@ import @COLLECTIONS@.Iterator;
 
 public final class InvokeOperator extends Operator 
     implements MatchableOperator {
+
+    public final static int VIRTUAL       = 0;
+    public final static int SPECIAL       = 1;
+    public final static int STATIC        = 2;
+    public final static int CONSTRUCTOR   = 3;
+    public final static int ACCESSSPECIAL = 4;
+
+    /**
+     * The methodAnalyzer of the method, that contains this invocation.
+     * This is not the method that we should call.
+     */
     MethodAnalyzer methodAnalyzer;
-    boolean staticFlag;
-    boolean specialFlag;
+    int methodFlag;
     MethodType methodType;
     String methodName;
+    int skippedArgs;
     Type classType;
     Type[] hints;
 
@@ -112,8 +123,7 @@ public final class InvokeOperator extends Operator
 
 
     public InvokeOperator(MethodAnalyzer methodAnalyzer,
-			  boolean staticFlag, boolean specialFlag, 
-			  Reference reference) {
+			  int methodFlag, Reference reference) {
         super(Type.tUnknown, 0);
         this.methodType = Type.tMethod(reference.getType());
         this.methodName = reference.getName();
@@ -134,17 +144,16 @@ public final class InvokeOperator extends Operator
 	else
 	    this.type = methodType.getReturnType();
         this.methodAnalyzer  = methodAnalyzer;
-	this.staticFlag = staticFlag;
-        this.specialFlag = specialFlag;
-        if (staticFlag)
+	this.methodFlag = methodFlag;
+        if (methodFlag == STATIC)
             methodAnalyzer.useType(classType);
-	initOperands((staticFlag ? 0 : 1) 
-		     + methodType.getParameterTypes().length);
+	skippedArgs = (methodFlag == STATIC ? 0 : 1);
+	initOperands(skippedArgs + methodType.getParameterTypes().length);
 	checkAnonymousClasses();
     }
 
     public final boolean isStatic() {
-        return staticFlag;
+        return methodFlag == STATIC;
     }
 
     public MethodType getMethodType() {
@@ -166,7 +175,7 @@ public final class InvokeOperator extends Operator
     public void checkAnonymousClasses() {
 	if ((Decompiler.options & Decompiler.OPTION_ANON) == 0)
 	    return;
-	if (!isConstructor())
+	if (methodFlag != CONSTRUCTOR)
 	    return;
 	ClassInfo clazz = getClassInfo();
 	InnerClassInfo outer = getOuterClassInfo(clazz);
@@ -210,7 +219,7 @@ public final class InvokeOperator extends Operator
     }
 
     public boolean isConstructor() {
-        return methodName.equals("<init>");
+        return methodFlag == CONSTRUCTOR;
     }
 
     public ClassInfo getClassInfo() {
@@ -221,8 +230,6 @@ public final class InvokeOperator extends Operator
 
     /**
      * Checks, whether this is a call of a method from this class.
-     * @XXX check, if this class implements the method and if not
-     * allow super class
      */
     public boolean isThis() {
 	return getClassInfo() == methodAnalyzer.getClazz();
@@ -235,6 +242,69 @@ public final class InvokeOperator extends Operator
 		return outers[0];
 	}
 	return null;
+    }
+
+    /**
+     * Tries to locate the class analyzer for the callee class.  This
+     * is mainly useful for inner and anonymous classes.
+     *
+     * @return The class analyzer, if the callee class is declared
+     * inside the same base class as the caller class, null otherwise.
+     */
+    public ClassAnalyzer getClassAnalyzer() {
+	if ((Decompiler.options & 
+	     (Decompiler.OPTION_ANON | Decompiler.OPTION_INNER)) == 0)
+	    return null;
+
+	ClassInfo callee = getClassInfo();
+	if (callee == null)
+	    return null;
+
+	int nested = 0;
+	InnerClassInfo[] outers = callee.getOuterClasses();
+	if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
+	    && outers != null) {
+	    /* If the callee class is an inner class we take its
+	     * (outermost) parent instead.  This will assure that we
+	     * find the callee class with one inner -> outer pass.  
+	     */
+	    nested = outers.length;
+	    if (outers[nested - 1].outer == null 
+		|| outers[nested - 1].name == null)
+		nested--;
+
+	    if (nested > 0)
+		callee = ClassInfo.forName(outers[nested - 1].outer);
+	}
+
+	/* Now we iterate the caller analyzer queue to find the class
+	 * analyzer for callee
+	 */
+	ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
+	while (callee != ana.getClazz()) {
+	    if (ana.getParent() == null)
+		return null;
+	    if (ana.getParent() instanceof MethodAnalyzer
+		&& (Decompiler.options & Decompiler.OPTION_ANON) != 0)
+		ana = ((MethodAnalyzer) ana.getParent())
+		    .getClassAnalyzer();
+	    else if (ana.getParent() instanceof ClassAnalyzer
+		     && (Decompiler.options 
+			 & Decompiler.OPTION_INNER) != 0)
+		    ana = (ClassAnalyzer) ana.getParent();
+	    else 
+		throw new jode.AssertError
+		    ("Unknown parent: "+ana+": "+ana.getParent());
+	}
+
+	/* Now get the ClassAnalyzer of the real callee */
+	while (nested > 0) {
+	    nested--;
+	    ana = ana.getInnerClassAnalyzer(outers[nested].name);
+	    if (ana == null)
+		return null;
+	}
+	return ana;
     }
 
     /**
@@ -266,26 +336,18 @@ public final class InvokeOperator extends Operator
 	return false;
     }
 
+    /**
+     * Tries to locate the method analyzer for the callee.  This
+     * is mainly useful for inner and anonymous classes.
+     *
+     * @return The method analyzer, if the callee is declared
+     * inside the same base class as the caller class, null otherwise.
+     */
     public MethodAnalyzer getMethodAnalyzer() {
-	ClassInfo clazz = getClassInfo();
-	if (clazz != null) {
-	    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
-	    while (true) {
-		if (clazz == ana.getClazz()) {
-		    return ana.getMethod(methodName, methodType);
-		}
-		if (ana.getParent() == null)
-		    return null;
-		if (ana.getParent() instanceof MethodAnalyzer)
-		    ana = ((MethodAnalyzer) ana.getParent())
-			.getClassAnalyzer();
-		else if (ana.getParent() instanceof ClassAnalyzer)
-		    ana = (ClassAnalyzer) ana.getParent();
-		else 
-		    throw new jode.AssertError("Unknown parent");
-	    }
-	}
-	return null;
+	ClassAnalyzer ana = getClassAnalyzer();
+	if (ana == null)
+	    return null;
+	return ana.getMethod(methodName, methodType);
     }
 
     /**
@@ -378,7 +440,7 @@ public final class InvokeOperator extends Operator
 	String result;
 	try {
 	    result = (String) interpreter.interpretMethod
-		(ma.getBytecodeInfo(), null, new String[] { op.getValue() });
+		(ma.getBytecodeInfo(), null, new Object[] { op.getValue() });
 	} catch (InterpreterException ex) {
 	    GlobalOptions.err.println("Warning: Can't interpret method "
 				      +methodName);
@@ -520,18 +582,30 @@ public final class InvokeOperator extends Operator
 					      synth.getReference()));
 		    break;
 		case SyntheticAnalyzer.ACCESSMETHOD:
-		    op = new InvokeOperator(methodAnalyzer, false, 
-					    false, synth.getReference());
+		    op = new InvokeOperator(methodAnalyzer, ACCESSSPECIAL, 
+					    synth.getReference());
 		    break;
 		case SyntheticAnalyzer.ACCESSSTATICMETHOD:
-		    op = new InvokeOperator(methodAnalyzer, true, 
-					    false, synth.getReference());
+		    op = new InvokeOperator(methodAnalyzer, STATIC,
+					    synth.getReference());
+		    break;
+		case SyntheticAnalyzer.ACCESSCONSTRUCTOR:
+		    if (subExpressions[1] instanceof ConstOperator
+			&& ((ConstOperator) 
+			    subExpressions[1]).getValue() == null) {
+			op = new InvokeOperator(methodAnalyzer, CONSTRUCTOR, 
+						synth.getReference());
+		    }
 		    break;
 		}
 
 		if (op != null) {
 		    if (subExpressions != null) {
 			for (int i=subExpressions.length; i-- > 0; ) {
+			    if (i == 1 && synth.getKind() 
+				== SyntheticAnalyzer.ACCESSCONSTRUCTOR)
+				// skip the null param.
+				continue;
 			    op = op.addOperand(subExpressions[i]);
 			    if (subExpressions[i].getFreeOperandCount() > 0)
 				break;
@@ -546,7 +620,7 @@ public final class InvokeOperator extends Operator
 
     public boolean needsCast(int param, Type[] paramTypes) {
 	Type realClassType;
-	if (staticFlag) 
+	if (methodFlag == STATIC) 
 	    realClassType = classType;
 	else {
 	    if (param == 0)
@@ -559,7 +633,7 @@ public final class InvokeOperator extends Operator
 	    return false;
 	}
 	ClassInfo clazz = ((ClassInterfacesType) realClassType).getClassInfo();
-	int offset = staticFlag ? 0 : 1;
+	int offset = skippedArgs;
 	
 	Type[] myParamTypes = methodType.getParameterTypes();
 	if (myParamTypes[param-offset].equals(paramTypes[param])) {
@@ -658,7 +732,7 @@ public final class InvokeOperator extends Operator
 		    clazz = interfaces[0];
 		} else {
 		    clazz = (superClazz != null
-			 ? superClazz : ClassInfo.javaLangObject);
+			     ? superClazz : ClassInfo.javaLangObject);
 		}
 		outer = getOuterClassInfo(clazz);
 	    }
@@ -685,14 +759,10 @@ public final class InvokeOperator extends Operator
      */
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	boolean opIsThis = !staticFlag
-	    && subExpressions[0] instanceof ThisOperator;
         int arg = 1;
 	int length = subExpressions.length;
-	/* true, if this is the constructor of an anonymous class and we
-	 * must therefore dump the class.
-	 */
-	boolean dumpBlock = false;
+
+	boolean anonymousNew = false;
 	ClassInfo clazz = getClassInfo();
 	ClassAnalyzer clazzAna = null;
 
@@ -700,17 +770,28 @@ public final class InvokeOperator extends Operator
 	for (int i=0; i< subExpressions.length; i++)
 	    paramTypes[i] = subExpressions[i].getType().getCanonic();
 
-	if (isConstructor()) {
-	    boolean jikesAnonymousInner = false;
-	    InnerClassInfo outer = getOuterClassInfo(clazz);
-	    clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
+	switch (methodFlag) {
+	case CONSTRUCTOR: {
 
-	    if ((Decompiler.options & 
-		 (Decompiler.OPTION_ANON | Decompiler.OPTION_CONTRAFO)) != 0
+	    boolean qualifiedNew = false;
+	    boolean jikesAnonymousInner = false;
+	    
+	    
+	    /* Check if this is an anonymous constructor. In this case
+	     * clazz and outer will be changed to point to the
+	     * super class and anonymousNew will be set. 
+	     */
+	    InnerClassInfo outer = getOuterClassInfo(clazz);
+	    if (outer != null && outer.name == null)
+		anonymousNew = true;
+	    clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
+	    if ((~Decompiler.options & 
+		 (Decompiler.OPTION_ANON | Decompiler.OPTION_CONTRAFO)) == 0
 		&& clazzAna != null
 		&& outer != null 
 		&& (outer.outer == null || outer.name == null)) {
-
+		
+		/* This is a method scoped class, skip the outerValues */
 		arg += clazzAna.getOuterValues().length;
 		jikesAnonymousInner = clazzAna.isJikesAnonymousInner();
 		
@@ -730,7 +811,6 @@ public final class InvokeOperator extends Operator
 				 ? superClazz : ClassInfo.javaLangObject);
 		    }
 		    outer = getOuterClassInfo(clazz);
-		    dumpBlock = true;
 		    if (jikesAnonymousInner
 			&& outer.outer == null && outer.name != null) {
 			Expression thisExpr = subExpressions[--length];
@@ -746,12 +826,16 @@ public final class InvokeOperator extends Operator
 		    }
 		}
 	    }
-
+	    
+	    /* Check if this is an inner class.  It will dump the outer
+	     * class expression, except if its default.
+	     */
 	    if (outer != null && outer.outer != null && outer.name != null
 		&& !Modifier.isStatic(outer.modifiers)
-		&& (Decompiler.options & 
+		&& (~Decompiler.options & 
 		    (Decompiler.OPTION_INNER
-		     | Decompiler.OPTION_CONTRAFO)) != 0) {
+		     | Decompiler.OPTION_CONTRAFO)) == 0) {
+
 		Expression outerExpr = jikesAnonymousInner 
 		    ? subExpressions[--length]
 		    : subExpressions[arg++];
@@ -770,10 +854,12 @@ public final class InvokeOperator extends Operator
 			(((ThisOperator) outerExpr).getClassInfo(), 
 			 Scope.CLASSSCOPE);
 		    if (writer.conflicts(outer.name, scope, Scope.CLASSNAME)) {
+			qualifiedNew = true;
 			outerExpr.dumpExpression(writer, 950);
 			writer.print(".");
 		    }
 		} else {
+		    qualifiedNew = true;
 		    if (outerExpr.getType() instanceof NullType) {
 			writer.print("((");
 			writer.printType(Type.tClass
@@ -786,52 +872,94 @@ public final class InvokeOperator extends Operator
 		    writer.print(".");
 		}
 	    }
-	}
-
-	if (specialFlag) {
-	    if (opIsThis
+	    
+	    if (subExpressions[0] instanceof NewOperator
+		&& paramTypes[0].equals(classType)) {
+		writer.print("new ");
+		if (qualifiedNew) 
+		    writer.print(outer.name);
+		else
+		    writer.printType(Type.tClass(clazz));
+		break;
+	    }
+	    
+	    if (subExpressions[0] instanceof ThisOperator
 		&& (((ThisOperator)subExpressions[0]).getClassInfo()
 		    == methodAnalyzer.getClazz())) {
-		if (isThis()) {
-		    /* XXX check if this is a private or final method. */
-		} else {
-		    /* XXX check that this is the first defined
-		     * super method. */
+		if (isThis())
+		    writer.print("this");
+		else
+		    writer.print("super");
+		break;
+	    }
+	    
+	    writer.print("((UNCONSTRUCTED)");
+	    subExpressions[0].dumpExpression(writer, 950);
+	    writer.print(").");
+	    writer.printType(Type.tClass(clazz));
+	    break;
+	}
+	case SPECIAL:
+	    if (subExpressions[0] instanceof ThisOperator
+		&& (((ThisOperator)subExpressions[0]).getClassInfo()
+		    == methodAnalyzer.getClazz())) {
+
+		if (!isThis()) {
+		    /* We don't have to check if this is the real super
+		     * class, as long as ACC_SUPER is set.
+		     */
 		    writer.print("super");
 		    ClassInfo superClazz = getClassInfo().getSuperclass();
 		    paramTypes[0] = superClazz == null
 			? Type.tObject : Type.tClass(superClazz);
-		    opIsThis = false;
+		    writer.print(".");
+		} else {
+		    /* XXX check if this is a private method. */
 		}
-	    } else if (isConstructor() 
-		       && subExpressions[0] instanceof NewOperator) {
-
-		writer.print("new ");
-		writer.printType(Type.tClass(clazz));
-
 	    } else {
-		/* XXX check if this is a private or final method. */
-		int minPriority = 950; /* field access */
-		if (!isThis()) {
-		    writer.print("(NON VIRTUAL ");
-		    writer.printType(classType);
-		    writer.print(")");
-		    paramTypes[0] = classType;
-		    minPriority = 700;
-		}
-		subExpressions[0].dumpExpression(writer, minPriority);
+		writer.print("((NON VIRTUAL ");
+		writer.printType(classType);
+		writer.print(")");
+		paramTypes[0] = classType;
+		subExpressions[0].dumpExpression(writer, 700);
+		writer.print(").");
 	    }
-	} else if (staticFlag) {
+	    writer.print(methodName);
+	    break;
+
+	case ACCESSSPECIAL:
+	    /* Calling a private method in another class. (This is
+             * allowed for inner classes.)
+	     */
+	    if (paramTypes[0].equals(classType))
+		subExpressions[0].dumpExpression(writer, 950);
+	    else {
+		writer.print("((");
+		writer.printType(classType);
+		writer.print(")");
+		paramTypes[0] = classType;
+		subExpressions[0].dumpExpression(writer, 700);
+		writer.print(")");
+	    }
+	    writer.print(".");
+	    writer.print(methodName);
+	    break;
+
+	case STATIC: {
 	    arg = 0;
 	    Scope scope = writer.getScope(getClassInfo(),
 					  Scope.CLASSSCOPE);
-	    if (scope != null
-		&& !writer.conflicts(methodName, scope, Scope.METHODNAME))
-		opIsThis = true;
-	    else
+	    if (scope == null
+		||writer.conflicts(methodName, scope, Scope.METHODNAME)) {
 		writer.printType(classType);
-	} else {
-	    if (opIsThis) {
+		writer.print(".");
+	    }
+	    writer.print(methodName);
+	    break;
+	}
+
+	case VIRTUAL:
+	    if (subExpressions[0] instanceof ThisOperator) {
 		ThisOperator thisOp = (ThisOperator) subExpressions[0];
 		Scope scope = writer.getScope(thisOp.getClassInfo(),
 					      Scope.CLASSSCOPE);
@@ -868,20 +996,14 @@ public final class InvokeOperator extends Operator
 		    paramTypes[0] = classType;
 		} else 
 		    subExpressions[0].dumpExpression(writer, 950);
-	    }
-	}
-
-	if (isConstructor()) {
-	    if (opIsThis)
-		writer.print("this");
-	} else {
-	    if (!opIsThis)
 		writer.print(".");
+	    }
 	    writer.print(methodName);
 	}
+
 	writer.print("(");
 	boolean first = true;
-	int offset = staticFlag ? 0 : 1;
+	int offset = skippedArgs;
 	while (arg < length) {
             if (!first)
 		writer.print(", ");
@@ -899,12 +1021,27 @@ public final class InvokeOperator extends Operator
             subExpressions[arg++].dumpExpression(writer, priority);
         }
         writer.print(")");
-	if (dumpBlock) {
+
+	if (anonymousNew) {
+	    /* If this was an anonymous constructor call, we must now
+	     * dump the source code of the anonymous class.  
+	     */
 	    writer.openBrace();
 	    writer.tab();
 	    clazzAna.dumpBlock(writer);
 	    writer.untab();
 	    writer.closeBraceNoSpace();
 	}
+    }
+
+    public boolean opEquals(Operator o) {
+	if (o instanceof InvokeOperator) {
+	    InvokeOperator i = (InvokeOperator)o;
+	    return classType.equals(i.classType)
+		&& methodName.equals(i.methodName)
+		&& methodType.equals(i.methodType)
+		&& methodFlag == i.methodFlag;
+	}
+	return false;
     }
 }

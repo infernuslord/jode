@@ -38,8 +38,8 @@ public class IIncOperator extends Operator
 	return (LValueExpression) subExpressions[0];
     }
 
-    public String getValue() {
-	return Integer.toString(value);
+    public int getValue() {
+	return value;
     }
 
     public int getPriority() {

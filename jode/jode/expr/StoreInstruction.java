@@ -90,12 +90,11 @@ public class StoreInstruction extends Operator
 
             if ((getOperatorIndex() == OPASSIGN_OP+ADD_OP ||
                  getOperatorIndex() == OPASSIGN_OP+SUB_OP) &&
-                (one.getValue().equals("1") 
-		 || one.getValue().equals("1.0"))) {
-
+		((Number)one.getValue()).doubleValue() == 1.0) {
+		
                 int op = (getOperatorIndex() == OPASSIGN_OP+ADD_OP)
                     ? INC_OP : DEC_OP;
-
+		
                 return new PrePostFixOperator
                     (getType(), op, getLValue(), isVoid()).simplify();
             }
