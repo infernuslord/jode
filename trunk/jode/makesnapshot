@@ -1,0 +1,25 @@
+#!/bin/sh
+echo '#!/bin/sh' > co.all
+echo co -u jcpp make* COPYING *.html *.java */*.java */*.j >> co.all
+chmod a+x co.all
+
+echo '#!/bin/sh' > compile
+echo 'COMPILER=${1:-javac}' >> compile
+echo 'if [ -z "$1" ]; then FLAGS="-g"; else shift; FLAGS="$*"; fi' >>compile
+echo 'rm -f *.class */*.class' >> compile
+echo 'jasmin -d .. jvm/Interpreter.j' >> compile
+echo \$COMPILER \$FLAGS -d .. Decompiler.java Obfuscator.java JodeApplet.java swingui/MainWindow.java >> compile
+chmod a+x compile
+
+cd ..
+tar -cvzf jode/jode-RCS-`date +"%Y%m%d"`.tar.gz \
+    jode/co.all jode/compile jode/RCS jode/*/RCS
+
+./compile jikes -g
+tar -cvzf jode/jode-`date +"%Y%m%d"`.tar.gz
+    jode/COPYING jode/*.html jode/jcpp \
+    jode/*.java jode/*/*.java jode/*.class jode/*/*.class
+
+zip jode/jode-`date +"%Y%m%d`.zip \
+    jode/COPYING jode/*.html jode/jcpp \
+    jode/*.java jode/*/*.java jode/*.class jode/*/*.class
