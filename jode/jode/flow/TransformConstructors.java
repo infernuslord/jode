@@ -18,9 +18,12 @@
  */
 
 package jode.flow;
+import jode.GlobalOptions;
+import jode.decompiler.Analyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.MethodAnalyzer;
 import jode.expr.*;
+import jode.bytecode.ClassInfo;
 
 /**
  * 
@@ -28,9 +31,14 @@ import jode.expr.*;
  */
 public class TransformConstructors {
     
+    public static boolean isThis(Expression thisExpr, ClassInfo clazz) {
+	return ((thisExpr instanceof ThisOperator)
+		&& (((ThisOperator)thisExpr).getClassInfo() == clazz));
+    }
+
     public static void transform(ClassAnalyzer clazzAnalyzer,
-                                 boolean isStatic, 
-                                 MethodAnalyzer[] cons) {
+                                 boolean isStatic, boolean isMember,
+				 boolean isAnonymous, MethodAnalyzer[] cons) {
         if (cons.length == 0)
             return;
 
@@ -41,7 +49,9 @@ public class TransformConstructors {
 	    if (header == null || !header.hasNoJumps())
 		return;
             sb[i] = cons[i].getMethodHeader().block;
-//             GlobalOptions.err.println("constr "+i+": "+sb[i]);
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("constr "+i+": "+sb[i]);
             if (!isStatic) {
                 InstructionBlock ib;
                 if (sb[i] instanceof InstructionBlock)
@@ -57,8 +67,9 @@ public class TransformConstructors {
                 
                 if (!(instr instanceof ComplexExpression)
                     || !(instr.getOperator() instanceof InvokeOperator)
-                    || !(((ComplexExpression)instr)
-                         .getSubExpressions()[0].toString().equals("this")))
+                    || !isThis(((ComplexExpression)instr)
+			       .getSubExpressions()[0], 
+			       clazzAnalyzer.getClazz()))
                     return;
                     
                 InvokeOperator invoke = (InvokeOperator) instr.getOperator();
@@ -69,7 +80,9 @@ public class TransformConstructors {
                     /* This constructor calls another constructor, so we
                      * can skip it.
                      */
-//                     GlobalOptions.err.println("skipping this()");
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("skipping this()");
                     cons[i] = cons[--constrCount];
                     continue;
                 }
@@ -83,23 +96,125 @@ public class TransformConstructors {
                     sb[i] = sb[i].getSubBlocks()[1];
                 else
                     sb[i] = null;
-//                 GlobalOptions.err.println("normal constructor");
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.println("normal constructor");
             }
             i++;
         }
         StructuredBlock[] start = new StructuredBlock[constrCount];
         for (int i=0; i< constrCount; i++)
             start[i] = sb[i];
+
+	if (isMember || isAnonymous) {
+	this_loop:
+	    for (;;) {
+		StructuredBlock ib = 
+		    (sb[0] instanceof SequentialBlock) 
+		    ? sb[0].getSubBlocks()[0]
+		    : sb[0];
+
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.println("isMember: "+ib);
+
+		if (!(ib instanceof InstructionBlock))
+		    break this_loop;
+		
+		Expression instr
+		    = ((InstructionBlock) ib).getInstruction().simplify();
+		if (!(instr instanceof ComplexExpression)
+		    || !(instr.getOperator() instanceof PutFieldOperator)
+		    || ((PutFieldOperator)instr.getOperator()).isStatic())
+		    break this_loop;
+		
+		PutFieldOperator pfo = (PutFieldOperator) instr.getOperator();
+		if (!pfo.isThis())
+		    break this_loop;
+
+		Expression expr =  ((ComplexExpression)instr)
+		    .getSubExpressions()[isStatic ? 0 : 1];
+
+		if (isMember) {
+		    if (!(expr instanceof ThisOperator))
+			break this_loop;
+		} else {
+		    if (!(expr instanceof LocalLoadOperator))
+			break this_loop;
+		}
+
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.println("field "+pfo.getFieldName()
+					      + " = " + expr);
+                if (!isThis(((ComplexExpression)instr)
+			    .getSubExpressions()[0], 
+			    clazzAnalyzer.getClazz())) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("not this: "+instr);
+		    break this_loop;
+		}
+		
+		for (int i=1; i< constrCount; i++) {
+		    ib = (sb[i] instanceof SequentialBlock) 
+			? sb[i].getSubBlocks()[0]
+			: sb[i];
+		    if (!(ib instanceof InstructionBlock)
+			|| !(((InstructionBlock)ib).getInstruction().simplify()
+			     .equals(instr))) {
+			if ((GlobalOptions.debuggingFlags
+			     & GlobalOptions.DEBUG_CONSTRS) != 0)
+			    GlobalOptions.err.println("constr "+i+" differs: "
+						      +ib);
+			break this_loop;
+		    }
+		}
+		
+		if (!(clazzAnalyzer
+		      .getField(pfo.getFieldName(), pfo.getFieldType())
+		      .setSpecial(expr))) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("setField failed");
+		    break this_loop;
+		}
+		
+            
+		for (int i=0; i< constrCount; i++) {
+		    if (sb[i] instanceof SequentialBlock)
+			sb[i] = sb[i].getSubBlocks()[1];
+                else
+                    sb[i] = null; 
+		}
+		for (int i=0; i< constrCount; i++) {
+		    if (sb[i] == null) {
+			if ((GlobalOptions.debuggingFlags
+			     & GlobalOptions.DEBUG_CONSTRS) != 0)
+			    GlobalOptions.err.println("constr "+i+" is over");
+			break this_loop;
+		    }
+		}
+	    }
+	}
+	    
+	
     big_loop:
         for (;;) {
             StructuredBlock ib = 
                 (sb[0] instanceof SequentialBlock) 
                 ? sb[0].getSubBlocks()[0]
                 : sb[0];
+
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("fieldInit: "+ib);
+
             if (!(ib instanceof InstructionBlock))
                 break big_loop;
 
-            Expression instr = ((InstructionBlock) ib).getInstruction();
+            Expression instr
+		= ((InstructionBlock) ib).getInstruction().simplify();
             if (!(instr instanceof ComplexExpression)
                 || !(instr.getOperator() instanceof PutFieldOperator)
                 || (((PutFieldOperator)instr.getOperator()).isStatic() 
@@ -112,17 +227,25 @@ public class TransformConstructors {
 
 
             if (!pfo.isThis() || !expr.isConstant()) {
-//                 GlobalOptions.err.println("not constant: "+expr);
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.println("not constant: "+expr);
                 break big_loop;
             }
 
-//             GlobalOptions.err.println("field "+pfo.getFieldName()+ " = "+expr);
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("field "+pfo.getFieldName()+ " = "+expr);
 
-            if (!isStatic
-                && !(((ComplexExpression)instr).getSubExpressions()[0]
-                     .toString().equals("this"))) {
-//                 GlobalOptions.err.println("not this: "+instr);
-                break big_loop;
+            if (!isStatic) {
+                if (!isThis(((ComplexExpression)instr)
+			    .getSubExpressions()[0], 
+			    clazzAnalyzer.getClazz())) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("not this: "+instr);
+		    break big_loop;
+		}
             }
 
             for (int i=1; i< constrCount; i++) {
@@ -130,8 +253,11 @@ public class TransformConstructors {
                     ? sb[i].getSubBlocks()[0]
                     : sb[i];
                 if (!(ib instanceof InstructionBlock)
-                    || !((InstructionBlock)ib).getInstruction().equals(instr)) {
-//                     GlobalOptions.err.println("constr "+i+" differs: "+ib);
+                    || !(((InstructionBlock)ib).getInstruction().simplify()
+			 .equals(instr))) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("constr "+i+" differs: "+ib);
                     break big_loop;
                 }
             }
@@ -140,7 +266,9 @@ public class TransformConstructors {
             if (!(clazzAnalyzer
 		  .getField(pfo.getFieldName(), pfo.getFieldType())
 		  .setInitializer(expr))) {
-//                 GlobalOptions.err.println("setField failed");
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.println("setField failed");
                 break big_loop;
             }
                                                    
@@ -153,17 +281,22 @@ public class TransformConstructors {
             }
             for (int i=0; i< constrCount; i++)
                 if (sb[i] == null) {
-//                     GlobalOptions.err.println("constr "+i+" is over");
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("constr "+i+" is over");
                     break big_loop;
                 }
         }
+	
         for (int i=0; i< constrCount; i++) {
             if (start[i] == null)
                 continue;
             if (sb[i] == null)
                 start[i].removeBlock();
-            else
+            else {
                 sb[i].replace(start[i]);
+		sb[i].simplify();
+	    }
         }
     }
 }
