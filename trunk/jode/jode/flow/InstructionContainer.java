@@ -33,8 +33,8 @@ public abstract class InstructionContainer extends StructuredBlock {
 
     public InstructionContainer(Expression instr) {
         this.instr = instr;
-        if (instr instanceof LocalVarOperator)
-	  used.addElement(((LocalVarOperator)instr).getLocalInfo());
+	if (instr != null)
+	    instr.fillInGenSet(null, used);
     }
 
     public InstructionContainer(Expression instr, Jump jump) {
@@ -44,11 +44,8 @@ public abstract class InstructionContainer extends StructuredBlock {
 
     public void setJump(Jump jump) {
 	super.setJump(jump);
-        if (instr instanceof LocalVarOperator) {
-            LocalVarOperator varOp = (LocalVarOperator) instr;
-            jump.gen.addElement(varOp.getLocalInfo());
-            jump.kill.addElement(varOp.getLocalInfo());
-        }
+	jump.gen.add(used);
+	jump.kill.add(used);
     }
 
     /** 
@@ -71,13 +68,8 @@ public abstract class InstructionContainer extends StructuredBlock {
      * @param in The VariableSet, the in variables should be stored to.
      */
     public void fillInGenSet(VariableSet in, VariableSet gen) {
-        if (instr instanceof LocalVarOperator) {
-            LocalVarOperator varOp = (LocalVarOperator) instr;
-            if (varOp.isRead()) {
-                in.addElement(varOp.getLocalInfo());
-            }
-            gen.addElement(varOp.getLocalInfo());
-        }
+	if (instr != null)
+	    instr.fillInGenSet(in, gen);
     }
 
     public boolean doTransformations() {
