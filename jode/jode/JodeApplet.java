@@ -28,7 +28,7 @@ public class JodeApplet extends Applet {
 
 ///#ifdef AWT10
 ///    public boolean action(Event e, Object arg) {
-///	jodeWin.action(e);
+///	jodeWin.action(e, arg);
 ///	return true;
 ///    }
 ///#endif
