@@ -95,6 +95,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		default:
 		    throw new ClassFormatError("Invalid wide opcode "+opcode);
 		}
+		break;
 	    }
 	    case opc_ret:
 		stream.skip(1);
@@ -593,6 +594,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 			default:
 			    throw new ClassFormatError("Invalid wide opcode "+opcode);
 			}
+			break;
 		    }
 		    case opc_tableswitch: {
 			int length = 7-(addr % 4);
