@@ -489,6 +489,8 @@ public abstract class StructuredBlock {
 			    && (prevLocal.isNameGenerated() 
 				|| local.isNameGenerated()
 				|| localName.equals(prevLocal.getName()))
+			    && !prevLocal.isFinal() 
+			    && !local.isFinal()
 			    && prevLocal.getExpression() == null
 			    && local.getExpression() == null) {
 			    local.combineWith(prevLocal);
