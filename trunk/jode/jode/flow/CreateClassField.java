@@ -33,10 +33,9 @@ public class CreateClassField {
 	// to
 	//   if (classname.class == null) {
 	//   }
-        if (!(ifBlock.cond instanceof ComplexExpression)
-	    || !(ifBlock.cond.getOperator() instanceof CompareUnaryOperator)
-	    || !(ifBlock.cond.getOperator().getOperatorIndex()
-		 == Operator.EQUALS_OP)
+        if (!(ifBlock.cond instanceof CompareUnaryOperator)
+	    || !(((Operator)ifBlock.cond)
+		 .getOperatorIndex() == Operator.EQUALS_OP)
 	    || !(ifBlock.thenBlock instanceof InstructionBlock)
 	    || ifBlock.elseBlock != null)
             return false;
@@ -47,39 +46,32 @@ public class CreateClassField {
 		    != ifBlock.thenBlock.jump.destination)))
 	    return false;
 
-	ComplexExpression cmp = (ComplexExpression) ifBlock.cond;
+	CompareUnaryOperator cmp = (CompareUnaryOperator) ifBlock.cond;
 	Expression instr = 
 	    ((InstructionBlock)ifBlock.thenBlock).getInstruction();
 	if (!(cmp.getSubExpressions()[0] instanceof GetFieldOperator)
-	    || !(instr instanceof ComplexExpression)
-	    || !(instr.getOperator() instanceof PutFieldOperator))
+	    || !(instr instanceof StoreInstruction))
 	    return false;
 
-	ComplexExpression ass = (ComplexExpression) instr;
-	PutFieldOperator put = (PutFieldOperator) ass.getOperator();
-	if (!put.getField().isSynthetic()
+	StoreInstruction store = (StoreInstruction) instr;
+	if (!(store.getLValue() instanceof PutFieldOperator))
+	    return false;
+	PutFieldOperator put = (PutFieldOperator) store.getLValue();
+	if (put.getField() == null
 	    || !put.matches((GetFieldOperator)cmp.getSubExpressions()[0])
-	    || !(ass.getSubExpressions()[0] instanceof ComplexExpression)
-	    || !(ass.getSubExpressions()[0].getOperator() 
-		 instanceof InvokeOperator))
+	    || !(store.getSubExpressions()[1] instanceof InvokeOperator))
 	    return false;
 
-	InvokeOperator invoke = (InvokeOperator) 
-	    ass.getSubExpressions()[0].getOperator();
-	Expression param = 
-	    ((ComplexExpression)ass.getSubExpressions()[0])
-	    .getSubExpressions()[0];
+	InvokeOperator invoke = (InvokeOperator) store.getSubExpressions()[1];
+	Expression param = invoke.getSubExpressions()[0];
+
 	if (invoke.isGetClass()
 	    && param instanceof ConstOperator
 	    && param.getType().equals(Type.tString)) {
 	    String clazz = ((ConstOperator)param).getValue();
-	    if (put.getFieldName()
-		.equals("class$" + clazz.replace('.', '$'))
-		|| put.getFieldName()
-		.equals("class$L" + clazz.replace('.', '$'))) {
+	    if (put.getField().setClassConstant(clazz)) {
 		cmp.setSubExpressions
 		    (0, new ClassFieldOperator(Type.tClass(clazz)));
-		put.getField().analyzedSynthetic();
 		EmptyBlock empty = new EmptyBlock();
 		empty.moveJump(ifBlock.thenBlock.jump);
 		ifBlock.setThenBlock(empty);
