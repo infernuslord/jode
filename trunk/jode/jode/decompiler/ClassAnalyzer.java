@@ -23,6 +23,7 @@ import jode.type.MethodType;
 import jode.type.Type;
 import jode.bytecode.ClassFormatException;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.ClassPath;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.MethodInfo;
 import jode.expr.Expression;
@@ -72,7 +73,14 @@ public class ClassAnalyzer
     MethodAnalyzer staticConstructor;
     MethodAnalyzer[] constructors;
 
+    /**
+     * The outer values for method scoped classes.
+     */
     OuterValues outerValues;
+    /**
+     * The outer instance for non-static class scope classes.
+     */
+    Expression  outerInstance;
 
     public ClassAnalyzer(ClassDeclarer parent,
 			 ClassInfo clazz, ImportHandler imports,
@@ -97,7 +105,7 @@ public class ClassAnalyzer
 			? "public" : "all")
 		     + " information of " + superClass
 		     +" to detect name conflicts.");
-		ex.printStackTrace(GlobalOptions.err);
+		GlobalOptions.err.println(ex.toString());
 		superClass.guess(howMuch);
 	    }
 	    superClass = superClass.getSuperclass();
@@ -106,26 +114,18 @@ public class ClassAnalyzer
         this.parent = parent;
         this.clazz = clazz;
         this.imports = imports;
-	if (outerValues != null)
-	    this.outerValues = new OuterValues(this, outerValues);
+
 	modifiers = clazz.getModifiers();
 	name = clazz.getClassName();
 
-	if (parent != null) {
-	    ClassInfo outerClazz = clazz.getOuterClass();
-	    if (outerClazz == null) {
-		if (parent instanceof ClassAnalyzer)
-		    throw new jode.AssertError
-			("ClassInfo Attributes are inconsistent: "
-			 + clazz.getName()+" parent: "+parent);
-	    } else {
-		if (!(parent instanceof ClassAnalyzer)
-		    || ((ClassAnalyzer) parent).clazz != outerClazz)
-		    throw new jode.AssertError
-			("ClassInfo Attributes are inconsistent: "
-			 + clazz.getName()+" parent: "+parent);
-	    }
-	}
+	/* Check if this is a normal non-static inner class and set
+	 * outerInstance.
+	 */
+	if ((Options.options & Options.OPTION_INNER) != 0
+	    && parent instanceof ClassAnalyzer && !isStatic())
+	    outerInstance = new ThisOperator(((ClassAnalyzer) parent).clazz);
+	if (outerValues != null)
+	    this.outerValues = new OuterValues(this, outerValues);
     }
 
     public ClassAnalyzer(ClassDeclarer parent,
@@ -139,6 +139,10 @@ public class ClassAnalyzer
 	throws ClassFormatException, IOException
     {
 	this(null, clazz, imports);
+    }
+
+    public ClassPath getClassPath() {
+	return clazz.getClassPath();
     }
 
     public final boolean isStatic() {
@@ -196,6 +200,10 @@ public class ClassAnalyzer
 	return outerValues;
     }
 
+    public Expression getOuterInstance() {
+	return outerInstance;
+    }
+
     public void addBlockInitializer(int index, StructuredBlock initializer) {
 	if (blockInitializers[index] == null)
 	    blockInitializers[index] = initializer;
@@ -218,18 +226,12 @@ public class ClassAnalyzer
 	if ((Options.options & Options.OPTION_INNER) != 0
 	    && innerInfos != null) {
 	    /* Create inner classes */
-	    Expression[] outerThis = new Expression[] {
-		new ThisOperator(clazz)
-	    };
-
 	    int innerCount = innerInfos.length;
 	    inners = new ClassAnalyzer[innerCount];
 	    for (int i=0; i < innerCount; i++) {
 		try {
 		    inners[i] = new ClassAnalyzer
-			(this, innerInfos[i], imports, 
-			 Modifier.isStatic(innerInfos[i].getModifiers())
-			 ? null : outerThis);
+			(this, innerInfos[i], imports, null);
 		} catch (ClassFormatException ex) {
 		    GlobalOptions.err.println("Inner class "+innerInfos[i]
 					      +" malformed!");

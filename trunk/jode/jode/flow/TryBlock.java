@@ -169,8 +169,8 @@ public class TryBlock extends StructuredBlock {
 	if (instr.isVoid() || instr.getFreeOperandCount() != 0
 	    || !(instr instanceof InvokeOperator)
 	    || !(catchBlock.catchBlock instanceof ThrowBlock)
-	    || !(catchBlock.exceptionType.equals
-		 (Type.tClass("java.lang.CloneNotSupportedException"))))
+	    || !(((ClassType) catchBlock.exceptionType).getClassName().equals
+		 ("java.lang.CloneNotSupportedException")))
 	    return false;
 
 	InvokeOperator arrayClone = (InvokeOperator) instr;
@@ -191,8 +191,9 @@ public class TryBlock extends StructuredBlock {
 	
 	InvokeOperator throwOp = (InvokeOperator) throwExpr;
 	if (!throwOp.isConstructor()
-	    || !(throwOp.getClassType()
-		 .equals(Type.tClass("java.lang.InternalError")))
+	    || !(throwOp.getClassType() instanceof ClassType)
+	    || !(((ClassType) throwOp.getClassType()).getClassName()
+		 .equals("java.lang.InternalError"))
 	    || throwOp.getMethodType().getParameterTypes().length != 1)
 	    return false;
 	

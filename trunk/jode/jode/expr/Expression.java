@@ -301,6 +301,7 @@ public abstract class Expression {
 	    dumpExpression(writer);
 	} catch (RuntimeException ex) {
 	    writer.print("(RUNTIME ERROR IN EXPRESSION)");
+	    ex.printStackTrace();
 	}
 
 	if (needEndOp2) {

@@ -30,8 +30,9 @@ import jode.type.*;
 public class TabbedPrintWriter {
     /* The indentation size. */
     private int indentsize;
-    /* The size of a tab, MAXINT if we shouldn't use tabs at all. */
+    /* The size of a tab, 0 if we shouldn't use tabs at all. */
     private int tabWidth;
+    private int style;
     private int lineWidth;
     private int currentIndent = 0;
     private String indentStr = "";
@@ -39,40 +40,48 @@ public class TabbedPrintWriter {
     private ImportHandler imports;
     private Stack scopes = new Stack();
 
+    public static final int BRACE_AT_EOL  = 0x10;
+
+    /**
+     * This string contains a few tab characters followed by tabWidth - 1
+     * spaces.  It is used to quickly calculate the indentation string.
+     */
+    private String tabSpaceString;
     private StringBuffer currentLine;
     private BreakPoint currentBP;
+
     public final static int EXPL_PAREN = 0;
     public final static int NO_PAREN   = 1;
     public final static int IMPL_PAREN = 2;
     public final static int DONT_BREAK = 3;
 
     /**
+     * The amount of tabs for which we can use the tabSpaceString.
+     */
+    private final static int FASTINDENT = 20;
+
+    /**
      * Convert the numeric indentation to a string.
      */
     protected String makeIndentStr(int indent) {
-	String tabSpaceString = /* (tab x 20) . (space x 20) */
-	    "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t                    ";
 	if (indent < 0)
 	    return "NEGATIVEINDENT"+indent;
 
 	int tabs = indent / tabWidth;
 	indent -= tabs * tabWidth;
-	if (tabs <= 20 && indent <= 20) {
+	if (tabs <= FASTINDENT) {
 	    /* The fast way. */
-	    return tabSpaceString.substring(20 - tabs, 20 + indent);
+	    return tabSpaceString.substring(FASTINDENT - tabs, 
+					    FASTINDENT + indent);
 	} else {
 	    /* the not so fast way */
 	    StringBuffer sb = new StringBuffer(tabs + indent);
-	    while (tabs > 20) {
-		sb.append(tabSpaceString.substring(0,20));
+	    while (tabs > FASTINDENT) {
+		sb.append(tabSpaceString.substring(0, FASTINDENT));
 		tabs -= 20;
 	    }
-	    sb.append(tabSpaceString.substring(0, tabs));
-	    while (indent > 20) {
-		sb.append(tabSpaceString.substring(20));
-		indent -= 20;
-	    }
-	    sb.append(tabSpaceString.substring(40 - indent));
+	    sb.append(tabSpaceString.substring(FASTINDENT - tabs, 
+					       FASTINDENT + indent));
 	    return sb.toString();
 	} 
     }
@@ -101,7 +110,7 @@ public class TabbedPrintWriter {
 
 	public void startOp(int opts, int penalty, int pos) {
 	    if (startPos != -1) {
-		System.err.println("WARNING: missing breakOp");
+		GlobalOptions.err.println("WARNING: missing breakOp");
 		Thread.dumpStack();
 		return;
 	    }
@@ -119,17 +128,14 @@ public class TabbedPrintWriter {
 	public void endOp(int pos) {
 	    endPos = pos;
 	    if (childBPs.size() == 1) {
-		BreakPoint child = 
-		    (BreakPoint) currentBP.childBPs.elementAt(0);
-		if (child.startPos == -1) {
-		    startPos = endPos = -1;
-		    childBPs = null;
-		} else if (child.startPos == currentBP.startPos
-			   && child.endPos == currentBP.endPos) {
-		    if (options == DONT_BREAK)
-			options = child.options;
-		    childBPs = child.childBPs;
-		}
+		/* There is no breakpoint in this op, replace this with
+		 * our child, if possible.
+		 */
+		BreakPoint child = (BreakPoint) childBPs.elementAt(0);
+		startPos = child.startPos;
+		endPos = child.endPos;
+		breakPenalty = child.breakPenalty;
+		childBPs = child.childBPs;
 	    }
 	}
 
@@ -217,7 +223,7 @@ public class TabbedPrintWriter {
 	}
 
         public BreakPoint commitMinPenalty(int space, int lastSpace, 
-				     int minPenalty) {
+					   int minPenalty) {
 	    if (startPos == -1 || lastSpace > endPos - startPos
 		|| minPenalty == 10 * (endPos - startPos - lastSpace)) {
 		/* We don't have to break anything */
@@ -231,8 +237,6 @@ public class TabbedPrintWriter {
 		/* penalty if we are breaking the line here. */
 		int breakPen
 		    = getBreakPenalty(space, lastSpace, minPenalty + 1);
-//  		pw.print("commit[bp="+breakPen+";"+minPenalty+";"
-//  			 +space+","+lastSpace+"]");
 		if (minPenalty == breakPen) {
 		    commitBreakPenalty(space, lastSpace, breakPen);
 		    return this;
@@ -256,16 +260,11 @@ public class TabbedPrintWriter {
 		    return child;
 		}
 	    }
-	    pw.println("XXXXXXXXXXX CAN'T COMMIT");
-	    startPos = -1;
-	    childBPs = null;
-	    return this;
+	    throw new IllegalStateException("Can't commit line break!");
 	}
 
         public int getMinPenalty(int space, int lastSpace, int minPenalty) {
-//  	    pw.print("getMinPenalty["+startPos+","+endPos+"]("+space+","+lastSpace+","+minPenalty+") ");
 	    if (10 * -lastSpace >= minPenalty) {
-//  		pw.println("= minPenalty");
 		return minPenalty;
 	    }
 
@@ -273,19 +272,15 @@ public class TabbedPrintWriter {
 		return 10 * -lastSpace;
 
 	    if (lastSpace > endPos - startPos) {
-//  		pw.println("= NULL");
 		return 0;
 	    }
 
 	    if (minPenalty <= 1) {
-//  		pw.println("= ONE");
 		return minPenalty;
 	    }
 
 	    if (minPenalty > 10 * (endPos - startPos - lastSpace))
 		minPenalty = 10 * (endPos - startPos - lastSpace);
-
-//  	    pw.print("[mp="+minPenalty+"]");
 
 	    int size = childBPs.size();
 	    if (size == 0)
@@ -294,7 +289,6 @@ public class TabbedPrintWriter {
 	    if (size > 1 && options != DONT_BREAK) {
 		/* penalty if we are breaking at this level. */
 		minPenalty = getBreakPenalty(space, lastSpace, minPenalty);
-//  		pw.print("[bp="+minPenalty+"]");
 	    }
 		
 	    /* penalty if we are breaking only one child */
@@ -308,15 +302,11 @@ public class TabbedPrintWriter {
 					lastSpace - front - tail,
 					minPenalty - penalty);
 	    }
-//  	    pw.println("= "+minPenalty);
 	    return minPenalty;
 	}
 
 	public void commitBreakPenalty(int space, int lastSpace, 
 				       int minPenalty) {
-//  	    pw.println("commitBreakPenalty: "+startPos+","+endPos+";"
-//  		       +space+","+lastSpace+";"+minPenalty);
-
 	    if (options == IMPL_PAREN) {
 		space--;
 		lastSpace -= 2;
@@ -469,42 +459,75 @@ public class TabbedPrintWriter {
     }
 
     public TabbedPrintWriter (OutputStream os, ImportHandler imports,
-			      boolean autoFlush) {
+			      boolean autoFlush, int style,
+			      int indentSize, int tabWidth, int lineWidth) {
 	pw = new PrintWriter(os, autoFlush);
 	this.imports = imports;
+	this.style = style;
+	this.indentsize = indentSize;
+	this.tabWidth = tabWidth;
+	this.lineWidth = lineWidth;
 	init();
     }
 
     public TabbedPrintWriter (Writer os, ImportHandler imports, 
-			      boolean autoFlush) {
+			      boolean autoFlush, int style,
+			      int indentSize, int tabWidth, int lineWidth) {
 	pw = new PrintWriter(os, autoFlush);
 	this.imports = imports;
+	this.style = style;
+	this.indentsize = indentSize;
+	this.tabWidth = tabWidth;
+	this.lineWidth = lineWidth;
 	init();
     }
 
+    public TabbedPrintWriter (OutputStream os, ImportHandler imports,
+			      boolean autoFlush) {
+	this(os, imports, autoFlush, BRACE_AT_EOL, 4, 8, 79);
+    }
+
+    public TabbedPrintWriter (Writer os, ImportHandler imports, 
+			      boolean autoFlush) {
+	this(os, imports, autoFlush, BRACE_AT_EOL, 4, 8, 79);
+    }
+
     public TabbedPrintWriter (OutputStream os, ImportHandler imports) {
-	this(os, imports, true);
+	this(os, imports, true, BRACE_AT_EOL, 4, 8, 79);
     }
 
     public TabbedPrintWriter (Writer os, ImportHandler imports) {
-	this(os, imports, true);
+	this(os, imports, true, BRACE_AT_EOL, 4, 8, 79);
     }
 
     public TabbedPrintWriter (OutputStream os) {
-	this(os, null);
+	this(os, null, true, BRACE_AT_EOL, 4, 8, 79);
     }
 
     public TabbedPrintWriter (Writer os) {
-	this(os, null);
+	this(os, null, true, BRACE_AT_EOL, 4, 8, 79);
     }
 
-    public void init() {
-	this.indentsize = (Options.outputStyle & Options.TAB_SIZE_MASK);
-	this.tabWidth = 8;
-	this.lineWidth = 79;
+    private void init() {
 	currentLine = new StringBuffer();
 	currentBP = new BreakPoint(null, 0);
 	currentBP.startOp(DONT_BREAK, 1, 0);
+	initTabString();
+    }
+
+    private void initTabString() {
+	char tabChar = '\t';
+	if (tabWidth == 0) {
+	    /* If tabWidth is 0 use spaces instead of tabs. */
+	    tabWidth = 1;
+	    tabChar = ' ';
+	}
+	StringBuffer sb = new StringBuffer(FASTINDENT + tabWidth - 1);
+	for (int i = 0; i < FASTINDENT; i++)
+	    sb.append(tabChar);
+	for (int i = 0; i < tabWidth - 1; i++)
+	    sb.append(' ');
+	tabSpaceString = sb.toString();
     }
 
     public void tab() {
@@ -680,9 +703,19 @@ public class TabbedPrintWriter {
     public String getTypeString(Type type) {
 	if (type instanceof ArrayType)
 	    return getTypeString(((ArrayType) type).getElementType()) + "[]";
-	else if (type instanceof ClassInterfacesType) {
-	    ClassInfo clazz = ((ClassInterfacesType) type).getClassInfo();
+	else if (type instanceof ClassInfoType) {
+	    ClassInfo clazz = ((ClassInfoType) type).getClassInfo();
 	    return getClassString(clazz, Scope.CLASSNAME);
+	} else if (type instanceof ClassType) {
+	    String name = ((ClassType) type).getClassName();
+	    if (imports != null) {
+		String importedName = imports.getClassString(name);
+		if (!conflicts(importedName, null, Scope.CLASSNAME))
+		    return importedName;
+	    }
+	    if (conflicts(name, null, Scope.AMBIGUOUSNAME))
+		return "PKGNAMECONFLICT "+ name;
+	    return name;
 	} else if (type instanceof NullType)
 	    return "Object";
 	else
@@ -695,7 +728,7 @@ public class TabbedPrintWriter {
      * brace.  It doesn't do a tab stop after opening the brace.
      */
     public void openBrace() {
-	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0) {
+	if ((style & BRACE_AT_EOL) != 0) {
 	    print(currentLine.length() > 0 ? " {" : "{");
 	    println();
 	} else {
@@ -713,7 +746,7 @@ public class TabbedPrintWriter {
      * brace.  It doesn't do a tab stop after opening the brace.
      */
     public void openBraceNoSpace() {
-	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0)
+	if ((style & BRACE_AT_EOL) != 0)
 	    println("{");
 	else {
 	    if (currentLine.length() > 0)
@@ -725,7 +758,7 @@ public class TabbedPrintWriter {
     }
 
     public void closeBraceContinue() {
-	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0)
+	if ((style & BRACE_AT_EOL) != 0)
 	    print("} ");
 	else {
 	    println("}");
@@ -735,7 +768,7 @@ public class TabbedPrintWriter {
     }
 
     public void closeBraceNoSpace() {
-	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0)
+	if ((style & BRACE_AT_EOL) != 0)
 	    print("}");
 	else {
 	    println("}");
@@ -745,7 +778,7 @@ public class TabbedPrintWriter {
     }
 
     public void closeBrace() {
-	if ((Options.outputStyle & Options.BRACE_AT_EOL) != 0)
+	if ((style & BRACE_AT_EOL) != 0)
 	    println("}");
 	else {
 	    println("}");

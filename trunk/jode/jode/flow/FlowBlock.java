@@ -806,7 +806,7 @@ public class FlowBlock {
 
 	try {
         if (block.outer != null || block.flowBlock != this) {
-            throw new AssertError("Inconsistency");
+            throw new AssertError("Inconsistency: outer:"+block.outer+" block.flow"+block.flowBlock +"  this: "+this);
         }
         block.checkConsistent();
 
@@ -869,7 +869,7 @@ public class FlowBlock {
     }
 
     public void prependBlock(StructuredBlock insertBlock) {
-	lastModified = insertBlock.appendBlock(block);
+	lastModified = block = insertBlock.appendBlock(block);
 	SlotSet blockIn = new SlotSet();
 	SlotSet blockKill = new SlotSet();
 	VariableSet blockGen = new VariableSet();
@@ -1405,8 +1405,9 @@ public class FlowBlock {
 		    boolean predOutOfRange = false;
 		    for (Iterator i = succ.predecessors.iterator(); 
 			 i.hasNext(); ) {
-                        int predBlockNr = ((FlowBlock)i.next()).blockNr;
-                        if (predBlockNr < start || predBlockNr >= end) {
+			FlowBlock pred = (FlowBlock)i.next();
+                        if (pred == null /* the start marker */
+			    || pred.blockNr < start || pred.blockNr >= end) {
 			    if ((GlobalOptions.debuggingFlags
 				 & GlobalOptions.DEBUG_ANALYZE) != 0)
 				
@@ -1552,8 +1553,12 @@ public class FlowBlock {
     /**
      * Mark the flow block as first flow block in a method.
      */
-    public void makeStartBlock() {
+    public void addStartPred() {
         predecessors.add(null);
+    }
+
+    public void removeStartPred() {
+        predecessors.remove(null);
     }
 
     public void removeSuccessor(Jump jump) {
@@ -1675,6 +1680,9 @@ public class FlowBlock {
     private void promoteInSets() {
 	for (Iterator i = predecessors.iterator(); i.hasNext(); ) {
 	    FlowBlock pred = (FlowBlock) i.next();
+	    /* Skip the start marker */
+	    if (pred == null)
+		continue;
 	    SuccessorInfo succInfo = (SuccessorInfo) pred.successors.get(this);
 
 	    /* First get the gen/kill sets of all jumps of predecessor
@@ -1743,7 +1751,7 @@ public class FlowBlock {
     public void dumpSource(TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        if (predecessors.size() != 0) {
+	if (predecessors.size() != 0) {
             writer.untab();
             writer.println(getLabel()+":");
             writer.tab();

@@ -21,10 +21,14 @@ package jode.type;
 import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 import java.io.IOException;
+import java.util.Stack;
+import java.util.Vector;
+import java.util.Enumeration;
 
 /**
  * This is an abstrace super class of all reference types.  Reference
- * types are ClassInterfacesType, ArrayType and NullType. <p>
+ * types are NullType, MultiClassType, and ClassType with its sub types
+ * ClassInfoType, SystemClassType, and ArrayType. <p>
  *
  * To do intersection on range types, the reference types need three
  * more operations: specialization, generalization and
@@ -56,6 +60,7 @@ public abstract class ReferenceType extends Type {
      * @param type the other type.
      * @return the specialized type.  */
     public abstract Type getSpecializedType(Type type);
+
     /**
      * Returns the generalized type set of this and type.  The result
      * should be a type set, so that every type, is extended/implemented
@@ -65,6 +70,49 @@ public abstract class ReferenceType extends Type {
      * @return the generalized type
      */
     public abstract Type getGeneralizedType(Type type);
+
+    public Type findCommonClassTypes(Stack otherTypes) {
+	/* Consider each class and interface implemented by this.
+	 * If any clazz or interface in other implements it, add it to
+	 * the classes vector.  Otherwise consider all sub interfaces.  
+	 */
+        Vector classes = new Vector();
+
+    type_loop:
+        while (!otherTypes.isEmpty()) {
+            ClassType type = (ClassType) otherTypes.pop();
+	    if (type.equals(tObject))
+		/* tObject is always implied. */
+		continue type_loop;
+
+	    for (Enumeration enum = classes.elements(); 
+		 enum.hasMoreElements(); ) {
+		if (type.isSubTypeOf((Type) enum.nextElement()))
+		    /* We can skip this, as another class already
+		     * implies it.  */
+		    continue type_loop;
+	    }
+	    
+            if (type.isSubTypeOf(this)) {
+		classes.addElement(type);
+                continue type_loop;
+            }
+
+            /* This clazz/interface is not implemented by this object.
+             * Try its parents now.
+             */
+            ClassType ifaces[] = type.getInterfaces();
+            for (int i=0; i < ifaces.length; i++)
+                otherTypes.push(ifaces[i]);
+	    ClassType superClass = type.getSuperClass();
+	    if (superClass != null)
+		otherTypes.push(superClass);
+        }
+        ClassType[] classArray = new ClassType[classes.size()];
+        classes.copyInto(classArray);
+        return MultiClassType.create(classArray);
+    }
+
     /**
      * Creates a range type set of this and bottom.  The resulting type set
      * contains all types, that extend all types in bottom and are extended

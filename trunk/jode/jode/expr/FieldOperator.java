@@ -21,9 +21,10 @@ package jode.expr;
 import jode.GlobalOptions;
 import jode.type.Type;
 import jode.type.NullType;
-import jode.type.ClassInterfacesType;
+import jode.type.ClassInfoType;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.ClassPath;
 import jode.bytecode.Reference;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
@@ -48,14 +49,19 @@ public abstract class FieldOperator extends Operator {
     Reference ref;
     Type classType;
     ClassInfo classInfo;
+    ClassPath classPath;
     String callerPackage;
 
     public FieldOperator(MethodAnalyzer methodAnalyzer, boolean staticFlag,
 			 Reference ref) {
-        super(Type.tType(ref.getType()));
+        super(Type.tUnknown);
+
+	this.classPath = methodAnalyzer.getClassAnalyzer().getClassPath();
+
         this.methodAnalyzer = methodAnalyzer;
         this.staticFlag = staticFlag;
-        this.classType = Type.tType(ref.getClazz());
+	this.type = Type.tType(classPath, ref.getType());
+        this.classType = Type.tType(classPath, ref.getClazz());
 	this.ref = ref;
         if (staticFlag)
             methodAnalyzer.useType(classType);
@@ -64,8 +70,8 @@ public abstract class FieldOperator extends Operator {
 	callerPackage = methodAnalyzer.getClassAnalyzer().getClass().getName();
 	int dot = callerPackage.lastIndexOf('.');
 	callerPackage = callerPackage.substring(0, dot);
-	if (classType instanceof ClassInterfacesType) {
-	    classInfo = ((ClassInterfacesType) classType).getClassInfo();
+	if (classType instanceof ClassInfoType) {
+	    classInfo = ((ClassInfoType) classType).getClassInfo();
 	    if ((Options.options & Options.OPTION_ANON) != 0
 		|| (Options.options & Options.OPTION_INNER) != 0) {
 		try {
@@ -111,7 +117,7 @@ public abstract class FieldOperator extends Operator {
 	    while (true) {
 		if (clazz == ana.getClazz()) {
 		    int field = ana.getFieldIndex
-			(ref.getName(), Type.tType(ref.getType()));
+			(ref.getName(), Type.tType(classPath, ref.getType()));
 		    if (field >= 0)
 			return ana.getField(field);
 		    return null;
@@ -135,7 +141,7 @@ public abstract class FieldOperator extends Operator {
     }
 
     public Type getFieldType() {
-        return Type.tType(ref.getType());
+        return Type.tType(classPath, ref.getType());
     }
 
     private FieldInfo[] loadFields(ClassInfo clazz) {
@@ -156,12 +162,12 @@ public abstract class FieldOperator extends Operator {
     public boolean needsCast(Type type) {
 	if (type instanceof NullType)
 	    return true;
-	if (!(type instanceof ClassInterfacesType
-	      && classType instanceof ClassInterfacesType))
+	if (!(type instanceof ClassInfoType
+	      && classType instanceof ClassInfoType))
 	    return false;
 	
-	ClassInfo clazz = ((ClassInterfacesType) classType).getClassInfo();
-	ClassInfo parClazz = ((ClassInterfacesType) type).getClassInfo();
+	ClassInfo clazz = ((ClassInfoType) classType).getClassInfo();
+	ClassInfo parClazz = ((ClassInfoType) type).getClassInfo();
 	while (clazz != parClazz && clazz != null) {
 	    FieldInfo[] fields = parClazz.getFields();
 	    for (int i = 0; i < fields.length; i++) {

@@ -35,6 +35,7 @@ import jode.type.MethodType;
 import java.lang.reflect.Modifier;
 
 ///#def COLLECTIONS java.util
+import java.util.Arrays;
 import java.util.Iterator;
 ///#enddef
 
@@ -117,7 +118,7 @@ public class SyntheticAnalyzer implements Opcodes {
 	Block startBlock = bb.getStartBlock();
 	Handler[] excHandlers = bb.getExceptionHandlers();
 	if (startBlock == null
-	    || startBlock.getInstructions().size() != 3
+	    || startBlock.getInstructions().length != 3
 	    || excHandlers.length != 1
 	    || excHandlers[0].getStart() != startBlock
 	    || excHandlers[0].getEnd() != startBlock
@@ -126,8 +127,7 @@ public class SyntheticAnalyzer implements Opcodes {
 	    return false;
 
         for (int i=0; i< 3; i++) {
-	    Instruction instr = 
-		(Instruction) startBlock.getInstructions().get(i);
+	    Instruction instr = startBlock.getInstructions()[i];
 	    if (instr.getOpcode() != getClassOpcodes[i])
 		return false;
 	    if (getClassRefs[i] != null
@@ -138,12 +138,11 @@ public class SyntheticAnalyzer implements Opcodes {
 	}
 
 	Block catchBlock = excHandlers[0].getCatcher();
-	if (catchBlock.getInstructions().size() != 7)
+	if (catchBlock.getInstructions().length != 7)
 	    return false;
 	int excSlot = -1;
 	for (int i=0; i< 7; i++) {
-	    Instruction instr = (Instruction) 
-		catchBlock.getInstructions().get(i);
+	    Instruction instr = catchBlock.getInstructions()[i];
 	    if (instr.getOpcode() != getClassOpcodes[3+i])
 		return false;
 	    if (getClassRefs[3+i] != null
@@ -177,7 +176,7 @@ public class SyntheticAnalyzer implements Opcodes {
 	if (succBlocks.length > 1 || 
 	    (succBlocks.length == 1 && succBlocks[0] != null))
 	    return false;
-	Iterator iter = startBlock.getInstructions().iterator();
+	Iterator iter = Arrays.asList(startBlock.getInstructions()).iterator();
 	if (!iter.hasNext())
 	    return false;
 	Instruction instr = (Instruction) iter.next();
@@ -245,7 +244,8 @@ public class SyntheticAnalyzer implements Opcodes {
 		return false;
 	    MethodInfo refMethod
 		= classInfo.findMethod(ref.getName(), ref.getType());
-	    MethodType refType = Type.tMethod(ref.getType());
+	    MethodType refType = Type.tMethod(classInfo.getClassPath(),
+					      ref.getType());
 	    if ((refMethod.getModifiers() & modifierMask) != 
 		(Modifier.PRIVATE | Modifier.STATIC)
 		|| refType.getParameterTypes().length != params)
@@ -291,7 +291,7 @@ public class SyntheticAnalyzer implements Opcodes {
 	if (succBlocks.length > 1 || 
 	    (succBlocks.length == 1 && succBlocks[0] != null))
 	    return false;
-	Iterator iter = startBlock.getInstructions().iterator();
+	Iterator iter = Arrays.asList(startBlock.getInstructions()).iterator();
 
 	if (!iter.hasNext())
 	    return false;
@@ -361,7 +361,8 @@ public class SyntheticAnalyzer implements Opcodes {
 		return false;
 	    MethodInfo refMethod
 		= classInfo.findMethod(ref.getName(), ref.getType());
-	    MethodType refType = Type.tMethod(ref.getType());
+	    MethodType refType = Type.tMethod(classInfo.getClassPath(),
+					      ref.getType());
 	    if ((refMethod.getModifiers() & modifierMask) != Modifier.PRIVATE
 		|| refType.getParameterTypes().length != params)
 		return false;
@@ -398,7 +399,7 @@ public class SyntheticAnalyzer implements Opcodes {
 	Block[] succBlocks = startBlock.getSuccs();
 	if (succBlocks.length != 1 || succBlocks[0] != null)
 	    return false;
-	Iterator iter = startBlock.getInstructions().iterator();
+	Iterator iter = Arrays.asList(startBlock.getInstructions()).iterator();
 	if (!iter.hasNext())
 	    return false;
 
@@ -439,7 +440,8 @@ public class SyntheticAnalyzer implements Opcodes {
 		return false;
 	    MethodInfo refMethod
 		= classInfo.findMethod(ref.getName(), ref.getType());
-	    MethodType refType = Type.tMethod(ref.getType());
+	    MethodType refType = Type.tMethod(classInfo.getClassPath(),
+					      ref.getType());
 	    if ((refMethod.getModifiers() & modifierMask) != Modifier.PRIVATE
 		|| !refMethod.getName().equals("<init>")
 		|| unifyParam == -1

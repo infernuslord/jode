@@ -195,7 +195,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
         this.imports = imports;
 	this.minfo = minfo;
         this.methodName = minfo.getName();
-        this.methodType = Type.tMethod(minfo.getType());
+        this.methodType = Type.tMethod(cla.getClassPath(), minfo.getType());
         this.isConstructor = 
             methodName.equals("<init>") || methodName.equals("<clinit>");
         
@@ -209,7 +209,8 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    int excCount = excattr.length;
 	    this.exceptions = new Type[excCount];
 	    for (int i=0; i< excCount; i++)
-		exceptions[i] = Type.tClass(excattr[i]);
+		exceptions[i] = Type.tClass(classAnalyzer.getClassPath(),
+					    excattr[i]);
         }
 	if (minfo.isSynthetic() || methodName.indexOf('$') != -1)
 	    synth = new SyntheticAnalyzer(cla.getClazz(), minfo, true);
@@ -403,15 +404,15 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
     /**
      * Create a local info for a local variable located at an
      * instruction with the given address.
-     * @param addr the address of the instruction using this local.
-     *             the address of the next instruction for stores.
-     * @param slot the slot, the local variable uses.
+     * @param lvi the local variable info of the bytecode package.
      * @return a new local info representing that local.
      */
     public LocalInfo getLocalInfo(LocalVariableInfo lvi) {
         LocalInfo li = new LocalInfo(this, lvi.getSlot());
-	if (lvi.getName() != null)
-	    li.addHint(lvi.getName(), Type.tType(lvi.getType()));
+	if ((Options.options & Options.OPTION_LVT) != 0
+	    && lvi.getName() != null)
+	    li.addHint(lvi.getName(), Type.tType(classAnalyzer.getClassPath(),
+						 lvi.getType()));
 	allLocals.addElement(li);
         return li;
     }
@@ -427,7 +428,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    int count = 0;
 	    Block[] blocks = bb.getBlocks();
 	    for (int i=0; i < blocks.length; i++)
-		count += blocks[i].getInstructions().size();
+		count += blocks[i].getInstructions().length;
 	    return (double) count;
 	}
     }
@@ -462,10 +463,9 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    int count = 0;
 	    for (int i=0; i < blocks.length; i++) {
 		int mark = 100;
-		int last = blocks[i].getInstructions().size() - 1;
+		int last = blocks[i].getInstructions().length - 1;
 		for (int j=0; j <= last; j++) {
-		    Instruction instr
-			= (Instruction) blocks[i].getInstructions().get(j);
+		    Instruction instr = blocks[i].getInstructions()[j];
 		    if (GlobalOptions.verboseLevel > 0 && j > mark) {
 			GlobalOptions.err.print('.');
 			mark += 100;
@@ -494,6 +494,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 		methodHeader = new FlowBlock(this, 0, null);
 	    else
 		methodHeader = flows[startBlock.getBlockNr()];
+	    methodHeader.addStartPred();
 
 	    Handler[] handlers = bb.getExceptionHandlers();
 	    excHandlers = new TransformExceptionHandlers(flows);
@@ -504,7 +505,8 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
                 FlowBlock handler
 		    = flows[handlers[i].getCatcher().getBlockNr()];
                 if (handlers[i].getType() != null)
-                    type = Type.tClass(handlers[i].getType());
+                    type = Type.tClass(classAnalyzer.getClassPath(),
+				       handlers[i].getType());
                 
                 excHandlers.addHandler(start, end, handler, type);
             }
@@ -515,6 +517,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
             
         excHandlers.analyze();
         methodHeader.analyze();
+	methodHeader.removeStartPred();
 
 	if ((Options.options & Options.OPTION_PUSH) == 0
 	    && methodHeader.mapStackToLocal())
@@ -537,7 +540,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
      * code of this method, but not the method scoped classes.  
      */
     public void analyze(ProgressListener pl, double done, double scale) 
-      throws ClassFormatError
+	throws ClassFormatError
     {
 	if (pl != null)
 	    pl.updateProgress(done, methodName);
@@ -546,7 +549,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 		CodeVerifier verifier
 		    = new CodeVerifier(getClazz(), minfo, bb);
 		try {
-		verifier.verify();
+		    verifier.verify();
 		} catch (VerifyException ex) {
 		    ex.printStackTrace(GlobalOptions.err);
 		    throw new jode.AssertError("Verification error");
@@ -684,6 +687,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 
 	boolean declareAsConstructor = isConstructor;
 	int skipParams = 0;
+	int modifiedModifiers = minfo.getModifiers();
 	if (isConstructor() && !isStatic()
 	    && classAnalyzer.outerValues != null)
 	    skipParams = classAnalyzer.outerValues.getCount();
@@ -693,6 +697,8 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    declareAsConstructor = true;
 	    skipParams = hasJikesOuterValue
 		&& classAnalyzer.outerValues.getCount() > 0 ? 1 : 0;
+	    // get the modifiers of the real constructor
+	    modifiedModifiers = jikesConstructor.minfo.getModifiers();
 	}
 
 	if (isJikesBlockInitializer)
@@ -710,11 +716,11 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	     * But this rule doesn't necessarily apply for anonymous
 	     * classes...
 	     */
-	    && ((minfo.getModifiers()
+	    && ((modifiedModifiers
 		 & (Modifier.PROTECTED | Modifier.PUBLIC | Modifier.PRIVATE
 		    | Modifier.SYNCHRONIZED | Modifier.STATIC
 		    | Modifier.ABSTRACT | Modifier.NATIVE))
-		== (getClassAnalyzer().getModifiers()
+		== (classAnalyzer.getModifiers()
 		    & (Modifier.PROTECTED | Modifier.PUBLIC))
 		|| classAnalyzer.getName() == null)
 	    && classAnalyzer.constructors.length == 1) {
@@ -745,9 +751,12 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	int modifiedModifiers = minfo.getModifiers();
 
 	if (isConstructor() && !isStatic()
-	    && (Options.options & Options.OPTION_CONTRAFO) != 0
-	    && classAnalyzer.outerValues != null)
-	    skipParams = classAnalyzer.outerValues.getCount();
+	    && (Options.options & Options.OPTION_CONTRAFO) != 0) {
+	    if (classAnalyzer.outerValues != null)
+		skipParams = classAnalyzer.outerValues.getCount();
+	    else if (classAnalyzer.getOuterInstance() != null)
+		skipParams = 1;
+	}
 
 	if (jikesConstructor != null) {
 	    // This is the real part of a jikes constructor
@@ -790,6 +799,8 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	if (isConstructor() && isStatic())
 	    modifiedModifiers &= ~Modifier.FINAL;
 
+	writer.startOp(writer.NO_PAREN, 0);
+	writer.startOp(writer.NO_PAREN, 5);
 
 	String delim ="";
 	if (minfo.isSynthetic()) {
@@ -814,24 +825,35 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
                 writer.printType(getReturnType());
 		writer.print(" " + methodName);
 	    }
+	    writer.breakOp();
             writer.print("(");
+	    writer.startOp(writer.EXPL_PAREN, 0);
             int offset = skipParams + (isStatic() ? 0 : 1);
             for (int i = offset; i < param.length; i++) {
-                if (i > offset)
+                if (i > offset) {
                     writer.print(", ");
+		    writer.breakOp();
+		}
 		param[i].dumpDeclaration(writer);
             }
+	    writer.endOp();
             writer.print(")");
         }
+	writer.endOp();
         if (exceptions.length > 0) {
-            writer.println("");
-            writer.print("throws ");
+	    writer.breakOp();
+            writer.print(" throws ");
+	    writer.startOp(writer.NO_PAREN, 0);
             for (int i= 0; i< exceptions.length; i++) {
-                if (i > 0)
+                if (i > 0) {
                     writer.print(", ");
+		    writer.breakOp();
+		}
                 writer.printType(exceptions[i]);
             }
+	    writer.endOp();
         }
+	writer.endOp();
         if (bb != null) {
 	    writer.openBrace();
             writer.tab();

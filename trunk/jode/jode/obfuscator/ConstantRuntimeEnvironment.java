@@ -22,7 +22,7 @@ import jode.jvm.Interpreter;
 import jode.jvm.SimpleRuntimeEnvironment;
 import jode.jvm.InterpreterException;
 import jode.bytecode.Reference;
-import jode.bytecode.BytecodeInfo;
+import jode.bytecode.BasicBlocks;
 import jode.bytecode.TypeSignature;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
@@ -276,9 +276,9 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	MethodIdentifier mi
 	    = (MethodIdentifier) Main.getClassBundle().getIdentifier(ref);
 	if (mi != null) {
-	    BytecodeInfo code = mi.info.getBytecode();
-	    if (code != null)
-		return interpreter.interpretMethod(code, cls, params);
+	    BasicBlocks bb = mi.info.getBasicBlocks();
+	    if (bb != null)
+		return interpreter.interpretMethod(bb, cls, params);
 	}
 	throw new InterpreterException("Invoking library method " + ref + ".");
     }

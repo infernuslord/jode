@@ -80,12 +80,13 @@ public class GlobalOptions {
     
     /**
      * Parse the argument given to the debugging flag.
-     * @return true, if the argument parsed without problems.
+     * @exception IllegalArgumentException 
+     *    if a problem occured while parsing the argument.
      */
     public static boolean setDebugging(String debuggingString) {
 	if (debuggingString.length() == 0 || debuggingString.equals("help")) {
 	    usageDebugging();
-	    return false;
+	    throw new IllegalArgumentException();
 	}
 
 	StringTokenizer st = new StringTokenizer(debuggingString, ",");
@@ -98,8 +99,8 @@ public class GlobalOptions {
 		    continue next_token;
 		}
 	    }
-	    err.println("Illegal debugging flag: "+token);
-	    return false;
+	    throw new IllegalArgumentException("Illegal debugging flag: "
+					       +token);
 	}
 	return true;
     }

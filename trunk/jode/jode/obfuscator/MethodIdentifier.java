@@ -52,20 +52,31 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	this.clazz = clazz;
 	this.info  = info;
 
-	BytecodeInfo bytecode = info.getBytecode();
-	if (bytecode != null) {
-	    if ((Main.stripping & Main.STRIP_LVT) != 0)
-		info.getBytecode().setLocalVariableTable(null);
-	    if ((Main.stripping & Main.STRIP_LNT) != 0)
-		info.getBytecode().setLineNumberTable(null);
+	BasicBlocks bb = info.getBasicBlocks();
+	if (bb != null) {
+	    if ((Main.stripping &
+		 (Main.STRIP_LVT | Main.STRIP_LNT)) != 0) {
+		Block[] blocks = bb.getBlocks();
+		for (int i = 0; i < blocks.length; i++) {
+		    Instruction[] instrs = blocks[i].getInstructions();
+		    for (int j = 0; j < instrs.length; j++) {
+			if ((Main.stripping & Main.STRIP_LVT) != 0
+			    && instrs[j].hasLocal())
+			    instrs[j].setLocalInfo
+				(LocalVariableInfo
+				 .getInfo(instrs[j].getLocalSlot()));
+			if ((Main.stripping & Main.STRIP_LNT) != 0)
+			    instrs[j].setLineNr(-1);
+		    }
+		}
+	    }
 	    codeAnalyzer = Main.getClassBundle().getCodeAnalyzer();
 
 	    CodeTransformer[] trafos
 		= Main.getClassBundle().getPreTransformers();
 	    for (int i = 0; i < trafos.length; i++) {
-		trafos[i].transformCode(bytecode);
+		trafos[i].transformCode(bb);
 	    }
-	    info.setBytecode(bytecode);
 	}
     }
 
@@ -98,9 +109,9 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    .reachableClass(exceptions[i]);
 	}
 
-	BytecodeInfo code = info.getBytecode();
-	if (code != null)
-	    codeAnalyzer.analyzeCode(this, code);
+	BasicBlocks bb = info.getBasicBlocks();
+	if (bb != null)
+	    codeAnalyzer.analyzeCode(this, bb);
     }
 
     public Identifier getParent() {
@@ -169,63 +180,64 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	ClassBundle bundle = Main.getClassBundle();
 	info.setType(bundle.getTypeAlias(type));
 	if (codeAnalyzer != null) {
-	    BytecodeInfo bytecode = info.getBytecode();
+	    BasicBlocks bb = info.getBasicBlocks();
 	    try {
-		codeAnalyzer.transformCode(bytecode);
+		codeAnalyzer.transformCode(bb);
 		CodeTransformer[] trafos = bundle.getPostTransformers();
 		for (int i = 0; i < trafos.length; i++) {
-		    trafos[i].transformCode(bytecode);
+		    trafos[i].transformCode(bb);
 		}
 	    } catch (RuntimeException ex) {
 		ex.printStackTrace(GlobalOptions.err);
-		bytecode.dumpCode(GlobalOptions.err);
+		bb.dumpCode(GlobalOptions.err);
 	    }
 	    
-	    for (Iterator iter = bytecode.getInstructions().iterator(); 
-		 iter.hasNext(); ) {
-		Instruction instr = (Instruction) iter.next();
-		switch (instr.getOpcode()) {
-		case opc_invokespecial:
-		case opc_invokestatic:
-		case opc_invokeinterface:
-		case opc_invokevirtual: {
-		    instr.setReference
-			(Main.getClassBundle()
-			 .getReferenceAlias(instr.getReference()));
-		    break;
-
-		}
-		case opc_putstatic:
-		case opc_putfield:
-		case opc_getstatic:
-		case opc_getfield: {
-		    instr.setReference
-			(Main.getClassBundle()
-			 .getReferenceAlias(instr.getReference()));
-		    break;
-		}
-		case opc_new:
-		case opc_checkcast:
-		case opc_instanceof:
-		case opc_multianewarray: {
-		    instr.setClazzType
-			(Main.getClassBundle()
-			 .getTypeAlias(instr.getClazzType()));
-		    break;
-		}
+	    Block[] blocks = bb.getBlocks();
+	    for (int i = 0; i < blocks.length; i++) {
+		Instruction[] instrs = blocks[i].getInstructions();
+		for (int j = 0; j < instrs.length; j++) {
+		    switch (instrs[j].getOpcode()) {
+		    case opc_invokespecial:
+		    case opc_invokestatic:
+		    case opc_invokeinterface:
+		    case opc_invokevirtual: {
+			instrs[j].setReference
+			    (Main.getClassBundle()
+			     .getReferenceAlias(instrs[j].getReference()));
+			break;
+			
+		    }
+		    case opc_putstatic:
+		    case opc_putfield:
+		    case opc_getstatic:
+		    case opc_getfield: {
+			instrs[j].setReference
+			    (Main.getClassBundle()
+			     .getReferenceAlias(instrs[j].getReference()));
+			break;
+		    }
+		    case opc_new:
+		    case opc_checkcast:
+		    case opc_instanceof:
+		    case opc_multianewarray: {
+			instrs[j].setClazzType
+			    (Main.getClassBundle()
+			 .getTypeAlias(instrs[j].getClazzType()));
+			break;
+		    }
+		    }
 		}
 	    }
-	
-	    Handler[] handlers = bytecode.getExceptionHandlers();
+		
+	    Handler[] handlers = bb.getExceptionHandlers();
 	    for (int i=0; i< handlers.length; i++) {
-		if (handlers[i].type != null) {
+		if (handlers[i].getType() != null) {
 		    ClassIdentifier ci = Main.getClassBundle()
-			.getClassIdentifier(handlers[i].type);
+			.getClassIdentifier(handlers[i].getType());
 		    if (ci != null)
-			handlers[i].type = ci.getFullAlias();
+			handlers[i].setType(ci.getFullAlias());
 		}
 	    }
-	    info.setBytecode(bytecode);
 	}
 
 	String[] exceptions = info.getExceptions();

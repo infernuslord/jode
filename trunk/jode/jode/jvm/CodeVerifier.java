@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.util.BitSet;
 ///#def COLLECTIONS java.util
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -1302,7 +1303,7 @@ public class CodeVerifier implements Opcodes {
 
 
 	    Instruction instr = null;
-	    Iterator iter = block.getInstructions().iterator();
+	    Iterator iter = Arrays.asList(block.getInstructions()).iterator();
 	    while (iter.hasNext()) {
 		instr = (Instruction) iter.next();
 		modelEffect(instr, info);

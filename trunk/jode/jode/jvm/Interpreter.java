@@ -107,7 +107,7 @@ public class Interpreter implements Opcodes {
 		/* If block is over continue with the next block */
 		if (nextBlock == null)
 		    return Void.TYPE;
-		iter = nextBlock.getInstructions().iterator();
+		iter = Arrays.asList(nextBlock.getInstructions()).iterator();
 		succs = nextBlock.getSuccs();
 		handlers = nextBlock.getCatchers();
 		nextBlock = succs.length > 0 ? succs[succs.length - 1] : null;

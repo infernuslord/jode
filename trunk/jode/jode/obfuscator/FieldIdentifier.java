@@ -123,6 +123,11 @@ public class FieldIdentifier extends Identifier{
 	    fieldListeners.add(ident);
     }
 
+    public void removeFieldListener(Identifier ident) {
+	if (fieldListeners != null)
+	    fieldListeners.remove(ident);
+    }
+
     public void setNotConstant() {
 	if (notConstant)
 	    return;

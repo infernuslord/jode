@@ -20,6 +20,7 @@
 package jode.type;
 import jode.AssertError;
 import jode.GlobalOptions;
+import jode.bytecode.ClassPath;
 import jode.bytecode.ClassInfo;
 import jode.util.UnifyHash;
 
@@ -54,6 +55,8 @@ public class Type {
     public static final int TC_UNKNOWN = 101;
     public static final int TC_RANGE = 103;
     public static final int TC_INTEGER = 107;
+    public static final int TC_SYSCLASS = 108;
+    public static final int TC_CLASSIFACE = 109;
 
     private static final UnifyHash classHash = new UnifyHash();
     private static final UnifyHash arrayHash = new UnifyHash();    
@@ -131,12 +134,15 @@ public class Type {
      */
     public static final Type tBoolByte= new IntegerType(IntegerType.IT_B
 							| IntegerType.IT_Z);
+
+    public final static ClassType[] EMPTY_IFACES = new ClassType[0];
     /**
      * This type represents the singleton set containing 
      * <code>java.lang.Object</code>.
      */
-    public static final ClassInterfacesType tObject = 
-	tClass("java.lang.Object");
+    public static final SystemClassType tObject = 
+	tSystemClass("java.lang.Object", 
+		     null, EMPTY_IFACES, false, false);
     /**
      * This type represents the singleton set containing the special 
      * null type (the type of null).
@@ -147,21 +153,58 @@ public class Type {
      * class types, array types, interface types and the null type.  
      */
     public static final Type tUObject = tRange(tObject, tNull);
+
+    /**
+     * This type represents the singleton set containing 
+     * <code>java.lang.Comparable</code>.
+     */
+    public static final SystemClassType tSerializable = 
+	tSystemClass("java.io.Serializable", 
+		     null, EMPTY_IFACES, false, true);
+    /**
+     * This type represents the singleton set containing 
+     * <code>java.lang.Comparable</code>.
+     */
+    public static final SystemClassType tCloneable =
+	tSystemClass("java.lang.Cloneable", 
+		     null, EMPTY_IFACES, false, true);
+    /**
+     * This type represents the singleton set containing 
+     * <code>java.lang.Comparable</code>.
+     */
+    public static final SystemClassType tComparable =
+	tSystemClass("java.lang.Comparable", 
+		     null, EMPTY_IFACES, false, true);
+
     /**
      * This type represents the singleton set containing 
      * <code>java.lang.String</code>.
      */
-    public static final Type tString  = tClass("java.lang.String");
+    public static final SystemClassType tString =
+	tSystemClass("java.lang.String", 
+		     tObject, 
+		     new ClassType[] { tSerializable, tComparable },
+		     true, false);
     /**
      * This type represents the singleton set containing 
      * <code>java.lang.StringBuffer</code>.
      */
-    public static final Type tStringBuffer = tClass("java.lang.StringBuffer");
+    public static final SystemClassType tStringBuffer =
+	tSystemClass("java.lang.StringBuffer", 
+		     tObject, new ClassType[] { tSerializable },
+		     true, false);
     /**
      * This type represents the singleton set containing 
      * <code>java.lang.Class</code>.
      */
-    public static final Type tJavaLangClass = tClass("java.lang.Class");
+    public static final SystemClassType tJavaLangClass =
+	tSystemClass("java.lang.Class", 
+		     tObject, new ClassType[] { tSerializable },
+		     true, false);
+
+    static final ClassType[] arrayIfaces = {
+	tCloneable, tSerializable
+    };
 
     /**
      * Generate the singleton set of the type represented by the given
@@ -169,7 +212,7 @@ public class Type {
      * @param type the type signature (or method signature).  
      * @return a singleton set containing the given type.
      */
-    public static final Type tType(String type) {
+    public static final Type tType(ClassPath cp, String type) {
         if (type == null || type.length() == 0)
             return tError;
         switch(type.charAt(0)) {
@@ -192,14 +235,14 @@ public class Type {
         case 'V':
             return tVoid;
         case '[':
-            return tArray(tType(type.substring(1)));
+            return tArray(tType(cp, type.substring(1)));
         case 'L':
             int index = type.indexOf(';');
             if (index != type.length()-1)
                 return tError;
-            return tClass(type.substring(1, index));
+            return tClass(cp, type.substring(1, index));
 	case '(':
-	    return tMethod(type);
+	    return tMethod(cp, type);
         }
         throw new AssertError("Unknown type signature: "+type);
     }
@@ -210,10 +253,24 @@ public class Type {
      * @param clazzname the full qualified name of the class. 
      * The packages may be separated by `.' or `/'.
      * @return a singleton set containing the given type.
-     * @deprecated Use tClass(ClassInfo)
      */
-    public static final ClassInterfacesType tClass(String clazzname) {
-	return tClass(ClassInfo.forName(clazzname.replace('/','.')));
+    public static final ClassType tClass(ClassPath classPath,
+					 String clazzname) {
+	return tClass(classPath.getClassInfo(clazzname.replace('/','.')));
+    }
+
+    /**
+     * Generate the singleton set of the type represented by the given
+     * class name.
+     * @param clazzname the interned full qualified name of the class. 
+     * The packages mus be separated by `.'.
+     * @return a singleton set containing the given type.
+     */
+    public static final SystemClassType tSystemClass
+	(String clazzName, ClassType superClass, ClassType[] ifaces, 
+	 boolean isFinal, boolean isInterface) {
+	return new SystemClassType(clazzName, superClass, ifaces,
+				   isFinal, isInterface);
     }
 
     /**
@@ -222,15 +279,15 @@ public class Type {
      * @param clazzinfo the jode.bytecode.ClassInfo.
      * @return a singleton set containing the given type.
      */
-    public static final ClassInterfacesType tClass(ClassInfo clazzinfo) {
+    public static final ClassType tClass(ClassInfo clazzinfo) {
 	int hash = clazzinfo.hashCode();
 	Iterator iter = classHash.iterateHashCode(hash);
 	while (iter.hasNext()) {
-	    ClassInterfacesType type = (ClassInterfacesType) iter.next();
+	    ClassInfoType type = (ClassInfoType) iter.next();
 	    if (type.getClassInfo() == clazzinfo)
 		return type;
 	}
-	ClassInterfacesType type = new ClassInterfacesType(clazzinfo);
+	ClassInfoType type = new ClassInfoType(clazzinfo);
 	classHash.put(hash, type);
         return type;
     }
@@ -262,15 +319,16 @@ public class Type {
      * @param signature the method decriptor.
      * @return a method type (a singleton set).
      */
-    public static MethodType tMethod(String signature) {
-	int hash = signature.hashCode();
+    public static MethodType tMethod(ClassPath cp, String signature) {
+	int hash = signature.hashCode() + cp.hashCode();
 	Iterator iter = methodHash.iterateHashCode(hash);
 	while (iter.hasNext()) {
 	    MethodType methodType = (MethodType) iter.next();
-	    if (methodType.getTypeSignature().equals(signature))
+	    if (methodType.getTypeSignature().equals(signature)
+		&& methodType.getClassPath().equals(cp))
 		return methodType;
 	}
-	MethodType methodType = new MethodType(signature);
+	MethodType methodType = new MethodType(cp, signature);
 	methodHash.put(hash, methodType);
         return methodType;
     }
@@ -401,6 +459,20 @@ public class Type {
         case TC_LONG:
             return 2;
         }
+    }
+
+    /**
+     * Returns true, if this is a sub type of type.
+     */
+    public boolean isSubTypeOf(Type type) {
+	return this == type;
+    }
+
+    /**
+     * Returns true, if this is a sub type of type.
+     */
+    public boolean maybeSubTypeOf(Type type) {
+	return isSubTypeOf(type);
     }
 
     /**

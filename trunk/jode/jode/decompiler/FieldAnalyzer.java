@@ -51,7 +51,7 @@ public class FieldAnalyzer implements Analyzer {
         imports = i;
 
         modifiers = fd.getModifiers();
-        type = Type.tType(fd.getType());
+        type = Type.tType(cla.getClassPath(), fd.getType());
         fieldName = fd.getName();
         constant = null;
 	this.isSynthetic = fd.isSynthetic();

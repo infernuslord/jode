@@ -248,7 +248,8 @@ public class LocalInfo implements Declarable {
             return shadow.getName();
         }
         if (name == null) {
-	    return "local_" + slot + "_" + Integer.toHexString(hashCode());
+	    return "local_" + (slot >= 0 ? slot + "_" : "")
+		+ Integer.toHexString(hashCode());
 	}
         return name;
     }
@@ -312,7 +313,9 @@ public class LocalInfo implements Declarable {
 	    && otherType != Type.tError && li.type != Type.tError) {
 	    GlobalOptions.err.println("Type error in local " + getName()+": "
 				   + li.type + " and " + otherType);
-	    Thread.dumpStack();
+	    if ((GlobalOptions.debuggingFlags 
+		 & GlobalOptions.DEBUG_TYPES) != 0)
+		Thread.dumpStack();
 	}
         else if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
             GlobalOptions.err.println(getName()+" setType, new: "+newType

@@ -10,6 +10,7 @@ FULL_CLASSPATH := $(shell $(SUBSTCP) $(top_srcdir):$(top_builddir):$(CLASSPATH):
 
 MY_JAVA_FILES = \
   ConstantAnalyzer.java \
+  IdentityRenamer.java \
   KeywordRenamer.java \
   LocalOptimizer.java \
   ModifierMatcher.java \
@@ -21,7 +22,6 @@ MY_JAVA_FILES = \
   StrongRenamer.java \
   UniqueRenamer.java \
   WildCard.java
-#  LocalizeFieldTransformer.java
 
 noinst_DATA = $(MY_JAVA_FILES:.java=.class)
 EXTRA_DIST = $(MY_JAVA_FILES)
