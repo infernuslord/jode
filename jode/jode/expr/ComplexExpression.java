@@ -36,7 +36,9 @@ public class ComplexExpression extends Expression {
         operator.parent = this;
         subExpressions = sub;
         for (int i=0; i< subExpressions.length; i++) {
-            subExpressions[i].parent = this;
+	    if (subExpressions[i] == null)
+		subExpressions[i] = new NopOperator(Type.tUnknown);
+	    subExpressions[i].parent = this;
 	    operandcount += subExpressions[i].getOperandCount();
 	}
         updateType();
@@ -44,6 +46,20 @@ public class ComplexExpression extends Expression {
 
     public int getOperandCount() {
 	return operandcount;
+    }
+
+    public Expression addOperand(Expression op) {
+	for (int i= subExpressions.length-1; i >= 0; i--) {
+	    int opcount = subExpressions[i].getOperandCount();
+	    if (opcount > 0) {
+		subExpressions[i] = subExpressions[i].addOperand(op);
+		subExpressions[i].parent = this;
+		operandcount += subExpressions[i].getOperandCount() - opcount;
+		updateType();
+		return this;
+	    }
+	}
+	throw new jode.AssertError("addOperand called, but no operand needed");
     }
 
     public Expression negate() {
@@ -55,12 +71,15 @@ public class ComplexExpression extends Expression {
                    operator.getOperatorIndex() == operator.LOG_OR_OP) {
             operator.setOperatorIndex(operator.getOperatorIndex() ^ 1);
             for (int i=0; i< subExpressions.length; i++) {
-                subExpressions[i] = subExpressions[i].negate();
+		subExpressions[i] = subExpressions[i].negate();
                 subExpressions[i].parent = this;
             }
             return this;
         } else if (operator.operator == operator.LOG_NOT_OP) {
-            return subExpressions[0];
+	    if (subExpressions[0] != null)
+		return subExpressions[0];
+	    else
+		return new NopOperator(Type.tBoolean);
         }
 
         Operator negop = 
@@ -148,7 +167,7 @@ public class ComplexExpression extends Expression {
             ComplexExpression ce = (ComplexExpression) e;
             int i;
             for (i=0; i < ce.subExpressions.length-1; i++) {
-                if (!ce.subExpressions[i].equals(subExpressions[i]))
+		if (!ce.subExpressions[i].equals(subExpressions[i]))
                     break;
             }
             if (i == ce.subExpressions.length-1)
@@ -179,12 +198,12 @@ public class ComplexExpression extends Expression {
             return e;
         }
         for (int i=0; i < subExpressions.length; i++) {
-            Expression combined = subExpressions[i].combine(e);
-            if (combined != null) {
-                subExpressions[i] = combined;
-                subExpressions[i].parent = this;
-                return this;
-            }
+	    Expression combined = subExpressions[i].combine(e);
+	    if (combined != null) {
+		subExpressions[i] = combined;
+		subExpressions[i].parent = this;
+		return this;
+	    }
         }
         return null;
     }
@@ -197,15 +216,15 @@ public class ComplexExpression extends Expression {
         return subExpressions;
     }
 
-    public void setSubExpressions(int i, Expression expr) {
-	int diff = expr.getOperandCount()
-	    - subExpressions[i].getOperandCount();
-        subExpressions[i] = expr;
-	for (ComplexExpression ce = this; ce != null; 
-	     ce = (ComplexExpression) ce.parent)
-	    ce.operandcount += diff;
-        updateType();
-    }
+//      public void setSubExpressions(int i, Expression expr) {
+//  	int diff = expr.getOperandCount()
+//  	    - subExpressions[i].getOperandCount();
+//          subExpressions[i] = expr;
+//  	for (ComplexExpression ce = this; ce != null; 
+//  	     ce = (ComplexExpression) ce.parent)
+//  	    ce.operandcount += diff;
+//          updateType();
+//      }
 
     void updateSubTypes() {
         boolean changed = false;
@@ -287,24 +306,24 @@ public class ComplexExpression extends Expression {
     public String toString() {
         String[] expr = new String[subExpressions.length];
         for (int i=0; i<subExpressions.length; i++) {
-            expr[i] = subExpressions[i].
-                toString(Decompiler.isTypeDebugging 
-                         ? 700 /* type cast priority */
-                         : operator.getOperandPriority(i));
-            if (Decompiler.isTypeDebugging) {
-                expr[i] = "("+
-                    (operator.getOperandType(i)
-                     .equals(subExpressions[i].getType())
-                     ? "" : ""+subExpressions[i].getType()+"->")
-                    + operator.getOperandType(i)+") "+expr[i];
-                if (700 < operator.getOperandPriority(i))
-                    expr[i] = "(" + expr[i] + ")";
-            }
-            else if (subExpressions[i].getType() == Type.tError)
-                expr[i] = "(/*type error */" + expr[i]+")";
-        }
-        if (Decompiler.isTypeDebugging && parent != null)
-            return "[("+type+") "+ operator.toString(expr)+"]";
+	    expr[i] = subExpressions[i].
+		toString(Decompiler.isTypeDebugging 
+			 ? 700 /* type cast priority */
+			 : operator.getOperandPriority(i));
+	    if (Decompiler.isTypeDebugging) {
+		expr[i] = "("+
+		    (operator.getOperandType(i)
+		     .equals(subExpressions[i].getType())
+		     ? "" : ""+subExpressions[i].getType()+"->")
+		    + operator.getOperandType(i)+") "+expr[i];
+		if (700 < operator.getOperandPriority(i))
+		    expr[i] = "(" + expr[i] + ")";
+	    }
+	    else if (subExpressions[i].getType() == Type.tError)
+		expr[i] = "(/*type error */" + expr[i]+")";
+	}
+	if (Decompiler.isTypeDebugging && parent != null)
+	    return "[("+type+") "+ operator.toString(expr)+"]";
         return operator.toString(expr);
     }
 
@@ -319,7 +338,7 @@ public class ComplexExpression extends Expression {
             return false;
 
         for (int i=0; i<subExpressions.length; i++) {
-            if (!subExpressions[i].equals(expr.subExpressions[i]))
+	    if(!subExpressions[i].equals(expr.subExpressions[i]))
                 return false;
         }
         return true;
@@ -339,19 +358,21 @@ public class ComplexExpression extends Expression {
                 return null;
             
             if (e == EMPTYSTRING
-                && subExpressions[1].getType().isOfType(Type.tString))
+		&& subExpressions[1].getType().isOfType(Type.tString))
                 return subExpressions[1];
 
+	    subExpressions[1] = subExpressions[1].simplifyString();
+
             return new ComplexExpression
-                (new StringAddOperator(), new Expression[] 
-                 { e, subExpressions[1].simplifyString() });
+                (new StringAddOperator(), new Expression[]
+		 { e, subExpressions[1] });
         }
         if (operator instanceof ConstructorOperator
             && (((ConstructorOperator) operator).getClassType() 
                 == Type.tStringBuffer)) {
             
-            if (subExpressions.length == 1 &&
-                subExpressions[0].getType().isOfType(Type.tString))
+            if (subExpressions.length == 1
+		&& subExpressions[0].getType().isOfType(Type.tString))
                 return subExpressions[0].simplifyString();
         }
         return null;
@@ -396,7 +417,7 @@ public class ComplexExpression extends Expression {
 
                 return new ComplexExpression
                     (new StringAddOperator(), new Expression[] 
-                     { left, right });
+		     { left, right });
             }
         }
         return this;
@@ -405,8 +426,8 @@ public class ComplexExpression extends Expression {
     public Expression simplify() {
         if (operator instanceof IfThenElseOperator &&
             operator.getType().isOfType(Type.tBoolean)) {
-            if (subExpressions[1].getOperator() instanceof ConstOperator &&
-                subExpressions[2].getOperator() instanceof ConstOperator) {
+            if (subExpressions[1].getOperator() instanceof ConstOperator
+		&& subExpressions[2].getOperator() instanceof ConstOperator) {
                 ConstOperator c1 = 
                     (ConstOperator) subExpressions[1].getOperator();
                 ConstOperator c2 = 
@@ -419,9 +440,9 @@ public class ComplexExpression extends Expression {
                     return subExpressions[0].negate().simplify();
             }
         }
-        else if (operator instanceof StoreInstruction &&
-                 subExpressions[subExpressions.length-1]
-                 .getOperator() instanceof ConstOperator) {
+        else if (operator instanceof StoreInstruction 
+                 && (subExpressions[subExpressions.length-1]
+		     .getOperator() instanceof ConstOperator)) {
 
             StoreInstruction store = (StoreInstruction) operator;
             ConstOperator one = (ConstOperator) 
@@ -446,8 +467,9 @@ public class ComplexExpression extends Expression {
                 ppfixop.parent = this;
             }
         }
-        else if (operator instanceof CompareUnaryOperator &&
-            subExpressions[0].getOperator() instanceof CompareToIntOperator) {
+        else if (operator instanceof CompareUnaryOperator 
+		 && (subExpressions[0].getOperator() 
+		     instanceof CompareToIntOperator)) {
             
             CompareBinaryOperator newOp = new CompareBinaryOperator
                 (subExpressions[0].getOperator().getOperandType(0),
@@ -464,7 +486,7 @@ public class ComplexExpression extends Expression {
         else if (operator instanceof CompareUnaryOperator &&
             operator.getOperandType(0).isOfType(Type.tBoolean)) {
             /* xx == false */
-            if (operator.getOperatorIndex() == operator.EQUALS_OP) 
+            if (operator.getOperatorIndex() == operator.EQUALS_OP)
                 return subExpressions[0].negate().simplify();
             /* xx != false */
             if (operator.getOperatorIndex() == operator.NOTEQUALS_OP)
@@ -521,8 +543,8 @@ public class ComplexExpression extends Expression {
                 return stringExpr.simplify();
         }
         for (int i=0; i< subExpressions.length; i++) {
-            subExpressions[i] = subExpressions[i].simplify();
-            subExpressions[i].parent = this;
+	    subExpressions[i] = subExpressions[i].simplify();
+	    subExpressions[i].parent = this;
         }
         return this;
     }

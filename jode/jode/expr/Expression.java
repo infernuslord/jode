@@ -52,6 +52,8 @@ public abstract class Expression {
      */
     public abstract int getOperandCount();
 
+    public abstract Expression addOperand(Expression op);
+
     public Expression negate() {
         Operator negop = 
             new UnaryOperator(Type.tBoolean, Operator.LOG_NOT_OP);
