@@ -20,6 +20,7 @@
 package jode;
 import java.io.*;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.InnerClassInfo;
 import jode.decompiler.*;
 import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipEntry;
@@ -90,6 +91,18 @@ public class Decompiler {
 	err.println("Debugging options, mainly used to debug this decompiler:");
 	err.println("\t--debug=...      "+
 		    "use --debug=help for more information.");
+    }
+
+    public static boolean skipClass(ClassInfo clazz) {
+	InnerClassInfo[] outers = clazz.getOuterClasses();
+	if (outers != null) {
+	    if (outers[0].outer == null) {
+		return ((Decompiler.options & Decompiler.OPTION_ANON) != 0);
+	    } else {
+		return ((Decompiler.options & Decompiler.OPTION_INNER) != 0);
+	    }
+	}
+	return false;
     }
 
     public static void main(String[] params) {
@@ -204,6 +217,8 @@ public class Decompiler {
 			("`"+params[i]+"' is not a class name");
 		    continue;
 		}
+		if (skipClass(clazz))
+		    continue;
 
 		String filename = 
 		    params[i].replace('.', File.separatorChar)+".java";
@@ -222,14 +237,10 @@ public class Decompiler {
 						   imports);
 		}
 
-		imports.init(params[i]);
 		GlobalOptions.err.println(params[i]);
 		
 		ClassAnalyzer clazzAna = new ClassAnalyzer(clazz, imports);
-		clazzAna.analyze();
-
-		imports.dumpHeader(writer);
-		clazzAna.dumpSource(writer);
+		clazzAna.dumpJavaFile(writer);
 		
 		if (destZip != null) {
 		    writer.flush();
