@@ -59,6 +59,17 @@ implements LocalVarOperator, CombineableOperator {
         return 100;
     }
 
+
+    /**
+     * Checks if the value of the given expression can change, due to
+     * side effects in this expression.  If this returns false, the 
+     * expression can safely be moved behind the current expresion.
+     * @param expr the expression that should not change.
+     */
+    public boolean hasSideEffects(Expression expr) {
+	return expr.containsConflictingLoad(this);
+    }
+
     /**
      * Makes a non void expression out of this store instruction.
      */

@@ -23,7 +23,8 @@ import jode.MethodType;
 import jode.Type;
 import jode.bytecode.ClassInfo;
 
-public final class InvokeOperator extends Operator {
+public final class InvokeOperator extends Operator 
+    implements CombineableOperator {
     CodeAnalyzer codeAnalyzer;
     boolean specialFlag;
     MethodType methodType;
@@ -42,6 +43,32 @@ public final class InvokeOperator extends Operator {
         this.specialFlag = specialFlag;
         if (methodType.isStatic())
             classType.useType();
+    }
+
+    /**
+     * Checks if the value of the given expression can change, due to
+     * side effects in this expression.  If this returns false, the 
+     * expression can safely be moved behind the current expresion.
+     * @param expr the expression that should not change.
+     */
+    public boolean hasSideEffects(Expression expr) {
+	return expr.containsConflictingLoad(this);
+    }
+
+    /**
+     * Makes a non void expression out of this invoke instruction.
+     */
+    public void makeNonVoid() {
+	throw new jode.AssertError("already non void");
+    }
+
+    /**
+     * Checks if the value of the operator can be changed by this expression.
+     */
+    public boolean matches(Operator loadop) {
+        return (loadop instanceof InvokeOperator
+		|| loadop instanceof ConstructorOperator
+		|| loadop instanceof GetFieldOperator);
     }
 
     public boolean isStatic() {
@@ -135,11 +162,7 @@ public final class InvokeOperator extends Operator {
         return method+"("+params+")";
     }
 
-    public boolean equals(Object o) {
-	return o instanceof InvokeOperator &&
-	    ((InvokeOperator)o).classType.equals(classType) &&
-	    ((InvokeOperator)o).methodName.equals(methodName) &&
-	    ((InvokeOperator)o).methodType.equals(methodType) &&
-	    ((InvokeOperator)o).specialFlag == specialFlag;
-    }
+    /* Invokes never equals: they may return different values even if
+     * they have the same parameters.
+     */
 }
