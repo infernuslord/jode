@@ -1,0 +1,43 @@
+dnl
+dnl Add macros
+dnl JODE_CHECK_JAVA
+dnl
+
+dnl JODE_CHECK_JAVA(path)
+AC_DEFUN(JODE_CHECK_JAVA,
+[
+  AC_PATH_PROG(JAVAC, javac, "", $PATH:$1/bin)
+  AC_PATH_PROG(JAR, jar, "", $PATH:$1/bin)
+  for path in $1/lib $1/jre/lib $1/shared; do
+    for classlib in classes.zip rt.jar; do
+       AC_CHECK_FILES($path/$classlib, 
+	[ CLASSLIB=$path/$classlib
+	  break 3
+	], [ true ])
+    done
+  done
+  AC_SUBST(CLASSPATH)
+  AC_SUBST(CLASSLIB)
+])
+
+AC_DEFUN(JODE_CHECK_CLASS,
+[
+  if (IFS=":"
+    clazz=`echo $1 | sed -e 's/\./\//g' -e 's/\(.*\)/\1.class/'`
+    jode_found=0
+    for path in $2; do
+      if test -d $path; then
+        if test -e $path/$clazz; then
+	  exit 0
+        fi
+      elif $UNZIP -v -C $path $clazz &>/dev/null ; then
+	exit 0
+      fi
+    done;
+    exit 1)
+  then
+    $3
+  else
+    $4
+  fi
+])    

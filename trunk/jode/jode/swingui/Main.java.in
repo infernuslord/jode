@@ -22,15 +22,11 @@ import jode.GlobalOptions;
 import jode.decompiler.*;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.SearchPath;
-///#ifndef OLDSWING
-import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.tree.*;
-///#else
-///import com.sun.java.swing.*;
-///import com.sun.java.swing.event.*;
-///import com.sun.java.swing.tree.*;
-///#endif
+
+import @JAVAX_SWING@.*;
+import @JAVAX_SWING@.event.*;
+import @JAVAX_SWING@.tree.*;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
