@@ -185,11 +185,7 @@ public class TransformExceptionHandlers {
      * @param ret the ReturnBlock.
      */
     private void removeReturnLocal(ReturnBlock ret) {
-	if (ret.outer == null 
-	    || !(ret.outer instanceof SequentialBlock))
-	    return;
-	
-	StructuredBlock pred = ret.outer.getSubBlocks()[0];
+	StructuredBlock pred = getPredecessor(ret);
 	if (!(pred instanceof InstructionBlock))
 	    return;
 	Expression instr = ((InstructionBlock) pred).getInstruction();
@@ -208,15 +204,13 @@ public class TransformExceptionHandlers {
     }
 
     /**
-     * Remove the JSR's jumping to the specified subRoutine. It
-     * is checked if the next block is a leaving instruction, and
-     * otherwise the JsrBlock is not removed (to give the user a
-     * hint that something went wrong).  This will also remove the
-     * local javac generates for returns.
+     * Remove the wrongly placed JSRs jumping to the specified
+     * subRoutine. The right JSRs are already removed, but we have to
+     * replace the wrong ones with a warning.
      * @param tryFlow the FlowBLock of the try block.
      * @param subRoutine the FlowBlock of the sub routine.
      */
-    private void removeJSR(FlowBlock tryFlow, StructuredBlock catchBlock,
+    private void removeBadJSR(FlowBlock tryFlow, StructuredBlock catchBlock,
 			   FlowBlock subRoutine) {
 	Jump nextJump;
         for (Jump jumps = tryFlow.getJumps(subRoutine); 
@@ -230,105 +224,130 @@ public class TransformExceptionHandlers {
 		    /* This is the mandatory jsr in the catch block */
 		    continue;
 		}
-                if (prev.outer.getNextFlowBlock() != null) {
-                    /* The jsr is directly before a jump, okay. */
-		    tryFlow.removeSuccessor(jumps);
-		    prev.removeJump();
-                    prev.outer.removeBlock();
-                    continue;
-                }
-                if (prev.outer.outer instanceof SequentialBlock
-                    && prev.outer.outer.getSubBlocks()[0] == prev.outer) {
-                    SequentialBlock seq = (SequentialBlock) prev.outer.outer;
-                    if (seq.subBlocks[1] instanceof JsrBlock
-                        || (seq.subBlocks[1] instanceof SequentialBlock
-                            && seq.subBlocks[1].getSubBlocks()[0] 
-                            instanceof JsrBlock)) {
-                        /* The jsr is followed by a jsr, okay. */
-			tryFlow.removeSuccessor(jumps);
-			prev.removeJump();
-                        prev.outer.removeBlock();
-                        continue;
-                    }
-                    if (seq.subBlocks[1] instanceof ReturnBlock
-                        && !(seq.subBlocks[1] instanceof ThrowBlock)) {
-
-                        /* The jsr is followed by a return, okay. */
-			tryFlow.removeSuccessor(jumps);
-			prev.removeJump();
-                        ReturnBlock ret = (ReturnBlock) seq.subBlocks[1];
-                        prev.outer.removeBlock();
-
-			removeReturnLocal(ret);
-                        continue;
-                    }
-                } 
-            }
-            /* Now we have a jump to the subroutine, that is wrong.
-             * We complain here.
-             */
-	    DescriptionBlock msg 
-		= new DescriptionBlock("ERROR: GOTO FINALLY BLOCK!");
-	    tryFlow.removeSuccessor(jumps);
-	    prev.removeJump();
-	    prev.appendBlock(msg);
+		/* We have a JSR to the subroutine, which is badly placed.
+		 * We complain here.
+		 */
+		DescriptionBlock msg 
+		    = new DescriptionBlock("ERROR: JSR FINALLY BLOCK!");
+		tryFlow.removeSuccessor(jumps);
+		prev.removeJump();
+		msg.replace(prev.outer);
+            } else {
+		/* We have a jump to the subroutine, that is wrong.
+		 * We complain here.
+		 */
+		DescriptionBlock msg 
+		    = new DescriptionBlock("ERROR: GOTO FINALLY BLOCK!");
+		tryFlow.removeSuccessor(jumps);
+		prev.removeJump();
+		prev.appendBlock(msg);
+	    }
         }
     }
     
-    public void checkAndRemoveJSR(FlowBlock tryFlow, 
-				  StructuredBlock catchBlock,
-				  FlowBlock subRoutine,
-				  int startOutExit, int endOutExit) {
-	boolean foundSub = false;
+    private static StructuredBlock getPredecessor(StructuredBlock stmt)
+    {
+	if (stmt.outer instanceof SequentialBlock) {
+	    SequentialBlock seq = (SequentialBlock) stmt.outer;
+	    if (seq.subBlocks[1] == stmt)
+		return seq.subBlocks[0];
+	    else if (seq.outer instanceof SequentialBlock)
+		return seq.outer.getSubBlocks()[0];
+	}
+	return null;
+    }
+
+    /**
+     * Gets the slot of the monitorexit instruction instr in the
+     * stmt, or -1 if stmt isn't a InstructionBlock with a
+     * monitorexit instruction.
+     * @param stmt the stmt, may be null.
+     */
+    private static int getMonitorExitSlot(StructuredBlock stmt) {
+	if (stmt instanceof InstructionBlock) {
+	    Expression instr = ((InstructionBlock) stmt).getInstruction();
+	    if (instr instanceof MonitorExitOperator) {
+		MonitorExitOperator monExit = (MonitorExitOperator)instr;
+		if (monExit.getFreeOperandCount() == 0
+		    && (monExit.getSubExpressions()[0] 
+			instanceof LocalLoadOperator))
+		return ((LocalLoadOperator) monExit.getSubExpressions()[0])
+                    .getLocalInfo().getSlot();
+            }
+        }
+        return -1;
+    }
+    
+    private boolean isMonitorExitSubRoutine(FlowBlock subRoutine, 
+					    LocalInfo local) {
+	if (transformSubRoutine(subRoutine.block)
+	    && getMonitorExitSlot(subRoutine.block) == local.getSlot())
+	    return true;
+	return false;
+    }
+
+    private static StructuredBlock skipFinExitChain(StructuredBlock block)
+    {
+	StructuredBlock pred, result;
+	if (block instanceof ReturnBlock)
+	    pred = getPredecessor(block);
+	else
+	    pred = block;
+	result = null;
+
+	while (pred instanceof JsrBlock
+	       || getMonitorExitSlot(pred) >= 0) {
+	    result = pred;
+	    pred = getPredecessor(pred);
+	} 
+	return result;
+    }
+					
+				    
+    private void checkAndRemoveJSR(FlowBlock tryFlow, 
+				   StructuredBlock catchBlock,
+				   FlowBlock subRoutine,
+				   int startOutExit, int endOutExit) {
         Iterator iter = tryFlow.getSuccessors().iterator();
     dest_loop:
         while (iter.hasNext()) {
 	    FlowBlock dest = (FlowBlock) iter.next();
-            if (dest == subRoutine) {
-		foundSub = true;
+            if (dest == subRoutine)
                 continue dest_loop;
-	    }
 
 	    boolean isFirstJump = true;
             for (Jump jumps = tryFlow.getJumps(dest);
 		 jumps != null; jumps = jumps.next, isFirstJump = false) {
 
                 StructuredBlock prev = jumps.prev;
-                if (prev instanceof JsrBlock) {
-                    /* The jump is directly preceeded by a jsr.
-                     * Everything okay.
-                     */
-                    continue;
-                }
-                
                 if (prev instanceof EmptyBlock
                     && prev.outer instanceof JsrBlock) {
-                    /* If jump is a jsr check the outer
-                     * block instead.
-                     */
-                    prev = prev.outer;
-                }
-                if ((prev instanceof ReturnBlock
-                     || prev instanceof JsrBlock)
-                    && prev.outer instanceof SequentialBlock) {
-                    SequentialBlock seq = (SequentialBlock) prev.outer;
-                    if (seq.subBlocks[1] == prev
-                        && (seq.subBlocks[0] instanceof JsrBlock)) {
-                        /* The jump is preceeded by another jsr, okay.
-                         */
-                        continue;
-                    }
-                    if (seq.subBlocks[0] == prev
-                        && seq.outer instanceof SequentialBlock
-                        && (seq.outer.getSubBlocks()[0] instanceof JsrBlock)) {
-                        /* Again the jump is preceeded by another jsr, okay.
-                         */
-                        continue;
-                    }
+		    /* This jump is really a jsr, since it doesn't
+		     * leave the block forever, we can ignore it.
+		     */
+		    continue;
                 }
 
-		if (isFirstJump) {
-		    /* Now we have a jump that is not preceded by the
+		StructuredBlock pred = skipFinExitChain(prev);
+		if (pred instanceof JsrBlock) {
+		    StructuredBlock jsrInner = ((JsrBlock) pred).innerBlock;
+		    if (jsrInner instanceof EmptyBlock
+			&& jsrInner.jump != null
+			&& jsrInner.jump.destination == subRoutine) {
+			/* The jump is preceeded by the right jsr.  Remove
+			 * the jsr.
+			 */
+			tryFlow.removeSuccessor(jsrInner.jump);
+			jsrInner.removeJump();
+			pred.removeBlock();
+			if (prev instanceof ReturnBlock)
+			    removeReturnLocal((ReturnBlock) prev);
+			continue;
+		    }
+		}
+
+		if (pred == null && isFirstJump) {
+		    /* Now we have a jump that is not preceded by any
 		     * jsr.  There's a last chance: the jump jumps
 		     * directly to a correct jsr instruction, which
 		     * lies outside the try/catch block.  
@@ -359,45 +378,21 @@ public class TransformExceptionHandlers {
                  */
                 DescriptionBlock msg 
                     = new DescriptionBlock("ERROR: NO JSR TO FINALLY");
-                prev.appendBlock(msg);
-                msg.moveJump(jumps);
-            }
-        }
-	if (foundSub)
-	    removeJSR(tryFlow, catchBlock, subRoutine);
-    }
-
-    static boolean isMonitorExit(Expression instr, LocalInfo local) {
-        if (instr instanceof MonitorExitOperator) {
-            MonitorExitOperator monExit = (MonitorExitOperator)instr;
-            if (monExit.getFreeOperandCount() == 0
-                && monExit.getSubExpressions()[0] instanceof LocalLoadOperator
-                && (((LocalLoadOperator) monExit.getSubExpressions()[0])
-                    .getLocalInfo().getSlot() == local.getSlot())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    boolean isMonitorExitSubRoutine(FlowBlock subRoutine, LocalInfo local) {
-	if (transformSubRoutine(subRoutine.block)) {
-	    if (subRoutine.block instanceof InstructionBlock) {
-		Expression instr = 
-		    ((InstructionBlock)subRoutine.block)
-		    .getInstruction();
-		if (isMonitorExit(instr, local)) {
-		    return true;
+		if (pred != null)
+		    pred.prependBlock(msg);
+		else {
+		    prev.appendBlock(msg);
+		    msg.moveJump(prev.jump);
 		}
-	    }
-	}
-	return false;
+            }
+        }
+	removeBadJSR(tryFlow, catchBlock, subRoutine);
     }
 
-    public void checkAndRemoveMonitorExit(FlowBlock tryFlow, 
-					  StructuredBlock catchBlock, 
-					  LocalInfo local, 
-					  int start, int end) {
+    private void checkAndRemoveMonitorExit(FlowBlock tryFlow, 
+					   StructuredBlock catchBlock, 
+					   LocalInfo local, 
+					   int start, int end) {
         FlowBlock subRoutine = null;
         Iterator succs = tryFlow.getSuccessors().iterator();
     dest_loop:
@@ -408,85 +403,51 @@ public class TransformExceptionHandlers {
                  jumps != null; jumps = jumps.next, isFirstJump = false) {
 
                 StructuredBlock prev = jumps.prev;
-
-                if (prev instanceof JsrBlock) {
-                    /* The jump is directly preceeded by a jsr.
-                     */
-                    continue;
-                }
                 if (prev instanceof EmptyBlock
                     && prev.outer instanceof JsrBlock) {
-                    /* If jump is a jsr check the outer
-                     * block instead.
-                     */
-                    prev = prev.outer;
-                }
-
-                /* If the block is a jsr or a return block, check if
-                 * it is preceeded by another jsr.
-                 */
-                if ((prev instanceof JsrBlock
-                     || prev instanceof ReturnBlock)
-                    && prev.outer instanceof SequentialBlock) {
-                    SequentialBlock seq = (SequentialBlock) prev.outer;
-                    StructuredBlock pred = null;
-                    if (seq.subBlocks[1] == prev)
-                        pred = seq.subBlocks[0];
-                    else if (seq.outer instanceof SequentialBlock)
-                        pred = seq.outer.getSubBlocks()[0];
-                    
-                    if (pred != null) {
-                        if (pred instanceof JsrBlock)
-                            /* The jump is preceeded by another jsr, okay.
-                             */
-                            continue;
-                        
-                        if (pred instanceof InstructionBlock) {
-                            Expression instr = 
-                                ((InstructionBlock)pred).getInstruction();
-			    if (isMonitorExit(instr, local)) {
-				pred.removeBlock();
-				if (prev instanceof ReturnBlock)
-				    removeReturnLocal((ReturnBlock) prev);
-				continue;
-			    }
-                        }
-                    }
-                }
-
-                if (prev instanceof InstructionBlock
-                    && isMonitorExit(((InstructionBlock)prev).instr, local)) {
-                    /* This is probably the last expression in the
-                     * synchronized block, and has the right monitor exit
-                     * attached.  Remove this block.
-                     */
-                    prev.removeBlock();
-                    continue;
-                }
-
-		if (isFirstJump) {
-		    /* This is the first jump to that destination.
-		     * Check if the destination does the monitorExit
+                    /* This jump is really a jsr, since it doesn't
+		     * leave the block forever, we can ignore it.
 		     */
+		    continue;
+                }
+		StructuredBlock pred = skipFinExitChain(prev);
+		if (pred instanceof JsrBlock) {
+		    StructuredBlock jsrInner = ((JsrBlock) pred).innerBlock;
+		    if (jsrInner instanceof EmptyBlock
+			&& jsrInner.jump != null) {
+			FlowBlock dest = jsrInner.jump.destination;
 
-		    /* The block is a jsr that is not preceeded by
-		     * another jsr.  This must be the monitorexit
-		     * subroutine.  
-		     */
-		    if (prev instanceof JsrBlock) {
 			if (subRoutine == null
-			    && successor.getBlockNr() >= start
-			    && successor.getNextBlockNr() <= end) {
-			    successor.analyze(start, end);
-			    
-			    if (isMonitorExitSubRoutine(successor, local))
-				subRoutine = successor;
+			    && dest.getBlockNr() >= start
+			    && dest.getNextBlockNr() <= end) {
+			    dest.analyze(start, end);
+			    if (isMonitorExitSubRoutine(dest, local))
+				subRoutine = dest;
 			}
 
-			if (subRoutine == successor)
-			    continue dest_loop;
+			if (dest == subRoutine) {
+			    /* The jump is preceeded by the right jsr.  Remove
+			     * the jsr.
+			     */
+			    tryFlow.removeSuccessor(jsrInner.jump);
+			    jsrInner.removeJump();
+			    pred.removeBlock();
+			    if (prev instanceof ReturnBlock)
+				removeReturnLocal((ReturnBlock) prev);
+			    continue;
+			}
 		    }
+		} else if (getMonitorExitSlot(pred) == local.getSlot()) {
+		    /* The jump is preceeded by the right monitor
+		     * exit instruction.
+		     */
+		    pred.removeBlock();
+		    if (prev instanceof ReturnBlock)
+			removeReturnLocal((ReturnBlock) prev);
+		    continue;
+		}
 
+		if (pred == null && isFirstJump) {
 		    /* Now we have a jump that is not preceded by a
 		     * monitorexit.  There's a last chance: the jump
 		     * jumps directly to the correct monitorexit
@@ -514,17 +475,15 @@ public class TransformExceptionHandlers {
 			    }
 
 			    if (subRoutine == dest) {
+				successor.removeSuccessor(jsrInner.jump);
+				jsrInner.removeJump();
 				sb.removeBlock();
 				continue dest_loop;
 			    }
 			}
-			if (sb instanceof InstructionBlock) {
-			    Expression instr = ((InstructionBlock)sb)
-				.getInstruction();
-			    if (isMonitorExit(instr, local)) {
-				sb.removeBlock();
-				continue dest_loop;
-			    }
+			if (getMonitorExitSlot(sb) == local.getSlot()) {
+			    sb.removeBlock();
+			    continue dest_loop;
 			}
 		    }
 		}
@@ -539,7 +498,7 @@ public class TransformExceptionHandlers {
         }
 
 	if (subRoutine != null) {
-	    removeJSR(tryFlow, catchBlock, subRoutine);
+	    removeBadJSR(tryFlow, catchBlock, subRoutine);
 	    tryFlow.mergeBlockNr(subRoutine);
 	}
     }

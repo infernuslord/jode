@@ -1,4 +1,4 @@
-/* UnifyHash Copyright (C) 1999 Jochen Hoenicke.
+/* UnifyHash Copyright (C) 1999-2001 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -186,6 +186,9 @@ public class UnifyHash extends AbstractCollection {
     }
 
     public Iterator iterateHashCode(final int hash) {
+///#ifdef JDK12
+	cleanUp();
+///#endif
 	return new Iterator() {
 	    private int known = modCount;
 	    private Bucket nextBucket

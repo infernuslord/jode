@@ -317,6 +317,18 @@ public abstract class StructuredBlock {
     }
 
     /**
+     * Prepends a block to this block.
+     * @return the new combined block.
+     */
+    public StructuredBlock prependBlock(StructuredBlock block) {
+	SequentialBlock sequBlock = new SequentialBlock();
+	sequBlock.replace(this);
+	sequBlock.setFirst(block);
+	sequBlock.setSecond(this);
+	return sequBlock;
+    }
+
+    /**
      * Removes this block, or replaces it with an EmptyBlock.
      */
     public final void removeBlock() {

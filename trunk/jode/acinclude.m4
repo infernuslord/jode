@@ -28,7 +28,7 @@ AC_DEFUN(JODE_CHECK_CLASS,
     myclasspath=$2;
     for path in $myclasspath; do
       if test -d $path; then
-        if test -e $path/$clazz; then
+        if test -f $path/$clazz; then
 	  exit 0
         fi
       elif CLASS_CHECK $path $clazz ; then

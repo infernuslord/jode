@@ -828,6 +828,21 @@ class BasicBlockReader implements Opcodes {
 	    int index = input.readUnsignedShort();
 	    handlers[i].type = (index == 0) ? null
 		: cp.getClassName(index);
+
+	    if (infos[handlers[i].catcher].instr.getOpcode() == opc_athrow) {
+		/* There is an obfuscator, which inserts bogus
+		 * exception entries jumping directly to a throw
+		 * instruction.  Remove those handlers.
+		 */
+		handlersLength--;
+		i--;
+	    }
+	}
+	if (handlersLength < handlers.length) {
+	    HandlerEntry[] newHandlers = new HandlerEntry[handlersLength];
+	    System.arraycopy(handlers, 0, newHandlers, 0,
+			     handlersLength);
+	    handlers = newHandlers;
 	}
 
 	for (int i=0; i< infos.length; i++) {

@@ -1,12 +1,67 @@
 2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
+	Applied patches from 2001-02-27 of Jode 1.1 tree:
+
+	* acinclude.m4 (JODE_CHECK_CLASS): Changed "test -e" to "-f" since
+	-e is not supported on all architectures (Solaris) and -f is more
+	correct anyway. 
+	Reported by Erik Modén.
+
+	* jode/swingui/Main.java.in (AreaWriter): Convert all kinds of
+	line breaks (CR+LF, CR, LF) to a LF character, which a JTextArea
+	understands.
+
+2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
+	Applied patch from 2001-02-04 of Jode 1.1 tree:
+
+	* jode/expr/IfThenElseOperator.java (simplify): Allow in the class$
+	simplification the then and else part to be swapped.
+	* jode/type/ClassType.java (keywords): Added the package
+	and import keywords.
+
+	* jode/flow/TransformExceptionHandlers.java:
+	(getPredecessor): New function.
+	(getMonitorExitSlot): New function.
+	(skipFinExitChain): New function.
+	(removeJSR): Replaced by ...
+	(removeBadJSR): ... this.
+	(checkAndRemoveJSR): Use the new functions. Much simpler and
+	handles nested synchronized blocks.  It now traces the whole JSR
+	and monitorexit chain before a jump to the first entry via
+	skipFinExitChain, then checks and remove the first JSR
+	resp. monitorexit.  JSR jumps are simply ignored now.
+	(checkAndRemoveMonitorExit): likewise.
+	* jode/flow/StructuredBlock.java (prependBlock): New function.
+	* jode/flow/CatchBlock.java (makeDeclaration): Generate name
+	of dummyLocal, since nobody else will generate it.
+	
+	* jode/bytecode/BasicBlockReader.java (readCode): Remove bogus
+	exceptionHandlers, whose catchers just throw the exception again.
+	This kind of entries are inserted by an obfuscator and would break
+	JODE.
+	* jode/util/UnifyHash.java (iterateHashCode): Call cleanUp,
+	to clean unneeded references.
+	* jode/flow/TransformConstructors.java (transformOneField):
+	Changed to private. Take field number as parameter.  Check that
+	expression doesn't contain a FieldOperator for a later field of
+	the same class or a PutFieldOperator.  Changed all callers.
+
+2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
+
+	Applied patch from 2001-02-01 of Jode 1.1 tree:
+	* jode/jvm/CodeVerifier.java (Type.mergeType): If array elem
+	types can't be merged, return tObject as common super type.
+	* jode/type/ArrayType.java (getGeneralizedType): If array elem
+	type can't be intersected, return tObject as common super type.
+
+2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
 	Applied patch from Java 1.1 tree:
 
-	* jode/expr/Expression.java.in (updateParentTypes): Call setType,
+	* jode/expr/Expression.java (updateParentTypes): Call setType,
 	instead of merging the types.  Other childs want to know about the
 	type change as well.
 	* jode/decompiler/LocalInfo.java (combineWith): Reorganized a bit,
 	but no changes.
-	* jode/expr/InvokeOperator.java.in (dumpExpression): Always print
+	* jode/expr/InvokeOperator.java (dumpExpression): Always print
 	the ThisOperator if a field is from a parent class of an outer
 	class is used.  And always qualify the this operator if not
 	innermost.
@@ -22,11 +77,11 @@
 	(printOptionalSpace): Print space for GNU_SPACING.
 	* jode/decompiler/Options.java (setOptions): changed gnu style
 	to include GNU_SPACING.
-	* jode/decompiler/ClassAnalyzer.java.in (dumpSource): Use
+	* jode/decompiler/ClassAnalyzer.java (dumpSource): Use
  	open/closeBraceClass.
-	* jode/decompiler/MethodAnalyzer.java.in (dumpSource): Use
+	* jode/decompiler/MethodAnalyzer.java (dumpSource): Use
  	open/closeBraceNoIndent.  Call printOptionalSpace.
-	* jode/decompiler/InvokeOperator.java.in (dumpExpression): 
+	* jode/decompiler/InvokeOperator.java (dumpExpression): 
 	Call printOptionalSpace, use open/closeBraceClass for inner
  	classes.
 	* jode/decompiler/UnaryOperator.java (dumpExpression): Call
@@ -43,7 +98,7 @@
  	version in ReferenceType is more correct.  Before
  	tNull.isOfType(tRange(X,tNull)) returned false, which lead to
  	incorrect behaviour in InvokeOperator.needsCast.
-	* jode/decompiler/FieldAnalyzer.java.in (dumpSource): Removed the
+	* jode/decompiler/FieldAnalyzer.java (dumpSource): Removed the
  	"= null" hack for final fields; it was not correct, since the
  	field could be initialized in a constructor.
 	* jode/decompiler/TabbedPrintWriter.java (BreakPoint.endOp):

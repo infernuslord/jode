@@ -56,6 +56,17 @@ public class EmptyBlock extends StructuredBlock {
 	return block;
     }
 
+    /**
+     * Prepends a block to this block.
+     * @return the new combined block.
+     */
+    public StructuredBlock prependBlock(StructuredBlock block) {
+	/* For empty blocks: append == prepend modulo jump */
+	block = appendBlock(block);
+	block.moveJump(this.jump);
+	return block;
+    }
+
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {

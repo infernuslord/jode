@@ -168,6 +168,7 @@ public class Main
 
     public class AreaWriter extends Writer {
 	boolean initialized = false;
+	boolean lastCR = false;
 	private JTextArea area;
 
 	public AreaWriter(JTextArea a) {
@@ -180,7 +181,23 @@ public class Main
 		area.setText("");
 		initialized = true;
 	    }
-	    area.append(new String(b, off, len));
+	    String str = new String(b, off, len);
+	    StringBuffer sb = new StringBuffer(len);
+	    while (str != null && str.length() > 0) {
+		if (lastCR && str.charAt(0) == '\n')
+		    str = str.substring(1);
+		int crIndex = str.indexOf('\r');
+		if (crIndex >= 0) {
+		    sb.append(str.substring(0, crIndex));
+		    sb.append("\n");
+		    str = str.substring(crIndex+1);
+		    lastCR = true;
+		} else {
+		    sb.append(str);
+		    str = null;
+		}
+	    }
+	    area.append(sb.toString());
 	}
 
 	public void flush() {
