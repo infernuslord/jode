@@ -49,7 +49,7 @@ public class FieldInfo extends BinaryInfo {
 				 ConstantPool cp,
 				 DataInputStream input, 
 				 int howMuch) throws IOException {
-	if ((howMuch & ALL_ATTRIBUTES) != 0 && name.equals("ConstantValue")) {
+	if ((howMuch & KNOWNATTRIBS) != 0 && name.equals("ConstantValue")) {
 	    if (length != 2)
 		throw new ClassFormatException("ConstantValue attribute"
 					       + " has wrong length");
@@ -161,7 +161,7 @@ public class FieldInfo extends BinaryInfo {
     }
 
     public Object getConstant() {
-	clazzInfo.loadInfo(ALL_ATTRIBUTES);
+	clazzInfo.loadInfo(KNOWNATTRIBS);
 	return constant;
     }
 

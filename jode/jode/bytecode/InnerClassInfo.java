@@ -33,5 +33,10 @@ public class InnerClassInfo {
 	this.name = name;
 	this.modifiers = modif;
     }
+
+    public String toString() {
+	return "InnerClassInfo["+inner+","+outer+","+name+","
+	    +java.lang.reflect.Modifier.toString(modifiers)+"]";
+    }
 }
 

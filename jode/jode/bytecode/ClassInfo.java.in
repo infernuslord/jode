@@ -35,13 +35,41 @@ import java.lang.reflect.Modifier;
 
 /**
  * This class does represent a class similar to java.lang.Class.  You
- * can get the super class and the interfaces.
+ * can get the super class and the interfaces. <br>
  *
  * The main difference to java.lang.Class is, that the objects are builded
  * from a stream containing the .class file, and that it uses the 
- * <code>Type</code> to represent types instead of Class itself.
+ * <code>Type</code> to represent types instead of Class itself. <br>
  *
- * @author Jochen Hoenicke
+ * <h2>The InnerClasses attribute</h2>
+ * 
+ * The InnerClasses attribute is transformed in a special way by this
+ * class so we want to taker a closer look.  According to the <a
+ * href="http://java.sun.com/products/jdk/1.1/docs/guide/innerclasses/spec/innerclasses.doc10.html#18814">inner
+ * class specification</a> there must be an InnerClass attribute for
+ * every non top-level class that is referenced somewhere in the
+ * bytecode.  This implies that if this is an inner class, it must
+ * contain a inner class attribute for itself.  Before a class is
+ * referenced as outer class in an InnerClass attribute, it must be 
+ * described by another InnerClass attribute.  <br>
+ *
+ * Since every class references itself, there must be informations
+ * about the outer class for each class scoped class.  If that outer
+ * class is an outer class again, there must be information about it,
+ * too.  This particular chain of InnerClassInfos is returned by the
+ * getOuterClasses() method; for convenience in reverse order, i.e.
+ * current class first, then the outer classes from innermost to
+ * outermost. <br>
+ *
+ * A valid bytecode must also contain InnerClass infos for each inner
+ * classes it declares.  These information are returned by the
+ * getInnerClasses() method.  The order of these classes is the same
+ * as in the bytecode attribute.
+ *
+ * All remaining attributes are returned by getExtraClasses() in the
+ * same order as in the bytecode attribute.
+ *
+ * @author Jochen Hoenicke 
  */
 public class ClassInfo extends BinaryInfo {
 
@@ -133,7 +161,7 @@ public class ClassInfo extends BinaryInfo {
 				 ConstantPool cp,
 				 DataInputStream input, 
 				 int howMuch) throws IOException {
-	if ((howMuch & ALL_ATTRIBUTES) != 0 && name.equals("SourceFile")) {
+	if ((howMuch & KNOWNATTRIBS) != 0 && name.equals("SourceFile")) {
 	    if (length != 2)
 		throw new ClassFormatException("SourceFile attribute"
 					       + " has wrong length");
@@ -141,6 +169,9 @@ public class ClassInfo extends BinaryInfo {
 	} else if ((howMuch & (OUTERCLASSES | INNERCLASSES)) != 0
 		   && name.equals("InnerClasses")) {
 	    int count = input.readUnsignedShort();
+	    if (length != 2 + 8 * count)
+		throw new ClassFormatException
+		    ("InnerClasses attribute has wrong length");
 	    int innerCount = 0, outerCount = 0, extraCount = 0;
 	    InnerClassInfo[] innerClassInfo = new InnerClassInfo[count];
 	    for (int i=0; i< count; i++) {
@@ -164,16 +195,22 @@ public class ClassInfo extends BinaryInfo {
 		else
 		    innerClassInfo[count - (++extraCount)] = ici;
 	    }
+	    /* Now innerClasses are at the front of innerClassInfo array
+	     * in correct order.  The other InnerClassInfos are in reverse
+	     * order in the rest of the innerClassInfo array.
+	     */
+	    
+	    /* We now count the outerClasses.  The reverse order is the
+	     * right thing for us.
+	     */
 	    {
 		String lastOuterName = getName();
-		for (int i = count - extraCount; i < count; i++) {
+		for (int i = count - extraCount; 
+		     i < count && lastOuterName != null; i++) {
 		    InnerClassInfo ici = innerClassInfo[i];
 		    if (ici.inner.equals(lastOuterName)) {
-			for (int j = i; j > count - extraCount; j--)
-			    innerClassInfo[j] = innerClassInfo[j-1];
-			innerClassInfo[count-extraCount] = ici;
-			extraCount--;
 			outerCount++;
+			extraCount--;
 			lastOuterName = ici.outer;
 		    }
 		}
@@ -187,21 +224,35 @@ public class ClassInfo extends BinaryInfo {
 
 	    if (outerCount > 0) {
 		outerClasses = new InnerClassInfo[outerCount];
-		System.arraycopy(innerClassInfo, innerCount, 
-				 outerClasses, 0, outerCount);
 	    } else 
 		outerClasses = null;
 
 	    if (extraCount > 0) {
 		extraClasses = new InnerClassInfo[extraCount];
-		System.arraycopy(innerClassInfo, innerCount + outerCount, 
-				 extraClasses, 0, extraCount);
 	    } else
 		extraClasses = null;
+	    
+	    /* The last part:  We split between outer and extra classes.
+	     * In this step we will also revert the order of the extra
+	     * classes.
+	     */
+	    {
+		int outerPtr = 0;
+		String lastOuterName = getName();
+		for (int i = count - extraCount - outerCount; 
+		     i < count && lastOuterName != null; i++) {
+		    InnerClassInfo ici = innerClassInfo[i];
 
-	    if (length != 2 + 8 * count)
-		throw new ClassFormatException
-		    ("InnerClasses attribute has wrong length");
+		    /* If we counted correctly there is no NullPointer
+		     * or ArrayIndexOutOfBoundsException here 
+		     */
+		    if (ici.inner.equals(lastOuterName)) {
+			outerClasses[outerPtr++] = ici;
+			lastOuterName = ici.outer;
+		    } else
+			extraClasses[--extraCount] = ici;
+		}
+	    }
 	} else
 	    super.readAttribute(name, length, cp, input, howMuch);
     }
@@ -242,12 +293,12 @@ public class ClassInfo extends BinaryInfo {
 	}	    
 
 	/* fields */
-        if ((howMuch & (FIELDS | ALL_ATTRIBUTES)) != 0) {
+        if ((howMuch & (FIELDS | KNOWNATTRIBS | UNKNOWNATTRIBS)) != 0) {
             int count = input.readUnsignedShort();
-	    if ((howMuch & FIELDS) != 0)
+	    if ((status & FIELDS) == 0)
 		fields = new FieldInfo[count];
             for (int i=0; i< count; i++) {
-		if ((howMuch & FIELDS) != 0)
+		if ((status & FIELDS) == 0)
 		    fields[i] = new FieldInfo(this); 
                 fields[i].read(cpool, input, howMuch);
             }
@@ -261,12 +312,12 @@ public class ClassInfo extends BinaryInfo {
         }
 
 	/* methods */
-        if ((howMuch & (METHODS | ALL_ATTRIBUTES)) != 0) {
+        if ((howMuch & (METHODS | KNOWNATTRIBS | UNKNOWNATTRIBS)) != 0) {
             int count = input.readUnsignedShort();
-	    if ((howMuch & METHODS) != 0)
+	    if ((status & METHODS) == 0)
 		methods = new MethodInfo[count];
             for (int i=0; i< count; i++) {
-		if ((howMuch & METHODS) != 0)
+		if ((status & METHODS) == 0)
 		    methods[i] = new MethodInfo(this); 
                 methods[i].read(cpool, input, howMuch);
             }

@@ -48,8 +48,12 @@ public class SearchPath  {
     /**
      * We need a different pathSeparatorChar, since ':' (used for most
      * UNIX System, is used a protocol separator in URLs.  
+     *
+     * We currently allow both pathSeparatorChar and
+     * altPathSeparatorChar and decide if it is a protocol separator
+     * by context.  
      */
-    public static final char pathSeparatorChar = ',';
+    public static final char altPathSeparatorChar = ',';
     URL[] bases;
     byte[][] urlzips;
     File[] dirs;
@@ -176,34 +180,86 @@ public class SearchPath  {
      * entries may also be zip or jar files.
      */
     public SearchPath(String path) {
-        StringTokenizer tokenizer = 
-            new StringTokenizer(path, 
-				String.valueOf(pathSeparatorChar));
-        int length = tokenizer.countTokens();
-        
+	// Calculate a good approximation (rounded upwards) of the tokens
+	// in this path.
+	int length = 1;
+	for (int index=path.indexOf(File.pathSeparatorChar); 
+	     index != -1; length++)
+	    index = path.indexOf(File.pathSeparatorChar, index+1);
+	if (File.pathSeparatorChar != altPathSeparatorChar) {
+	    for (int index=path.indexOf(altPathSeparatorChar); 
+		 index != -1; length++)
+		index = path.indexOf(altPathSeparatorChar, index+1);
+	}
 	bases = new URL[length];
 	urlzips = new byte[length][];
         dirs = new File[length];
         zips = new ZipFile[length];
         zipEntries = new Hashtable[length];
         zipDirs = new String[length];
-        for (int i=0; i< length; i++) {
-	    String token = tokenizer.nextToken();
+	int i = 0;
+        for (int ptr=0; ptr < path.length(); ptr++, i++) {
+	    int next = ptr;
+	    while (next < path.length()
+		   && path.charAt(next) != File.pathSeparatorChar
+		   && path.charAt(next) != altPathSeparatorChar)
+		next++;
+
+	    int index = ptr;
+	colon_separator:
+	    while (next > ptr
+		   && next < path.length()
+		   && path.charAt(next) == ':') {
+		// Check if this is a URL instead of a pathSeparator
+		// Since this is a while loop it allows nested urls like
+		// jar:ftp://ftp.foo.org/pub/foo.jar!/
+		
+		while (index < next) {
+		    char c = path.charAt(index);
+		    // According to RFC 1738 letters, digits, '+', '-'
+		    // and '.' are allowed SCHEMA characters.  We
+		    // disallow '.' because it is a good marker that
+		    // the user has specified a filename instead of a
+		    // URL.
+		    if ((c < 'A' || c > 'Z')
+			&& (c < 'a' || c > 'z')
+			&& (c < '0' || c > '9')
+			&& "+-".indexOf(c) == -1) {
+			break colon_separator;
+		    }
+		    index++;
+		}
+		next++;
+		index++;
+		while (next < path.length()
+		       && path.charAt(next) != File.pathSeparatorChar
+		       && path.charAt(next) != altPathSeparatorChar)
+		    next++;
+	    }
+	    String token = path.substring(ptr, next);
+	    ptr = next;
 
 	    boolean mustBeJar = false;
 	    // We handle jar URL's ourself.
 	    if (token.startsWith("jar:")) {
-		int index = 0;
+		index = 0;
 		do {
 		    index = token.indexOf('!', index);
-		} while (token.charAt(index+1) != '/');
+		} while (index != -1 && index != token.length()-1
+			 && token.charAt(index+1) != '/');
+
+		if (index == -1 || index == token.length()-1) {
+		    GlobalOptions.err.println("Warning: Illegal jar url "
+					      + token + ".");
+		    continue;
+		}
 		zipDirs[i] = token.substring(index+2);
 		if (!zipDirs[i].endsWith("/"))
 		    zipDirs[i] = zipDirs[i] + "/";
 		token = token.substring(4, index);
 		mustBeJar = true;
 	    }
-	    int index = token.indexOf(':');
+	    index = token.indexOf(':');
 	    if (index != -1 && index < token.length()-2
 		&& token.charAt(index+1) == '/'
 		&& token.charAt(index+2) == '/') {
@@ -221,9 +277,9 @@ public class SearchPath  {
 		    } catch (IOException ex) {
 			// ignore
 		    } catch (SecurityException ex) {
-			GlobalOptions.err.println("Warning: Security exception "
-					       +"while accessing "
-					       +bases[i]+".");
+			GlobalOptions.err.println
+			    ("Warning: Security exception while accessing "
+			     +bases[i]+".");
 		    }
 		} catch (MalformedURLException ex) {
 		    /* disable entry */
@@ -243,8 +299,9 @@ public class SearchPath  {
 		    }
 		} catch (SecurityException ex) {
 		    /* disable this entry */
-		    GlobalOptions.err.println("Warning: SecurityException while"
-					   + " accessing " + token);
+		    GlobalOptions.err.println
+			("Warning: SecurityException while accessing "
+			 + token + ".");
 		    dirs[i] = null;
 		}
 	    }
