@@ -626,7 +626,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	readAttributes(cp, input, FULLINFO);
     }
 
-    public void dumpCode(java.io.PrintStream output) {
+    public void dumpCode(java.io.PrintWriter output) {
 	for (Instruction instr = firstInstr; 
 	     instr != null; instr = instr.nextByAddr) {
 	    output.println(instr.getDescription() + " "
