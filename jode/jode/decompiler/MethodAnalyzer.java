@@ -21,7 +21,12 @@ package jode.decompiler;
 import jode.AssertError;
 import jode.Decompiler;
 import jode.GlobalOptions;
-import jode.bytecode.*;
+import jode.bytecode.BytecodeInfo;
+import jode.bytecode.ClassInfo;
+import jode.bytecode.MethodInfo;
+import jode.bytecode.Handler;
+import jode.bytecode.Instruction;
+import jode.bytecode.LocalVariableInfo;
 import jode.jvm.SyntheticAnalyzer;
 import jode.type.*;
 import jode.expr.Expression;
@@ -179,6 +184,8 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     }
 
     public void insertStructuredBlock(StructuredBlock superBlock) {
+	if (methodHeader != null)
+	    throw new IllegalStateException();
 	if (insertBlock != null)
 	    throw new jode.AssertError();
 	insertBlock = superBlock;
@@ -239,30 +246,26 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	     * predecessor other than the previous instruction.
 	     */
 	    for (Instruction instr = code.getFirstInstr();
-		 instr != null; instr = instr.nextByAddr) {
-		if (instr.prevByAddr == null
-		    || instr.prevByAddr.alwaysJumps
-		    || instr.preds != null)
-		    instr.tmpInfo = new FlowBlock
-			(this, instr.addr, instr.length);
+		 instr != null; instr = instr.getNextByAddr()) {
+		if (instr.getPrevByAddr() == null
+		    || instr.getPrevByAddr().doesAlwaysJump()
+		    || instr.getPreds() != null)
+		    instr.setTmpInfo(new FlowBlock(this, instr.getAddr()));
 	    }
 
 	    for (int i=0; i < handlers.length; i++) {
 		Instruction instr = handlers[i].start;
-		if (instr.tmpInfo == null)
-		    instr.tmpInfo 
-			= new FlowBlock(this, instr.addr, instr.length);
+		if (instr.getTmpInfo() == null)
+		    instr.setTmpInfo(new FlowBlock(this, instr.getAddr()));
 		/* end doesn't have a predecessor, but we must prevent
 		 * it from being merged with the previous instructions.
 		 */
-		instr = handlers[i].end.nextByAddr;
-		if (instr.tmpInfo == null)
-		    instr.tmpInfo 
-			= new FlowBlock(this, instr.addr, instr.length);
+		instr = handlers[i].end.getNextByAddr();
+		if (instr.getTmpInfo() == null)
+		    instr.setTmpInfo(new FlowBlock(this, instr.getAddr()));
 		instr = handlers[i].catcher;
-		if (instr.tmpInfo == null)
-		    instr.tmpInfo 
-			= new FlowBlock(this, instr.addr, instr.length);
+		if (instr.getTmpInfo() == null)
+		    instr.setTmpInfo(new FlowBlock(this, instr.getAddr()));
 	    }
 
             /* While we read the opcodes into FlowBlocks 
@@ -274,57 +277,58 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
             FlowBlock lastBlock = null;
 	    boolean   lastSequential = false;
 	    for (Instruction instr = code.getFirstInstr();
-		 instr != null; instr = instr.nextByAddr) {
+		 instr != null; instr = instr.getNextByAddr()) {
 
 		jode.flow.StructuredBlock block
 		    = Opcodes.readOpcode(instr, this);
 
-                if (GlobalOptions.verboseLevel > 0 && instr.addr > mark) {
+                if (GlobalOptions.verboseLevel > 0 && instr.getAddr() > mark) {
                     GlobalOptions.err.print('.');
                     mark += 1000;
                 }
 
-                if (lastSequential && instr.tmpInfo == null
+                if (lastSequential && instr.getTmpInfo() == null
 		    /* Only merge with previous block, if this is sequential, 
 		     * too.  
-		     * Why?  doSequentialT2 does only handle sequential blocks.
+		     * Why?  appendBlock does only handle sequential blocks.
 		     */
-		    && !instr.alwaysJumps && instr.succs == null) {
+		    && !instr.doesAlwaysJump() && instr.getSuccs() == null) {
 		    
-                    lastBlock.doSequentialT2(block, instr.length);
+                    lastBlock.appendBlock(block, instr.getLength());
                 } else {
 
-		    if (instr.tmpInfo == null)
-			instr.tmpInfo = new FlowBlock
-			    (this, instr.addr, instr.length);
-		    FlowBlock flowBlock = (FlowBlock) instr.tmpInfo;
-		    flowBlock.setBlock(block);
+		    if (instr.getTmpInfo() == null)
+			instr.setTmpInfo(new FlowBlock(this, instr.getAddr()));
+		    FlowBlock flowBlock = (FlowBlock) instr.getTmpInfo();
+		    flowBlock.appendBlock(block, instr.getLength());
 
 		    if (lastBlock != null)
 			lastBlock.setNextByAddr(flowBlock);
 
-                    instr.tmpInfo = lastBlock = flowBlock;
-		    lastSequential = !instr.alwaysJumps && instr.succs == null;
+                    instr.setTmpInfo(lastBlock = flowBlock);
+		    lastSequential = !instr.doesAlwaysJump()
+			&& instr.getSuccs() == null;
                 }
 	    }
 
-	    methodHeader = (FlowBlock) code.getFirstInstr().tmpInfo;
+	    methodHeader = (FlowBlock) code.getFirstInstr().getTmpInfo();
 	    if (insertBlock != null) {
 		insertBlock.setJump(new Jump(methodHeader));
-		FlowBlock insertFlowBlock = new FlowBlock(this, 0, 0);
-		insertFlowBlock.setBlock(insertBlock);
+		FlowBlock insertFlowBlock = new FlowBlock(this, 0);
+		insertFlowBlock.appendBlock(insertBlock, 0);
 		insertFlowBlock.setNextByAddr(methodHeader);
 		methodHeader = insertFlowBlock;
+		insertFlowBlock = null;
 	    }
 
             excHandlers = new TransformExceptionHandlers();
             for (int i=0; i<handlers.length; i++) {
                 Type type = null;
                 FlowBlock start 
-		    = (FlowBlock) handlers[i].start.tmpInfo;
-                int endAddr = handlers[i].end.nextByAddr.addr;
+		    = (FlowBlock) handlers[i].start.getTmpInfo();
+                int endAddr = handlers[i].end.getNextByAddr().getAddr();
                 FlowBlock handler
-		    = (FlowBlock) handlers[i].catcher.tmpInfo;
+		    = (FlowBlock) handlers[i].catcher.getTmpInfo();
                 if (handlers[i].type != null)
                     type = Type.tClass(handlers[i].type);
                 
@@ -332,8 +336,8 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
             }
         }
 	for (Instruction instr = code.getFirstInstr();
-	     instr != null; instr = instr.nextByAddr)
-	    instr.tmpInfo = null;
+	     instr != null; instr = instr.getNextByAddr())
+	    instr.setTmpInfo(null);
 
         if (GlobalOptions.verboseLevel > 0)
             GlobalOptions.err.print('-');
