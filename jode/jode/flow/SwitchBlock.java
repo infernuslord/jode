@@ -195,7 +195,7 @@ implements BreakableBlock {
             writer.tab();
         }
         writer.print("switch (");
-	instr.dumpExpression(writer);
+	instr.dumpExpression(writer.EXPL_PAREN, writer);
 	writer.print(")");
 	writer.openBrace();
 	for (int i=0; i < caseBlocks.length; i++)

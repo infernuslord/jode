@@ -140,15 +140,21 @@ public class InstructionBlock extends InstructionContainer {
 	    StoreInstruction store = (StoreInstruction) instr;
             LocalInfo local = 
 		((LocalStoreOperator) store.getLValue()).getLocalInfo();
+	    writer.startOp(writer.NO_PAREN, 0);
 	    local.dumpDeclaration(writer);
+	    writer.breakOp();
 	    writer.print(" = ");
-	    store.getSubExpressions()[1].dumpExpression(writer);
+	    store.getSubExpressions()[1].dumpExpression(writer.IMPL_PAREN, 
+							writer);
+	    writer.endOp();
 	} else {
-	    if (instr.getType() != Type.tVoid)
-		writer.print("PUSH ");
-
 	    try {
-		instr.dumpExpression(writer);
+
+		if (instr.getType() != Type.tVoid) {
+		    writer.print("PUSH ");
+		    instr.dumpExpression(writer.IMPL_PAREN, writer);
+		} else
+		    instr.dumpExpression(writer.NO_PAREN, writer);
 	    } catch (RuntimeException ex) {
 		writer.print("(RUNTIME ERROR IN EXPRESSION)");
 	    }

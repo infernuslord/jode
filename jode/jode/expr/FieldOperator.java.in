@@ -181,15 +181,22 @@ public abstract class FieldOperator extends Operator {
 	    if (!classType.equals(Type.tClass(methodAnalyzer.getClazz()))
 		|| methodAnalyzer.findLocal(fieldName) != null) {
 		writer.printType(classType);
+		writer.breakOp();
 		writer.print(".");
 	    }
 	    writer.print(fieldName);
 	} else if (needsCast(subExpressions[0].getType().getCanonic())) {
-	    writer.print("((");
+	    writer.print("(");
+	    writer.startOp(writer.EXPL_PAREN, 1);
+	    writer.print("(");
 	    writer.printType(classType);
 	    writer.print(") ");
+	    writer.breakOp();
 	    subExpressions[0].dumpExpression(writer, 700);
-	    writer.print(").");
+	    writer.endOp();
+	    writer.print(")");
+	    writer.breakOp();
+	    writer.print(".");
 	    writer.print(fieldName);
 	} else {
 	    if (opIsThis) {
@@ -200,6 +207,7 @@ public abstract class FieldOperator extends Operator {
 		if (scope == null || writer.conflicts(fieldName, scope, 
 						      Scope.FIELDNAME)) {
 		    thisOp.dumpExpression(writer, 950);
+		    writer.breakOp();
 		    writer.print(".");
 		} else if (writer.conflicts(fieldName, scope, 
 					    Scope.AMBIGUOUSNAME)
@@ -216,16 +224,18 @@ public abstract class FieldOperator extends Operator {
 			ana = (ClassAnalyzer) ana.getParent();
 		    if (ana == scope)
 			// For a simple outer class we can say this
-			writer.print("this.");
+			writer.print("this");
 		    else {
 			// For a class that owns a method that owns
 			// us, we have to give the full class name
 			thisOp.dumpExpression(writer, 950);
-			writer.print(".");
 		    }
+		    writer.breakOp();
+		    writer.print(".");
 		}
 	    } else {
 		subExpressions[0].dumpExpression(writer, 950);
+		writer.breakOp();
 		writer.print(".");
 	    }
 	    writer.print(fieldName);

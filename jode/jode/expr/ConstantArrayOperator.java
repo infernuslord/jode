@@ -99,24 +99,22 @@ public class ConstantArrayOperator extends Operator {
 	if (!isInitializer) {
 	    writer.print("new ");
 	    writer.printType(type.getHint());
+	    writer.breakOp();
 	    writer.print(" ");
 	}
-	writer.openBraceNoSpace();
-	writer.tab();
+	writer.print("{ ");
+	writer.startOp(writer.EXPL_PAREN, 0);
         for (int i=0; i< subExpressions.length; i++) {
             if (i>0) {
-		if (i % 10 == 0)
-		    writer.println(",");
-		else
-		    writer.print(", ");
+		writer.print(", ");
+		writer.breakOp();
 	    }
 	    if (subExpressions[i] != null)
 		subExpressions[i].dumpExpression(writer, 0);
 	    else
 		empty.dumpExpression(writer, 0);
         }
-	writer.println();
-	writer.untab();
-	writer.closeBraceNoSpace();
+	writer.endOp();
+	writer.print(" }");
     }
 }

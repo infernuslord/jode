@@ -51,12 +51,16 @@ public class InstanceOfOperator extends Operator {
 	Type superType
 	    = instanceType.getCastHelper(subExpressions[0].getType());
 	if (superType != null) {
+	    writer.startOp(writer.IMPL_PAREN, 2);
 	    writer.print("(");
 	    writer.printType(superType);
 	    writer.print(") ");
+	    writer.breakOp();
 	    subExpressions[0].dumpExpression(writer, 700);
+	    writer.endOp();
 	} else
 	    subExpressions[0].dumpExpression(writer, 550);
+	writer.breakOp();
         writer.print(" instanceof ");
 	writer.printType(instanceType);
     }

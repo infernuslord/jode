@@ -96,7 +96,6 @@ public abstract class Expression {
         return parent;
     }
 
-
     /**
      * Get priority of the operator.
      * Currently this priorities are known:
@@ -120,6 +119,13 @@ public abstract class Expression {
      * </li></ul>
      */
     public abstract int getPriority();
+
+    /**
+     * Get the penalty for splitting up this operator.
+     */
+    public int getBreakPenalty() {
+	return 0;
+    }
 
     /**
      * Get the number of operands.
@@ -237,29 +243,56 @@ public abstract class Expression {
     public abstract void dumpExpression(TabbedPrintWriter writer) 
 	throws java.io.IOException;
 
+    public void dumpExpression(int options, TabbedPrintWriter writer)
+	throws java.io.IOException 
+    {
+	writer.startOp(options, getBreakPenalty());
+	dumpExpression(writer);
+	writer.endOp();
+    }
+
     public void dumpExpression(TabbedPrintWriter writer, int minPriority)
 	throws java.io.IOException {
+	int options;
 	boolean needParen1 = false, needParen2 = false;
-	if (type == Type.tError) {
-	    if (minPriority > 700) {
-		needParen1 = true;
-		writer.print("(");
-	    }
-	    writer.print("/*TYPE ERROR*/ ");
-	    minPriority = 700;
-	}
+	boolean needEndOp1 = false, needEndOp2 = false;
+
+	String typecast = "";
+
+	if (type == Type.tError)
+	    typecast = "/*TYPE_ERROR*/";
 	else if ((GlobalOptions.debuggingFlags
-		  & GlobalOptions.DEBUG_TYPES) != 0) {
+		  & GlobalOptions.DEBUG_TYPES) != 0)
+	    typecast = "(TYPE "+type+")";
+
+	if (typecast != "") {
 	    if (minPriority > 700) {
 		needParen1 = true;
+		needEndOp1 = true;
 		writer.print("(");
+		writer.startOp(writer.EXPL_PAREN, 0);
+	    } else if (minPriority < 700) {
+		needEndOp1 = true;
+		writer.startOp(writer.IMPL_PAREN, 1);
 	    }
-	    writer.print("(TYPE "+type+") ");
+	    writer.print(typecast);
+	    writer.breakOp();
+	    writer.print(" ");
 	    minPriority = 700;
 	}
-	if (getPriority() < minPriority) {
+
+	int priority = getPriority();
+	if (priority < minPriority) {
 	    needParen2 = true;
+	    needEndOp2 = true;
 	    writer.print("(");
+	    writer.startOp(writer.EXPL_PAREN, getBreakPenalty());
+	} else if (priority != minPriority) {
+	    needEndOp2 = true;
+	    if (getType() == Type.tVoid)
+		writer.startOp(writer.NO_PAREN, getBreakPenalty());
+	    else
+		writer.startOp(writer.IMPL_PAREN, 1 + getBreakPenalty());
 	}
 
 	try {
@@ -268,10 +301,16 @@ public abstract class Expression {
 	    writer.print("(RUNTIME ERROR IN EXPRESSION)");
 	}
 
-	if (needParen2)
-	    writer.print(")");
-	if (needParen1)
-	    writer.print(")");
+	if (needEndOp2) {
+	    writer.endOp();
+	    if (needParen2)
+		writer.print(")");
+	}
+	if (needEndOp1) {
+	    writer.endOp();
+	    if (needParen1)
+		writer.print(")");
+	}
     }
 
     public String toString() {

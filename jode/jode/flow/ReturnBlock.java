@@ -77,7 +77,7 @@ public class ReturnBlock extends InstructionContainer {
         writer.print("return");
 	if (instr != null) {
 	    writer.print(" ");
-	    instr.dumpExpression(writer);
+	    instr.dumpExpression(writer.IMPL_PAREN, writer);
 	}
 	writer.println(";");
     }

@@ -838,17 +838,18 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	if (isConstructor() && isStatic())
 	    modifiedModifiers &= ~Modifier.FINAL;
 
-
-	String delim ="";
+	writer.startOp(writer.NO_PAREN, 1);
+	String delim = "";
 	if (minfo.isSynthetic()) {
 	    writer.print("/*synthetic*/");
 	    delim = " ";
 	}
 
 	String modif = Modifier.toString(modifiedModifiers);
-	writer.print(delim + modif);
-	if (modif.length() > 0)
+	if (modif.length() > 0) {
+	    writer.print(delim + modif);
 	    delim = " ";
+	}
         if (isConstructor
 	    && (isStatic()
 		|| (classAnalyzer.getName() == null
@@ -862,24 +863,35 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
                 writer.printType(getReturnType());
 		writer.print(" " + methodName);
 	    }
+	    writer.breakOp();
             writer.print("(");
-            int offset = skipParams + (isStatic() ? 0 : 1);
+ 	    writer.startOp(writer.EXPL_PAREN, 0);
+	    int offset = skipParams + (isStatic() ? 0 : 1);
             for (int i = offset; i < param.length; i++) {
-                if (i > offset)
+                if (i > offset) {
                     writer.print(", ");
+		    writer.breakOp();
+		}
 		param[i].dumpDeclaration(writer);
             }
+ 	    writer.endOp();
             writer.print(")");
         }
         if (exceptions.length > 0) {
-            writer.println("");
-            writer.print("throws ");
+ 	    writer.breakOp();
+            writer.print(" throws ");
+	    writer.startOp(writer.EXPL_PAREN, 2);
             for (int i= 0; i< exceptions.length; i++) {
-                if (i > 0)
-                    writer.print(", ");
+                if (i > 0) {
+                    writer.print(",");
+		    writer.breakOp();
+		    writer.print(" ");
+		}
                 writer.printType(exceptions[i]);
             }
+	    writer.endOp();
         }
+	writer.endOp();
         if (code != null) {
 	    writer.openBrace();
             writer.tab();

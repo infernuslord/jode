@@ -86,7 +86,8 @@ public class CompareBinaryOperator extends Operator {
 
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	subExpressions[0].dumpExpression(writer, getPriority());
+	subExpressions[0].dumpExpression(writer, getPriority()+1);
+	writer.breakOp();
 	writer.print(getOperatorString());
 	subExpressions[1].dumpExpression(writer, getPriority()+1);
     }
