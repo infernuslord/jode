@@ -5,7 +5,8 @@ SUBDIRS = util bytecode type jvm expr flow decompiler obfuscator @SWINGUI@
 JAR = @JAR@
 JAVAC = @JAVAC@
 JAVADEP = $(top_builddir)/javaDependencies.pl -subdir=$(subdir)\
-   -dependdir=$(top_builddir) -classpath=$(top_builddir):$(top_srcdir)
+   -dependdir=$(top_builddir) -classpath=$(top_builddir):$(top_srcdir) \
+   -depfile=Makefile.dep
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
 SUBSTCP = @SUBSTCP@
@@ -25,13 +26,13 @@ EXTRA_DIST = $(MY_JAVA_FILES)
 JARFILE = jode-@VERSION@.jar
 #data_DATA = $(JARFILE)
 
-@QUOTE@-include $(MY_JAVA_FILES:.java=.dep)
+@QUOTE@-include Makefile.dep
 
 %.class: %.java
 	$(JAVAC) -classpath `$(SUBSTCP) $(BUILD_CLASSPATH):$(CLASSLIB)` -d $(top_builddir) $<
 
-%.dep: %.class
-	$(JAVADEP) $< >$@
+Makefile.dep: $(MY_JAVA_FILES:.java=.class)
+	$(JAVADEP) $^
 
 clean-local:
 	@rm -f *.class
