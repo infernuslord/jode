@@ -28,6 +28,7 @@ import jode.bytecode.Instruction;
 import jode.bytecode.MethodInfo;
 import jode.bytecode.Opcodes;
 import jode.bytecode.Reference;
+import jode.bytecode.TypeSignature;
 import jode.type.Type;
 import jode.type.MethodType;
 
@@ -49,6 +50,8 @@ public class SyntheticAnalyzer implements Opcodes {
     public final static int ACCESSCONSTRUCTOR = 8;
     
     int kind = UNKNOWN;
+
+    int unifyParam;
     Reference reference;
     ClassInfo classInfo;
     MethodInfo method;
@@ -76,6 +79,14 @@ public class SyntheticAnalyzer implements Opcodes {
 
     public Reference getReference() {
 	return reference;
+    }
+
+    /**
+     * Gets the index of the dummy parameter for an ACCESSCONSTRUCTOR.
+     * Normally the 1 but for inner classes it may be 2.
+     */
+    public int getUnifyParam() {
+	return unifyParam;
     }
 
     private static final int[] getClassOpcodes = {
@@ -376,10 +387,11 @@ public class SyntheticAnalyzer implements Opcodes {
 
     public boolean checkConstructorAccess() {
 	BasicBlocks bb = method.getBasicBlocks();
+	String[] paramTypes
+	    = TypeSignature.getParameterTypes(method.getType());
 	Handler[] excHandlers = bb.getExceptionHandlers();
 	if (excHandlers != null && excHandlers.length != 0)
 	    return false;
-	Block[] blocks = bb.getBlocks();
 	Block startBlock = bb.getStartBlock();
 	if (startBlock == null)
 	    return false;
@@ -389,25 +401,35 @@ public class SyntheticAnalyzer implements Opcodes {
 	Iterator iter = startBlock.getInstructions().iterator();
 	if (!iter.hasNext())
 	    return false;
-	Instruction instr = (Instruction) iter.next();
-	if (instr.getOpcode() != opc_aload || instr.getLocalSlot() != 0)
-	    return false;
-	if (!iter.hasNext())
-	    return false;
-	instr = (Instruction) iter.next();
 
-	// slot begins with 2.  Slot 1 contains a dummy value, that
-	// is used so that the constructor has a different type signature.
-	int params = 0, slot = 2;
+	unifyParam = -1;
+	Instruction instr = (Instruction) iter.next();
+	int params = 0, slot = 0;
 	while (instr.getOpcode() >= opc_iload
-	       && instr.getOpcode() <= opc_aload
-	       && instr.getLocalSlot() == slot) {
+	       && instr.getOpcode() <= opc_aload) {
+	    if (instr.getLocalSlot() > slot
+		&& unifyParam == -1 && params > 0
+		&& paramTypes[params-1].charAt(0) == 'L') {
+		unifyParam = params;
+		params++;
+		slot++;
+	    }
+	    if (instr.getLocalSlot() != slot)
+		return false;
+
 	    params++;
 	    slot += (instr.getOpcode() == opc_lload 
 		     || instr.getOpcode() == opc_dload) ? 2 : 1;
 	    if (!iter.hasNext())
 		return false;
 	    instr = (Instruction) iter.next();
+	}
+	if (unifyParam == -1
+	    && params > 0 && params <= paramTypes.length
+	    && paramTypes[params-1].charAt(0) == 'L') {
+	    unifyParam = params;
+	    params++;
+	    slot++;
 	}
 	if (instr.getOpcode() == opc_invokespecial) {
 	    Reference ref = instr.getReference();
@@ -420,11 +442,15 @@ public class SyntheticAnalyzer implements Opcodes {
 	    MethodType refType = Type.tMethod(ref.getType());
 	    if ((refMethod.getModifiers() & modifierMask) != Modifier.PRIVATE
 		|| !refMethod.getName().equals("<init>")
-		|| refType.getParameterTypes().length != params)
-		return false;
+		|| unifyParam == -1
+		|| refType.getParameterTypes().length != params - 2)
+		return false;	    
 	    if (iter.hasNext())
 		return false;
-	    /* For valid bytecode the types matches automatically */
+	    /* We don't check if types matches.  No problem since we only
+	     * need to make sure, this constructor doesn't do anything 
+	     * more than relay to the real one.
+	     */
 	    reference = ref;
 	    kind = ACCESSCONSTRUCTOR;
 	    return true;
