@@ -277,6 +277,13 @@ public abstract class StructuredBlock {
         }
     }
 
+    public void makeDeclaration() {
+        StructuredBlock[] subs = getSubBlocks();
+        for (int i=0; i<subs.length; i++) {
+	    subs[i].makeDeclaration();
+	}
+    }
+
     public void checkConsistent() {
         StructuredBlock[] subs = getSubBlocks();
         for (int i=0; i<subs.length; i++) {
@@ -329,7 +336,7 @@ public abstract class StructuredBlock {
             subs[i].fillSuccessors(succs);
         }
     }
-    
+
     /**
      * Print the source code for this structured block.  This handles
      * everything that is unique for all structured blocks and calls
@@ -339,7 +346,7 @@ public abstract class StructuredBlock {
     public void dumpSource(jode.TabbedPrintWriter writer)
         throws java.io.IOException
     {
-//         if (!defineHere.isEmpty())
+        if (!defineHere.isEmpty() || jode.Decompiler.isDebugging)
             writer.println("defining: "+defineHere);
         /* XXX declare variables needed in this block */
         dumpInstruction(writer);
