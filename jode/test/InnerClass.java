@@ -23,12 +23,22 @@ public class InnerClass
 {
     private int x;
 
+    class Parent
+    {
+	int a = 1;
+	protected int x;
+
+	void ambiguous() {
+	    System.err.println("Parent");
+	}
+    }
+
     class Inner 
     {
         int a = 4;
         private int b = x;
 
-        class InnerInner 
+        class InnerInner extends Parent
 	{
 
             public int getB() {
@@ -41,10 +51,19 @@ public class InnerClass
             }
 
             public InnerInner(int c) {
-                x = c;
-                a = b;
+                this.x = c;
+		InnerClass.this.x = b;
+                this.a = b;
+		Inner.this.a = c;
+		this.ambiguous();
+		Inner.this.ambiguous();
+		InnerClass.this.ambiguous();
             }
         }
+
+	void ambiguous() {
+	    System.err.println("Inner");
+	}
 
         private int getB() {
             return b;
@@ -61,7 +80,13 @@ public class InnerClass
 
         Extended(Inner inner) {
             inner.super(3);
+	    this.ambiguous();
+	    InnerClass.this.ambiguous();
         }
+    }
+
+    void ambiguous() {
+	System.err.println("InnerClass");
     }
 
     private static Inner createInner(InnerClass outer) {
