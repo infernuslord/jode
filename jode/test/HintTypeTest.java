@@ -36,7 +36,7 @@ public class HintTypeTest {
 
     public void charLocal() {
 	String s= "Hallo";
-	for (int i=0; i< s.length(); i++) {
+	for (byte i=0; i< s.length(); i++) {
 	    char c = s.charAt(i);
 	    if (c == 'H')
 		// The widening to int doesn't occur in byte code, but
