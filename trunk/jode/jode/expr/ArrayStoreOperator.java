@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
-import jode.ArrayType;
+import jode.type.Type;
+import jode.type.ArrayType;
+import jode.decompiler.TabbedPrintWriter;
 
 public class ArrayStoreOperator extends StoreInstruction {
     Type indexType;
@@ -42,13 +43,6 @@ public class ArrayStoreOperator extends StoreInstruction {
         return 2;
     }
 
-    public int getLValueOperandPriority(int i) {
-        if (i == 0)
-            return 950;
-        else
-            return 0;
-    }
-
     public Type getLValueOperandType(int i) {
         if (i == 0)
             return Type.tArray(lvalueType);
@@ -65,7 +59,12 @@ public class ArrayStoreOperator extends StoreInstruction {
             lvalueType = ((ArrayType)arrayType).getElementType();
     }
 
-    public String getLValueString(String[] operands) {
-        return operands[0]+"["+operands[1]+"]";
+    public void dumpLValue(TabbedPrintWriter writer,
+			   Expression[] operands) 
+	throws java.io.IOException {
+	operands[0].dumpExpression(writer, 950);
+	writer.print("[");
+	operands[1].dumpExpression(writer, 0);
+	writer.print("]");
     }
 }
