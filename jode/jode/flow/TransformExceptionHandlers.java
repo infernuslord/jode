@@ -181,7 +181,7 @@ public class TransformExceptionHandlers {
 	    && ((SpecialBlock) firstInstr).type == SpecialBlock.POP
 	    && ((SpecialBlock) firstInstr).count == 1) {
 	    /* The exception is ignored.  Create a dummy local for it */
-	    local = new LocalInfo(-1);
+	    local = new LocalInfo();
 	    local.setName("exception");
 	    firstInstr.removeBlock();
 
@@ -196,7 +196,7 @@ public class TransformExceptionHandlers {
         }
 
         if (local == null) {
-            local = new LocalInfo(-1);
+            local = new LocalInfo();
             local.setName("ERROR!!!");
         }
         local.setType(type);
