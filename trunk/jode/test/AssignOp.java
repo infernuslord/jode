@@ -22,13 +22,19 @@ public class AssignOp {
     void assop() {
 	short local_short = 0;
         int local_int = 0;
+        long local_long = 0;
         double local_double = 1.0;
         String local_String = null;
 
         local_short -= 25 * local_int;
-	static_short /= 5;
-	obj_short += 100 - local_int;
+	static_short += 100 - local_int;
+	obj_short /= 0.1;
 	arr_short[local_int] >>= 25;
+
+	local_long -= 15L;
+	static_long <<= local_int;
+	obj_long >>>= 3;
+	arr_long[4+local_int] *= obj_long - static_long;
 
         local_int |= 25 | local_int;
         static_int <<= 3;
