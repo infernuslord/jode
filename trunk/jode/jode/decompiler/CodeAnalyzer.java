@@ -235,11 +235,13 @@ public class CodeAnalyzer implements Analyzer {
     }
 
     public LocalInfo getLocalInfo(int addr, int slot) {
-        LocalInfo li = (lvt != null)
-            ? lvt.getLocal(slot).getInfo(addr)
-            : new LocalInfo(slot);
-        if (!allLocals.contains(li))
-            allLocals.addElement(li);
+        LocalInfo li = new LocalInfo(slot);
+	if (lvt != null) {
+	    LocalVarEntry entry = lvt.getLocal(slot, addr);
+	    if (entry != null)
+		li.addHint(entry);
+	}
+	allLocals.addElement(li);
         return li;
     }
 
