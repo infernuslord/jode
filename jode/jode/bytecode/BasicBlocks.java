@@ -161,15 +161,12 @@ public class BasicBlocks extends BinaryInfo {
         maxLocals = ml;
     }
 
-    public void setBlocks(Block[] blocks, Block startBlock) {
+    public void setBlocks(Block[] blocks, Block startBlock, 
+			  Handler[] handlers) {
 	for (int i = 0; i < blocks.length; i++)
 	    blocks[i].blockNr = i;
 	this.blocks = blocks;
 	this.startBlock = startBlock;
-	this.exceptionHandlers = null;
-    }
-
-    public void setExceptionHandlers(Handler[] handlers) {
 	exceptionHandlers = handlers.length == 0 ? Handler.EMPTY : handlers;
 	ArrayList activeHandlers = new ArrayList();
 	for (int i = 0; i < blocks.length; i++) {
@@ -185,6 +182,7 @@ public class BasicBlocks extends BinaryInfo {
 		blocks[i].catchers = 
 		    (Handler[]) activeHandlers.toArray(Handler.EMPTY);
 	}
+//  	TransformSubroutine.createSubroutineInfo(this);
     }
 
     /**

@@ -114,7 +114,7 @@ public class Instruction implements Opcodes{
      * @exception IllegalArgumentException if opcode is not opc_ldc or
      * opc_ldc2_w.
      */
-    public Instruction forOpcode(int opcode, Object constant) {
+    public static Instruction forOpcode(int opcode, Object constant) {
 	if (opcode == opc_ldc || opcode == opc_ldc2_w)
 	    return new ConstantInstruction(opcode, constant);
 	throw new IllegalArgumentException("Instruction has no constant");

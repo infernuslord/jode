@@ -1,4 +1,4 @@
-/* BasicBlockReader Copyright (C) 1999-20000 Jochen Hoenicke.
+/* BasicBlockReader Copyright (C) 1999-2000 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -205,7 +205,7 @@ class BasicBlockReader implements Opcodes {
     }
 
 
-    private void convertHandlers() {
+    private Handler[] convertHandlers() {
 	int newCount = 0;
 	for (int i=0; i < handlers.length; i++) {
 	    if ((infos[handlers[i].catcher].flags & IS_REACHABLE) != 0)
@@ -232,7 +232,7 @@ class BasicBlockReader implements Opcodes {
 		     handlers[i].type);
 	    }
 	}
-	bb.setExceptionHandlers(newHandlers);
+	return newHandlers;
     }
 
     private void convertBlock(int firstAddr, int count) {
@@ -297,8 +297,7 @@ class BasicBlockReader implements Opcodes {
 	}
 	if (start != -1)
 	    convertBlock(start, count);
-	bb.setBlocks(blocks, getSuccBlock(0));
-	convertHandlers();
+	bb.setBlocks(blocks, getSuccBlock(0), convertHandlers());
     }
 
     public void readCode(ConstantPool cp, 
