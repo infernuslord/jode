@@ -560,9 +560,6 @@ public class ComplexExpression extends Expression {
 			    .equals("class$" + clazz.replace('.', '$'))
 			    || put.getFieldName()
 			    .equals("class$L" + clazz.replace('.', '$'))) {
-			    /* XXX analyzed is set too late, the field
-			     * is already printed.
-			     */
 			    put.getField().analyzedSynthetic();
 			    return new ClassFieldOperator(Type.tClass(clazz));
 			}
