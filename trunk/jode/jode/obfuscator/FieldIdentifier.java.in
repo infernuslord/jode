@@ -60,6 +60,11 @@ public class FieldIdentifier extends Identifier{
 	Main.getClassBundle().analyzeIdentifier(this);
     }
     
+    public void setSinglePreserved() {
+	super.setSinglePreserved();
+	setNotConstant();
+    }
+    
     public void analyze() {
 	String type = getType();
 	int index = type.indexOf('L');
@@ -91,6 +96,10 @@ public class FieldIdentifier extends Identifier{
 	return type;
     }
     
+    public int getModifiers() {
+	return info.getModifiers();
+    }
+
     public Iterator getChilds() {
 	return Collections.EMPTY_LIST.iterator();
     }

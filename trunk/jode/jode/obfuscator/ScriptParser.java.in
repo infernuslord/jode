@@ -204,7 +204,8 @@ public class ScriptParser {
 	    throw new ParseException(linenr, "Class name expected");
 	Object instance;
 	try {
-	    Class clazz = Class.forName("jode.obfuscator."+scanner.getValue());
+	    Class clazz = Class.forName("jode.obfuscator.modules."
+					+scanner.getValue());
 	    instance = clazz.newInstance();
 	} catch (ClassNotFoundException ex) {
 	    throw new ParseException(scanner.getLineNr(), 
