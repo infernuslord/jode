@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class BinaryOperator extends SimpleOperator {
 
@@ -68,7 +69,11 @@ public class BinaryOperator extends SimpleOperator {
 	    ((BinaryOperator)o).operator == operator;
     }
 
-    public String toString(String[] operands) {
-        return operands[0] + getOperatorString() + operands[1];
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	operands[0].dumpExpression(writer, getPriority());
+	writer.print(getOperatorString());
+	operands[1].dumpExpression(writer, getPriority()+1);
     }
 }
