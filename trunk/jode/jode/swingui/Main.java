@@ -1,4 +1,4 @@
-/* MainWindow Copyright (C) 1999 Jochen Hoenicke.
+/* Main Copyright (C) 1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 
-public class MainWindow 
+public class Main 
     implements ActionListener, Runnable, TreeSelectionListener {
     JFrame frame;
     JTree classTree;
@@ -44,7 +44,7 @@ public class MainWindow
     Thread decompileThread;
     String currentClassPath, lastClassName;
 
-    public MainWindow(String classpath) {
+    public Main(String classpath) {
 	setClasspath(classpath);
 	frame = new JFrame(GlobalOptions.copyright);
 	fillContentPane(frame.getContentPane());
@@ -276,7 +276,7 @@ public class MainWindow
 		return;
 	}
 	GlobalOptions.verboseLevel = 1;
-	MainWindow win = new MainWindow(cp);
+	Main win = new Main(cp);
 	win.show();
     }
 }
