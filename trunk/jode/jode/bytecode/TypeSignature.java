@@ -80,6 +80,28 @@ public class TypeSignature {
     public static int getTypeSize(String typeSig) {
 	return usingTwoSlots(typeSig.charAt(0)) ? 2 : 1;
     }
+
+    public static String getElementType(String typeSig) {
+	if (typeSig.charAt(0) != '[')
+	    throw new IllegalArgumentException();
+	return typeSig.substring(1);
+    }
+
+    public static ClassInfo getClassInfo(String typeSig) {
+	if (typeSig.charAt(0) != 'L')
+	    throw new IllegalArgumentException();
+	return ClassInfo.forName
+	    (typeSig.substring(1, typeSig.length()-1).replace('/', '.'));
+    }
+
+    public static int skipType(String methodTypeSig, int position) {
+	char c = methodTypeSig.charAt(position++);
+	while (c == '[')
+	    c = methodTypeSig.charAt(position++);
+	if (c == 'L')
+	    return methodTypeSig.indexOf(';', position) + 1;
+	return position;
+    }
     
     /**
      * Returns the number of words, the arguments for the given method
@@ -89,18 +111,14 @@ public class TypeSignature {
 	int nargs = 0;
 	int i = 1;
 	for (;;) {
-	    char c = methodTypeSig.charAt(i++);
+	    char c = methodTypeSig.charAt(i);
 	    if (c == ')')
 		return nargs;
+	    i = skipType(methodTypeSig, i);
 	    if (usingTwoSlots(c))
 		nargs += 2;
-	    else {
-		while (c == '[')
-		    c = methodTypeSig.charAt(i++);
-		if (c == 'L')
-		    i = methodTypeSig.indexOf(';', i) + 1;
+	    else 
 		nargs++;
-	    }
 	}
     }
 
@@ -109,9 +127,44 @@ public class TypeSignature {
      * signature takes.  
      */
     public static int getReturnSize(String methodTypeSig) {
-	char returnType = methodTypeSig.charAt(methodTypeSig.indexOf(')')+1);
-	return returnType == 'V' ? 0 
-	    : usingTwoSlots(returnType) ? 2 : 1;
+	int length = methodTypeSig.length();
+	if (methodTypeSig.charAt(length - 2) == ')') {
+	    // This is a single character return type.
+	    char returnType = methodTypeSig.charAt(length - 1);
+	    return returnType == 'V' ? 0 
+		: usingTwoSlots(returnType) ? 2 : 1;
+	} else
+	    // All multi character return types take one parameter
+	    return 1;
+    }
+
+    /**
+     * Returns the number of words, an object of the given simple type
+     * signature takes.  
+     */
+    public static String[] getParameterTypes(String methodTypeSig) {
+	int pos = 1;
+	int count = 0;
+	while (methodTypeSig.charAt(pos) != ')') {
+	    pos = skipType(methodTypeSig, pos);
+	    count++;
+	}
+	String[] params = new String[count];
+	pos = 1;
+	for (int i = 0; i < count; i++) {
+	    int start = pos;
+	    pos = skipType(methodTypeSig, pos);
+	    params[i] = methodTypeSig.substring(start, pos);
+	}
+	return params;
+    }
+
+    /**
+     * Returns the number of words, an object of the given simple type
+     * signature takes.  
+     */
+    public static String getReturnType(String methodTypeSig) {
+	return methodTypeSig.substring(methodTypeSig.lastIndexOf(')')+1);
     }
 
     private static void checkClassName(String clName) 

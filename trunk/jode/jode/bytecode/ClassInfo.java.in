@@ -19,16 +19,13 @@
 
 package jode.bytecode;
 import jode.GlobalOptions;
+import jode.util.UnifyHash;
+
 import java.io.DataInputStream;
+import java.io.BufferedInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Enumeration;
-///#ifdef JDK12
-///import java.lang.ref.WeakReference;
-///import java.lang.ref.ReferenceQueue;
-///#endif
-import @COLLECTIONS@.Map;
-import @COLLECTIONS@.HashMap;
 import @COLLECTIONS@.Iterator;
 
 import java.lang.reflect.Constructor;
@@ -49,10 +46,12 @@ import java.lang.reflect.Modifier;
 public class ClassInfo extends BinaryInfo {
 
     private static SearchPath classpath;
-    private static final Map classes = new HashMap();
-///#ifdef JDK12
-///    private static final ReferenceQueue queue = new ReferenceQueue();
-///#endif
+    
+    private static final UnifyHash classes = new UnifyHash();
+//      private static final Map classes = new HashMap();
+//  ///#ifdef JDK12
+//  ///    private static final ReferenceQueue queue = new ReferenceQueue();
+//  ///#endif
 
     private int status = 0;
 
@@ -70,26 +69,12 @@ public class ClassInfo extends BinaryInfo {
     private String sourceFile;
 
     public final static ClassInfo javaLangObject = forName("java.lang.Object");
-    
+
     public static void setClassPath(String path) {
         classpath = new SearchPath(path);
-///#ifdef JDK12
-///	java.lang.ref.Reference died;
-///	while ((died = queue.poll()) != null) {
-///	    classes.values().remove(died);
-///	}
-///	Iterator i = classes.values().iterator();
-///	while (i.hasNext()) {
-///	    ClassInfo ci = (ClassInfo) ((WeakReference)i.next()).get();
-///	    if (ci == null) {
-///		i.remove();
-///		continue;
-///	    }
-///#else
-	Iterator i = classes.values().iterator();
+	Iterator i = classes.iterator();
 	while (i.hasNext()) {
 	    ClassInfo ci = (ClassInfo) i.next();
-///#endif
 	    ci.status = 0;
 	    ci.superclass = null;
 	    ci.fields = null;
@@ -124,7 +109,7 @@ public class ClassInfo extends BinaryInfo {
             }
         };
     }
-    
+
     public static ClassInfo forName(String name) {
 	if (name == null
 	    || name.indexOf(';') != -1
@@ -132,24 +117,15 @@ public class ClassInfo extends BinaryInfo {
 	    || name.indexOf('/') != -1)
 	    throw new IllegalArgumentException("Illegal class name: "+name);
 
-///#ifdef JDK12
-///	java.lang.ref.Reference died;
-///	while ((died = queue.poll()) != null) {
-///	    classes.values().remove(died);
-///	}
-///	WeakReference ref = (WeakReference) classes.get(name);
-///	ClassInfo clazz = (ref == null) ? null : (ClassInfo) ref.get();
-///#else
-	ClassInfo clazz = (ClassInfo) classes.get(name);
-///#endif
-        if (clazz == null) {
-            clazz = new ClassInfo(name);
-///#ifdef JDK12
-///            classes.put(name, new WeakReference(clazz, queue));
-///#else
-            classes.put(name, clazz);
-///#endif
-        }
+	int hash = name.hashCode();
+	Iterator iter = classes.iterateHashCode(hash);
+	while (iter.hasNext()) {
+	    ClassInfo clazz = (ClassInfo) iter.next();
+	    if (clazz.name.equals(name))
+		return clazz;
+	}
+	ClassInfo clazz = new ClassInfo(name);
+	classes.put(hash, clazz);
         return clazz;
     }
 
@@ -565,9 +541,9 @@ public class ClassInfo extends BinaryInfo {
 	    return;
 	}
         try {
-            DataInputStream input = 
-                new DataInputStream(classpath.getFile(name.replace('.', '/')
-                                                      + ".class"));
+            DataInputStream input = new DataInputStream
+		(new BufferedInputStream
+		 (classpath.getFile(name.replace('.', '/') + ".class")));
 	    read(input, howMuch);            
 
         } catch (IOException ex) {
@@ -602,6 +578,7 @@ public class ClassInfo extends BinaryInfo {
 		("Can't read class " + name + ", types may be incorrect. ("
 		 + ex.getClass().getName()
 		 + (message != null ? ": " + message : "") + ")");
+	    ex.printStackTrace(GlobalOptions.err);
 	    
 	    if ((howMuch & HIERARCHY) != 0) {
 		modifiers = Modifier.PUBLIC;
