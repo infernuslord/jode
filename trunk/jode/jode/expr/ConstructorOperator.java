@@ -34,6 +34,10 @@ public class ConstructorOperator extends Operator
         this.methodType = methodType;
     }
 
+    public MethodType getMethodType() {
+        return methodType;
+    }
+
     /**
      * Checks if the value of the given expression can change, due to
      * side effects in this expression.  If this returns false, the 
