@@ -128,22 +128,6 @@ public class ConstantPool {
         };
     }
 
-    public Type getConstantType(int i) throws ClassFormatException
-    {
-        if (i == 0)
-            throw new ClassFormatException("null constant");
-        switch(tags[i]) {
-        case INTEGER: return Type.tInt;
-        case FLOAT  : return Type.tFloat ;
-        case LONG   : return Type.tLong  ;
-        case DOUBLE : return Type.tDouble;
-        case STRING : return Type.tString;
-        default:
-            throw new ClassFormatException
-                ("invalid constant tag: " + tags[i]);
-        }
-    }
-
     public Object getConstant(int i) throws ClassFormatException {
         if (i == 0)
             throw new ClassFormatException("null constant");
@@ -153,27 +137,6 @@ public class ConstantPool {
         case ConstantPool.LONG:
         case ConstantPool.DOUBLE:
             return constants[i];
-        case ConstantPool.STRING: 
-            return getUTF8(indices1[i]);
-        }
-        throw new ClassFormatException("unknown constant tag: "+tags[i]);
-    }
-
-    public int getConstantInt(int i) throws ClassFormatException {
-	if (i == 0 || tags[i] != ConstantPool.INTEGER)
-            throw new ClassFormatException("not an integer "+tags[i]);
-	return ((Integer)constants[i]).intValue();
-    }
-
-    public String getConstantString(int i) throws ClassFormatException {
-        if (i == 0)
-            throw new ClassFormatException("null constant");
-        switch (tags[i]) {
-        case ConstantPool.INTEGER: 
-        case ConstantPool.FLOAT:
-        case ConstantPool.LONG:
-        case ConstantPool.DOUBLE:
-            return constants[i].toString();
         case ConstantPool.STRING: 
             return getUTF8(indices1[i]);
         }
