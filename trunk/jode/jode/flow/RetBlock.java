@@ -1,4 +1,4 @@
-/* RetBlock Copyright (C) 1997-1998 Jochen Hoenicke.
+/* RetBlock Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *
  * $Id$
  */
+
 package jode.flow;
 import jode.decompiler.LocalInfo;
 
