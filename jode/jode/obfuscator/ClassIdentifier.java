@@ -21,9 +21,22 @@ package jode.obfuscator;
 import jode.GlobalOptions;
 import jode.Obfuscator;
 import jode.bytecode.*;
+
+///#ifdef JDK12
+///import java.util.Collections;
+///import java.util.Arrays;
+///#else
+import jode.util.Collections;
+import jode.util.Arrays;
+///#endif
+
 import java.lang.reflect.Modifier;
-import java.util.*;
-import java.io.*;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Random;
+import java.util.Hashtable;
+import java.util.Vector;
+import java.util.Enumeration;
 
 public class ClassIdentifier extends Identifier {
     ClassBundle bundle;
@@ -250,27 +263,8 @@ public class ClassIdentifier extends Identifier {
 	MethodInfo[] minfos  = info.getMethods();
 	if (Obfuscator.swapOrder) {
 	    Random rand = new Random();
-///#ifdef JDK12
-///	    Collections.shuffle(Arrays.asList(finfos), rand);
-///	    Collections.shuffle(Arrays.asList(minfos), rand);
-///#else
-	    for (int i=1; i < finfos.length; i++) {
-		int j = (Math.abs(rand.nextInt()) % (i+1)); 
-		if (j != i) {
-		    FieldInfo tmp = finfos[i];
-		    finfos[i] = finfos[j];
-		    finfos[j] = tmp;
-		}
-	    }
-	    for (int i=1; i < minfos.length; i++) {
-		int j = (Math.abs(rand.nextInt()) % (i+1)); 
-		if (j != i) {
-		    MethodInfo tmp = minfos[i];
-		    minfos[i] = minfos[j];
-		    minfos[j] = tmp;
-		}
-	    }
-///#endif
+	    Collections.shuffle(Arrays.asList(finfos), rand);
+	    Collections.shuffle(Arrays.asList(minfos), rand);
 	}
 	fieldCount = finfos.length;
 	identifiers = new Identifier[finfos.length + minfos.length];
