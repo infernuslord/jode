@@ -40,47 +40,12 @@ public class ClassAnalyzer implements Analyzer, Scope {
     FieldAnalyzer[] fields;
     MethodAnalyzer[] methods;
     ClassAnalyzer[] inners;
+    int modifiers;
 
     MethodAnalyzer staticConstructor;
     MethodAnalyzer[] constructors;
 
 
-    public boolean isScopeOf(Object obj, int scopeType) {
-	if (clazz.equals(obj) && scopeType == CLASSSCOPE)
-	    return true;
-	return false;
-    }
-
-    public boolean conflicts(String name, int usageType) {
-	ClassInfo info = clazz;
-	while (info != null) {
-	    if (usageType == METHODNAME) {
-		MethodInfo[] minfos = info.getMethods();
-		for (int i = 0; i< minfos.length; i++)
-		    if (minfos[i].getName().equals(name))
-			return true;
-	    }
-	    if (usageType == FIELDNAME || usageType == AMBIGUOUSNAME) {
-		FieldInfo[] finfos = info.getFields();
-		for (int i=0; i < finfos.length; i++) {
-		    if (finfos[i].getName().equals(name))
-			return true;
-		}
-	    }
-	    if (usageType == CLASSNAME || usageType == AMBIGUOUSNAME) {
-		InnerClassInfo[] iinfos = info.getInnerClasses();
-		if (iinfos != null) {
-		    for (int i=0; i < iinfos.length; i++) {
-			if (iinfos[i].name.equals(name))
-			    return true;
-		    }
-		}
-	    }
-	    info = info.getSuperclass();
-	}
-	return false;
-    }
-        
     public ClassAnalyzer(Object parent,
 			 ClassInfo clazz, ImportHandler imports)
     {
@@ -88,6 +53,7 @@ public class ClassAnalyzer implements Analyzer, Scope {
         this.parent = parent;
         this.clazz = clazz;
         this.imports = imports;
+	modifiers = clazz.getModifiers();
 	name = clazz.getName();
 
 	if (parent != null) {
@@ -107,6 +73,7 @@ public class ClassAnalyzer implements Analyzer, Scope {
 			 + clazz.getName());
 	    }
 	    name = outerInfos[0].name;
+	    modifiers = outerInfos[0].modifiers;
 	} else {
 	    name = clazz.getName();
 	    int dot = name.lastIndexOf('.');
@@ -118,6 +85,10 @@ public class ClassAnalyzer implements Analyzer, Scope {
     public ClassAnalyzer(ClassInfo clazz, ImportHandler imports)
     {
 	this(null, clazz, imports);
+    }
+
+    public final boolean isStatic() {
+        return Modifier.isStatic(modifiers);
     }
 
     public FieldAnalyzer getField(String fieldName, Type fieldType) {
@@ -136,8 +107,7 @@ public class ClassAnalyzer implements Analyzer, Scope {
 		&& methods[i].getType().equals(methodType))
 		return methods[i];
         }
-	throw new NoSuchElementException
-	    ("Method "+methodType+" "+clazz.getName()+"."+methodName);
+	return null;
     }
     
     public Object getParent() {
@@ -243,7 +213,7 @@ public class ClassAnalyzer implements Analyzer, Scope {
             return;
         }
 	writer.pushScope(this);
-	int modifiedModifiers = clazz.getModifiers() & ~Modifier.SYNCHRONIZED;
+	int modifiedModifiers = modifiers & ~Modifier.SYNCHRONIZED;
 	if (clazz.isInterface())
 	    modifiedModifiers &= ~Modifier.ABSTRACT;
         String modif = Modifier.toString(modifiedModifiers);
@@ -259,18 +229,21 @@ public class ClassAnalyzer implements Analyzer, Scope {
 	    if (interfaces.length == 1
 		&& (superClazz == null
 		    || superClazz == ClassInfo.javaLangObject)) {
-		writer.print(writer.getClassString(interfaces[0]));
+		writer.print(writer.getClassString(interfaces[0], 
+						   Scope.CLASSNAME));
 	    } else {
 		if (interfaces.length > 0) {
 		    writer.print("/*too many supers*/ ");
 		    for (int i=0; i< interfaces.length; i++)
-			writer.print(writer.getClassString(interfaces[i])+",");
+			writer.print(writer.getClassString
+				     (interfaces[i], Scope.CLASSNAME) + ",");
 		}
 		if (superClazz == null)
 		    writer.print(writer.getClassString
-				 (ClassInfo.javaLangObject));
+				 (ClassInfo.javaLangObject, Scope.CLASSNAME));
 		else
-		    writer.print(writer.getClassString(superClazz));
+		    writer.print(writer.getClassString
+				 (superClazz, Scope.CLASSNAME));
 	    }
 	} else {
 	    writer.println(name);
@@ -278,7 +251,8 @@ public class ClassAnalyzer implements Analyzer, Scope {
 	    ClassInfo superClazz = clazz.getSuperclass();
 	    if (superClazz != null && 
 		superClazz != ClassInfo.javaLangObject) {
-		writer.println("extends "+writer.getClassString(superClazz));
+		writer.println("extends " + (writer.getClassString
+					     (superClazz, Scope.CLASSNAME)));
 	    }
 	    ClassInfo[] interfaces = clazz.getInterfaces();
 	    if (interfaces.length > 0) {
@@ -286,7 +260,8 @@ public class ClassAnalyzer implements Analyzer, Scope {
 		for (int i=0; i < interfaces.length; i++) {
 		    if (i > 0)
 			writer.print(", ");
-		    writer.print(writer.getClassString(interfaces[i]));
+		    writer.print(writer.getClassString
+				 (interfaces[i], Scope.CLASSNAME));
 		}
 		writer.println("");
 	    }
@@ -312,11 +287,49 @@ public class ClassAnalyzer implements Analyzer, Scope {
 	writer.popScope();
     }
 
-    public String getTypeString(Type type) {
-        return type.toString();
+    public void dumpJavaFile(TabbedPrintWriter writer) 
+	throws java.io.IOException {
+	imports.init(clazz.getName());
+	LocalInfo.init();
+	analyze();
+	
+	imports.dumpHeader(writer);
+	dumpSource(writer);
     }
 
-    public String getTypeString(Type type, String name) {
-        return type.toString() + " " + name;
+    public boolean isScopeOf(Object obj, int scopeType) {
+	if (clazz.equals(obj) && scopeType == CLASSSCOPE)
+	    return true;
+	return false;
+    }
+
+    public boolean conflicts(String name, int usageType) {
+	ClassInfo info = clazz;
+	while (info != null) {
+	    if (usageType == METHODNAME) {
+		MethodInfo[] minfos = info.getMethods();
+		for (int i = 0; i< minfos.length; i++)
+		    if (minfos[i].getName().equals(name))
+			return true;
+	    }
+	    if (usageType == FIELDNAME || usageType == AMBIGUOUSNAME) {
+		FieldInfo[] finfos = info.getFields();
+		for (int i=0; i < finfos.length; i++) {
+		    if (finfos[i].getName().equals(name))
+			return true;
+		}
+	    }
+	    if (usageType == CLASSNAME || usageType == AMBIGUOUSNAME) {
+		InnerClassInfo[] iinfos = info.getInnerClasses();
+		if (iinfos != null) {
+		    for (int i=0; i < iinfos.length; i++) {
+			if (iinfos[i].name.equals(name))
+			    return true;
+		    }
+		}
+	    }
+	    info = info.getSuperclass();
+	}
+	return false;
     }
 }
