@@ -50,8 +50,7 @@ public class CreateAssignExpression {
          *   rightHandSide
          *   store(stack) *= (stack)
          *
-         * If the optional dup is present the store*= becomes non void.
-         */
+         * If the optional dup is present the store*= becomes non void.  */
         SequentialBlock opBlock = (SequentialBlock) last.outer;
         StoreInstruction store = (StoreInstruction) ic.getInstruction();
 
@@ -73,23 +72,22 @@ public class CreateAssignExpression {
         InstructionBlock ib = (InstructionBlock) opBlock.subBlocks[0];
         
         if (!(opBlock.outer instanceof SequentialBlock)
-            || !(opBlock.outer.getSubBlocks()[0] instanceof SpecialBlock))
+            || !(opBlock.outer.getSubBlocks()[0] instanceof SpecialBlock)
+	    || !(ib.getInstruction() instanceof ComplexExpression))
             return false;
 
         SequentialBlock sequBlock = (SequentialBlock) opBlock.outer;
+        ComplexExpression expr = (ComplexExpression) ib.getInstruction();
         SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
-        if (dup.type != SpecialBlock.DUP
+
+	if (dup.type != SpecialBlock.DUP
             || dup.depth != 0
             || dup.count != store.getLValueOperandCount())
             return false;
 
-        if (!(ib.getInstruction() instanceof ComplexExpression))
-            return false;
-        ComplexExpression expr = (ComplexExpression) ib.getInstruction();
-
         int opIndex;
         Expression rightHandSide;
-        
+
         if (expr.getOperator() instanceof ConvertOperator
             && expr.getSubExpressions()[0] instanceof ComplexExpression
             && expr.getOperator().getType().isOfType(store.getLValueType())) {
@@ -108,6 +106,12 @@ public class CreateAssignExpression {
             
             rightHandSide = expr.getSubExpressions()[1];
         } else {
+	    /* For String += the situation is more complex.
+	     * what is marked as load(stack) * rightHandSide above is
+	     * really (after simplification):
+	     *
+	     *   PUSH ((load(stack) + right) + Hand) + Side
+	     */
             Expression simple = expr.simplifyString();
             rightHandSide = simple;
             /* Now search for the leftmost operand ... */
@@ -125,13 +129,16 @@ public class CreateAssignExpression {
             
             /* ... and remove it. */
             if (lastExpr.getParent() != null) {
-                ((ComplexExpression)lastExpr.getParent())
-                    .setSubExpressions(0,lastExpr.getSubExpressions()[1]);
+		ComplexExpression ce = (ComplexExpression)lastExpr.getParent();
+		StringAddOperator addOp = (StringAddOperator) ce.getOperator();
+		addOp.clearFirstType();
+		ce.setSubExpressions(0,lastExpr.getSubExpressions()[1]);
             } else
                 rightHandSide = lastExpr.getSubExpressions()[1]; 
 
             opIndex = Operator.ADD_OP;
         }
+
         dup.removeBlock();
         ib.setInstruction(rightHandSide);
         
