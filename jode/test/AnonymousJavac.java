@@ -41,14 +41,7 @@ public class AnonymousJavac {
 		    System.err.println("construct: "+info);
 		}
 
-//  		Hello(int i) {
-//  		    this("If you find a compiler that can compile this,"
-//  			 +" please comment this out and tell me if "
-//  			 +"decompilation works.\n"
-//  			 +"jikes 0.47, javac 1.2 are both broken!");
-//  		}
-
-		public void hello() {
+		private void hello() {
 		    this.hashCode();
 		    Inner.this.hashCode();
 		    Inner.this.var = var;
@@ -84,11 +77,6 @@ public class AnonymousJavac {
 		    return o.toString();
 		}
 	    };
-//  	    Hello blah = new Hello("Hello World") {
-//  		public void hello() {
-//  		    System.err.println("overwritten");
-//  		}
-//  	    };
 
 	    Inner blub1 = new Inner("Inner param") {
 		Hello hii = hi;
@@ -163,11 +151,6 @@ public class AnonymousJavac {
 		    return o.toString();
 		}
 	    };
-//  	    Hello blah = new Hello("Hello World") {
-//  		public void hello() {
-//  		    System.err.println("overwritten");
-//  		}
-//  	    };
 
 	    Inner blub1 = new Inner("Inner param") {
 		public void test() {
