@@ -32,6 +32,7 @@ public class FieldAnalyzer implements Analyzer {
     String fieldName;
     Expression constant;
     boolean isSynthetic;
+    boolean isDeprecated;
     boolean analyzedSynthetic = false;
     
     public FieldAnalyzer(ClassAnalyzer cla, FieldInfo fd, 
@@ -45,6 +46,7 @@ public class FieldAnalyzer implements Analyzer {
         fieldName = fd.getName();
         constant = null;
 	this.isSynthetic = fd.isSynthetic();
+	this.isDeprecated = fd.isDeprecated();
         if (fd.getConstant() != null) {
 	    constant = new ConstOperator(fd.getConstant());
 	    constant.setType(type);
@@ -78,6 +80,8 @@ public class FieldAnalyzer implements Analyzer {
 
     public void analyze() {
         imports.useType(type);
+	if (constant != null)
+	    constant = constant.simplify();
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -85,6 +89,11 @@ public class FieldAnalyzer implements Analyzer {
     {
 	if (analyzedSynthetic)
 	    return; /*XXX*/
+	if (isDeprecated) {
+	    writer.println("/**");
+	    writer.println(" * @deprecated");
+	    writer.println(" */");
+	}
 	if (isSynthetic)
 	    writer.print("/*synthetic*/ ");
 	String modif = Modifier.toString(modifiers);
@@ -94,8 +103,10 @@ public class FieldAnalyzer implements Analyzer {
 	writer.printType(type);
         writer.print(" " + fieldName);
         if (constant != null) {
-            writer.print(" = " + constant.simplify().toString());
+            writer.print(" = ");
+	    constant.dumpExpression(writer);
         }
         writer.println(";");
     }
 }
+
