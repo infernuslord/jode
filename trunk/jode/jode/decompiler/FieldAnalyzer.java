@@ -107,6 +107,8 @@ public class FieldAnalyzer implements Analyzer {
     {
 	if (analyzedSynthetic)
 	    return; /*XXX*/
+	if (isSynthetic)
+	    writer.print("/*synthetic*/ ");
 	String modif = Modifier.toString(modifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
