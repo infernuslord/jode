@@ -20,6 +20,8 @@
 package jode.decompiler;
 
 public interface Analyzer {
+    
     public void analyze();
+    public void makeDeclaration();
     public void dumpSource(TabbedPrintWriter writer) throws java.io.IOException;
 }
