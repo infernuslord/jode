@@ -175,11 +175,11 @@ public class Type {
 	}
     }
 
-    private static String getSignature(Class clazz) {
+    public static String getSignature(Class clazz) {
 	return appendSignature(new StringBuffer(), clazz).toString();
     }
 
-    private static String getSignature(Class paramT[], Class returnT) {
+    public static String getSignature(Class paramT[], Class returnT) {
 	StringBuffer sig = new StringBuffer("(");
 	for (int i=0; i< paramT.length; i++)
 	    appendSignature(sig, paramT[i]);
