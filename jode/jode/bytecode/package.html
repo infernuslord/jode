@@ -68,7 +68,7 @@ You can also use this package to create and write new classes:
  ...
  ClassPath path = new ClassPath("/usr/lib/java/lib/classes.zip");
  ClassInfo clazz = path.getClassInfo("my.new.Class");
- clazz.setModifiers(Modifiers.PUBLIC);
+ clazz.setModifiers(Modifier.PUBLIC);
  clazz.setSourceFile("Class.pl");
  clazz.set...
  clazz.write(zipOutputStream);

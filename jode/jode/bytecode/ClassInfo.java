@@ -228,6 +228,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     private int status = 0;
 
     private boolean modified = false;
+    private boolean isGuessed = false;
     private ClassPath classpath;
 
     private int modifiers = -1;
@@ -291,6 +292,14 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
      * @see #load 
      */
     public static final int DECLARATIONS       = 30;
+    /** 
+     * This constant can be used as parameter to load.  It specifies
+     * that everything in the class except debugging information and
+     * non-standard attributes should be loaded.
+     *
+     * @see #load 
+     */
+    public static final int NODEBUG            = 80;
     /** 
      * This constant can be used as parameter to load.  It specifies
      * that everything in the class except non-standard attributes
@@ -574,7 +583,8 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 		className = name.substring(dollar+1);
 		outerClass = classpath.getClassInfo(declarer.getName());
 		/* As mentioned above OUTERCLASS is recursive */
-		outerClass.loadFromReflection(declarer, OUTERCLASS);
+		if (outerClass.status < OUTERCLASS)
+		    outerClass.loadFromReflection(declarer, OUTERCLASS);
 	    } else {
 		/* Check if class name ends with $[numeric]$name or
 		 * $[numeric], in which case it is a method scoped
@@ -610,7 +620,6 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    interfaces = new ClassInfo[ifaces.length];
 	    for (int i=0; i<ifaces.length; i++)
 		interfaces[i] = classpath.getClassInfo(ifaces[i].getName());
-	    status |= HIERARCHY;
 	}
 	if (howMuch >= PUBLICDECLARATIONS) {
 	    Field[] fs;
@@ -670,7 +679,8 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 		for (int i = is.length; --i >= 0; ) {
 		    innerClasses[i] = classpath.getClassInfo(is[i].getName());
 		    /* As mentioned above OUTERCLASS is loaded recursive */
-		    innerClasses[i].loadFromReflection(is[i], OUTERCLASS);
+		    if (innerClasses[i].status < OUTERCLASS)
+			innerClasses[i].loadFromReflection(is[i], OUTERCLASS);
 		}
 	    } else
 		innerClasses = null;
@@ -1002,8 +1012,11 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    throw new IllegalStateException(name);
 	if (status >= howMuch)
 	    return;
-	if (classpath.loadClass(this, howMuch))
+	if (classpath.loadClass(this, howMuch)) {
+	    if (status < howMuch)
+		throw new IllegalStateException("state = "+status);
 	    return;
+	}
 	throw new FileNotFoundException(name);
     }
 
@@ -1025,16 +1038,18 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
      */
     public void guess(int howMuch) 
     {
-	if (howMuch >= OUTERCLASS && status < OUTERCLASS) {
+	if (howMuch <= status)
+	    throw new IllegalStateException("status = "+status);
+	isGuessed = true;
+	if (howMuch >= OUTERCLASS) {
+	    modifiers = Modifier.PUBLIC | 0x20;
 	    int dollar = name.lastIndexOf('$');
 	    if (dollar == -1) {
 		/* normal class */
 	    } else if (Character.isDigit(name.charAt(dollar+1))) {
 		/* anonymous class */
-		modifiers = Modifier.PUBLIC | 0x20;
 		methodScoped = true;
 	    } else {
-		modifiers = Modifier.PUBLIC | 0x20;
 		className = name.substring(dollar+1);
 		int prevDollar = name.lastIndexOf('$', dollar);
 		if (prevDollar >= 0
@@ -1045,22 +1060,24 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 		    outerClass = classpath.getClassInfo
 			(name.substring(0, prevDollar));
 		} else {
-		    /* inner class */
-		    modifiers = Modifier.PUBLIC | 0x20;
+		    /* inner class, we assume it is static, so we don't
+		     * get an exception when we search for the this$0
+		     * parameter in an constructor invocation.
+		     */
+		    modifiers |= Modifier.STATIC;
 		    outerClass = classpath.getClassInfo
 			(name.substring(0, dollar));
 		}
 	    }
 	}
-	if (howMuch >= HIERARCHY && status < HIERARCHY) {
-	    modifiers = Modifier.PUBLIC | 0x20;
+	if (howMuch >= HIERARCHY) {
 	    if (name.equals("java.lang.Object"))
 		superclass = null;
 	    else
 		superclass = classpath.getClassInfo("java.lang.Object");
 	    interfaces = new ClassInfo[0];
 	}
-	if (howMuch >= PUBLICDECLARATIONS && status < PUBLICDECLARATIONS) {
+	if (howMuch >= PUBLICDECLARATIONS) {
 	    methods = new MethodInfo[0];
 	    fields = new FieldInfo[0];
 	    innerClasses = new ClassInfo[0];
@@ -1070,7 +1087,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 
     /**  
      * This is the counter part to load.  It will drop all
-     * informations up keep and clean up the memory.
+     * informations bigger than "keep" and clean up the memory.
      * @param keep tells how much info we should keep, can be
      *    <code>NONE</code> or anything that <code>load</code> accepts.
      * @see #load
@@ -1080,7 +1097,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    return;
 	if (modified) {
 	    System.err.println("Dropping info between " + keep + " and "
-			       + status + " in modified class" + this + ".");
+			       + status + " in modified class " + this + ".");
 	    Thread.dumpStack();
 	    return;
 	}
@@ -1101,23 +1118,21 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    methods = null;
 	    status = keep;
 	} else {
-	    if (keep < ALMOSTALL && status >= ALMOSTALL) {
-		for (int i=0; i < fields.length; i++)
-		    fields[i].dropBody();
-		for (int i=0; i < methods.length; i++)
-		    methods[i].dropBody();
-	    }
 	    if (status >= DECLARATIONS)
 		/* We don't drop non-public declarations, since this
 		 * is not worth it.  
 		 */
 		keep = DECLARATIONS;
+
+	    for (int i=0; i < fields.length; i++)
+		fields[i].drop(keep);
+	    for (int i=0; i < methods.length; i++)
+		methods[i].drop(keep);
 	}
 
-	if (keep < ALMOSTALL && status >= ALMOSTALL) {
+	if (keep < ALMOSTALL)
 	    sourceFile = null;
-	    super.dropAttributes();
-	}
+	super.drop(keep);
 	status = keep;
     }
 
@@ -1127,6 +1142,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
      */
     public String getName() {
         return name;
+    }
+
+    public boolean isGuessed() {
+        return isGuessed;
     }
 
     /**

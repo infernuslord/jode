@@ -44,10 +44,10 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	this.modifier = modifier;
     }
 
-    protected void readAttribute(String name, int length,
-				 ConstantPool cp,
-				 DataInputStream input, 
-				 int howMuch) throws IOException {
+    void readAttribute(String name, int length,
+		       ConstantPool cp,
+		       DataInputStream input, 
+		       int howMuch) throws IOException {
 	if (howMuch >= ClassInfo.DECLARATIONS
 	    && name.equals("ConstantValue")) {
 	    if (length != 2)
@@ -68,19 +68,19 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	} else
 	    super.readAttribute(name, length, cp, input, howMuch);
     }
-
-    public void read(ConstantPool constantPool, 
-                     DataInputStream input, int howMuch) throws IOException {
+    
+    void read(ConstantPool constantPool, 
+	      DataInputStream input, int howMuch) throws IOException {
 	modifier = input.readUnsignedShort();
 	name = constantPool.getUTF8(input.readUnsignedShort());
 	typeSig = constantPool.getUTF8(input.readUnsignedShort());
         readAttributes(constantPool, input, howMuch);
     }
 
-    public void reserveSmallConstants(GrowableConstantPool gcp) {
+    void reserveSmallConstants(GrowableConstantPool gcp) {
     }
 
-    public void prepareWriting(GrowableConstantPool gcp) {
+    void prepareWriting(GrowableConstantPool gcp) {
 	gcp.putUTF8(name);
 	gcp.putUTF8(typeSig);
 	if (constant != null) {
@@ -108,8 +108,8 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	return count;
     }
 
-    public void writeKnownAttributes(GrowableConstantPool gcp,
-				     DataOutputStream output) 
+    void writeKnownAttributes(GrowableConstantPool gcp,
+			      DataOutputStream output) 
 	throws IOException {
 	if (constant != null) {
 	    output.writeShort(gcp.putUTF8("ConstantValue"));
@@ -132,7 +132,7 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
 	}
     }
 
-    public void write(GrowableConstantPool constantPool, 
+    void write(GrowableConstantPool constantPool, 
 		      DataOutputStream output) throws IOException {
 	output.writeShort(modifier);
 	output.writeShort(constantPool.putUTF8(name));
@@ -140,8 +140,10 @@ public final class FieldInfo extends BinaryInfo implements Comparable {
         writeAttributes(constantPool, output);
     }
 
-    public void dropBody() {
-	super.dropAttributes();
+    void drop(int keep) {
+	if (keep < ClassInfo.DECLARATIONS)
+	    constant = null;
+	super.drop(keep);
     }
 
     public String getName() {

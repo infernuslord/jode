@@ -1,4 +1,4 @@
-/* BasicBlocks Copyright (C) 1999 Jochen Hoenicke.
+/* BasicBlocks Copyright (C) 2000 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ import java.io.PrintWriter;
 
 ///#def COLLECTIONS java.util
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 ///#enddef
@@ -36,22 +37,37 @@ import java.lang.UnsupportedOperationException;
 ///#enddef
 
 /**
- * <p>This class gives another representation of the byte code of a
- * method.  The instructions are splitted into BasicBlocks, each an
- * array of consecutive Instructions.  It is not allowed that a goto
- * jumps inside a basic block.</p>
+ * <p>Represents the byte code of a method in form of basic blocks.  A
+ * basic block is a bunch of instructions, that must always execute in
+ * sequential order.  Every basic block is represented by an Block
+ * object.</p>
  *
- * <p>All jumps must be at the end of the block.  A conditional jump
- * may be followed by a single goto, but there must not be any other
- * jumps.  If there is now unconditional jump at the end, the block
- * implicitely flows into the next one. </p>
+ * <p>All jump instructions must be at the end of the block, and the
+ * jump instructions doesn't have to remember where they jump to.
+ * Instead this information is stored inside the blocks. See
+ * <code>Block</code> for details.</p>
  *
- * <p>Try block must span over some consecutive BasicBlocks and there
- * catches must jump to the start of an basic block. </p>
+ * <p>A subroutine block, i.e. a block where some jsr instructions may
+ * jump to, must store its return address in a local variable
+ * immediately.  There must be exactly one block with the
+ * corresponding <code>opc_ret</code> instruction and all blocks that
+ * belong to this subroutine must point to the ret block.  Bytecode
+ * that doesn't have this condition is automatically transformed on
+ * reading.</p>
  *
- * <p>Deadcode will not be included in the BasicBlock, also
- * BasicBlocks consisting of a single jump will be optimized away.</p>
+ * <p>Exception Handlers are represented by the Handler class. Their
+ * start/end range must span over some consecutive BasicBlocks and
+ * there handler must be another basic block.</p>
  *
+ * <p>If you want to create or modify the byte code, you must first set
+ * the basic blocks and then set exception handlers.  If you set new
+ * blocks the previous exception handlers will be removed.</p>
+ *
+ * <p>When the code is written to a class file, the blocks are written
+ * in the given order.  Goto and return instructions are inserted as
+ * necessary, you don't have to care about that.</p>
+ *
+ * @see jode.bytecode.Block
  * @see jode.bytecode.Instruction */
 public class BasicBlocks extends BinaryInfo {
     
@@ -121,39 +137,6 @@ public class BasicBlocks extends BinaryInfo {
 	return blocks;
     }
 
-    public Iterator getAllInstructions() {
-	return new Iterator() {
-	    int blockNr = 0;
-	    Iterator blockIter = getNextIterator();
-	    
-	    public boolean hasNext() {
-		return blockIter != null;
-	    }
-	    
-	    public Iterator getNextIterator() {
-		if (blockNr < blocks.length)
-		    return blocks[blockNr++].getInstructions().iterator();
-		return null;
-	    }
-	    
-	    public Object next() {
-		Object instr;
-		try {
-		    instr = blockIter.next();
-		} catch (NullPointerException ex) {
-		    throw new NoSuchElementException();
-		}
-		if (!blockIter.hasNext())
-		    blockIter = getNextIterator();
-		return instr;
-	    }
-	    
-	    public void remove() {
-		throw new UnsupportedOperationException();
-	    }
-	};
-    }
-
     /**
      * @return the exception handlers, or null if the method has no
      * exception handlers.
@@ -215,7 +198,7 @@ public class BasicBlocks extends BinaryInfo {
     }
 
     private BasicBlockReader reader;
-    public void read(ConstantPool cp, 
+    void read(ConstantPool cp, 
 		     DataInputStream input, 
 		     int howMuch) throws IOException {
 	if ((GlobalOptions.debuggingFlags
@@ -231,7 +214,7 @@ public class BasicBlocks extends BinaryInfo {
 	    dumpCode(GlobalOptions.err);
     }
 
-    protected void readAttribute(String name, int length, ConstantPool cp,
+    void readAttribute(String name, int length, ConstantPool cp,
 				 DataInputStream input, 
 				 int howMuch) throws IOException {
 	if (howMuch >= ClassInfo.ALMOSTALL
@@ -248,7 +231,8 @@ public class BasicBlocks extends BinaryInfo {
     void reserveSmallConstants(GrowableConstantPool gcp) {
 	for (int i=0; i < blocks.length; i++) {
 	next_instr:
-	    for (Iterator iter = blocks[i].getInstructions().iterator(); 
+	    for (Iterator iter
+		     = Arrays.asList(blocks[i].getInstructions()).iterator(); 
 		 iter.hasNext(); ) {
 		Instruction instr = (Instruction) iter.next();
 		if (instr.getOpcode() == Opcodes.opc_ldc) {
@@ -293,7 +277,7 @@ public class BasicBlocks extends BinaryInfo {
 	writeAttributes(gcp, output);
 	bbw = null;
     }
-    
+
     public void dumpCode(PrintWriter output) {
 	output.println(methodInfo.getName()+methodInfo.getType()+":");
 	if (startBlock == null)

@@ -23,26 +23,12 @@ package jode.bytecode;
  * This class represents an instruction that needs a reference, i.e.
  * a method invocation or field access instruction.
  */
-public final class ReferenceInstruction extends Instruction {
+class ReferenceInstruction extends Instruction {
     private Reference reference;
 
-    /**
-     * Standard constructor: creates an opcode with parameter and
-     * lineNr.  
-     */
-    public ReferenceInstruction(int opcode, Reference reference, int lineNr)
-    {
-	super(opcode, lineNr);
-	if (opcode < opc_getstatic || opcode > opc_invokeinterface)
-	    throw new IllegalArgumentException("Instruction has no reference");
-	this.reference = reference;
-    }
-
-    /**
-     * Creates a simple opcode, without any parameters.
-     */
     public ReferenceInstruction(int opcode, Reference ref) {
-	this(opcode, ref, -1);
+	super(opcode);
+	this.reference = ref;
     }
 
     public final Reference getReference()
@@ -67,8 +53,7 @@ public final class ReferenceInstruction extends Instruction {
     /*{ require { poppush != null && poppush.length == 2
         :: "poppush must be an array of two ints" } } */
     {
-	Reference ref = getReference();
-	String typeSig = ref.getType();
+	String typeSig = reference.getType();
 	int opcode = getOpcode();
 	switch (opcode) {
 	case opc_invokevirtual:

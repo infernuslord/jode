@@ -24,7 +24,7 @@ import jode.util.StringQuoter;
  * This class represents an instruction in the byte code.
  *
  */
-public class SwitchInstruction extends Instruction {
+class SwitchInstruction extends Instruction {
     /**
      * The values for this switch.
      */
@@ -34,18 +34,9 @@ public class SwitchInstruction extends Instruction {
      * Standard constructor: creates an opcode with parameter and
      * lineNr.  
      */
-    public SwitchInstruction(int opcode, int[] values, int lineNr) {
-	super(opcode, lineNr);
-	if (opcode != opc_lookupswitch)
-	    throw new IllegalArgumentException("Instruction is no switch");
+    SwitchInstruction(int opcode, int[] values) {
+	super(opcode);
 	this.values = values;
-    }
-
-    /**
-     * Creates a simple opcode, without any parameters.
-     */
-    public SwitchInstruction(int opcode, int[] values) {
-	this(opcode, values, -1);
     }
 
     public final int[] getValues() 
