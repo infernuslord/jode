@@ -74,7 +74,11 @@ public class ReturnBlock extends InstructionContainer {
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-        writer.println("return" + 
-                       (instr == null ? "" : " " + instr) + ";");
+        writer.print("return");
+	if (instr != null) {
+	    writer.print(" ");
+	    instr.dumpExpression(writer);
+	}
+	writer.println(";");
     }
 }
