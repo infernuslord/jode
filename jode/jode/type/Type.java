@@ -23,7 +23,7 @@ import java.util.Hashtable;
 /**
  * This is my type class.  It differs from java.lang.class, in
  * that it maintains a type range.  This type range may be implicit or
- * explicit. <p>
+ * explicit. <br>
  *
  *
  * Think of this global type hierarchie:
@@ -33,18 +33,18 @@ import java.util.Hashtable;
  *          /   |   \
  *         /    |    \
  *  tObject  boolean  int
- *    /  \             |
- *   /  tArray       short
- * other               |
- * classes            byte
+ *    /  \            /  \
+ *   /  tArray     short char
+ * other              \  /
+ * classes            byte 
  * </pre>
  *
- * int implements the "interface" tBoolByte.  boolean and byte
- * implement the "interface" tBoolByte which extends tBoolInt.
+ * int implements the "interface" tBoolInt.  boolean and byte
+ * implement the "interface" tBoolByte which extends tBoolInt. <br>
  *
  * The type tBoolInt is <tBoolInt, tUnknown>, the type tBoolByte is
  * <tBoolByte, tUnknown> (hard coded in <code>getTop</code>).  The
- * type tUInt is <int, byte>.
+ * type tUInt is <int, byte>. <br>
  *
  * Note that tUnknown is no valid type, so we can replace
  * <tUnknown,  byte>  with <int, byte>
