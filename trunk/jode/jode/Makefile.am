@@ -8,7 +8,8 @@ JAVADEP = $(top_builddir)/javaDependencies.pl -subdir=$(subdir)\
    -dependdir=$(top_builddir) -classpath=$(top_builddir):$(top_srcdir)
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
-BUILD_CLASSPATH = $(top_srcdir):$(top_builddir):.:$(CLASSPATH):$(CLASSLIB)
+SUBSTCP = @SUBSTCP@
+BUILD_CLASSPATH = $(top_srcdir):$(top_builddir):$(CLASSPATH):$(CLASSLIB)
 
 MY_JAVA_FILES = \
   AssertError.java \
@@ -27,7 +28,8 @@ JARFILE = jode-@VERSION@.jar
 @QUOTE@-include $(MY_JAVA_FILES:.java=.dep)
 
 %.class: %.java
-	$(JAVAC) -classpath $(BUILD_CLASSPATH):$(CLASSLIB) -d $(top_builddir) $<
+	$(JAVAC) -classpath `$(SUBSTCP) $(BUILD_CLASSPATH):$(CLASSLIB)` -d $(top_builddir) $<
+
 %.dep: %.class
 	$(JAVADEP) $< >$@
 
