@@ -465,7 +465,20 @@ public class ClassIdentifier extends Identifier {
 	return false;
     }
 
+    public boolean containsFieldAliasDirectly(String fieldName, 
+					      String typeSig) {
+	for (int i=0; i < fieldCount; i++) {
+	    if ((!Obfuscator.shouldStrip || identifiers[i].isReachable())
+		&& identifiers[i].getAlias().equals(fieldName)
+		&& identifiers[i].getType().startsWith(typeSig))
+		return true;
+	}
+	return false;
+    }
+
     public boolean containFieldAlias(String fieldName, String typeSig) {
+	if (containsFieldAliasDirectly(fieldName,typeSig))
+	    return true;
 	for (int i=0; i < fieldCount; i++) {
 	    if ((!Obfuscator.shouldStrip || identifiers[i].isReachable())
 		&& identifiers[i].getAlias().equals(fieldName)
@@ -527,6 +540,16 @@ public class ClassIdentifier extends Identifier {
 	return null;
     }
 
+    public boolean hasMethod(String methodName, String paramType) {
+	for (int i=fieldCount; i< identifiers.length; i++) {
+	    if ((!Obfuscator.shouldStrip || identifiers[i].isReachable())
+		&& identifiers[i].getAlias().equals(methodName)
+		&& identifiers[i].getType().startsWith(paramType))
+		return true;
+	}
+	return false;
+    }
+
     public Object getMethod(String methodName, String paramType) {
 	for (int i=fieldCount; i< identifiers.length; i++) {
 	    if ((!Obfuscator.shouldStrip || identifiers[i].isReachable())
@@ -534,7 +557,6 @@ public class ClassIdentifier extends Identifier {
 		&& identifiers[i].getType().startsWith(paramType))
 		return identifiers[i];
 	}
-	
 	ClassInfo[] ifaces = info.getInterfaces();
 	for (int i=0; i < ifaces.length; i++) {
 	    ClassIdentifier ifaceident = (ClassIdentifier)
@@ -571,4 +593,3 @@ public class ClassIdentifier extends Identifier {
 	return pack.contains(newAlias);
     }
 }
-
