@@ -23,6 +23,7 @@ import jode.type.NullType;
 import jode.type.ClassInterfacesType;
 import jode.bytecode.Reference;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.FieldInfo;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.FieldAnalyzer;
@@ -115,6 +116,26 @@ public class PutFieldOperator extends LValueExpression {
 	updateParentType(getFieldType());
     }
 
+    public boolean needsCast(Type type) {
+	if (type instanceof NullType)
+	    return true;
+	if (!(type instanceof ClassInterfacesType
+	      && classType instanceof ClassInterfacesType))
+	    return false;
+	
+	ClassInfo clazz = ((ClassInterfacesType) classType).getClassInfo();
+	ClassInfo parClazz = ((ClassInterfacesType) type).getClassInfo();
+	while (clazz != parClazz && clazz != null) {
+	    FieldInfo[] fields = parClazz.getFields();
+	    for (int i = 0; i < fields.length; i++) {
+		if (fields[i].getName().equals(ref.getName()))
+		    return true;
+	    }
+	    parClazz = parClazz.getSuperclass();
+	}
+	return false;
+    }
+
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	boolean opIsThis = !staticFlag
@@ -127,8 +148,7 @@ public class PutFieldOperator extends LValueExpression {
 		writer.print(".");
 	    }
 	    writer.print(fieldName);
-	} else if (subExpressions[0].getType().getCanonic() 
-		   instanceof NullType) {
+	} else if (needsCast(subExpressions[0].getType().getCanonic())) {
 	    writer.print("((");
 	    writer.printType(classType);
 	    writer.print(") ");
