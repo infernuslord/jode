@@ -11,6 +11,7 @@ BUILD_CLASSPATH = $(top_srcdir):$(top_builddir):$(CLASSPATH):$(CLASSLIB)
 
 MY_JAVA_FILES = \
   Main.java \
+  HierarchyTreeModel.java \
   PackagesTreeModel.java
 
 noinst_DATA = $(MY_JAVA_FILES:.java=.class)

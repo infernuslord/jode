@@ -35,10 +35,16 @@ public class Main
     implements ActionListener, Runnable, TreeSelectionListener {
     JFrame frame;
     JTree classTree;
-    PackagesTreeModel classModel;
+    JPanel statusLine;
+    PackagesTreeModel packModel;
+    HierarchyTreeModel hierModel;
     JTextArea  sourcecodeArea, errorArea;
     Thread decompileThread;
     String currentClassPath, lastClassName;
+
+    JProgressBar progressBar;
+
+    boolean hierarchyTree;
 
     public Main(String classpath) {
 	setClasspath(classpath);
@@ -59,9 +65,12 @@ public class Main
     }
 
     public void fillContentPane(Container contentPane) {
+	statusLine = new JPanel();
+	hierarchyTree = false;
+	packModel = new PackagesTreeModel(this);
+	hierModel = null;
 	Font monospaced = new Font("monospaced", Font.PLAIN, 12);
-	classModel = new PackagesTreeModel();
-	classTree = new JTree(classModel);
+	classTree = new JTree(packModel);
 	classTree.setRootVisible(false);
 	DefaultTreeSelectionModel selModel = new DefaultTreeSelectionModel();
 	selModel.setSelectionMode(selModel.SINGLE_TREE_SELECTION);
@@ -79,12 +88,17 @@ public class Main
 					      spText, spError);
 	JSplitPane allPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
 					    spClassTree, rightPane);
-	contentPane.add(allPane);
+	contentPane.setLayout(new BorderLayout());
+	contentPane.add(allPane, BorderLayout.CENTER);
+	contentPane.add(statusLine, BorderLayout.SOUTH);
+	progressBar = new JProgressBar();
+	statusLine.add(progressBar);
 	rightPane.setDividerLocation(300);
 	rightPane.setDividerSize(4);
 	allPane.setDividerLocation(200);
 	allPane.setDividerSize(4);
-	GlobalOptions.err = new PrintWriter(new AreaWriter(errorArea), true);
+	GlobalOptions.err = new PrintWriter
+	    (new BufferedWriter(new AreaWriter(errorArea)), true);
     }
 
     public synchronized void valueChanged(TreeSelectionEvent e) {
@@ -94,8 +108,14 @@ public class Main
 	if (path == null)
 	    return;
 	Object node = path.getLastPathComponent();
-	if (node != null && classModel.isLeaf(node)) {
-	    lastClassName = classModel.getFullName(node);
+	if (node != null) {
+	    if (hierarchyTree && hierModel.isValidClass(node))
+		lastClassName = hierModel.getFullName(node);
+	    else if (!hierarchyTree && packModel.isValidClass(node))
+		lastClassName = packModel.getFullName(node);
+	    else
+		return;
+	    
 	    decompileThread = new Thread(this);
 	    decompileThread.setPriority(Thread.MIN_PRIORITY);
 	    sourcecodeArea.setText("Please wait, while decompiling...\n");
@@ -226,6 +246,28 @@ public class Main
 	menu.add(item);
 	bar.add(menu);
 	menu = new JMenu("Options");
+	final JCheckBoxMenuItem hierItem
+	    = new JCheckBoxMenuItem("Class hierarchy", hierarchyTree);
+	hierItem.addActionListener(new ActionListener() {
+	    public void actionPerformed(ActionEvent ev) {
+		hierarchyTree = hierItem.isSelected();
+		if (hierarchyTree && hierModel == null) {
+		    hierModel = new HierarchyTreeModel(Main.this, progressBar);
+		    reselect();
+		}
+		classTree.setModel(hierarchyTree
+				   ? (TreeModel) hierModel : packModel);
+		if (lastClassName != null) {
+		    TreePath lastPath = (hierarchyTree
+					 ? hierModel.getPath(lastClassName)
+					 : packModel.getPath(lastClassName));
+		    classTree.setSelectionPath(lastPath);
+		    classTree.scrollPathToVisible(lastPath);
+		}
+	    }
+	});
+	menu.add(hierItem);
+	menu.add(new JSeparator());
 	item = new JMenuItem("Set classpath...");
 	item.addActionListener(new ActionListener() {
 	    public void actionPerformed(ActionEvent ev) {
@@ -256,9 +298,42 @@ public class Main
 	    classpath = ".";
 	currentClassPath = classpath;
 	ClassInfo.setClassPath(classpath);
-	if (classModel != null) {
+	if (classTree != null)
 	    classTree.clearSelection();
-	    classModel.rebuild();
+	if (packModel != null)
+	    packModel.rebuild();
+	if (hierModel != null && hierarchyTree) {
+	    hierModel.rebuild();
+	} else {
+	    hierModel = null;
+	}
+    }
+
+    public void treeNodesChanged(TreeModelEvent e) {
+	reselect();
+    }
+
+    public void treeNodesInserted(TreeModelEvent e) {
+	reselect();
+    }
+
+    public void treeNodesRemoved(TreeModelEvent e) {
+	reselect();
+    }
+
+    public void treeStructureChanged(TreeModelEvent e) {
+	reselect();
+    }
+
+    public void reselect() {
+	if (lastClassName != null) {
+	    TreePath lastPath = (hierarchyTree
+				 ? hierModel.getPath(lastClassName)
+				 : packModel.getPath(lastClassName));
+	    if (lastPath != null) {
+		classTree.setSelectionPath(lastPath);
+		classTree.scrollPathToVisible(lastPath);
+	    }
 	}
     }
 

@@ -21,7 +21,7 @@ DeObfuscator:
  
 User Interface:
  - make a nice user interface:
-   - list classnames: toggable between class hierarchie/package hierarchie.
+   ~ list classnames: toggable between class hierarchie/package hierarchie.
    - list fields/method of selected class.
    - show decompilation of selected method.
    - show usage of method/fields.
