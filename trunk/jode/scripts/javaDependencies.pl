@@ -82,11 +82,11 @@ foreach $clazz (@ARGV) {
 	binmode FILE;
 
 	readInBuff 8 or die "Can't read header";
-	my ($magic, $minor, $major) = unpack("Nnn", $buff);
+	my ($magic, $major, $minor) = unpack("Nnn", $buff);
 
 	die "Wrong magic $magic" if $magic != 0xcafebabe;
-	die "Wrong minor $minor" if $minor > 3;
-	die "Wrong minor $major" if $major != 45;
+	die "Wrong major $major" if $major != 3;
+	die "Wrong minor $minor" if $minor < 45;
 	
 	readInBuff 2 or die "Can't read cpool length";
 	
