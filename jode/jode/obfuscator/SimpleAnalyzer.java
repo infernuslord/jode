@@ -48,7 +48,7 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		    i++;
 		if (i < clName.length() && clName.charAt(i) == 'L') {
 		    clName = clName.substring(i+1, clName.length()-1);
-		    m.clazz.bundle.reachableIdentifier(clName, false);
+		    Main.getClassBundle().reachableIdentifier(clName, false);
 		}
 		break;
 	    }
@@ -62,8 +62,9 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		String clName = ref.getClazz();
 		/* Don't have to reach array methods */
 		if (clName.charAt(0) != '[') {
-		    clName = clName.substring(1, clName.length()-1).replace('/', '.');
-		    m.clazz.bundle.reachableIdentifier
+		    clName = clName.substring(1, clName.length()-1)
+			.replace('/', '.');
+		    Main.getClassBundle().reachableIdentifier
 			(clName+"."+ref.getName()+"."+ref.getType(), 
 		     instr.opcode == opc_invokevirtual 
 		     || instr.opcode == opc_invokeinterface);
@@ -76,7 +77,8 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 	Handler[] handlers = bytecode.getExceptionHandlers();
 	for (int i=0; i< handlers.length; i++) {
 	    if (handlers[i].type != null)
-		m.clazz.bundle.reachableIdentifier(handlers[i].type, false);
+		Main.getClassBundle()
+		    .reachableIdentifier(handlers[i].type, false);
 	}
     }
 
@@ -87,9 +89,10 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		|| instr.opcode == opc_putfield) {
 		Reference ref = (Reference) instr.objData;
 		FieldIdentifier fi = (FieldIdentifier)
-		    m.clazz.bundle.getIdentifier(ref);
+		    Main.getClassBundle().getIdentifier(ref);
 		if (fi != null
-		    && jode.Obfuscator.shouldStrip && !fi.isReachable()) {
+		    && (Main.stripping & Main.STRIP_UNREACH) != 0
+		    && !fi.isReachable()) {
 		    /* Replace instruction with pop opcodes. */
 		    int stacksize = 
 			(instr.opcode 
