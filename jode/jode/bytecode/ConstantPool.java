@@ -197,7 +197,7 @@ public class ConstantPool {
 	    String type = getUTF8(indices2[nameTypeIndex]);
 	    checkTypeSig(type, tags[i] != FIELDREF);
 	    String clName = getClassType(classIndex);
-	    constants[i] = new Reference
+	    constants[i] = Reference.getReference
 		(clName, getUTF8(indices1[nameTypeIndex]), type);
 	}
 	return (Reference) constants[i];
@@ -228,7 +228,7 @@ public class ConstantPool {
 	    checkTypeSig(clName, false);
 	else {
 	    checkClassName(clName);
-	    clName = "L"+clName+';';
+	    clName = ("L"+clName+';').intern();
 	}
         return clName;
     }
@@ -240,7 +240,7 @@ public class ConstantPool {
             throw new ClassFormatException("Tag mismatch");
 	String clName = getUTF8(indices1[i]);
 	checkClassName(clName);
-        return clName.replace('/','.');
+        return clName.replace('/','.').intern();
     }
 
     public String toString(int i) {
