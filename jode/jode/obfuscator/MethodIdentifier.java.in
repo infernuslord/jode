@@ -217,10 +217,20 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    ClassIdentifier ci = Main.getClassBundle()
 			.getClassIdentifier(handlers[i].type);
 		    if (ci != null)
-		    handlers[i].type = ci.getFullAlias();
+			handlers[i].type = ci.getFullAlias();
 		}
 	    }
 	    info.setBytecode(bytecode);
+	}
+
+	String[] exceptions = info.getExceptions();
+	if (exceptions != null) {
+	    for (int i=0; i< exceptions.length; i++) {
+		ClassIdentifier ci = Main.getClassBundle()
+		    .getClassIdentifier(exceptions[i]);
+		if (ci != null)
+		    exceptions[i] = ci.getFullAlias();
+	    }
 	}
     }
 }
