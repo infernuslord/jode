@@ -33,43 +33,47 @@ import java.util.ListIterator;
 
 /**
  * This class takes some bytecode and tries to minimize the number
- * of locals used.  It will also remove unnecessary stores.  
+ * of locals used.  It will also remove unnecessary stores. <br>
  *
  * This class can only work on verified code.  There should also be no
- * deadcode, since the verifier doesn't check that deadcode behaves
- * okay.  
+ * dead code, since the verifier doesn't check that dead code behaves
+ * okay.   <br>
  *
  * This is done in two phases.  First we determine which locals are
  * the same, and which locals have a overlapping life time. In the
  * second phase we will then redistribute the locals with a coloring
- * graph algorithm.
+ * graph algorithm. <br>
  *
  * The idea for the first phase is: For each read we follow the
  * instruction flow backward to find the corresponding writes.  We can
  * also merge with another control flow that has a different read, in
- * this case we merge with that read, too.
+ * this case we merge with that read, too. <br>
  *
  * The tricky part is the subroutine handling.  We follow the local
  * that is used in a ret and find the corresponding jsr target (there
  * must be only one, if the verifier should accept this class).  While
  * we do this we remember in the info of the ret, which locals are
- * used in that subroutine.
+ * used in that subroutine. <br>
  *
  * When we know the jsr target<->ret correlation, we promote from the
  * nextByAddr of every jsr the locals that are accessed by the
  * subroutine to the corresponding ret and the others to the jsr.  Also
- * we will promote all reads from the jsr targets to the jsr.
+ * we will promote all reads from the jsr targets to the jsr. <br>
  *
  * If you think this might be to complicated, keep in mind that jsr's
  * are not only left by the ret instructions, but also "spontanously"
- * (by not reading the return address again).
+ * (by not reading the return address again). <br>
  */
 public class LocalOptimizer implements Opcodes, CodeTransformer {
 
     /**
-     * This class keeps track of which locals must be the same, which
-     * name and type each local (if there is a local variable table) and
-     * which other locals have an intersecting life time.
+     * This class keeps track for each local variables:
+     * <ul>
+     *  <li>which name and type this local has 
+     *       (if there is a local variable table),</li>
+     *  <li>which other locals must be the same,</li>
+     *  <li>which other locals have an intersecting life time.</li>
+     * </ul>
      */
     class LocalInfo {
 	LocalInfo shadow = null;
@@ -172,12 +176,12 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
     int maxlocals;
 
     /**
-     * This class contains information for each instruction.
+     * This class contains information for each basic block.
      */
     class BlockInfo {
 	/**
-	 * The next changed BlockInfo, or null, if this instr info did
-	 * not changed.
+	 * The next Instruction in the todo list; null, if this block
+	 * info is not on todo list, or if it is the last one.  
 	 */
 	BlockInfo nextTodo;
 
@@ -309,16 +313,18 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 	void promoteIn(int slot, LocalInfo local) {
 	    if (gens[slot] == null) {
 		changedInfos.add(this);
+		gens[slot] = local;
 		ins[slot] = local;
 	    } else {
 		gens[slot].combineInto(local);
 	    }
 	}
 	
-	void promoteInToAll(int slot, LocalInfo local) {
+	void promoteInForTry(int slot, LocalInfo local) {
 	    if (ins[slot] == null) {
-		changedInfos.add(this);
+		gens[slot] = local;
 		ins[slot] = local;
+		changedInfos.add(this);
 	    } else
 		ins[slot].combineInto(local);
 
@@ -343,7 +349,7 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 		    for (Iterator iter = tryBlocks.iterator(); 
 			 iter.hasNext();) {
 			BlockInfo pred = (BlockInfo) iter.next();
-			pred.promoteInToAll(i, ins[i]);
+			pred.promoteInForTry(i, ins[i]);
 		    }
 		}
 	    }
@@ -376,7 +382,7 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 		     * is active at this point.
 		     */
 		    for (int i=0; i < maxlocals; i++) {
-			if (i != info.instr.getLocalSlot()
+			if (i != instr.getLocalSlot()
 			    && active[i] != null)
 			    instrLocals[instrNr].conflictsWith(active[i]);
 			
