@@ -419,6 +419,9 @@ public abstract class StructuredBlock {
 		    /* XXX - I have to think about this...
 		     * there may be a case where this leads to type errors.
 		     * TODO: Give a formal proof ;-)
+		     * One bad thing that may happen is that the name
+		     * of prevLocal (it has already a name) doesn't match
+		     * the intersected type.
 		     */
 		    if (prevLocal.getType().isOfType(local.getType())) {
 			local.combineWith(prevLocal);
@@ -515,12 +518,13 @@ public abstract class StructuredBlock {
     public void dumpSource(jode.decompiler.TabbedPrintWriter writer)
         throws java.io.IOException
     {
-	if (declare != null) {
-	    if (jode.Decompiler.isDebugging) {
+	if (jode.Decompiler.isDebugging) {
+	    if (declare != null)
 		writer.println("declaring: "+declare);
-		writer.println("using: "+used);
-            }
+	    writer.println("using: "+used);
+	}
 
+	if (declare != null) {
 	    java.util.Enumeration enum = declare.elements();
 	    while (enum.hasMoreElements()) {
 		LocalInfo local = (LocalInfo) enum.nextElement();
@@ -541,7 +545,7 @@ public abstract class StructuredBlock {
     public void dumpDeclaration(jode.decompiler.TabbedPrintWriter writer, LocalInfo local)
         throws java.io.IOException
     {
-	writer.println(local.getType().toString() + " "
+	writer.println(local.getType().getHint().toString() + " "
                        + local.getName().toString() + ";");
     }
 
