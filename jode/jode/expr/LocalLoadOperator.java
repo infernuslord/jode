@@ -22,12 +22,12 @@ import jode.Decompiler;
 import jode.Type;
 import jode.decompiler.LocalInfo;
 
-public class LocalLoadOperator extends ConstOperator 
+public class LocalLoadOperator extends NoArgOperator
 implements LocalVarOperator {
     LocalInfo local;
 
     public LocalLoadOperator(Type type, LocalInfo local) {
-        super(type, "");
+        super(type);
         this.local = local;
         local.setType(type);
         local.setOperator(this);
@@ -57,6 +57,10 @@ implements LocalVarOperator {
         super.setType(local.getType());
         if (parent != null)
             parent.updateType();
+    }
+
+    public int getPriority() {
+        return 1000;
     }
 
     public Type getType() {
