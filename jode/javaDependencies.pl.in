@@ -46,7 +46,8 @@ sub readInBuff ($) {
     my $count = $_[0];
     my $offset = 0;
     while ($count > 0) {
-        my $result = read FILE, $buff, $count, $offset or 0;
+	my $result;
+        $result = read FILE, $buff, $count, $offset or return 0;
 	$offset += $result;
 	$count -= $result;
     }
