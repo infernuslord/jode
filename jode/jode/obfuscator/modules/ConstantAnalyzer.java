@@ -1451,7 +1451,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		ConstValue stacktop = info.getStack(size);
 		Object fieldVal = fi.getConstant();
 		if (fieldVal == null)
-		    fieldVal = runtime.getDefaultValue(ref.getType());
+		    fieldVal = TypeSignature.getDefaultValue(ref.getType());
 		if (stacktop.value == null ? fieldVal == null
 		    : stacktop.value.equals(fieldVal)) {
 		    stacktop.addConstantListener(new ConstantListener() {
@@ -1654,7 +1654,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 				   Instruction replacement) {
 	switch(instr.getOpcode()) {
 	case opc_jsr:
-	    newCode.add(new ConstantInstruction(opc_ldc, null));
+	    newCode.add(Instruction.forOpcode(opc_ldc, (Object) null));
 	    break;
         case opc_ldc:
         case opc_ldc2_w:
@@ -1792,7 +1792,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		Instruction instr = oldCode[idx];
 		ConstantInfo info = (ConstantInfo) constantInfos.remove(instr);
 		if ((info.flags & CONSTANT) != 0) {
-		    Instruction ldcInstr = new ConstantInstruction
+		    Instruction ldcInstr = Instruction.forOpcode
 			(info.constant instanceof Long
 			 || info.constant instanceof Double
 			 ? opc_ldc2_w : opc_ldc, info.constant);
