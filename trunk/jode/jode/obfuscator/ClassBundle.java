@@ -48,6 +48,24 @@ public class ClassBundle {
 	    loadClass(ClassInfo.forName(packageOrClass));
     }
 
+    public void markReachableField(String className, Type type, String name) {
+	ClassReachability cr = getLoadedClass(className);
+	if (cr != null)
+	    cr.markReachableField(type, name);
+    }
+
+    public void markReachable(String className) {
+	ClassReachability cr = getLoadedClass(className);
+	if (cr != null)
+	    cr.markReachableField(type, name);
+    }
+
+    public void markPreservedField(String className, Type type, String name) {
+	ClassReachability cr = getLoadedClass(className);
+	if (cr != null)
+	    cr.markPreservedField(type, name);
+    }
+
     public void markPreserved(int preserveRule,
 			      Vector classnames, Vector methodnames) {
 	Enumeration enum = loadedClasses.elements();
