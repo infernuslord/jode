@@ -62,13 +62,26 @@ public class GrowableConstantPool extends ConstantPool {
 	if (index != null)
 	    return index.intValue();
 	int newIndex = count;
-	grow(count+(tag == DOUBLE || tag == LONG ? 2 : 1));
+	grow(count + 1);
 	tags[newIndex] = tag;
 	constants[newIndex] = constant;
 	entryToIndex.put(key, new Integer(newIndex));
 	count++;
-	if (tag == DOUBLE || tag == LONG)
-	    count++;
+	return newIndex;
+    }
+
+    int putLongConstant(int tag, Object constant) {
+	String key = "" + (char)tag + constant;
+	Integer index = (Integer) entryToIndex.get(key);
+	if (index != null)
+	    return index.intValue();
+	int newIndex = count;
+	grow(count + 2);
+	tags[newIndex] = tag;
+	tags[newIndex+1] = -tag;
+	constants[newIndex] = constant;
+	entryToIndex.put(key, new Integer(newIndex));
+	count += 2;
 	return newIndex;
     }
 
@@ -129,15 +142,29 @@ public class GrowableConstantPool extends ConstantPool {
 		tag = INTEGER;
 	    else if (c instanceof Float)
 		tag = FLOAT;
-	    else if (c instanceof Long)
-		tag = LONG;
-	    else if (c instanceof Double)
-		tag = DOUBLE;
 	    else
-		throw new IllegalArgumentException("illegal constant "+c
-						   +" of type: "+ c.getClass());
+		throw new IllegalArgumentException
+		    ("illegal constant " + c + " of type: " + c.getClass());
 	    return putConstant(tag, c);
         }
+    }
+
+    /**
+     * Puts a constant into this constant pool
+     * @param c the constant, must be of type 
+     *    Integer, Long, Float, Double or String
+     * @return the index into the pool of this constant.
+     */
+    public int putLongConstant(Object c) {
+	int tag;
+	if (c instanceof Long)
+	    tag = LONG;
+	else if (c instanceof Double)
+	    tag = DOUBLE;
+	else
+	    throw new IllegalArgumentException
+		("illegal long constant " + c + " of type: " + c.getClass());
+	return putLongConstant(tag, c);
     }
 
     /**
@@ -153,6 +180,16 @@ public class GrowableConstantPool extends ConstantPool {
 	} else {
 	    return putConstant(c);
         }
+    }
+
+    /**
+     * Reserve an entry in this constant pool for a constant (for ldc).
+     * @param c the constant, must be of type 
+     *    Integer, Long, Float, Double or String
+     * @return the reserved index into the pool of this constant.
+     */
+    public int reserveLongConstant(Object c) {
+	return putLongConstant(c);
     }
 
     public int copyConstant(ConstantPool cp, int index) 
