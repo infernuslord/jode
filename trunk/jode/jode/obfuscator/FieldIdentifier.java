@@ -20,6 +20,7 @@ package jode.obfuscator;
 import java.lang.reflect.Modifier;
 import jode.bytecode.*;
 import java.io.*;
+import java.util.Hashtable;
 
 public class FieldIdentifier extends Identifier{
     FieldInfo info;
@@ -71,6 +72,19 @@ public class FieldIdentifier extends Identifier{
 
     public String toString() {
 	return "MethodIdentifier "+getFullName()+"."+getType();
+    }
+
+    public void readTable(Hashtable table) {
+	String alias = (String) table.get(getFullName() + "." + getType());
+	if (alias == null)
+	    alias = (String) table.get(getFullName());
+	if (alias != null)
+	    setAlias(alias);
+    }
+
+    public void writeTable(Hashtable table) {
+	table.put(getFullAlias()
+		  + "." + clazz.bundle.getTypeAlias(getType()), getName());
     }
 
     public boolean conflicting(String newAlias, boolean strong) {
