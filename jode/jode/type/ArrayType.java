@@ -37,7 +37,7 @@ public class ArrayType extends ReferenceType {
 
     Type elementType;
 
-    public ArrayType(Type elementType) {
+    ArrayType(Type elementType) {
         super(TC_ARRAY);
         this.elementType = elementType;
     }
