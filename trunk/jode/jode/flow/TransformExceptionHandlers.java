@@ -675,8 +675,7 @@ public class TransformExceptionHandlers {
 
             /* remove the pop now */
             firstInstr.removeBlock();
-            tryFlow.length += catchFlow.length;                
-            updateInOutCatch(tryFlow, succ);
+            tryFlow.length += catchFlow.length;
 
             if (succ != null) {
                 Jump jumps = (Jump) tryFlow.successors.remove(succ);
