@@ -8,7 +8,7 @@ echo 'COMPILER=${1:-javac}' >> compile
 echo 'if [ -z "$1" ]; then FLAGS="-g"; else shift; FLAGS="$*"; fi' >>compile
 echo 'rm -f *.class */*.class' >> compile
 echo 'jasmin -d .. jvm/Interpreter.j' >> compile
-echo \$COMPILER \$FLAGS -d .. Decompiler.java Obfuscator.java JodeApplet.java swingui/MainWindow.java >> compile
+echo \$COMPILER \$FLAGS -d .. Decompiler.java obfuscator/Main.java JodeApplet.java swingui/Main.java >> compile
 chmod a+x compile
 
 cd ..
