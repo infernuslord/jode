@@ -29,6 +29,11 @@ public class ConvertOperator extends Operator {
         this.from = from;
 	initOperands(1);
     }
+
+    public boolean opEquals(Operator o) {
+	return (o instanceof ConvertOperator)
+	    && type == o.type;
+    }
     
     public int getPriority() {
         return 700;
