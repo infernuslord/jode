@@ -155,42 +155,53 @@ public class ComplexExpression extends Expression {
 
     public void setSubExpressions(int i, Expression expr) {
         subExpressions[i] = expr;
-        updateSubTypes();
+        updateType();
     }
     void updateSubTypes() {
+        boolean changed = false;
         for (int i=0; i < subExpressions.length; i++) {
+            Type opType;
             if (i == 0 && operator instanceof ArrayStoreOperator) {
                 /* No rule without exception:
                  * We can always use tSubType, except for the
                  * array operand of an array store instruction.
                  */
-                subExpressions[i].setType(operator.getOperandType(i));
+                opType = operator.getOperandType(i);
             } else
-                subExpressions[i].setType
-                    (Type.tSubType(operator.getOperandType(i)));
+                opType = Type.tSubType(operator.getOperandType(i));
+            Type exprType = subExpressions[i].getType();
+            opType = opType.intersection(exprType);
+            if (!opType.equals(exprType) && opType != Type.tError) {
+                if (Decompiler.isTypeDebugging)
+                    System.err.println("change in "+this+": "
+                                       +exprType
+                                       +"->"+opType);
+                subExpressions[i].setType(opType);
+                changed = true;
+            }
         }
     }
 
     public void updateType() {
         if (subExpressions.length > 0) {
-            Type types[] = new Type[subExpressions.length];
             while (true) {
-                boolean changed = false;
                 updateSubTypes();
+                Type types[] = new Type[subExpressions.length];
+                boolean changed = false;
                 for (int i=0; i < types.length; i++) {
                     if (i == 0 && operator instanceof ArrayStoreOperator) {
                         /* No rule without exception:
-                         * We can always use tSuperType, except for the
-                         * array operand of an array store instruction.
-                         */
+                     * We can always use tSuperType, except for the
+                     * array operand of an array store instruction.
+                     */
                         types[i] = subExpressions[i].getType();
                     } else
                         types[i] = Type.tSuperType
                             (subExpressions[i].getType());
-                    types[i] = 
-                        types[i].intersection(operator.getOperandType(i));
-                    if (types[i] != Type.tError
-                        && !types[i].equals(operator.getOperandType(i))) {
+                    Type opType = operator.getOperandType(i);
+                    types[i] = types[i].intersection(opType);
+                    if (!types[i].equals(opType)
+                        && types[i] != Type.tError) {
                         if (Decompiler.isTypeDebugging)
                             System.err.println("change in "+this+": "
                                                +operator.getOperandType(i)
@@ -198,24 +209,22 @@ public class ComplexExpression extends Expression {
                         changed = true;
                     }
                 }
-                if (changed)
-                    operator.setOperandType(types);
-                else
+                if (!changed)
                     break;
+                operator.setOperandType(types);
             }
         }
-        setType(operator.getType());
-    }
-
-    public void setType(Type newType) {
-	newType = type.intersection(newType);
+        Type newType = type.intersection(operator.getType());
         if (!newType.equals(type)) {
             type = newType;
-            operator.setType(type);
-            updateSubTypes();
             if (parent != null)
                 parent.updateType();
         }
+    }
+
+    public void setType(Type newType) {
+        operator.setType(newType);
+        updateType();
     }
 
     public boolean isVoid() {

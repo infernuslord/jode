@@ -37,7 +37,7 @@ public class ClassInterfacesType extends Type {
     Class clazz;
     Class ifaces[];
 
-    public final static Class cObject = Object.class;
+    public final static Class cObject = new Object().getClass();
     
     public ClassInterfacesType(String clazzName) {
         super(TC_CLASS);
@@ -47,7 +47,7 @@ public class ClassInterfacesType extends Type {
                 this.clazz = null;
                 ifaces = new Class[] {clazz};
             } else {
-                this.clazz = clazz;
+                this.clazz = (clazz == cObject) ? null : clazz;
                 ifaces = new Class[0];
             }
         } catch (ClassNotFoundException ex) {
@@ -61,7 +61,7 @@ public class ClassInterfacesType extends Type {
             this.clazz = null;
             ifaces = new Class[] { clazz };
         } else {
-            this.clazz = clazz;
+            this.clazz = (clazz == cObject) ? null : clazz;
             ifaces = new Class[0];
         }
     }
@@ -74,7 +74,7 @@ public class ClassInterfacesType extends Type {
 
     private static Type create(Class clazz, Class[] ifaces) {
         /* Make sure that every {java.lang.Object} equals tObject */
-        if (ifaces.length == 0 && (clazz == cObject || clazz == null)) 
+        if (ifaces.length == 0 && clazz == null) 
             return tObject;
         return new ClassInterfacesType(clazz, ifaces);
     }
@@ -117,8 +117,7 @@ public class ClassInterfacesType extends Type {
 
         ClassInterfacesType bottom = (ClassInterfacesType) bottomType;
 
-        if (bottom.clazz != null
-            && bottom.clazz != cObject) {
+        if (bottom.clazz != null) {
             /* The searched type must be a class type.
              */
             if (this.ifaces.length != 0
@@ -130,19 +129,20 @@ public class ClassInterfacesType extends Type {
             for (int i=0; i < bottom.ifaces.length; i++) {
                 if (!implementedBy(bottom.ifaces[i], this.clazz))
                     return tError;
-                }
+            }
 
             if (bottom.clazz == this.clazz
                 && bottom.ifaces.length == 0)
                 return bottom;
 
-            return tRange(bottom, create(this.clazz, new Class[0]));
+            return tRange(bottom, this);
             
         } else {
             
             /* Now bottom.clazz is null (or tObject), find all
              * classes/interfaces that implement all bottom.ifaces.  
              */
+
             Class clazz = this.clazz;
             if (clazz != null) {
                 for (int i=0; i < bottom.ifaces.length; i++) {
@@ -152,48 +152,70 @@ public class ClassInterfacesType extends Type {
                     }
                 }
             }
-            Vector ifaces = new Vector();
+
+            /* If bottom is a single interface and equals some top
+             * interface, then bottom is the only possible type.
+             */
+            if (clazz == null && bottom.ifaces.length == 1) { 
+                for (int i=0; i< this.ifaces.length; i++) {
+                    if (this.ifaces[i] == bottom.ifaces[0])
+                        return bottom;
+                }
+            }
+
+            Class[] ifaces = new Class[this.ifaces.length];
+            int count = 0;
         big_loop:
             for (int j=0; j < this.ifaces.length; j++) {
                 for (int i=0; i < bottom.ifaces.length; i++) {
                     if (!implementedBy(bottom.ifaces[i], this.ifaces[j]))
                         continue big_loop;
                 }
-                ifaces.addElement(this.ifaces[j]);
+                ifaces[count++] = (this.ifaces[j]);
             }
 
-            /* If bottom and the new top are the same single interface
-             * return it.
-             */
-            if (clazz == null 
-                && bottom.ifaces.length == 1 && ifaces.size() == 1 
-                && bottom.ifaces[0] == ifaces.elementAt(0))
-                return bottom;
-
-            Class[] ifaceArray = new Class[ifaces.size()];
-            ifaces.copyInto(ifaceArray);
-            return tRange(bottom, create(clazz, ifaceArray));
+            if (count < ifaces.length) {
+                Class[] shortIfaces = new Class[count];
+                System.arraycopy(ifaces, 0, shortIfaces, 0, count);
+                ifaces = shortIfaces;
+            } else if (clazz == this.clazz)
+                return tRange(bottom, this);
+            return tRange(bottom, create(clazz, ifaces));
         }
+    }
+
+    private boolean implementsAllIfaces(Class[] otherIfaces) {
+    big:
+        for (int i=0; i < otherIfaces.length; i++) {
+            Class iface = otherIfaces[i];
+            if (clazz != null && implementedBy(iface, clazz))
+                continue big;
+            for (int j=0; j < this.ifaces.length; j++) {
+                if (implementedBy(iface, ifaces[j]))
+                        continue big;
+            }
+            return false;
+        }
+        return true;
     }
     
     /**
      * Returns the specialized type of this and type.
      * We have two classes and multiple interfaces.  The result 
-     * should be the object that is the the child of both objects
+     * should be the object that extends both objects
      * and the union of all interfaces.
      */
     public Type getSpecializedType(Type type) {
-
-        if (type.getTypeCode() == TC_UNKNOWN)
+        int code = type.typecode;
+        if (code == TC_UNKNOWN)
             return this;
-        if (type.getTypeCode() == TC_ARRAY && this == tObject)
+        if (code == TC_ARRAY && this == tObject)
             return type;
-        if (type.getTypeCode() != TC_CLASS)
+        if (code != TC_CLASS)
             return tError;
 
         ClassInterfacesType other = (ClassInterfacesType) type;
         Class clazz;
-        Vector ifaces = new Vector();
 
         /* First determine the clazz, one of the two classes must be a sub
          * class of the other or null.
@@ -210,10 +232,21 @@ public class ClassInterfacesType extends Type {
         else
             return tError;
 
+        /* Most time one of the two classes is already more specialized.
+         * Optimize for this case.
+         */
+        if (clazz == this.clazz 
+            && implementsAllIfaces(other.ifaces))
+            return this;
+        else if (clazz == other.clazz 
+                 && other.implementsAllIfaces(this.ifaces))
+            return other;
+
         /* The interfaces are simply the union of both interfaces set. 
          * But we can simplify this, if an interface is implemented by
          * another or by the class, we can omit it.
          */
+        Vector ifaces = new Vector();
     big_loop_this:
         for (int i=0; i< this.ifaces.length; i++) {
             Class iface = this.ifaces[i];
@@ -248,9 +281,6 @@ public class ClassInterfacesType extends Type {
              */
             ifaces.addElement(iface);
         }
-        if (clazz == cObject && ifaces.size() > 0)
-            /* Every interface implies tObject, so remove it */
-            clazz = null;
             
         Class[] ifaceArray = new Class[ifaces.size()];
         ifaces.copyInto(ifaceArray);
@@ -258,25 +288,21 @@ public class ClassInterfacesType extends Type {
     }
 
     /**
-     * Returns the generalized type of this and type.
-     * We have two classes and multiple interfaces.  The result 
-     * should be the object that is the the parent of both objects and
-     * all interfaces, that one class or interface of this and of type
-     * implements.
-     */
+     * Returns the generalized type of this and type.  We have two
+     * classes and multiple interfaces.  The result should be the
+     * object that is the the super class of both objects and all
+     * interfaces, that one class or interface of each type 
+     * implements.  */
     public Type getGeneralizedType(Type type) {
-
-        Class clazz;
-        Vector ifaces = new Vector();
-
-        if (type.getTypeCode() == TC_UNKNOWN)
+        int code = type.typecode;
+        if (code == TC_UNKNOWN)
             return this;
-        if (type.getTypeCode() == TC_ARRAY)
+        if (code == TC_ARRAY)
             return tObject;
-        if (type.getTypeCode() != TC_CLASS)
+        if (code != TC_CLASS)
             return tError;
-
         ClassInterfacesType other = (ClassInterfacesType) type;
+        Class clazz;
 
         /* First the easy part, determine the clazz */
         if (this.clazz == null || other.clazz == null)
@@ -292,6 +318,13 @@ public class ClassInterfacesType extends Type {
             if (clazz == cObject)
                 clazz = null;
         }
+
+        if (clazz == this.clazz 
+            && other.implementsAllIfaces(this.ifaces))
+            return this;
+        else if (clazz == other.clazz 
+                 && this.implementsAllIfaces(other.ifaces))
+            return other;
 
         /* Now the more complicated part: find all interfaces, that are
          * implemented by one interface or class in each group.
@@ -309,6 +342,9 @@ public class ClassInterfacesType extends Type {
                 c = c.getSuperclass();
             }
         }
+
+        Vector ifaces = new Vector();
+
         for (int i=0; i<this.ifaces.length; i++)
             allIfaces.push(this.ifaces[i]);
             
@@ -354,7 +390,7 @@ public class ClassInterfacesType extends Type {
      */
     public void useType() {
         if (!jode.Decompiler.isTypeDebugging) {
-            if (clazz != null && clazz != cObject)
+            if (clazz != null)
                 env.useClass(clazz);
             else if (ifaces.length > 0)
                 env.useClass(ifaces[0]);
@@ -378,14 +414,12 @@ public class ClassInterfacesType extends Type {
             }
             return sb.append("}").toString();
         } else {
-            if (clazz != null && clazz != cObject)
+            if (clazz != null)
                 return env.classString(clazz);
             else if (ifaces.length > 0)
                 return env.classString(ifaces[0]);
-            else if (clazz == cObject)
-                return env.classString(clazz);
             else
-                return "{<error>}";
+                return env.classString(cObject);
         }
     }
 

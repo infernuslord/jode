@@ -42,7 +42,7 @@ public class CodeAnalyzer implements Analyzer {
     public JodeEnvironment env;
 
     Vector allLocals = new Vector();
-    jode.flow.VariableSet param;
+    LocalInfo[] param;
     LocalVariableTable lvt;
     
     /**
@@ -65,9 +65,9 @@ public class CodeAnalyzer implements Analyzer {
                                          method.classAnalyzer, attr);
 
 	int paramCount = method.getParamCount();
-	param = new jode.flow.VariableSet();
+	param = new LocalInfo[paramCount];
 	for (int i=0; i<paramCount; i++)
-	    param.addElement(getLocalInfo(0, i));
+	    param[i] = getLocalInfo(0, i);
     }
 
     private final static int SEQUENTIAL   = 1;
@@ -231,7 +231,7 @@ public class CodeAnalyzer implements Analyzer {
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
-	methodHeader.makeDeclaration(param);
+        methodHeader.makeDeclaration(new jode.flow.VariableSet(param));
         methodHeader.dumpSource(writer);
     }
 
@@ -245,7 +245,7 @@ public class CodeAnalyzer implements Analyzer {
     }
 
     public LocalInfo getParamInfo(int slot) {
-	return (LocalInfo) param.elementAt(slot);
+	return param[slot];
     }
 
     public void useClass(Class clazz) 
