@@ -18,7 +18,7 @@
  */
 
 package jode.decompiler;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.type.Type;
 
 public class LocalVariableRangeList {
@@ -48,7 +48,7 @@ public class LocalVariableRangeList {
 		next.endAddr   = Math.max(next.endAddr, li.endAddr);
 		return;
 	    }
-            Decompiler.err.println("warning: non disjoint locals");
+            GlobalOptions.err.println("warning: non disjoint locals");
 	}
         li.next = next;
         if (prev == null)

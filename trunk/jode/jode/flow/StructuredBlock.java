@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.AssertError;
+import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.LocalInfo;
 
@@ -553,7 +554,8 @@ public abstract class StructuredBlock {
     public void dumpSource(jode.decompiler.TabbedPrintWriter writer)
         throws java.io.IOException
     {
-	if (jode.Decompiler.isDebugging) {
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_LOCALS) != 0) {
 	    if (declare != null)
 		writer.println("declaring: "+declare);
 	    if (done != null)

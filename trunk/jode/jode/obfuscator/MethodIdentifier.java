@@ -19,6 +19,7 @@
 
 package jode.obfuscator;
 import java.lang.reflect.Modifier;
+import jode.GlobalOptions;
 import jode.Obfuscator;
 import jode.bytecode.*;
 import jode.type.Type;
@@ -85,8 +86,8 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     }
 
     public void analyze() {
-	if (Obfuscator.verboseLevel > 1)
-	    Obfuscator.err.println("Analyze: "+this);
+	if (GlobalOptions.verboseLevel > 1)
+	    GlobalOptions.err.println("Analyze: "+this);
 
 	String type = getType();
 	int index = type.indexOf('L');
@@ -169,7 +170,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	info.setType(clazz.bundle.getTypeAlias(info.getType()));
 	if (getCodeAnalyzer() != null) {
 	    BytecodeInfo strippedBytecode = getCodeAnalyzer().stripCode();
-//  	    strippedBytecode.dumpCode(Obfuscator.err);
+//  	    strippedBytecode.dumpCode(GlobalOptions.err);
 
 	    /* XXX This should be in a if (Obfuscator.distributeLocals) */
 	    LocalOptimizer localOpt = new LocalOptimizer(strippedBytecode,
@@ -179,14 +180,14 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    localOpt.distributeLocals();
 
 
-//  	    if (Obfuscator.isDebugging)
+//  	    if (GlobalOptions.verboseLevel > 4)
 //  		localOpt.dumpLocals();
-//  	    strippedBytecode.dumpCode(Obfuscator.err);
+//  	    strippedBytecode.dumpCode(GlobalOptions.err);
 	    
 	    RemovePopAnalyzer remPop = 
 		new RemovePopAnalyzer(strippedBytecode, this);
 	    remPop.stripCode();
-//  	    strippedBytecode.dumpCode(Obfuscator.err);
+//  	    strippedBytecode.dumpCode(GlobalOptions.err);
 
 	    for (Instruction instr = strippedBytecode.getFirstInstr(); 
 		 instr != null; instr = instr.nextByAddr) {

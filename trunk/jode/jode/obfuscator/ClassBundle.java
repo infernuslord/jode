@@ -18,7 +18,7 @@
  */
 
 package jode.obfuscator;
-import jode.Obfuscator;
+import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.Reference;
 import java.io.*;
@@ -130,8 +130,8 @@ public class ClassBundle {
 	    prop.load(input);
 	    input.close();
 	} catch (java.io.IOException ex) {
-	    Obfuscator.err.println("Can't read rename table "+filename);
-	    ex.printStackTrace(Obfuscator.err);
+	    GlobalOptions.err.println("Can't read rename table "+filename);
+	    ex.printStackTrace(GlobalOptions.err);
 	}
 	basePackage.readTable(prop);
     }
@@ -144,8 +144,8 @@ public class ClassBundle {
 	    prop.save(out, "Reverse renaming table");
 	    out.close();
 	} catch (java.io.IOException ex) {
-	    Obfuscator.err.println("Can't write rename table "+filename);
-	    ex.printStackTrace(Obfuscator.err);
+	    GlobalOptions.err.println("Can't write rename table "+filename);
+	    ex.printStackTrace(GlobalOptions.err);
 	}
     }
 
@@ -163,12 +163,12 @@ public class ClassBundle {
 		zip.close();
 	    } catch (IOException ex) {
 		System.err.println("Can't write zip file: "+destination);
-		ex.printStackTrace(Obfuscator.err);
+		ex.printStackTrace(GlobalOptions.err);
 	    }
 	} else {
 	    File directory = new File(destination);
 	    if (!directory.exists()) {
-		Obfuscator.err.println("Destination directory "
+		GlobalOptions.err.println("Destination directory "
 				       +directory.getPath()
 				       +" doesn't exists.");
 		return;

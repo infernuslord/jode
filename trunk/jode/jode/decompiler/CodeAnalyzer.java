@@ -19,6 +19,7 @@
 
 package jode.decompiler;
 import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.type.Type;
 import jode.bytecode.*;
 import jode.flow.FlowBlock;
@@ -135,8 +136,8 @@ public class CodeAnalyzer implements Analyzer {
 		jode.flow.StructuredBlock block
 		    = Opcodes.readOpcode(instr, this);
 
-                if (jode.Decompiler.isVerbose && instr.addr > mark) {
-                    Decompiler.err.print('.');
+                if (GlobalOptions.verboseLevel > 0 && instr.addr > mark) {
+                    GlobalOptions.err.print('.');
                     mark += 1000;
                 }
 
@@ -184,8 +185,8 @@ public class CodeAnalyzer implements Analyzer {
 	     instr != null; instr = instr.nextByAddr)
 	    instr.tmpInfo = null;
 
-        if (Decompiler.isVerbose)
-            Decompiler.err.print('-');
+        if (GlobalOptions.verboseLevel > 0)
+            GlobalOptions.err.print('-');
             
 //          try {
 //              TabbedPrintWriter writer = new TabbedPrintWriter(System.err);

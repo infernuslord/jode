@@ -21,7 +21,7 @@ package jode.expr;
 import jode.decompiler.CodeAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.bytecode.*;
 import jode.jvm.*;
 import jode.type.*;
@@ -259,14 +259,14 @@ public final class InvokeOperator extends Operator
 	try {
 	    result = (String) Interpreter.interpretMethod(env, info, locals);
 	} catch (InterpreterException ex) {
-	    Decompiler.err.println("Warning: Can't interpret method "
+	    GlobalOptions.err.println("Warning: Can't interpret method "
 				   +methodName);
-	    ex.printStackTrace(Decompiler.err);
+	    ex.printStackTrace(GlobalOptions.err);
 	    return null;
 	} catch (InvocationTargetException ex) {
-	    Decompiler.err.println("Warning: Interpreted method throws"
+	    GlobalOptions.err.println("Warning: Interpreted method throws"
 				   +" an uncaught exception: ");
-	    ex.getTargetException().printStackTrace(Decompiler.err);
+	    ex.getTargetException().printStackTrace(GlobalOptions.err);
 	    return null;
 	}
 	return new ConstOperator(result);

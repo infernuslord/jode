@@ -64,12 +64,12 @@ public class SequentialBlock extends StructuredBlock {
      */
     public VariableStack mapStackToLocal(VariableStack stack) {
 	if (stack == null)
-	    jode.Decompiler.err.println("map stack to local called with null: " + this+ " in "+this.flowBlock);
+	    jode.GlobalOptions.err.println("map stack to local called with null: " + this+ " in "+this.flowBlock);
 	VariableStack middle = subBlocks[0].mapStackToLocal(stack);
 	if (middle != null)
 	    // Otherwise the second block is at least "logical" dead code
 	    return subBlocks[1].mapStackToLocal(middle);
-	jode.Decompiler.err.println("Dead code after Block " + subBlocks[0]);
+	jode.GlobalOptions.err.println("Dead code after Block " + subBlocks[0]);
 	return null;
     }
 

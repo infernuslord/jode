@@ -18,7 +18,7 @@
  */
 
 package jode.type;
-import jode.Decompiler;
+import jode.GlobalOptions;
 
 /**
  * This is a type class for 16 bit integral types.  There are seven
@@ -229,8 +229,8 @@ public class IntegerType extends Type {
 		return other;
 	}
 	Type result = mergeTypes == 0 ? tError : new IntegerType(mergeTypes);
-	if (Decompiler.isTypeDebugging) {
-	    Decompiler.err.println("intersecting "+ this +" and "+ type + 
+	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0) {
+	    GlobalOptions.err.println("intersecting "+ this +" and "+ type + 
                                    " to " + result);
 	}	    
 	return result;

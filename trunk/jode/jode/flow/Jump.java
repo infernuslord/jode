@@ -18,6 +18,7 @@
  */
 
 package jode.flow;
+import jode.GlobalOptions;
 
 /**
  * This class represents an unconditional jump.
@@ -85,7 +86,8 @@ public class Jump {
     public void dumpSource(jode.decompiler.TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        if (jode.Decompiler.debugInOut) {
+        if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_INOUT) != 0) {
             writer.println("gen : "+ gen.toString());
             writer.println("kill: "+ kill.toString());
         }

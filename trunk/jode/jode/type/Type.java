@@ -19,7 +19,7 @@
 
 package jode.type;
 import jode.AssertError;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 ///#ifdef JDK12
 ///import java.lang.ref.WeakReference;
@@ -372,8 +372,8 @@ public class Type {
 	    return type;
 	if (type == tUnknown || this == type)
 	    return this;
-	if (Decompiler.isTypeDebugging)
-	    Decompiler.err.println("intersecting "+ this +" and "+ type
+	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+	    GlobalOptions.err.println("intersecting "+ this +" and "+ type
 				   + " to <error>");
 	return tError;
     }

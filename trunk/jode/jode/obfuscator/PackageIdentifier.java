@@ -18,6 +18,7 @@
  */
 
 package jode.obfuscator;
+import jode.GlobalOptions;
 import jode.Obfuscator;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.FieldInfo;
@@ -128,7 +129,7 @@ public class PackageIdentifier extends Identifier {
 		    ident = new PackageIdentifier(bundle, this, name, true);
 		    loadedClasses.put(name, ident);
 		} else if (!ClassInfo.exists(fullname)) {
-		    Obfuscator.err.println("Warning: Can't find class "+fullname);
+		    GlobalOptions.err.println("Warning: Can't find class "+fullname);
 		} else {
 		    ident = new ClassIdentifier(bundle, this, name, 
 						ClassInfo.forName(fullname));
@@ -170,10 +171,10 @@ public class PackageIdentifier extends Identifier {
 						  component, loadOnDemand);
 		    loadedClasses.put(component, ident);
 		} else if (!ClassInfo.exists(fullname)) {
-		    Obfuscator.err.println("Warning: Can't find class "+fullname);
+		    GlobalOptions.err.println("Warning: Can't find class "+fullname);
 		} else if (wildcard.matches(fullname)) {
-		    if (Obfuscator.verboseLevel > 1)
-			Obfuscator.err.println("loading Class " +fullname);
+		    if (GlobalOptions.verboseLevel > 1)
+			GlobalOptions.err.println("loading Class " +fullname);
 		    ident = new ClassIdentifier(bundle, this, name, 
 						ClassInfo.forName(fullname));
 		    loadedClasses.put(name, ident);
@@ -184,8 +185,8 @@ public class PackageIdentifier extends Identifier {
 	    }
 	    if (ident instanceof PackageIdentifier) {
 		if (wildcard.matches(ident.getFullName())) {
-		    if (Obfuscator.verboseLevel > 0)
-			Obfuscator.err.println("loading Package " +ident.getFullName());
+		    if (GlobalOptions.verboseLevel > 0)
+			GlobalOptions.err.println("loading Package " +ident.getFullName());
 		    ((PackageIdentifier) ident).setLoadOnDemand();
 		}
 
@@ -207,14 +208,14 @@ public class PackageIdentifier extends Identifier {
 		
 		if (wildcard.matches(subFull)) {
 		    if (ClassInfo.isPackage(subFull)) {
-			if (Obfuscator.verboseLevel > 0)
-			    Obfuscator.err.println("loading Package " +subFull);
+			if (GlobalOptions.verboseLevel > 0)
+			    GlobalOptions.err.println("loading Package " +subFull);
 			Identifier ident = new PackageIdentifier
 			    (bundle, this, subclazz, true);
 			loadedClasses.put(subclazz, ident);
 		    } else {
-			if (Obfuscator.verboseLevel > 1)
-			    Obfuscator.err.println("loading Class " +subFull);
+			if (GlobalOptions.verboseLevel > 1)
+			    GlobalOptions.err.println("loading Class " +subFull);
 			ClassIdentifier ident = new ClassIdentifier
 			    (bundle, this, 
 			     subclazz, ClassInfo.forName(subFull));
@@ -293,7 +294,7 @@ public class PackageIdentifier extends Identifier {
 						  component, loadOnDemand);
 		    loadedClasses.put(component, ident);
 		} else if (!ClassInfo.exists(fullname)) {
-		    Obfuscator.err.println("Warning: Can't find class "+fullname);
+		    GlobalOptions.err.println("Warning: Can't find class "+fullname);
 		} else {
 		    ident = new ClassIdentifier(bundle, this, name, 
 						ClassInfo.forName(fullname));
@@ -457,8 +458,8 @@ public class PackageIdentifier extends Identifier {
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
 	    if (Obfuscator.shouldStrip && !ident.isReachable()) {
-		if (Obfuscator.isDebugging)
-		    Obfuscator.err.println("Class/Package "
+		if (GlobalOptions.verboseLevel > 4)
+		    GlobalOptions.err.println("Class/Package "
 					   + ident.getFullName()
 					   + " is not reachable");
 		continue;
@@ -475,9 +476,9 @@ public class PackageIdentifier extends Identifier {
 		    out.flush();
 		    zip.closeEntry();
 		} catch (java.io.IOException ex) {
-		    Obfuscator.err.println("Can't write Class "
+		    GlobalOptions.err.println("Can't write Class "
 					   + ident.getName());
-		    ex.printStackTrace(Obfuscator.err);
+		    ex.printStackTrace(GlobalOptions.err);
 		}
 	    }
 	}
@@ -487,15 +488,15 @@ public class PackageIdentifier extends Identifier {
 	File newDest = (parent == null) ? destination 
 	    : new File(destination, getAlias());
 	if (!newDest.exists() && !newDest.mkdir()) {
-	    Obfuscator.err.println("Could not create directory "
+	    GlobalOptions.err.println("Could not create directory "
 				   +newDest.getPath()+", check permissions.");
 	}
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
 	    if (Obfuscator.shouldStrip && !ident.isReachable()) {
-		if (Obfuscator.isDebugging)
-		    Obfuscator.err.println("Class/Package "
+		if (GlobalOptions.verboseLevel > 4)
+		    GlobalOptions.err.println("Class/Package "
 					   + ident.getFullName()
 					   + " is not reachable");
 		continue;
@@ -507,7 +508,7 @@ public class PackageIdentifier extends Identifier {
 		try {
 		    File file = new File(newDest, ident.getAlias()+".class");
 // 		    if (file.exists()) {
-// 			Obfuscator.err.println
+// 			GlobalOptions.err.println
 // 			    ("Refuse to overwrite existing class file "
 // 			     +file.getPath()+".  Remove it first.");
 // 			return;
@@ -517,9 +518,9 @@ public class PackageIdentifier extends Identifier {
 		    ((ClassIdentifier) ident).storeClass(out);
 		    out.close();
 		} catch (java.io.IOException ex) {
-		    Obfuscator.err.println("Can't write Class "
+		    GlobalOptions.err.println("Can't write Class "
 					   + ident.getName());
-		    ex.printStackTrace(Obfuscator.err);
+		    ex.printStackTrace(GlobalOptions.err);
 		}
 	    }
 	}

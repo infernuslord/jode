@@ -18,7 +18,7 @@
  */
 
 package jode.swingui;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.decompiler.*;
 import jode.bytecode.ClassInfo;
 ///#ifndef OLDSWING
@@ -44,7 +44,7 @@ public class MainWindow
 
     public MainWindow() {
 	setClasspath(System.getProperty("java.class.path"));
-	JFrame frame = new JFrame(Decompiler.copyright);
+	JFrame frame = new JFrame(GlobalOptions.copyright);
 	fillContentPane(frame.getContentPane());
 	addMenu(frame);
 	frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -83,7 +83,7 @@ public class MainWindow
 	rightPane.setDividerSize(4);
 	allPane.setDividerLocation(200);
 	allPane.setDividerSize(4);
-	Decompiler.err = new PrintStream(new AreaOutputStream(errorArea));
+	GlobalOptions.err = new PrintStream(new AreaOutputStream(errorArea));
     }
 
     public synchronized void valueChanged(TreeSelectionEvent e) {
@@ -127,9 +127,9 @@ public class MainWindow
 //  		out.close();
 //  	    } catch (IOException ex) {
 //  		errorArea.setText("");
-//  		Decompiler.err.println("Couldn't write to file " 
+//  		GlobalOptions.err.println("Couldn't write to file " 
 //  				       + fileName + ": ");
-//  		ex.printStackTrace(Decompiler.err);
+//  		ex.printStackTrace(GlobalOptions.err);
 //  	    }
 	}
     }
@@ -176,7 +176,7 @@ public class MainWindow
 	} catch (Throwable t) {
 	    sourcecodeArea.setText("Didn't succeed.\n"
 				   +"Check the below area for more info.");
-	    t.printStackTrace(Decompiler.err);
+	    t.printStackTrace(GlobalOptions.err);
 	} finally {
 	    synchronized(this) {
 		decompileThread = null;

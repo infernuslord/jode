@@ -20,7 +20,7 @@
 package jode.decompiler;
 import java.util.Enumeration;
 import java.util.Vector;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.type.Type;
 import jode.expr.LocalVarOperator;
 
@@ -93,7 +93,7 @@ public class LocalInfo {
         } else {
             if (this != li) {
                 shadow = li;
-//  		Decompiler.err.println("combining "+name+"("+type+") and "
+//  		GlobalOptions.err.println("combining "+name+"("+type+") and "
 //  				       +li.name+"("+li.type+")");
                 li.setType(type);
 
@@ -105,8 +105,8 @@ public class LocalInfo {
                     LocalVarOperator lvo = 
                         (LocalVarOperator) enum.nextElement();
                     if (needTypeUpdate) {
-                        if (Decompiler.isTypeDebugging)
-                            Decompiler.err.println("updating " + lvo);
+                        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+                            GlobalOptions.err.println("updating " + lvo);
                         lvo.updateType();
                     }
                     shadow.operators.addElement(lvo);
@@ -231,12 +231,12 @@ public class LocalInfo {
         Type newType = li.type.intersection(otherType);
 	if (newType == Type.tError
 	    && otherType != Type.tError && li.type != Type.tError) {
-	    Decompiler.err.println("Type error in local " + getName()+": "
+	    GlobalOptions.err.println("Type error in local " + getName()+": "
 				   + li.type + " and " + otherType);
 	    Thread.dumpStack();
 	}
-        else if (Decompiler.isTypeDebugging)
-            Decompiler.err.println(getName()+" setType, new: "+newType
+        else if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+            GlobalOptions.err.println(getName()+" setType, new: "+newType
 				   + " old: "+li.type);
 
         if (!li.type.equals(newType)) {
@@ -244,8 +244,8 @@ public class LocalInfo {
             java.util.Enumeration enum = li.operators.elements();
             while (enum.hasMoreElements()) {
                 LocalVarOperator lvo = (LocalVarOperator) enum.nextElement();
-                if (Decompiler.isTypeDebugging)
-                    Decompiler.err.println("updating "+lvo);
+                if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+                    GlobalOptions.err.println("updating "+lvo);
                 lvo.updateType();
             }
         }

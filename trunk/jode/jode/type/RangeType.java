@@ -19,7 +19,7 @@
 
 package jode.type;
 import jode.AssertError;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import java.util.Hashtable;
 
 /**
@@ -168,8 +168,8 @@ public class RangeType extends Type {
 	else
 	    result = tError;
 
-        if (Decompiler.isTypeDebugging) {
-	    Decompiler.err.println("intersecting "+ this +" and "+ type + 
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0) {
+	    GlobalOptions.err.println("intersecting "+ this +" and "+ type + 
                                    " to " + result);
 	}	    
         return result;

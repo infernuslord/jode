@@ -19,6 +19,7 @@
 
 package jode.obfuscator;
 import jode.type.MethodType;
+import jode.GlobalOptions;
 import jode.Obfuscator;
 import jode.type.Type;
 import jode.bytecode.*;
@@ -1013,20 +1014,18 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    Object methodResult = null;
 	    if (constant) {
 		try {
-		    if (jode.Obfuscator.isDebugging)
-			jode.Decompiler.isDebugging = true; /*XXX*/
 		    methodResult = runtime.invokeMethod
 			(ref, opcode != opc_invokespecial, cls, args);
 		} catch (InterpreterException ex) {
 		    constant = false;
-		    if (jode.Obfuscator.verboseLevel > 3)
-			Obfuscator.err.println("Can't interpret "+ref+": "
+		    if (jode.GlobalOptions.verboseLevel > 3)
+			GlobalOptions.err.println("Can't interpret "+ref+": "
 					       + ex.getMessage());
 		    /* result is not constant */
 		} catch (InvocationTargetException ex) {
 		    constant = false;
-		    if (jode.Obfuscator.verboseLevel > 3)
-			Obfuscator.err.println("Method "+ref
+		    if (jode.GlobalOptions.verboseLevel > 3)
+			GlobalOptions.err.println("Method "+ref
 					       +" throwed exception: "
 					       + ex.getTargetException()
 					       .getMessage());
@@ -1232,7 +1231,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     public BytecodeInfo stripCode() {
 	if (constInfos == null)
 	    analyzeCode();
-// 	bytecode.dumpCode(Obfuscator.err);
+// 	bytecode.dumpCode(GlobalOptions.err);
 	for (Instruction instr = bytecode.getFirstInstr();
 	     instr != null; instr = instr.nextByAddr) {
 	    ConstantInfo info = (ConstantInfo) constInfos.get(instr);
@@ -1248,8 +1247,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    instr.localSlot = -1;
 		    instr.length = 2;
 		    instr.objData = info.constant;
-		    if (Obfuscator.verboseLevel > 2)
-			Obfuscator.err.println
+		    if (GlobalOptions.verboseLevel > 2)
+			GlobalOptions.err.println
 			    (m + ": Replacing " + instr
 			     + " with constant " + info.constant);
 		}
@@ -1261,8 +1260,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    instr.opcode = opc_pop2;
 		else
 		    instr.opcode = opc_pop;
-		if (Obfuscator.verboseLevel > 2)
-		    Obfuscator.err.println
+		if (GlobalOptions.verboseLevel > 2)
+		    GlobalOptions.err.println
 			(m + ": Replacing " + instr + " with goto " + pc.addr);
 		instr.alwaysJumps = false;
 		instr.succs[0].removePredecessor(instr);
@@ -1330,7 +1329,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    FieldIdentifier fi = (FieldIdentifier) 
 			m.clazz.bundle.getIdentifier(ref);
 		    if (fi != null
-			&& jode.Obfuscator.shouldStrip && !fi.isReachable()) {
+			&& Obfuscator.shouldStrip && !fi.isReachable()) {
 			insertPop(instr);
 			instr.removeInstruction();
 		    } 
