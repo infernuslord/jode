@@ -25,11 +25,18 @@ public abstract class StoreInstruction extends Operator
 
     public String lvCasts;
     Type lvalueType;
+    Type rvalueType;
 
     public StoreInstruction(Type type, int operator) {
         super(Type.tVoid, operator);
         lvalueType = type;
+	rvalueType = type;
         lvCasts = lvalueType.toString();
+    }
+
+    public void makeOpAssign(int operator) {
+	setOperatorIndex(operator);
+	rvalueType = Type.tUnknown;
     }
 
     public Type getType() {
@@ -89,7 +96,7 @@ public abstract class StoreInstruction extends Operator
 
     public Type getOperandType(int i) {
         if (i == getLValueOperandCount())
-            return getLValueType();
+            return rvalueType;
         else
             return getLValueOperandType(i);
     }
@@ -98,7 +105,10 @@ public abstract class StoreInstruction extends Operator
         int count = getLValueOperandCount();
         if (count > 0)
             setLValueOperandType(t);
-        setLValueType(t[count]);
+	rvalueType = rvalueType.intersection(t[count]);
+	if (getOperatorIndex() == ASSIGN_OP)
+	    /* In a direct assignment, lvalueType is rvalueType */
+	    setLValueType(rvalueType);
     }
 
     public int getOperandCount() {
