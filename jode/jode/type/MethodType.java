@@ -24,11 +24,21 @@ package jode;
  * @author Jochen Hoenicke 
  */
 public class MethodType {
-    Type[] argumentTypes;
-    Type returnType;
-    Type elementType;
+    final Type[] parameterTypes;
+    final Type returnType;
+    final boolean staticFlag;
 
-    public MethodType(String signature) {
+    public MethodType(boolean isStatic, Class[] argTypes, Class retType) {
+        this.staticFlag = isStatic;
+        parameterTypes = new Type[argTypes.length];
+        for (int i=0; i < argTypes.length; i++)
+            parameterTypes[i] = Type.tType(argTypes[i]);
+
+        returnType = Type.tType(retType);
+    }
+
+    public MethodType(boolean isStatic, String signature) {
+        this.staticFlag = isStatic;
         int index = 1, types = 0;
         while (signature.charAt(index) != ')') {
             types++;
@@ -38,7 +48,7 @@ public class MethodType {
                 index = signature.indexOf(';', index);
             index++;
         }
-        argumentTypes = new Type[types];
+        parameterTypes = new Type[types];
 
         index = 1;
         types = 0;
@@ -49,17 +59,34 @@ public class MethodType {
             if (signature.charAt(index) == 'L')
                 index = signature.indexOf(';', index);
             index++;
-            argumentTypes[types++] 
+            parameterTypes[types++] 
                 = Type.tType(signature.substring(lastindex,index));
         }
         returnType = Type.tType(signature.substring(index+1));
     }
 
-    public Type[] getArgumentTypes() {
-        return argumentTypes;
+    public boolean isStatic() {
+        return staticFlag;
+    }
+
+    public Type[] getParameterTypes() {
+        return parameterTypes;
     }
 
     public Type getReturnType() {
         return returnType;
+    }
+
+    public boolean equals(Object o) {
+        MethodType mt;
+        if (!(o instanceof InvokeOperator)
+            || !returnType.equals((mt = (MethodType)o).returnType)
+            || staticFlag != mt.staticFlag
+            || parameterTypes.length != mt.parameterTypes.length)
+            return false;
+        for (int i=0; i<parameterTypes.length; i++)
+            if (!parameterTypes[i].equals(mt.parameterTypes))
+                return false;
+        return true;
     }
 }
