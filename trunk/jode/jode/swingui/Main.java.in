@@ -125,33 +125,9 @@ public class Main
 
     public synchronized void actionPerformed(ActionEvent e) {
 	if (e.getSource() == classTree && decompileThread == null) {
-//  	    startButton.setEnabled(false);
 	    decompileThread = new Thread(this);
 	    sourcecodeArea.setText("Please wait, while decompiling...\n");
 	    decompileThread.start();
-//  	} else if (e.getSource() == saveButton) {
-//  	    if (frame == null)
-//  		frame = new Frame(); //XXX
-//  	    FileDialog fd = new FileDialog(frame, 
-//  					   "Save decompiled code", 
-//  					   FileDialog.SAVE);
-//  	    fd.setFile(lastClassName.substring
-//  		       (lastClassName.lastIndexOf('.')+1).concat(".java"));
-//  	    fd.show();
-//  	    String fileName = fd.getFile();
-//  	    if (fileName == null)
-//  		return;
-//  	    try {
-//  		File f = new File(new File(fd.getDirectory()), fileName);
-//  		FileWriter out = new FileWriter(f);
-//  		out.write(sourcecodeArea.getText());
-//  		out.close();
-//  	    } catch (IOException ex) {
-//  		errorArea.setText("");
-//  		GlobalOptions.err.println("Couldn't write to file " 
-//  				       + fileName + ": ");
-//  		ex.printStackTrace(GlobalOptions.err);
-//  	    }
 	}
     }
 
@@ -168,11 +144,7 @@ public class Main
 		area.setText("");
 		initialized = true;
 	    }
-///#ifdef AWT10
-///	    area.appendText(new String(b, off, len));
-///#else
 	    area.append(new String(b, off, len));
-///#endif
 	}
 
 	public void flush() {
@@ -183,35 +155,19 @@ public class Main
     }
 
     public void run() {
-//  	Decompiler.isVerbose = verboseCheck.getState();
-//  	if (prettyCheck.getState())
-//  	    Decompiler.options |= Decompiler.OPTION_PRETTY;
-//  	else
-//  	    Decompiler.options &= ~Decompiler.OPTION_PRETTY;
 	errorArea.setText("");
-//  	saveButton.setEnabled(false);
 
 	ImportHandler imports = new ImportHandler();
 	try {
 	    ClassInfo clazz = ClassInfo.forName(lastClassName);
 
-	    imports.init(lastClassName);
-	    ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
-	    clazzAna.analyze();
-	    clazzAna.analyzeInnerClasses();
-	    clazzAna.makeDeclaration();
-	    
-	    sourcecodeArea.setText("");
 	    TabbedPrintWriter writer = 
 		new TabbedPrintWriter
 		(new BufferedWriter
 		 (new AreaWriter(sourcecodeArea), 1024), imports, false);
-
-	    imports.dumpHeader(writer);
-	    clazzAna.dumpSource(writer);
+	    ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
+	    clazzAna.dumpJavaFile(writer);
 	    writer.close();
-
-//  	    saveButton.setEnabled(true);
 	} catch (Throwable t) {
 	    sourcecodeArea.setText("Didn't succeed.\n"
 				   +"Check the below area for more info.");
@@ -219,7 +175,6 @@ public class Main
 	} finally {
 	    synchronized(this) {
 		decompileThread = null;
-//  		startButton.setEnabled(true);
 	    }
 	}
     }
