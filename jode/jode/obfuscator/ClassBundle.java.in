@@ -22,6 +22,9 @@ import jode.GlobalOptions;
 import jode.bytecode.SearchPath;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.Reference;
+import jode.obfuscator.modules.WildCard;
+import jode.obfuscator.modules.MultiIdentifierMatcher;
+import jode.obfuscator.modules.SimpleAnalyzer;
 import java.io.*;
 import java.util.zip.ZipOutputStream;
 

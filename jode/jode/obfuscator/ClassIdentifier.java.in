@@ -20,6 +20,7 @@
 package jode.obfuscator;
 import jode.GlobalOptions;
 import jode.bytecode.*;
+import jode.obfuscator.modules.ModifierMatcher;
 import @COLLECTIONS@.Comparator;
 import @COLLECTIONS@.Collection;
 import @COLLECTIONS@.Collections;
@@ -251,48 +252,26 @@ public class ClassIdentifier extends Identifier {
 	}
     }
 
-    /**
-     * Preserve all fields, that are necessary, to serialize
-     * a compatible class.
-     */
-    public void preserveSerializable() {
-	Identifier method 
-	    = findMethod("writeObject", "(Ljava.io.ObjectOutputStream)V");
-	if (method != null)
-	    method.setPreserved();
-	method = findMethod("readObject", "(Ljava.io.ObjectInputStream)V");
-	if (method != null)
-	    method.setPreserved();
-	if ((Main.options & Main.OPTION_PRESERVESERIAL) != 0) {
-	    setPreserved();
-	    Identifier UIDident = findField("serialVersionUID", "J");
-	    if (UIDident == null) {
-		/* add a field serializableVersionUID if not existent */
-		long serialVersion = calcSerialVersionUID();
-		FieldInfo UIDField = new FieldInfo
-		    (info, "serialVersionUID", "J", 
-		     Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
-		UIDField.setConstant(new Long(serialVersion));
-		UIDident = new FieldIdentifier(this, UIDField);
-		fieldIdents.add(UIDident);
-	    }
-	    UIDident.setReachable();
-	    UIDident.setPreserved();
-	    for (Iterator i=getFieldIdents().iterator(); i.hasNext(); ) {
-		FieldIdentifier ident = (FieldIdentifier) i.next();
-		if ((ident.info.getModifiers() 
-		     & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-		    ident.setPreserved();
-		    ident.setNotConstant();
-		}
-		/* XXX - only preserve them if writeObject not existent
-		 * or if writeObject calls defaultWriteObject, and similar
-		 * for readObject
-		 */
-	    }
-	}
+    public void addSUID() {
+	/* add a field serializableVersionUID if not existent */
+	long serialVersion = calcSerialVersionUID();
+	FieldInfo UIDField = new FieldInfo
+	    (info, "serialVersionUID", "J", 
+	     Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
+	UIDField.setConstant(new Long(serialVersion));
+	FieldIdentifier UIDident = new FieldIdentifier(this, UIDField);
+	fieldIdents.add(UIDident);
+	UIDident.setPreserved();
     }
 
+    public boolean isSerializable() {
+	return ClassInfo.forName("java.lang.Serializable")
+	    .implementedBy(info);
+    }
+    public boolean hasSUID() {
+	return (findField("serialVersionUID", "J") != null);
+    }
+	    
     /**
      * Marks the package as preserved, too.
      */
@@ -307,8 +286,6 @@ public class ClassIdentifier extends Identifier {
     
     public void analyzeSuperClasses(ClassInfo superclass) {
 	while (superclass != null) {
-	    if (superclass.getName().equals("java.io.Serializable"))
-		preserveSerializable();
 	    
 	    ClassIdentifier superident = Main.getClassBundle()
 		.getClassIdentifier(superclass.getName());
@@ -351,9 +328,6 @@ public class ClassIdentifier extends Identifier {
 
     public void initSuperClasses(ClassInfo superclass) {
 	while (superclass != null) {
-	    if (superclass.getName().equals("java.lang.Serializable"))
-		preserveSerializable();
-	    
 	    ClassIdentifier superident = Main.getClassBundle()
 		.getClassIdentifier(superclass.getName());
 	    if (superident != null) {
@@ -736,6 +710,10 @@ public class ClassIdentifier extends Identifier {
     public String getType() {
 	return "Ljava/lang/Class;";
     }
+    
+    public int getModifiers() {
+	return info.getModifiers();
+    }
 
     public List getFieldIdents() {
 	return fieldIdents;
@@ -796,7 +774,7 @@ public class ClassIdentifier extends Identifier {
     }
 
     public boolean containsFieldAliasDirectly(String fieldName, String typeSig,
-					      ModifierMatcher matcher) {
+					      IdentifierMatcher matcher) {
 	for (Iterator i = fieldIdents.iterator(); i.hasNext(); ) {
 	    Identifier ident = (Identifier) i.next();
 	    if (((Main.stripping & Main.STRIP_UNREACH) == 0
@@ -812,7 +790,7 @@ public class ClassIdentifier extends Identifier {
 
     public boolean containsMethodAliasDirectly(String methodName, 
 					       String paramType,
-					       ModifierMatcher matcher) {
+					       IdentifierMatcher matcher) {
 	for (Iterator i = methodIdents.iterator(); i.hasNext(); ) {
 	    Identifier ident = (Identifier) i.next();
 	    if (((Main.stripping & Main.STRIP_UNREACH) == 0

@@ -32,6 +32,8 @@ import java.util.zip.ZipOutputStream;
 import @COLLECTIONS@.Map;
 import @COLLECTIONS@.HashMap;
 import @COLLECTIONS@.Iterator;
+import @COLLECTIONS@.List;
+import @COLLECTIONS@.ArrayList;
 
 public class PackageIdentifier extends Identifier {
     ClassBundle bundle;
@@ -248,8 +250,9 @@ public class PackageIdentifier extends Identifier {
 		    }
 		}
 	    }
-	    for (Iterator i = loadedClasses.values().iterator(); 
-		 i.hasNext(); ) {
+	    List list = new ArrayList();
+	    list.addAll(loadedClasses.values());
+	    for (Iterator i = list.iterator(); i.hasNext(); ) {
 		Identifier ident = (Identifier) i.next();
 		if (ident instanceof PackageIdentifier) {
 		    if (matcher.matches(ident))

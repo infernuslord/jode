@@ -1,5 +1,7 @@
 ## Input file for automake to generate the Makefile.in used by configure
 
+SUBDIRS = modules
+
 JAR = @JAR@
 JAVAC = @JAVAC@
 JAVADEP = $(top_builddir)/javaDependencies.pl -subdir=$(subdir)\
@@ -15,30 +17,19 @@ MY_JAVA_FILES = \
   ClassIdentifier.java \
   CodeAnalyzer.java \
   CodeTransformer.java \
-  ConstantAnalyzer.java \
   ConstantRuntimeEnvironment.java \
   FieldIdentifier.java \
   Identifier.java \
   IdentifierMatcher.java \
   LocalIdentifier.java \
-  LocalOptimizer.java \
   Main.java \
   MethodIdentifier.java \
-  ModifierMatcher.java \
-  MultiIdentifierMatcher.java \
-  NameSwapper.java \
   OptionHandler.java \
   PackageIdentifier.java \
   ParseException.java \
-  RemovePopAnalyzer.java \
   Renamer.java \
   ScriptParser.java \
-  SimpleAnalyzer.java \
-  StrongRenamer.java \
-  TranslationTable.java \
-  UniqueRenamer.java \
-  WildCard.java
-#  LocalizeFieldTransformer.java
+  TranslationTable.java
 
 noinst_DATA = $(MY_JAVA_FILES:.java=.class)
 EXTRA_DIST = $(MY_JAVA_FILES)

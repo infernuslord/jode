@@ -226,7 +226,11 @@ public abstract class Identifier {
 	if (preserveRule.matches(this)) {
 	    System.err.println("preserving: "+this);
 	    setReachable();
-	    setPreserved();
+	    Identifier ident = this;
+	    while (ident != null) {
+		ident.setPreserved();
+		ident = ident.getParent();
+	    }
 	}
 	for (Iterator i = getChilds(); i.hasNext(); )
 	    ((Identifier)i.next()).applyPreserveRule(preserveRule);
