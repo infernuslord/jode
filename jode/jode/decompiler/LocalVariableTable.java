@@ -29,16 +29,16 @@ public class LocalVariableTable {
     public LocalVariableTable(int maxLocals, LocalVariableInfo[] lvt) {
         locals = new LocalVariableRangeList[maxLocals];
         for (int i=0; i < maxLocals; i++)
-            locals[i] = new LocalVariableRangeList(i);
+            locals[i] = new LocalVariableRangeList();
 
 	for (int i=0; i<lvt.length; i++)
 	    locals[lvt[i].slot].addLocal(lvt[i].start.addr, lvt[i].end.addr,
 					 lvt[i].name, Type.tType(lvt[i].type));
     }
 
-    public LocalVariableRangeList getLocal(int slot) 
+    public LocalVarEntry getLocal(int slot, int addr) 
          throws ArrayIndexOutOfBoundsException
     {
-        return locals[slot];
+        return locals[slot].getInfo(addr);
     }
 }
