@@ -96,26 +96,22 @@ public class SequentialBlock extends StructuredBlock {
      * @param done The set of the already declare variables.
      */
     public void makeDeclaration(VariableSet done) {
-	/* A sequential block is special, since it doesn't declare
-	 * any local Variable, but lets the first sub block do this.
-	 */
-	declare = new VariableSet();
-        /* Second, tell the first sub block that he must declare all
-         * variables _we_ use.  
-	 */
-        subBlocks[0].used.unionExact(used);
-	subBlocks[0].makeDeclaration(done);
-
-	VariableSet doneFirst;
 	if (subBlocks[0] instanceof InstructionBlock) {
-	    /* Now add the variables used in the first block to the done
+	    /* Special case: If the first block is an InstructionBlock,
+	     * it can declare the variable it uses for us.
+	     *
+	     * Now add the variables used in the first block to the done
 	     * set of the second block, since the first sub block has
-	     * declared them.  */
-	    doneFirst = (VariableSet) done.clone();
-	    doneFirst.unionExact(subBlocks[0].used);
+	     * declared them.  
+	     */
+	    declare = new VariableSet();
+
+	    subBlocks[0].makeDeclaration(done);
+	    done.unionExact(subBlocks[0].declare);
+	    subBlocks[1].makeDeclaration(done);
+	    done.subtractExact(subBlocks[0].declare);
 	} else
-	    doneFirst = done;
-	subBlocks[1].makeDeclaration(doneFirst);
+	    super.makeDeclaration(done);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer)
