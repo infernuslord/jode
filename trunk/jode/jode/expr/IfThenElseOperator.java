@@ -104,6 +104,13 @@ public class IfThenElseOperator extends Operator {
 	throws java.io.IOException {
 	subExpressions[0].dumpExpression(writer, 201);
 	writer.print(" ? ");
+	if (!subExpressions[1].getType().getHint().isOfType
+	    (subExpressions[2].getType())) {
+	    /* We need a cast here */
+	    writer.print("(");
+	    writer.printType(getType().getHint());
+	    writer.print(") ");
+	}
 	subExpressions[1].dumpExpression(writer, 0);
 	writer.print(" : ");
 	subExpressions[2].dumpExpression(writer, 200);
