@@ -14,10 +14,7 @@ BUILD_CLASSPATH = $(top_srcdir):$(top_builddir):$(CLASSPATH):$(CLASSLIB)
 
 MY_JAVA_FILES = \
   AssertError.java \
-  Decompiler.java  \
-  GlobalOptions.java  \
-  JodeApplet.java  \
-  JodeWindow.java
+  GlobalOptions.java
 
 noinst_DATA = $(MY_JAVA_FILES:.java=.class)
 EXTRA_DIST = $(MY_JAVA_FILES)
