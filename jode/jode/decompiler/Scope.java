@@ -1,22 +1,23 @@
-/* 
- * Scope (c) 1998 Jochen Hoenicke
+/* Scope Copyright (C) 1998-1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
-package jode;
+
+package jode.decompiler;
 
 /**
  * This interface describes a scope.  The basic scopes are: the package
@@ -26,13 +27,25 @@ package jode;
  * @author Jochen Hoenicke
  */
 public interface Scope {
-    public int PACKAGENAME   = 0;
-    public int CLASSNAME     = 1;
-    public int METHODNAME    = 2;
-    public int FIELDNAME     = 3;
-    public int AMBIGUOUSNAME = 4;
+    public final int PACKAGENAME   = 0;
+    public final int CLASSNAME     = 1;
+    public final int METHODNAME    = 2;
+    public final int FIELDNAME     = 3;
+    public final int AMBIGUOUSNAME = 4;
 
-    public Scope   getParentScope();
-    public void    requestName(String name);
-    public String  getScopedName(String name, int usageType, int wantedType);
+    public final int CLASSSCOPE    = 1;
+    public final int METHODSCOPE   = 2;
+
+    /**
+     * Simplifies the given name.  
+     * @param name the name to simplify.
+     * @param usageType the context of this name.
+     * @return null if the name hasn't a simplification in current
+     * scope, the simplified name otherwise.
+     */
+    /**
+     * Tells if this is the scope of name
+     */
+    public boolean isScopeOf(Object object, int scopeType);
+    public boolean conflicts(String name, int usageType);
 }
