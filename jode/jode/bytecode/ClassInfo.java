@@ -387,13 +387,13 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	
 	int oldSimple = javaModifiersToBytecode(modifiers);
 	if (((oldSimple ^ newModifiers) & ~0x20) == 0) {
-	    modifiers = newModifiers | (modifiers & 0x20);
+	    modifiers |= newModifiers & 0x20;
 	    return;
 	}
 
 	int newSimple = javaModifiersToBytecode(newModifiers);
 	if (((newSimple ^ modifiers) & ~0x20) == 0) {
-	    modifiers |= newModifiers & 0x20;
+	    modifiers = newModifiers | (modifiers & 0x20);
 	    return;
 	}
 
