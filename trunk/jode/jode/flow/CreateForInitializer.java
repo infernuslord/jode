@@ -41,6 +41,8 @@ public class CreateForInitializer {
         InstructionBlock init = (InstructionBlock) sequBlock.subBlocks[0];
             
         if (!init.getInstruction().isVoid()
+	    || !(init.getInstruction().getOperator() 
+		 instanceof CombineableOperator)
             || !forBlock.conditionMatches(init))
             return false;
 

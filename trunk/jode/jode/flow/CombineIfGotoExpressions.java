@@ -44,7 +44,8 @@ public class CombineIfGotoExpressions {
                 return false;
 
             Expression expr = ib.getInstruction();
-            if (lastCombined.canCombine(expr) + e[1].canCombine(expr) <= 0)
+            if (!(expr.getOperator() instanceof CombineableOperator)
+		|| lastCombined.canCombine(expr) + e[1].canCombine(expr) <= 0)
                 /* Tricky, the above is true, iff one of the two
                  * Expressions conflict, or both fail.  */
                 return false;
