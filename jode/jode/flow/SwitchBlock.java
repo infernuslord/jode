@@ -27,14 +27,26 @@ import jode.expr.Expression;
 public class SwitchBlock extends InstructionContainer 
 implements BreakableBlock {
     CaseBlock[] caseBlocks;
+    VariableStack exprStack;
+    VariableStack breakedStack;
 
     public SwitchBlock(Expression instr,
 		       int[] cases, int[] dests) {
 	super(instr);
-        this.caseBlocks = new CaseBlock[dests.length];
+
+	/* First remove all dests that jump to the default dest. */
+	int numCases = dests.length;
+	int defaultDest = dests[cases.length];
+	for (int i=0; i< cases.length; i++) {
+	    if (dests[i] == defaultDest) {
+		dests[i] = -1;
+		numCases--;
+	    }
+	}
+
+        caseBlocks = new CaseBlock[numCases];
 	int lastDest = -1;
-	boolean lastBlock = true;
-        for (int i=dests.length-1; i>=0; i--) {
+        for (int i=numCases-1; i>=0; i--) {
 	    /**
 	     * Sort the destinations by finding the greatest destAddr
 	     */
@@ -43,6 +55,7 @@ implements BreakableBlock {
 		if (dests[j] >= dests[index])
 		    index = j;
 	    }
+	    /* assert(dests[index] != -1) */
 
 	    int value;
 	    if (index == cases.length)
@@ -51,20 +64,62 @@ implements BreakableBlock {
 		value = cases[index];
 
 	    if (dests[index] == lastDest)
-		this.caseBlocks[i] = new CaseBlock(value);
+		caseBlocks[i] = new CaseBlock(value);
 	    else
-		this.caseBlocks[i] = new CaseBlock(value, 
-						   new Jump(dests[index]));
-	    this.caseBlocks[i].outer = this;
-	    this.caseBlocks[i].isLastBlock = lastBlock;
-	    lastBlock = false;
+		caseBlocks[i] = new CaseBlock(value, 
+					      new Jump(dests[index]));
+	    caseBlocks[i].outer = this;
 	    lastDest = dests[index];
 	    dests[index] = -1;
 	    if (index == cases.length)
-		this.caseBlocks[i].isDefault = true;
+		caseBlocks[i].isDefault = true;
         }
+	caseBlocks[numCases-1].isLastBlock = true;
         this.jump = null;
         isBreaked = false;
+    }
+
+    /**
+     * This does take the instr into account and modifies stack
+     * accordingly.  It then calls super.mapStackToLocal.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	VariableStack newStack;
+	int params = instr.getOperandCount();
+	if (params > 0) {
+	    exprStack = stack.peek(params);
+	    newStack = stack.pop(params);
+	} else 
+	    newStack = stack;
+	
+	VariableStack lastStack = newStack;
+	for (int i=0; i< caseBlocks.length; i++) {
+	    if (lastStack != null)
+		newStack.merge(lastStack);
+	    lastStack = caseBlocks[i].mapStackToLocal(newStack);
+	}
+	if (lastStack != null)
+	    mergeBreakedStack(lastStack);
+	return breakedStack;
+    }
+
+    /**
+     * Is called by BreakBlock, to tell us what the stack can be after a
+     * break.
+     */
+    public void mergeBreakedStack(VariableStack stack) {
+	if (breakedStack != null)
+	    breakedStack.merge(stack);
+	else
+	    breakedStack = stack;
+    }
+
+    public void removePush() {
+	if (exprStack != null)
+	    instr = exprStack.mergeIntoExpression(instr, used);
+	super.removePush();
     }
 
     /**
