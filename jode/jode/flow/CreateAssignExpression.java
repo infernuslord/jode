@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.expr.*;
-import jode.Type;
+import jode.type.Type;
 
 public class CreateAssignExpression {
 
@@ -155,16 +155,17 @@ public class CreateAssignExpression {
 		((LocalLoadOperator)simple).getLocalInfo().combineWith
 		    (((LocalStoreOperator)store).getLocalInfo());
 		
-	    rhsType = Type.tString;
-            
             /* ... and remove it. */
             if (lastExpr.getParent() != null) {
 		ComplexExpression ce = (ComplexExpression)lastExpr.getParent();
 		StringAddOperator addOp = (StringAddOperator) ce.getOperator();
 		addOp.clearFirstType();
 		ce.setSubExpressions(0,lastExpr.getSubExpressions()[1]);
-            } else
+		rhsType = Type.tString;
+            } else {
+		rhsType = lastExpr.getOperator().getOperandType(1);
                 rightHandSide = lastExpr.getSubExpressions()[1]; 
+	    }
 
             opIndex = Operator.ADD_OP;
         }
