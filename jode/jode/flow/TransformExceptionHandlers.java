@@ -77,6 +77,12 @@ public class TransformExceptionHandlers {
 	    
 	    /* ...Last sort by typecode signature.  Shouldn't happen to often.
 	     */
+	    if (type == second.type)
+		return 0;
+	    if (type == null)
+		return -1;
+	    if (second.type == null)
+		return 1;
 	    return type.getTypeSignature()
 		.compareTo(second.type.getTypeSignature());
 	}
@@ -845,7 +851,7 @@ public class TransformExceptionHandlers {
 
 		FlowBlock catchFlow = exc.handler;
 		boolean isMultiUsed = catchFlow.predecessors.size() != 0;
-		if (!isMultiUsed) {
+		if (!isMultiUsed && next != null) {
 		    for (Iterator j = handlers.tailSet(next).iterator(); 
 			 j.hasNext();) {
 			Handler h = (Handler) j.next();
