@@ -40,6 +40,8 @@ public final class InvokeOperator extends Operator {
         this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
         this.field = field;
+        if (staticFlag)
+            classType.useType();
     }
 
     public boolean isStatic() {
@@ -91,17 +93,13 @@ public final class InvokeOperator extends Operator {
     public String toString(String[] operands) {
         String object = 
             staticFlag
-            ? ((field.getCpoolClass().getName().getString()
-                .replace(java.io.File.separatorChar, '.')
-                .equals(codeAnalyzer.getClazz().getName()))
+            ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
                ? ""
-               : codeAnalyzer.getTypeString(getClassType()))
+               : classType.toString())
             : (operands[0].equals("this") 
-               ? ((specialFlag &&
-                   (field.getCpoolClass().getName().getString()
-                    .replace(java.io.File.separatorChar, '.')
-                    .equals(codeAnalyzer.getClazz()
-                            .getSuperclass().getName())))
+               ? (specialFlag &&
+                  classType.equals(Type.tType(codeAnalyzer.getClazz()
+                                              .getSuperclass()))
                   ? "super"
                   : "")
                : operands[0]);
