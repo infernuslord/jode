@@ -2,7 +2,7 @@
 
 JAR = @JAR@
 JAVAC = @JAVAC@
-JAVADEP = $(top_builddir)/javaDependencies.pl\
+JAVADEP = $(top_builddir)/javaDependencies.pl -subdir=$(subdir)\
    -dependdir=$(top_builddir) -classpath=$(top_builddir):$(top_srcdir)
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
