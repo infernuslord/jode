@@ -97,7 +97,8 @@ public class IfThenElseBlock extends StructuredBlock {
         throws java.io.IOException
     {
         boolean needBrace = thenBlock.needsBraces();
-        writer.println("if ("+cond.toString()+")"+(needBrace?" {":""));
+        writer.println("if ("+cond.simplify().toString()+")"
+                       +(needBrace?" {":""));
         writer.tab();
         thenBlock.dumpSource(writer);
         writer.untab();

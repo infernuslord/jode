@@ -135,14 +135,16 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         boolean needBrace = bodyBlock.needsBraces();
         switch (type) {
         case WHILE:
-            writer.print("while ("+cond.toString()+")");
+            writer.print("while ("+cond.simplify().toString()+")");
             break;
         case DOWHILE:
             writer.print("do");
             break;
         case FOR:
-            writer.print("for ("+(init != null ? init.toString() : "") +
-                         "; "+cond.toString()+"; "+incr.toString()+")");
+            writer.print("for ("
+                         +(init != null ? init.simplify().toString() : "")
+                         +"; "+cond.simplify().toString()+"; "
+                         +incr.simplify().toString()+")");
             break;
         }
         writer.println( needBrace?" {": "");
@@ -151,7 +153,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         writer.untab();
         if (type == DOWHILE)
             writer.println((needBrace?"} ": "")+
-                           "while ("+cond.toString()+")");
+                           "while ("+cond.simplify().toString()+")");
         else if (needBrace)
             writer.println("}");
     }

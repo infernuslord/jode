@@ -133,7 +133,7 @@ implements BreakableBlock {
             writer.println(label+":");
             writer.tab();
         }
-        writer.println("switch ("+instr+") {");
+        writer.println("switch ("+instr.simplify()+") {");
 	for (int i=0; i < caseBlocks.length; i++)
 	    caseBlocks[i].dumpSource(writer);
 	writer.println("}");
