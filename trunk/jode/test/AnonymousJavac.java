@@ -177,7 +177,5 @@ public class AnonymousJavac {
 	    };
 
 	    Hi hu = new Hi();
-		
 	}
-
 }

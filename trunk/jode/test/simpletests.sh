@@ -4,18 +4,22 @@ TEMP=`mktemp -d tmp.XXXXXX`
 
 if echo $JAVAC | grep jikes >/dev/null; then
     compiler=JIKES;
+    version=`$JAVAC 2>&1 | grep Version | \
+		perl -pe's/^.*Version \"?([0-9]+)\.([0-9]+).*$/\1/'`
 elif echo $JAVAC | grep javac  >/dev/null; then
-    compiler=`$JAVAC -J-version 2>&1 | grep version | \
-             perl -pe's/^.*version \"?([0-9]+)\.([0-9]+).*$/JAVAC\1\2/'`
+    compiler=JAVAC
+    version=`$JAVAC -J-version 2>&1 | grep version | \
+		perl -pe's/^.*version \"?([0-9]+)\.([0-9]+).*$/\1\2/'`
 else
     compiler=UNKNOWN
+    version=""
 fi
 
 echo "detected compiler $compiler"
 
 error=""
 
-EXPECT_FAIL="ResolveConflicts.java AnonymousClass.java InnerClass.java"
+EXPECT_FAIL=""
 
 for testclass in \
 ArrayCloneTest.java \
@@ -36,13 +40,13 @@ Unreach.java \
 AnonymousClass.java \
 InnerClass.java \
 InnerCompat.java \
-NestedAnon.java
+NestedAnon.java 
 do
     cp $srcdir/$testclass $TEMP
-    $top_srcdir/jcpp -D$compiler $TEMP/$testclass
-    $JAVAC $JFLAGS -d $TEMP $TEMP/$testclass
-    CLASSPATH=$top_builddir:$CLASSPATH $JAVA jode.Decompiler \
-         --classpath=$TEMP --dest=$TEMP ${testclass%.java} &> $testclass.log
+    $top_srcdir/jcpp -D$compiler -D$compiler$version $TEMP/$testclass
+    CLASSPATH=$CLASSPATH:$CLASSLIB $JAVAC $JFLAGS -d $TEMP $TEMP/$testclass
+    CLASSPATH=$CLASSPATH:$CLASSLIB $JAVA jode.Decompiler \
+         --classpath=$TEMP --dest=$TEMP ${testclass%.java} > $testclass.log 2>&1
     if ! CLASSPATH=$TEMP:$CLASSPATH $JAVAC $JFLAGS -d $TEMP $TEMP/$testclass >> $testclass.log 2>&1 ; then
        cat $TEMP/$testclass >> $testclass.log
        CLASSPATH=$TEMP:$CLASSPATH javap -c ${testclass%.java} >> $testclass.log

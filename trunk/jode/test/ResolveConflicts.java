@@ -32,7 +32,11 @@ public class ResolveConflicts
 	    Conflicts Inner;
 	    
 	    void Conflicts() {
+///#ifndef JAVAC11
+///#ifndef JAVAC12
 		Inner = ResolveConflicts.Conflicts.this;
+///#endif
+///#endif
 	    }
 	}
 	
@@ -48,9 +52,13 @@ public class ResolveConflicts
 		
 		void Inner() {
 		    this.Inner.Inner();
-		    ResolveConflicts.Conflicts.Inner.this.Inner.Inner();
 		    this.Conflicts();
+///#ifndef JAVAC11
+///#ifndef JAVAC12
+		    ResolveConflicts.Conflicts.Inner.this.Inner.Inner();
 		    ResolveConflicts.Conflicts.Inner.this.Conflicts();
+///#endif
+///#endif
 		}
 		
 		Blah() {
@@ -67,16 +75,30 @@ public class ResolveConflicts
 		Conflicts();
 		new Object() {
 		    void Inner() {
+///#ifndef JAVAC11
+///#ifndef JAVAC12
 			ResolveConflicts.Conflicts.this.Inner();
+///#endif
+///#endif
 		    }
 		};
 		this.Conflicts = Conflicts;
 		Inner();
+///#ifndef JAVAC11
+///#ifndef JAVAC12
 		ResolveConflicts.Conflicts.this.Conflicts = this.Conflicts;
+///#endif
+///#endif
 	    }
 	    
 	    Conflicts Conflicts(Inner Conflicts) {
-		return ResolveConflicts.Conflicts.this;
+///#ifndef JAVAC11
+///#ifndef JAVAC12
+		ResolveConflicts.Conflicts Inner
+		    = ResolveConflicts.Conflicts.this;
+///#endif
+///#endif
+		return ResolveConflicts.this.new Conflicts();
 	    }
 	}
 	
@@ -90,7 +112,17 @@ public class ResolveConflicts
 	    }
 	    
 	    Conflicts.Inner create() {
-		return ResolveConflicts.Conflicts.this.new Inner();
+///#ifndef JAVAC11
+///#ifndef JAVAC12
+		ResolveConflicts.Conflicts.Inner inner
+		    = ResolveConflicts.Conflicts.this.new Inner();
+///#endif
+///#endif
+///#ifdef JAVAC11
+		return null;
+///#else
+		return ResolveConflicts.this.new Conflicts().new Inner();
+///#endif
 	    }
 	    
 	    Second(Conflicts.Inner Blah) {

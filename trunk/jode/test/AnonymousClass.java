@@ -20,6 +20,8 @@
 import java.util.Vector;
 
 public class AnonymousClass {
+///#ifndef JAVAC11
+    // javac 1.1 is tooooooo broken
     class Inner {
 	int var = 3;
 
@@ -40,14 +42,12 @@ public class AnonymousClass {
 		Hello(String info) {
 		    System.err.println("construct: "+info);
 		}
-///#ifndef JAVAC11
 ///#ifndef JAVAC12
 ///#ifndef JIKES0
 		Hello(int i) {
 		    this("This can only be compiled correctly"
 			 +" by a recent jikes");
 		}
-///#endif
 ///#endif
 ///#endif
 		private void hello() {
@@ -105,6 +105,7 @@ public class AnonymousClass {
 		}
 	    }
 
+///#ifndef JAVAC12
 	    class Huhu extends Hello {
 		public Huhu(String str) {
 		    super(str);
@@ -117,6 +118,7 @@ public class AnonymousClass {
 		    super("What's up");
 		}
 	    }
+///#endif
 
 	    Vector v = new Vector(hi.var, new Inner("blah").var) {
 		public String newMethod() {
@@ -198,4 +200,5 @@ public class AnonymousClass {
 	Hi hu = new Hi();
 	
     }
+///#endif
 }
