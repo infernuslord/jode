@@ -73,6 +73,10 @@ public class CheckNullOperator extends Operator {
 	local.setType(type);
     }
 
+    public void removeLocal() {
+	local.remove();
+    }
+
     /**
      * Sets the return type of this operator.
      */
