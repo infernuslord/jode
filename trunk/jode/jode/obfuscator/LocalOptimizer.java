@@ -707,7 +707,7 @@ public class LocalOptimizer implements Opcodes {
 		}
 	    }
 
-	    if (instr.opcode == opc_ret) {
+	    if (info.jsrTargetInfo != null) {
 		/* On a ret we do a special merge */
 
 		Instruction jsrTargetInstr = info.jsrTargetInfo.instr;
@@ -749,6 +749,7 @@ public class LocalOptimizer implements Opcodes {
 		    : null;
 		if (lcl != currentLocal[i]
 		    && (lcl == null || currentLocal[i] == null
+			|| lcl.name == null || lcl.type == null
 			|| !lcl.name.equals(currentLocal[i].name)
 			|| !lcl.type.equals(currentLocal[i].type))) {
 		    if (lvi[i] != null) {
@@ -757,7 +758,8 @@ public class LocalOptimizer implements Opcodes {
 		    lvi[i] = null;
 		    currentLocal[i] = lcl;
 		    if (currentLocal[i] != null
-			&& currentLocal[i].name != null) {
+			&& currentLocal[i].name != null
+			&& currentLocal[i].type != null) {
 			lvi[i] = new LocalVariableInfo();
 			lvtEntries.addElement(lvi[i]);
 			lvi[i].name = currentLocal[i].name;
