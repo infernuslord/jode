@@ -58,8 +58,11 @@ public class PrePostFixOperator extends Operator {
      * Sets the return type of this operator.
      */
     public void setType(Type type) {
-        store.setLValueType(type);
-        super.setType(store.getLValueType());
+	if (!isVoid()) {
+	    store.setLValueType(type);
+	    super.setType(store.getLValueType());
+	} else
+	    super.setType(type);
     }
 
     public void setOperandType(Type[] inputTypes) {
@@ -71,18 +74,18 @@ public class PrePostFixOperator extends Operator {
     throws java.io.IOException {
 	boolean needBrace = false;
 	int priority = 700;
-	if (postfix) {
+	if (!postfix) {
 	    writer.print(getOperatorString());
 	    priority = 800;
 	}
-	if (store.getPriority() < priority) {
+	if (store.getLValuePriority() < priority) {
 	    needBrace = true;
 	    writer.print("(");
 	}
 	store.dumpLValue(writer, operands);
 	if (needBrace)
 	    writer.print(")");
-        if (!postfix)
+        if (postfix)
 	    writer.print(getOperatorString());
     }
 }
