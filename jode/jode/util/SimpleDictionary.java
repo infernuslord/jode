@@ -33,24 +33,12 @@ public class SimpleDictionary extends Dictionary {
         return count == 0;
     }
 
-    public Enumeration getArrayEnum(final Object[] array, final int size) {
-        return new Enumeration() {
-            int index = 0;
-            public boolean hasMoreElements() {
-                return index < size;
-            }
-            public Object nextElement() {
-                return array[index++];
-            }
-        };
-    }
-
     public Enumeration keys() {
-        return getArrayEnum(keyObjects, count);
+        return new ArrayEnum(count, keyObjects);
     }
 
     public Enumeration elements() {
-        return getArrayEnum(elementObjects, count);
+        return new ArrayEnum(count, elementObjects);
     }
     
     public Object get(Object key) {

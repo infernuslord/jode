@@ -158,7 +158,7 @@ public class Type {
                 :  clazz == Void.TYPE      ? tVoid 
                 :  tError;
         }
-        return tClass(clazz.getName());
+        return new ClassInterfacesType(clazz);
     }
 
     public static final Type tClass(String clazzname) {
@@ -234,7 +234,7 @@ public class Type {
     /**
      * @return the type code of the type.
      */
-    public int getTypeCode() {
+    public final int getTypeCode() {
         return typecode;
     }
 
