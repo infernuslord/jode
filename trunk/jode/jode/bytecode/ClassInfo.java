@@ -34,8 +34,9 @@ import java.security.NoSuchAlgorithmException;
 ///#def COLLECTIONS java.util
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.ListIterator;
+import java.util.List;
+import java.util.ArrayList;
 ///#enddef
 ///#def COLLECTIONEXTRA java.lang
 import java.lang.Comparable;
@@ -239,10 +240,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     private ClassInfo    outerClass;
     private ClassInfo[]  interfaces;
     private ClassInfo[]  innerClasses;
-    private ClassInfo[]  extraClasses;
     private FieldInfo[]  fields;
     private MethodInfo[] methods;
     private String sourceFile;
+    private boolean hasInnerClassesAttr;
 
     /** 
      * This constant can be used as parameter to drop.  It specifies
@@ -469,6 +470,8 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	 * </pre> 
 	 * doesn't work.
 	 */
+
+	hasInnerClassesAttr = true;
 	    
 	int count = input.readUnsignedShort();
 	if (length != 2 + 8 * count)
@@ -559,12 +562,21 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	} else
 	    innerClasses = null;
 	
-	if (extraCount > 0) {
-	    extraClasses = new ClassInfo[extraCount];
-	    for (int i = 0; i < extraCount; i++)
-		extraClasses[i] = innerExtra[count - i - 1];
-	} else
-	    extraClasses = null;
+	/* All remaining classes that are mentioned in the constant
+	 * pool must have an empty outer class info.  This is
+	 * specified in the 2nd edition of the JVM specification.
+	 */
+	for (int i = 1; i < cp.size(); i++) {
+	    if (cp.tags[i] == cp.CLASS) {
+		String clName = cp.getUTF8(cp.indices1[i]);
+		if (clName.charAt(0) != '[') {
+		    ClassInfo ci = classpath.getClassInfo
+			(clName.replace('/','.'));
+		    if (ci.status < OUTERCLASS)
+			ci.mergeOuterInfo(null, null, -1, false);
+		}
+	    }
+	}
     }
 
     void readAttribute(String name, int length,
@@ -810,9 +822,9 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 
     private void prepareWriting(GrowableConstantPool gcp) {
 	gcp.putClassName(name);
-	gcp.putClassName(superclass.getName());
+	gcp.putClassName(superclass.name);
 	for (int i=0; i < interfaces.length; i++)
-	    gcp.putClassName(interfaces[i].getName());
+	    gcp.putClassName(interfaces[i].name);
 
 	for (int i=0; i < fields.length; i++)
 	    fields[i].prepareWriting(gcp);
@@ -820,52 +832,46 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	for (int i=0; i < methods.length; i++)
 	    methods[i].prepareWriting(gcp);
 
+	for (int i=0; i < innerClasses.length; i++)
+	    gcp.putClassName(innerClasses[i].name);
+
 	if (sourceFile != null) {
 	    gcp.putUTF8("SourceFile");
 	    gcp.putUTF8(sourceFile);
 	}
-	if (outerClass != null || methodScoped
-	    || innerClasses != null || extraClasses != null) {
-	    gcp.putUTF8("InnerClasses");
-	    
-	    ClassInfo outer = this;
-	    while (outer.outerClass != null || outer.methodScoped) {
-		if (outer.status <= OUTERCLASS)
-		    throw new IllegalStateException
-			(outer.name + "'s state is " + outer.status);
-		if (outer.className != null)
-		    gcp.putClassName(outer.className);
-		if (outer.outerClass == null)
-		    break;
-		gcp.putClassName(outer.outerClass.name);
-		outer = outer.outerClass;
-	    }
-	    int innerCount = innerClasses != null ? innerClasses.length : 0;
-	    for (int i = innerCount; i-- > 0; i++) {
-		if (innerClasses[i].status <= OUTERCLASS)
-		    throw new IllegalStateException
-			(innerClasses[i].name + "'s state is "
-			 + innerClasses[i].status);
-		if (innerClasses[i].outerClass != this)
-		    throw new IllegalStateException
-			(innerClasses[i].name + "'s outer is " + 
-			 innerClasses[i].outerClass.name);
 
-		gcp.putClassName(innerClasses[i].name);
-		if (innerClasses[i].className != null)
-		    gcp.putUTF8(innerClasses[i].className);
-	    }
-	    int extraCount = extraClasses != null ? extraClasses.length : 0;
-	    for (int i=extraCount; i-- >= 0; ) {
-		if (extraClasses[i].status <= OUTERCLASS)
-		    throw new IllegalStateException
-			(extraClasses[i].name + "'s state is "
-			 + extraClasses[i].status);
-		gcp.putClassName(extraClasses[i].name);
-		if (extraClasses[i].outerClass != null)
-		    gcp.putClassName(extraClasses[i].outerClass.name);
-		if (extraClasses[i].className != null)
-		    gcp.putUTF8(extraClasses[i].className);
+	/* All classes mentioned in the constant pool must have an
+	 * outer class info.  This is clearly specified in the 2nd
+	 * edition of the JVM specification.
+	 */
+	hasInnerClassesAttr = false;
+	for (int i = 1; i < gcp.size(); i++) {
+	    if (gcp.tags[i] == gcp.CLASS) {
+		String clName;
+		try {
+		    clName = gcp.getUTF8(gcp.indices1[i]);
+		} catch (ClassFormatException ex) {
+		    throw new InternalError(ex.getMessage());
+		}
+		if (clName.charAt(0) != '[') {
+		    ClassInfo ci = classpath.getClassInfo
+			(clName.replace('/','.'));
+		    if (ci.status < OUTERCLASS) {
+			GlobalOptions.err.println
+			    ("WARNING: "+ ci.name
+			     + "'s outer class isn't known.");
+		    } else {
+			if ((ci.outerClass != null || ci.methodScoped)
+			    && ! hasInnerClassesAttr) {
+			    gcp.putUTF8("innerClasses");
+			    hasInnerClassesAttr = true;
+			}
+			if (ci.outerClass != null)
+			    gcp.putClassName(ci.outerClass.name);
+			if (ci.className != null)
+			    gcp.putUTF8(ci.className);
+		    }
+		}
 	    }
 	}
         prepareAttributes(gcp);
@@ -875,8 +881,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	int count = 0;
 	if (sourceFile != null)
 	    count++;
-	if (outerClass != null || methodScoped
-	    || innerClasses != null || extraClasses != null)
+	if (hasInnerClassesAttr)
 	    count++;
 	return count;
     }
@@ -889,71 +894,48 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    output.writeInt(2);
 	    output.writeShort(gcp.putUTF8(sourceFile));
 	}
-	if (outerClass != null || methodScoped
-	    || innerClasses != null || extraClasses != null) {
-	    // XXX TODO: Closeness of extra outer information.
-	    gcp.putUTF8("InnerClasses");
 
-	    ClassInfo outer;
-	    LinkedList outerExtraClasses = new LinkedList();
-
-	    outer = this;
-	    while (outer.outerClass != null || outer.methodScoped) {
-		/* Outers must be written in backward order, so we
-		 * add them to the beginning of the list.
-		 */
-		outerExtraClasses.add(0, outer);
-		if (outer.outerClass == null)
-		    break;
-		outer = outer.outerClass;
-	    }
-	    if (extraClasses != null) {
-		int extraCount =  extraClasses.length;
-		for (int i = 0; i < extraCount; i++) {
-		    outer = extraClasses[i];
-		    ListIterator insertIter
-			= outerExtraClasses.listIterator
-			(outerExtraClasses.size());
-		    int insertPos = outerExtraClasses.size();
-		    while (outer.outerClass != null || outer.methodScoped) {
-			if (outerExtraClasses.contains(outer))
-			    break;
-			/* We have to add outers in reverse order to the
-			 * end of the list.  We use the insertIter to do
-			 * this trick.
+	List outers = new ArrayList();
+	for (int i = 0; i < gcp.size(); i++) {
+	    if (gcp.tags[i] == gcp.CLASS) {
+		String clName;
+		try {
+		    clName = gcp.getUTF8(gcp.indices1[i]);
+		} catch (ClassFormatException ex) {
+		    throw new InternalError(ex.getMessage());
+		}
+		if (clName.charAt(0) != '[') {
+		    ClassInfo ci = classpath.getClassInfo
+			(clName.replace('/','.'));
+		    while (ci.status >= OUTERCLASS
+			   && ci.outerClass != null || ci.methodScoped) {
+			/* Order is important so remove ci if it
+			 * already exists and add it to the end.  This
+			 * way the outermost classes go to the end.
 			 */
-			insertIter.add(outer);
-			insertIter.previous();
-			if (outer.outerClass == null)
-			    break;
-			outer = outer.outerClass;
+			outers.remove(ci);
+			outers.add(ci);
+			ci = ci.outerClass;
 		    }
 		}
 	    }
-	    
-	    int innerCount = (innerClasses != null) ? innerClasses.length : 0;
-	    int count = outerExtraClasses.size() + innerCount;
+	}
+	if (hasInnerClassesAttr) {
+	    int count = outers.size();
+	    output.writeShort(gcp.putUTF8("InnerClasses"));
 	    output.writeInt(2 + count * 8);
 	    output.writeShort(count);
 
-	    for (Iterator i = outerExtraClasses.iterator(); i.hasNext(); ) {
-		outer = (ClassInfo) i.next();
+	    ListIterator iter = outers.listIterator(count);
+	    while (iter.hasPrevious()) {
+		ClassInfo ci = (ClassInfo) iter.previous();
 
-		output.writeShort(gcp.putClassName(outer.name));
-		output.writeShort(outer.outerClass == null ? 0 : 
-				  gcp.putClassName(outer.outerClass.name));
-		output.writeShort(outer.className == null ? 0 :
-				  gcp.putUTF8(outer.className));
-		output.writeShort(outer.modifiers);
-	    }
-	    for (int i = innerCount; i-- > 0; i++) {
-		output.writeShort(gcp.putClassName(innerClasses[i].name));
-		output.writeShort(innerClasses[i].outerClass != null ? 
-				  gcp.putClassName(innerClasses[i]
-						   .outerClass.name) : 0);
-		output.writeShort(innerClasses[i].className != null ?
-				  gcp.putUTF8(innerClasses[i].className) : 0);
-		output.writeShort(innerClasses[i].modifiers);
+		output.writeShort(gcp.putClassName(ci.name));
+		output.writeShort(ci.outerClass == null ? 0 : 
+				  gcp.putClassName(ci.outerClass.name));
+		output.writeShort(ci.className == null ? 0 :
+				  gcp.putUTF8(ci.className));
+		output.writeShort(ci.modifiers);
 	    }
 	}
     }
@@ -1122,7 +1104,6 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    methodScoped = false;
 	    outerClass = null;
 	    innerClasses = null;
-	    extraClasses = null;
 	}
 
 	if (keep < PUBLICDECLARATIONS) {
@@ -1285,12 +1266,6 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         return innerClasses;
     }
 
-    public ClassInfo[] getExtraClasses() {
-        if (status < OUTERCLASS)
-            throw new IllegalStateException("status is "+status);
-        return extraClasses;
-    }
-
     public String getSourceFile() {
 	return sourceFile;
     }
@@ -1337,11 +1312,6 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 
     public void setClasses(ClassInfo[] ic) {
         innerClasses = ic;
-	modified = true;
-    }
-
-    public void setExtraClasses(ClassInfo[] ec) {
-        extraClasses = ec;
 	modified = true;
     }
 

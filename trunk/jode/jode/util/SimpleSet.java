@@ -64,7 +64,7 @@ public class SimpleSet extends AbstractSet implements Cloneable
 	    other.elementObjects = (Object[]) elementObjects.clone();
             return other;
         } catch (CloneNotSupportedException ex) {
-            throw new jode.AssertError("Clone?");
+            throw new InternalError("Clone?");
         }
     }
 

@@ -18,7 +18,6 @@
  */
 
 package jode.type;
-import jode.AssertError;
 import jode.GlobalOptions;
 import jode.bytecode.ClassPath;
 import jode.bytecode.ClassInfo;
@@ -244,7 +243,7 @@ public class Type {
 	case '(':
 	    return tMethod(cp, type);
         }
-        throw new AssertError("Unknown type signature: "+type);
+        throw new InternalError("Unknown type signature: "+type);
     }
 
     /**
@@ -600,7 +599,7 @@ public class Type {
         case TC_DOUBLE:
             return Double.TYPE;
         default:
-	    throw new AssertError("getTypeClass() called on illegal type");
+	    throw new InternalError("getTypeClass() called on illegal type");
         }
     }
     

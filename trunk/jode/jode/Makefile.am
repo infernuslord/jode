@@ -11,7 +11,6 @@ SUBSTCP = @SUBSTCP@
 FULL_CLASSPATH := $(shell $(SUBSTCP) $(top_srcdir):$(top_builddir):$(CLASSPATH):$(CLASSLIB))
 
 MY_JAVA_FILES = \
-  AssertError.java \
   GlobalOptions.java
 
 noinst_DATA = $(MY_JAVA_FILES:.java=.class)

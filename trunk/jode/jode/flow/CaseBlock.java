@@ -67,7 +67,7 @@ public class CaseBlock extends StructuredBlock {
 
     public void checkConsistent() {
         if (!(outer instanceof SwitchBlock))
-            throw new jode.AssertError("Inconsistency");
+            throw new InternalError("Inconsistency");
         super.checkConsistent();
     }
 

@@ -22,7 +22,6 @@ import java.io.*;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.Enumeration;
-import jode.AssertError;
 import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 import jode.type.*;
@@ -131,9 +130,8 @@ public class TabbedPrintWriter {
 		 * our child, if possible.
 		 */
 		BreakPoint child = (BreakPoint) childBPs.elementAt(0);
-		options = child.options;
+		options = Math.min(options, child.options);
 		startPos = child.startPos;
-		options = child.options;
 		endPos = child.endPos;
 		breakPenalty = child.breakPenalty;
 		childBPs = child.childBPs;

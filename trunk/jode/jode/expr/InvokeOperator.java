@@ -213,6 +213,11 @@ public final class InvokeOperator extends Operator
     private static MethodInfo getMethodInfo(ClassInfo clazz, 
 					    String name, String type) {
 	while (clazz != null) {
+	    try {
+		clazz.load(clazz.DECLARATIONS);
+	    } catch (IOException ex) {
+		clazz.guess(clazz.DECLARATIONS);
+	    }
 	    MethodInfo method = clazz.findMethod(name, type);
 	    if (method != null)
 		return method;
@@ -268,7 +273,7 @@ public final class InvokeOperator extends Operator
      */
     public void makeNonVoid() {
         if (type != Type.tVoid)
-            throw new jode.AssertError("already non void");
+            throw new InternalError("already non void");
 	ClassInfo clazz = classInfo;
 	if (clazz != null
 	    && clazz.isMethodScoped() && clazz.getClassName() == null) {
@@ -340,7 +345,7 @@ public final class InvokeOperator extends Operator
 			 & Options.OPTION_INNER) != 0)
 		    ana = (ClassAnalyzer) ana.getParent();
 		else 
-		    throw new jode.AssertError
+		    throw new InternalError
 			("Unknown parent: "+ana+": "+ana.getParent());
 	    }
 	}
@@ -379,7 +384,7 @@ public final class InvokeOperator extends Operator
 			     & Options.OPTION_INNER) != 0)
 		    ana = (ClassAnalyzer) ana.getParent();
 		else 
-		    throw new jode.AssertError
+		    throw new InternalError
 			("Unknown parent: "+ana+": "+ana.getParent());
 	    }
 	}

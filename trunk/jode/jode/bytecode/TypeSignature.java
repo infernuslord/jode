@@ -18,7 +18,6 @@
  */
 
 package jode.bytecode;
-import jode.AssertError;
 import jode.util.UnifyHash;
 
 /**
@@ -51,7 +50,7 @@ public class TypeSignature {
 	    else if (javaType == Void.TYPE)
 		return sb.append('V');
 	    else
-		throw new AssertError("Unknown primitive type: "+javaType);
+		throw new InternalError("Unknown primitive type: "+javaType);
 	} else if (javaType.isArray()) {
 	    return appendSignature(sb.append('['), 
 				   javaType.getComponentType());

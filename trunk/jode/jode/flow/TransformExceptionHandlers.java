@@ -18,7 +18,6 @@
  */
 
 package jode.flow;
-import jode.AssertError;
 import jode.GlobalOptions;
 import jode.type.Type;
 import jode.decompiler.LocalInfo;
@@ -827,7 +826,7 @@ public class TransformExceptionHandlers {
 		int end = exc.end.getBlockNr();
 		int handler = exc.handler.getBlockNr();
 		if (start > end || handler <= end)
-		    throw new AssertError
+		    throw new InternalError
 			("ExceptionHandler order failed: not "
 			 + start + " < " + end + " <= " + handler);
 		if (last != null
@@ -840,7 +839,7 @@ public class TransformExceptionHandlers {
 		     */
 		    if (end >= last.start.getBlockNr() 
 			&& end < last.end.getBlockNr())
-			throw new AssertError
+			throw new InternalError
 			    ("Exception handlers ranges are intersecting: ["
 			     + last.start.getBlockNr()+", "
 			     + last.end.getBlockNr()+"] and ["
@@ -894,7 +893,7 @@ public class TransformExceptionHandlers {
 			    ("Warning: Can't completely analyze try.");
 		    TryBlock tryBlock = new TryBlock(tryFlow);
 		} else if (!(tryFlow.block instanceof TryBlock))
-			throw new AssertError("no TryBlock");
+			throw new InternalError("no TryBlock");
 
 		FlowBlock catchFlow = exc.handler;
 		boolean isMultiUsed = catchFlow.predecessors.size() != 0;

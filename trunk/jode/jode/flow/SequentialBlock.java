@@ -57,7 +57,7 @@ public class SequentialBlock extends StructuredBlock {
         if (subBlocks[0].jump != null
             || subBlocks[0] instanceof SequentialBlock
             || jump != null)
-            throw new jode.AssertError("Inconsistency");
+            throw new InternalError("Inconsistency");
     }
 
     /**

@@ -18,7 +18,6 @@
  */
 
 package jode.flow;
-import jode.AssertError;
 import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.LocalInfo;
@@ -277,7 +276,7 @@ public abstract class StructuredBlock {
      */
     public void moveJump(Jump jump) {
         if (this.jump != null)
-            throw new AssertError("overriding with moveJump()");
+            throw new InternalError("overriding with moveJump()");
         this.jump = jump;
         if (jump != null) {
             jump.prev.jump = null;
@@ -292,7 +291,7 @@ public abstract class StructuredBlock {
      */
     public void copyJump(Jump jump) {
         if (this.jump != null)
-            throw new AssertError("overriding with moveJump()");
+            throw new InternalError("overriding with moveJump()");
         if (jump != null) {
 	    this.jump = new Jump(jump);
 	    this.jump.prev = this;
@@ -546,7 +545,7 @@ public abstract class StructuredBlock {
         for (int i=0; i<subs.length; i++) {
             if (subs[i].outer != this ||
                 subs[i].flowBlock != flowBlock) {
-                throw new AssertError("Inconsistency");
+                throw new InternalError("Inconsistency");
             }
             subs[i].checkConsistent();
         }
@@ -554,7 +553,7 @@ public abstract class StructuredBlock {
             Jump jumps = (Jump) flowBlock.getJumps(jump.destination);
             for (; jumps != jump; jumps = jumps.next) {
                 if (jumps == null)
-                    throw new AssertError("Inconsistency");
+                    throw new InternalError("Inconsistency");
             }
         }
     }

@@ -705,6 +705,11 @@ public class ClassAnalyzer
 		}
 	    }
 	    if (usageType == CLASSNAME || usageType == AMBIGUOUSNAME) {
+		try {
+		    info.load(info.DECLARATIONS);
+		} catch (IOException ex) {
+		    info.guess(info.DECLARATIONS);
+		}
 		ClassInfo[] iinfos = info.getClasses();
 		if (iinfos != null) {
 		    for (int i=0; i < iinfos.length; i++) {

@@ -21,7 +21,6 @@ package jode.obfuscator.modules;
 import java.util.*;
 import jode.bytecode.*;
 import jode.obfuscator.*;
-import jode.AssertError;
 import jode.GlobalOptions;
 
 ///#def COLLECTIONS java.util
@@ -302,7 +301,7 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 			break;
 
 		    default:
-			throw new AssertError
+			throw new InternalError
 			    ("Illegal opcode for SlotInstruction");
 		    }
 		}
@@ -512,14 +511,14 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 			     * it is possible to do something else
 			     * before putting the ret address into a
 			     * local.  */
-			    throw new AssertError("Non standard jsr");
+			    throw new InternalError("Non standard jsr");
 			}
 			InstrInfo retInfo = info.nextInfo.nextReads
 			    [info.instr.getLocalSlot()];
 
 			if (retInfo != null) {
 			    if (retInfo.instr.getOpcode() != opc_ret)
-				throw new AssertError
+				throw new InternalError
 				    ("reading return address");
 
 			    info.retInfo = retInfo;

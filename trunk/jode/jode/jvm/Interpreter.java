@@ -18,7 +18,6 @@
  */
 
 package jode.jvm;
-import jode.AssertError;
 import jode.GlobalOptions;
 import jode.bytecode.BasicBlocks;
 import jode.bytecode.Block;
@@ -747,7 +746,7 @@ public class Interpreter implements Opcodes {
 		    break;
 		}
 		default:
-		    throw new AssertError("Invalid opcode "+opcode);
+		    throw new InternalError("Invalid opcode "+opcode);
 		}
 	    } catch (InvocationTargetException ex) {
 		iter = null;

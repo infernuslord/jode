@@ -19,7 +19,6 @@
 
 package jode.flow;
 import jode.GlobalOptions;
-import jode.AssertError;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.LocalInfo;
@@ -427,7 +426,7 @@ public class FlowBlock {
 		}
 
 
-                /* Now find the real outer block, that is ascend the
+                /* Now find the real outer block, i.e. traverse the
                  * chain of SequentialBlocks.
                  *
                  * Note that only the last instr in a SequentialBlock chain
@@ -511,10 +510,13 @@ public class FlowBlock {
                             }
                             lastModified = ifBlock;
                         }
+
+                        ifBlock.moveJump(jump);
                             
 			/* Consider all jumps again, since the ones that moved
 			 * into the thenBlock may be obsolete now.
 			 * XXX only jumps in then should be considered.
+			 * XXX I'm not sure if this is complete.
 			 */
 			if (remainingJumps == null)
 			    jumps = jump;
@@ -525,9 +527,6 @@ public class FlowBlock {
 			    remainingJumps.next = jump;
 			    remainingJumps = null;
 			}
-                        /* consider this jump again */
-//                          ifBlock.moveJump(jump);
-//                          jumps = jump;
                         continue;
                     }
 		}
@@ -806,7 +805,7 @@ public class FlowBlock {
 
 	try {
         if (block.outer != null || block.flowBlock != this) {
-            throw new AssertError("Inconsistency: outer:"+block.outer+" block.flow"+block.flowBlock +"  this: "+this);
+            throw new InternalError("Inconsistency: outer:"+block.outer+" block.flow"+block.flowBlock +"  this: "+this);
         }
         block.checkConsistent();
 
@@ -816,7 +815,7 @@ public class FlowBlock {
                 /* The special start marker */
                 continue;
             if (!pred.successors.containsKey(this))
-                throw new AssertError("Inconsistency");
+                throw new InternalError("Inconsistency");
         }
 
         StructuredBlock last = lastModified;
@@ -824,28 +823,28 @@ public class FlowBlock {
                || last.outer instanceof TryBlock)
             last = last.outer;
         if (last.outer != null)
-            throw new AssertError("Inconsistency");
+            throw new InternalError("Inconsistency");
 
         Iterator iter = successors.entrySet().iterator();
         while (iter.hasNext()) {
 	    Map.Entry entry = (Map.Entry) iter.next();
             FlowBlock dest = (FlowBlock) entry.getKey();
             if (dest.predecessors.contains(this) == (dest == END_OF_METHOD))
-                throw new AssertError("Inconsistency");
+                throw new InternalError("Inconsistency");
                 
             Jump jumps = ((SuccessorInfo) entry.getValue()).jumps;
             if (jumps == null)
-                throw new AssertError("Inconsistency");
+                throw new InternalError("Inconsistency");
                 
             for (; jumps != null; jumps = jumps.next) {
                     
                 if (jumps.destination != dest)
-                    throw new AssertError("Inconsistency");
+                    throw new InternalError("Inconsistency");
                     
                 if (jumps.prev == null
 		    || jumps.prev.flowBlock != this 
 		    || jumps.prev.jump != jumps)
-                    throw new AssertError("Inconsistency");
+                    throw new InternalError("Inconsistency");
                     
             prev_loop:
                 for (StructuredBlock prev = jumps.prev; prev != block;
@@ -858,11 +857,11 @@ public class FlowBlock {
                         if (blocks[i] == prev)
                             continue prev_loop;
                         
-                    throw new AssertError("Inconsistency");
+                    throw new InternalError("Inconsistency");
                 }
             }
         }
-	} catch (AssertError err) {
+	} catch (InternalError err) {
 	    GlobalOptions.err.println("Inconsistency in: "+this);
 	    throw err;
 	}
@@ -1267,7 +1266,8 @@ public class FlowBlock {
             
             /* Now remove the jump of lastModified if it points to this.
              */
-            if (lastModified.jump.destination == this)
+            if (lastModified.jump != null
+		&& lastModified.jump.destination == this)
                 lastModified.removeJump();
         }
 
@@ -1634,7 +1634,7 @@ public class FlowBlock {
      */
     public void mapStackToLocal(VariableStack initialStack) {
 	if (initialStack == null)
-	    throw new jode.AssertError("initial stack is null");
+	    throw new InternalError("initial stack is null");
 	stackMap = initialStack;
 	block.mapStackToLocal(initialStack);
 	Iterator iter = successors.values().iterator();

@@ -19,7 +19,6 @@
 
 package jode.obfuscator.modules;
 
-import jode.AssertError;
 import jode.GlobalOptions;
 import jode.bytecode.*;
 import jode.jvm.InterpreterException;
@@ -459,10 +458,10 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    for (int i=0; i < locals.length; i++)
 		mergeOneLocal(i, other.locals[i]);
 	    if (stack.length != other.stack.length)
-		throw new jode.AssertError("stack length differs");
+		throw new InternalError("stack length differs");
 	    for (int i=0; i < stack.length; i++) {
 		if ((other.stack[i] == null) != (stack[i] == null))
-		    throw new jode.AssertError("stack types differ");
+		    throw new InternalError("stack types differ");
 		else if (stack[i] != null)
 		    stack[i].merge(other.stack[i]);
 	    }
@@ -1183,7 +1182,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			 % ((Double)value2.value).doubleValue());
 		    break;
 		default:
-		    throw new jode.AssertError("Can't happen.");
+		    throw new InternalError("Can't happen.");
 		}
 		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newValue);
 		constantInfos.put(instr, constInfo);
@@ -1218,7 +1217,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			(- ((Double)value.value).doubleValue());
 		    break;
 		default:
-		    throw new jode.AssertError("Can't happen.");
+		    throw new InternalError("Can't happen.");
 		}
 		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newValue);
 		constantInfos.put(instr, constInfo);
@@ -1271,7 +1270,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			 >>> ((Integer)value2.value).intValue());
 		    break;
 		default:
-		    throw new jode.AssertError("Can't happen.");
+		    throw new InternalError("Can't happen.");
 		}
 		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newValue);
 		constantInfos.put(instr, constInfo);
@@ -1316,7 +1315,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    newVal = new Double(((Number)stack.value).doubleValue());
 		    break;
 		default:
-		    throw new jode.AssertError("Can't happen.");
+		    throw new InternalError("Can't happen.");
 		}
 		ConstantInfo constInfo = new ConstantInfo(CONSTANT, newVal);
 		constantInfos.put(instr, constInfo);
@@ -1749,7 +1748,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			     + opc_pop - 1));
 	}
 	default:
-	    throw new AssertError("Unexpected opcode");
+	    throw new InternalError("Unexpected opcode");
 	}
 	if (replacement != null)
 	    newCode.add(replacement);

@@ -269,6 +269,9 @@ public class SyntheticAnalyzer implements Opcodes {
 	    if ((refField.getModifiers() & modifierMask) != 0)
 		return false;
 	    if (dupSeen) {
+		if (!iter.hasNext())
+		    return false;
+		instr = (Instruction) iter.next();
 		if (instr.getOpcode() < opc_ireturn
 		    || instr.getOpcode() > opc_areturn)
 		    return false;

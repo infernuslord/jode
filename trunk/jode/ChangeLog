@@ -1,3 +1,38 @@
+2001-07-28  Jochen Hoenicke  <jochen@gnu.org>
+
+	* jode/AssertError.java: removed, all uses are now replaced
+	by java.lang.InternalError.
+	* jode/Makefile.am: removed AssertError.java
+	* jode/bytecode/ClassInfo.java: reworked handling of inner
+	classes.
+	(extraClasses): removed, they are calculated automatically.
+	(hasInnerClassesAttr): new variable.
+	(readInnerClassesAttribute): Mark all classes in the constant
+	pool as having OUTERCLASS info filled.  Don't handle extraClasses
+	specially.
+	(prepareWriting): Change for automatically generating outer
+	class info.
+	(getKnownAttributes): dito.
+	(writeKnownAttributes): dito.
+	(getExtraClasses): removed.
+	(setExtraClasses): removed.
+
+	* jode/bytecode/ClassAnalyzer.java (conflicts): load or guess
+	declarations of info before getting inner classes.
+	* jode/decompiler/TabbedPrintWriter.java (BreakPoint.endOp):
+	Set options correctly.
+	* jode/expr/InvokeOperator.java (getMethodInfo): load or guess
+	declarations before accessing methods.
+	* jode/flow/FlowBlock.java (resolveSomeJumps): When creating a
+	if-then-else move the jump from the then branch to the if, before
+	restarting analysis.
+	(doT1): handle the case when lastModified.jump is null.  Throw
+	statements have no jump now.
+	* jode/jvm/SyntheticAnalyzer (checkAccess): Fix the detection for
+	PUTDUPSTATIC/FIELD.
+	* jode/type/ClassType.java (getCastHelper): More checks when
+	cast is not needed: interfaces and null pointer.
+
 2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
 	* jode/decompiler/Decompiler.java (decompile): removed 
 	setClassPath call.  ClassInfo.forName() is no longer used.

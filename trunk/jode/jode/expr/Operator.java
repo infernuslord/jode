@@ -71,7 +71,7 @@ public abstract class Operator extends Expression {
         super(type);
         this.operatorIndex = op;
         if (type == null)
-            throw new jode.AssertError("type == null");
+            throw new InternalError("type == null");
     }
 
     public void initOperands(int opcount) {
@@ -118,7 +118,7 @@ public abstract class Operator extends Expression {
 		return this;
 	    }
 	}
-	throw new jode.AssertError("addOperand called, but no operand needed");
+	throw new InternalError("addOperand called, but no operand needed");
     }
 
     public Operator getOperator() {

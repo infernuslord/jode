@@ -425,7 +425,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 			       opcode - (opc_ifnull-Operator.COMPARE_OP))));
 	    break;
         default:
-            throw new jode.AssertError("Invalid opcode "+opcode);
+            throw new InternalError("Invalid opcode "+opcode);
         }
     }
 }

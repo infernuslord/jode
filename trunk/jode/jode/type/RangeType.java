@@ -18,7 +18,6 @@
  */
 
 package jode.type;
-import jode.AssertError;
 import jode.GlobalOptions;
 import java.util.Hashtable;
 
@@ -80,7 +79,7 @@ public class RangeType extends Type {
 		     ReferenceType topType) {
         super(TC_RANGE);
 	if (bottomType == tNull)
-	    throw new jode.AssertError("bottom is NULL");
+	    throw new InternalError("bottom is NULL");
 	this.bottomType = bottomType;
 	this.topType    = topType;
     }
@@ -177,7 +176,7 @@ public class RangeType extends Type {
     }
 
     public String getDefaultName() {
-	throw new AssertError("getDefaultName() called on range");
+	throw new InternalError("getDefaultName() called on range");
     }
 
     public int hashCode() {

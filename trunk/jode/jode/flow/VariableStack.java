@@ -161,7 +161,7 @@ public class VariableStack {
 	    newStack[stackMap.length-1] = stackMap[stackMap.length-2];
 	    return new VariableStack(newStack);
 	} else
-	    throw new jode.AssertError("Unknown SpecialBlock");
+	    throw new InternalError("Unknown SpecialBlock");
     }
 
     public String toString() {

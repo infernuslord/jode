@@ -61,7 +61,7 @@ public class IIncOperator extends Operator
      */
     public void makeNonVoid() {
         if (type != Type.tVoid)
-            throw new jode.AssertError("already non void");
+            throw new InternalError("already non void");
         type = subExpressions[0].getType();
     }
 

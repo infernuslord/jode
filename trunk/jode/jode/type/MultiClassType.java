@@ -56,7 +56,7 @@ public class MultiClassType extends ReferenceType {
 	/* We don't implement the set of types, that are castable to some 
 	 * of the given classes or interfaces.
 	 */
-	throw new jode.AssertError
+	throw new InternalError
 	    ("getSubType called on set of classes and interfaces!");
     }
 
