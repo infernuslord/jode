@@ -25,62 +25,53 @@ package jode.bytecode;
 import java.util.*;
 
 /**
- * This class represents a field or method reference
- *
- * For simplicity currently most fields are public.  You shouldn't change
- * many of them, though.
+ * This class represents a field or method reference.
  */
 public class Reference {
     /**
      * The class info.
      */
-    final String className;
+    private final String className;
     /**
      * The member name.  Don't make this a MethodInfo, since the clazz
      * may not be readable.
      */
-    final String memberName;
+    private final String memberName;
     /**
      * The member type.
      */
-    final String memberType;
-    /**
-     * The cached hash code
-     */
-    final int cachedHashCode;
+    private final String memberType;
 
 ///#ifdef JDK12
-///    private static final Map references = new WeakHashMap();
+///    private static final Map references = new HashMap();
 ///#else
     private static final Hashtable references = new Hashtable();
 ///#endif
 
     public static Reference getReference(String className, 
 					 String name, String type) {
-	Reference reference = new Reference(className, name, type);
+	String sig = className+" "+name+" "+type;
 ///#ifdef JDK12
-///	WeakReference ref = (WeakReference) references.get(reference);
-///	Reference cachedRef = (ref == null) ? null : (Reference) ref.get();
+///	WeakReference ref = (WeakReference) references.get(sig);
+///	Reference reference = (ref == null) ? null : (Reference) ref.get();
 ///#else
-	Reference cachedRef = (Reference) references.get(reference);
+	Reference reference = (Reference) references.get(sig);
 ///#endif
-        if (cachedRef == null) {
+        if (reference == null) {
+	    reference = new Reference(className, name, type);
 ///#ifdef JDK12
-///	    references.put(reference, new WeakReference(reference));
+///	    references.put(sig, new WeakReference(reference));
 ///#else
             references.put(reference, reference);
 ///#endif
-	    return reference;
         }
-	return cachedRef;
+	return reference;
     }
 
     private Reference(String className, String name, String type) {
 	this.className = className.intern();
 	this.memberName = name.intern();
 	this.memberType = type.intern();
-	this.cachedHashCode = 
-	    className.hashCode() ^ name.hashCode() ^ type.hashCode();
     }
 
     public String getClazz() {
@@ -97,9 +88,5 @@ public class Reference {
 	
     public String toString() {
 	return className + " " + memberName + " " + memberType;
-    }
-
-    public int hashCode() {
-	return cachedHashCode;
     }
 }
