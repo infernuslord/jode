@@ -20,6 +20,7 @@
 package jode.flow;
 import java.util.*;
 import jode.*;
+import jode.decompiler.Expression;
 
 /**
  * A flow block is the structure of which the flow graph consists.  A
@@ -1122,7 +1123,7 @@ public class FlowBlock {
                     break;
                 else if (nextFlow.addr >= start) {
                     
-                    /* First analyze the nextFlow block.  It may
+                   /* First analyze the nextFlow block.  It may
                      * return early after a T2 trafo so call it
                      * until nothing more is possible.  
                      */

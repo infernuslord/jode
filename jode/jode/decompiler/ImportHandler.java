@@ -20,6 +20,7 @@
 package jode;
 import java.util.*;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.SearchPath;
 
 public class JodeEnvironment {
     Hashtable imports;

@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 /**
  * ShiftOpcodes are special, because their second operand is an UIndex

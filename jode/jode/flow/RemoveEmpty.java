@@ -18,8 +18,7 @@
  */
 
 package jode.flow;
-import jode.Expression;
-import jode.NopOperator;
+import jode.decompiler.*;
 
 public class RemoveEmpty {
     

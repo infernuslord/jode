@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.ArrayType;
 
 public class ArrayLoadOperator extends SimpleOperator {
     String value;
@@ -54,7 +56,7 @@ public class ArrayLoadOperator extends SimpleOperator {
             type = type.intersection
                 (((ArrayType)operandTypes[0]).getElementType());
         else
-            throw new AssertError("No Array type: "+operandTypes[0]);
+            throw new jode.AssertError("No Array type: "+operandTypes[0]);
     }
 
     public String toString(String[] operands) {

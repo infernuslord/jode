@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.CodeAnalyzer;
 
 public class GetFieldOperator extends Operator {
     boolean staticFlag;

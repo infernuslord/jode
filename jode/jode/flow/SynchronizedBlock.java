@@ -17,9 +17,9 @@
  * $Id$
  */
 package jode.flow;
-import jode.Expression;
 import jode.LocalInfo;
 import jode.TabbedPrintWriter;
+import jode.decompiler.Expression;
 
 /**
  * This class represents a synchronized structured block.

@@ -16,7 +16,7 @@
  *
  * $Id$
  */
-package jode;
+package jode.bytecode;
 import java.io.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;

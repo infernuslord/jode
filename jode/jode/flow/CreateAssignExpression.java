@@ -18,7 +18,7 @@
  */
 
 package jode.flow;
-import jode.*;
+import jode.decompiler.*;
 
 public class CreateAssignExpression {
 

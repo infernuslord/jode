@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 public class CompareUnaryOperator extends SimpleOperator {
     boolean objectType;

@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 public abstract class SimpleOperator extends Operator {
     protected Type[] operandTypes;

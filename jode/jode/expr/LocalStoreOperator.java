@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.LocalInfo;
 
 public class LocalStoreOperator extends StoreInstruction 
 implements LocalVarOperator {

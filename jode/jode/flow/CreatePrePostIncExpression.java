@@ -18,7 +18,8 @@
  */
 
 package jode.flow;
-import jode.*;
+import jode.decompiler.*;
+import jode.Type;
 
 public class CreatePrePostIncExpression {
 

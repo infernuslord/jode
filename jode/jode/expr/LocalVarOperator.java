@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.LocalInfo;
 
 public interface LocalVarOperator {
     public boolean isRead();

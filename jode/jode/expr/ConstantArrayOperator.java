@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.ArrayType;
 
 public class ConstantArrayOperator extends NoArgOperator {
 

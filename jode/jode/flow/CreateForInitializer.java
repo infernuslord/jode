@@ -18,8 +18,7 @@
  */
 
 package jode.flow;
-import jode.Expression;
-import jode.StoreInstruction;
+import jode.decompiler.*;
 
 public class CreateForInitializer {
 

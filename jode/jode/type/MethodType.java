@@ -76,7 +76,7 @@ public class MethodType {
 
     public boolean equals(Object o) {
         MethodType mt;
-        return ((o instanceof InvokeOperator)
+        return (o instanceof MethodType
                 && signature.equals((mt = (MethodType)o).signature)
                 && staticFlag == mt.staticFlag);
     }

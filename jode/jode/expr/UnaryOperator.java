@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 public class UnaryOperator extends SimpleOperator {
     public UnaryOperator(Type type, int op) {

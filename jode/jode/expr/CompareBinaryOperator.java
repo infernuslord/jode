@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
 
 public class CompareBinaryOperator extends SimpleOperator {
     public CompareBinaryOperator(Type type, int op) {

@@ -17,7 +17,6 @@
  * $Id$
  */
 package jode.bytecode;
-import jode.SearchPath;
 import jode.MethodType;
 import java.io.*;
 import java.util.Hashtable;

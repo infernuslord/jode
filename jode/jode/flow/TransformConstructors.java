@@ -18,10 +18,7 @@
  */
 package jode.flow;
 import jode.ClassAnalyzer;
-import jode.Expression;
-import jode.ComplexExpression;
-import jode.InvokeOperator;
-import jode.PutFieldOperator;
+import jode.decompiler.*;
 
 /**
  * 

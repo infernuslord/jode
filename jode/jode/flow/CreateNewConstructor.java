@@ -18,11 +18,7 @@
  */
 
 package jode.flow;
-import jode.InvokeOperator;
-import jode.Expression;
-import jode.ComplexExpression;
-import jode.ConstructorOperator;
-import jode.NewOperator;
+import jode.decompiler.*;
 
 public class CreateNewConstructor {
 

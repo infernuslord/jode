@@ -22,6 +22,7 @@ import jode.bytecode.ClassInfo;
 import jode.bytecode.ConstantPool;
 import jode.bytecode.AttributeInfo;
 import jode.bytecode.CodeInfo;
+import jode.decompiler.Opcodes;
 import jode.flow.FlowBlock;
 import jode.flow.TransformExceptionHandlers;
 

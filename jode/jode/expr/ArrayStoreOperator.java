@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.Type;
+import jode.ArrayType;
 
 public class ArrayStoreOperator extends StoreInstruction {
     Type indexType;

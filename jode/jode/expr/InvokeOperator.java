@@ -17,7 +17,10 @@
  * $Id$
  */
 
-package jode;
+package jode.decompiler;
+import jode.CodeAnalyzer;
+import jode.MethodType;
+import jode.Type;
 import jode.bytecode.ClassInfo;
 
 public final class InvokeOperator extends Operator {
@@ -103,7 +106,7 @@ public final class InvokeOperator extends Operator {
      * @XXX check, if its the first super class that implements the method.
      */
     public boolean isSuperOrThis() {
-        return ((ClassInterfacesType)classType).getClazz().superClassOf
+        return ((jode.ClassInterfacesType)classType).getClazz().superClassOf
             (codeAnalyzer.getClazz());
     }
 
