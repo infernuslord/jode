@@ -19,4 +19,4 @@ tar -cvzf jode/jode-RCS-$DATE.tar.gz \
 
 zip jode/jode-$DATE.zip \
     jode/COPYING jode/*.html jode/jcpp \
-    jode/*.java jode/*/*.java jode/*.class jode/*/*.class
+    jode/*.java jode/*/*.java jode/*/*.j jode/*.class jode/*/*.class
