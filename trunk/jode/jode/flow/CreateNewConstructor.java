@@ -59,7 +59,7 @@ public class CreateNewConstructor implements Transformation{
 		    i++;
                     SequentialBlock subExprBlock = 
                         (SequentialBlock) sequBlock.getSubBlocks()[1];
-                    subExprBlock.replace(sequBlock);
+                    subExprBlock.replace(sequBlock, subExprBlock);
                     sequBlock = subExprBlock;
                     ((InstructionContainer)subExprBlock.getSubBlocks()[0]).
                         setInstruction(e);
@@ -89,7 +89,7 @@ public class CreateNewConstructor implements Transformation{
                                                     constrCall.getField()),
                             exprs));
              
-        flow.lastModified.replace(sequBlock);
+        flow.lastModified.replace(sequBlock, flow.lastModified);
         return true;
     }
 }

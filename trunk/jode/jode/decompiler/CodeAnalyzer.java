@@ -42,6 +42,23 @@ public class CodeAnalyzer implements Analyzer, Constants {
     void readCode() 
          throws ClassFormatError
     {
+
+        BinaryAttribute attr = bincode.getAttributes();
+        while (attr != null) {
+            if (attr.getName() == Constants.idLocalVariableTable) {
+                DataInputStream stream = 
+                    new DataInputStream
+                    (new ByteArrayInputStream(attr.getData()));
+                try {
+                    lvt = new LocalVariableTable(bincode.getMaxLocals());
+                    lvt.read(env, stream);
+                } catch (IOException ex) {
+                    throw new ClassFormatError(ex.toString());
+                }
+            }
+            attr = attr.getNextAttribute();
+        }
+
         byte[] code = bincode.getCode();
         FlowBlock[] instr = new FlowBlock[code.length];
 	int returnCount;
@@ -59,14 +76,6 @@ public class CodeAnalyzer implements Analyzer, Constants {
         BinaryExceptionHandler[] handlers = bincode.getExceptionHandlers();
         for (int addr=0; addr<instr.length; ) {
             instr[addr].resolveJumps(instr);
-            //XXX
-// 	    if (instr[addr].getBlock() instanceof ReturnBlock) {
-//                 ReturnBlock block = (ReturnBlock) instr[addr].getBlock();
-//                 if (block.getInstruction() == null) {
-//                     EmptyBlock empty = new EmptyBlock(dummyReturn);
-//                     empty.replace(block);
-//                 }
-//             }
             addr = instr[addr].getNextAddr();
         }
 	methodHeader = instr[0];
@@ -94,6 +103,13 @@ public class CodeAnalyzer implements Analyzer, Constants {
         env  = e;
 	bincode = bc;
         readCode();
+    }
+
+    public LocalInfo getLocalInfo(int addr, int slot) {
+        if (lvt != null)
+            return lvt.getLocal(slot).getInfo(addr);
+        else
+            return new LocalInfo(slot); /*XXX*/
     }
 
     static jode.flow.Transformation[] exprTrafos = {
@@ -126,7 +142,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
                     i++;
             }
             
-            if (flow.doT2()) {
+            if (flow.doT2(todo)) {
                 /* T2 transformation succeeded.  This may
                  * make another T1 analysis in the previous
                  * block possible.  

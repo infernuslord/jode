@@ -35,6 +35,14 @@ public class Jump {
      */
     int destAddr;
 
+    /**
+     * The out locals.  This are the locals, which must be overwritten
+     * in this block on every path to this jump.  That means, that all
+     * paths form the start of the current flow block to this jump
+     * contain (unconditional) assignments to this local.
+     */
+    VariableSet out = new VariableSet();
+
     public Jump (int destAddr) {
         this.destAddr = destAddr;
     }
@@ -56,4 +64,24 @@ public class Jump {
     String describeAttachments() {
         return "";
     }
+
+    /**
+     * Print the source code for this structured block.  This handles
+     * everything that is unique for all structured blocks and calls
+     * dumpInstruction afterwards.
+     * @param writer The tabbed print writer, where we print to.
+     */
+    public void dumpSource(jode.TabbedPrintWriter writer)
+        throws java.io.IOException
+    {
+        if (jode.Decompiler.isDebugging) {
+            writer.println("out: "+ out.toString());
+        }
+        writer.println("Attachments: "+describeAttachments());
+        if (destination == null)
+            writer.println ("GOTO null-ptr!!!!!");
+        else
+            writer.println("GOTO "+destination.getLabel());
+    }
 }
+

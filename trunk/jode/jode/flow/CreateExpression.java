@@ -44,19 +44,18 @@ public class CreateExpression implements Transformation {
         int params;
         StructuredBlock block;
 
-
-        try {
-            System.err.println("Transformation on: "+flow.getLabel());
-            flow.checkConsistent();
-        } catch (RuntimeException ex) {
-            try {
-                jode.TabbedPrintWriter writer = 
-                    new jode.TabbedPrintWriter(System.err, "    ");
-                writer.tab();
-                flow.block.dumpSource(writer);
-            } catch (java.io.IOException ioex) {
-            }
-        }
+//         try {
+//             System.err.println("Transformation on: "+flow.getLabel());
+//             flow.checkConsistent();
+//         } catch (RuntimeException ex) {
+//             try {
+//                 jode.TabbedPrintWriter writer = 
+//                     new jode.TabbedPrintWriter(System.err, "    ");
+//                 writer.tab();
+//                 flow.block.dumpSource(writer);
+//             } catch (java.io.IOException ioex) {
+//             }
+//         }
 
         try {
             SequentialBlock sequBlock;
@@ -85,7 +84,7 @@ public class CreateExpression implements Transformation {
 		    i++;
                     SequentialBlock subExprBlock = 
                         (SequentialBlock) sequBlock.getSubBlocks()[1];
-                    subExprBlock.replace(sequBlock);
+                    subExprBlock.replace(sequBlock, subExprBlock);
                     sequBlock = subExprBlock;
                     ((InstructionContainer)subExprBlock.getSubBlocks()[0]).
                         setInstruction(e);
@@ -101,9 +100,27 @@ public class CreateExpression implements Transformation {
         if(jode.Decompiler.isVerbose && params > 0)
             System.err.print("x");
 
+//             try {
+//                 System.err.println("replacing: ");
+//                 jode.TabbedPrintWriter writer = 
+//                     new jode.TabbedPrintWriter(System.err, "    ");
+//                 writer.tab();
+//                 block.dumpSource(writer);
+//                 System.err.println("with: ");
+//                 flow.lastModified.dumpSource(writer);
+//             } catch (java.io.IOException ioex) {
+//             }
         ((InstructionContainer) flow.lastModified).setInstruction
             (new Expression(op, exprs));
-        flow.lastModified.replace(block);
+        flow.lastModified.replace(block, flow.lastModified);
+//             try {
+//                 System.err.println("result: ");
+//                 jode.TabbedPrintWriter writer = 
+//                     new jode.TabbedPrintWriter(System.err, "    ");
+//                 writer.tab();
+//                 flow.lastModified.dumpSource(writer);
+//             } catch (java.io.IOException ioex) {
+//             }
         return true;
     }
 }

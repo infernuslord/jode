@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.TabbedPrintWriter;
+import jode.LocalInfo;
 
 /**
  * A structured block is the building block of the source programm.
@@ -58,24 +59,6 @@ public abstract class StructuredBlock {
      * either outer.getNextBlock(this) != null 
      *     or outer.getNextFlowBlock(this) != null
      */
-
-    /**
-     * The in locals.  This are the locals, which are used in this
-     * block and whose values may be the result of a assignment
-     * outside of the whole flow block.  That means, that there is a
-     * path from the start of the current flow block, on which the
-     * local variable is never assigned
-     */
-    VariableSet in = new VariableSet(); 
-
-    /**
-     * The out locals.  This are the locals, which must be overwritten
-     * until the end of this block.  That means, that all paths form
-     * the start of the current flow block to the end of this
-     * structured block contain a (unconditional) assignment to this
-     * local
-     */
-    VariableSet out = new VariableSet();
 
     /**
      * The variable set containing all variables that must be defined
@@ -206,15 +189,47 @@ public abstract class StructuredBlock {
     }
 
     /**
+     * This will move the definitions of sb and childs to this block,
+     * but only descend to sub and not further.  It is assumed that
+     * sub will become a sub block of this block, but may not yet.  
+     *
+     * @param sb The structured block that should be replaced.  
+     * @param sub The uppermost sub block of structured block, that
+     * will be moved to this block (may be this).  
+     */
+    void moveDefinitions(StructuredBlock from, StructuredBlock sub) {
+        if (from != sub && from != this) {
+            /* define(...) will not move from blocks, that are not sub blocks,
+             * so we do it by hand.
+             */
+            java.util.Enumeration enum = from.defineHere.elements();
+            while (enum.hasMoreElements()) {
+                LocalInfo var = 
+                    ((LocalInfo) enum.nextElement()).getLocalInfo();
+                defineHere.addElement(var);
+                var.setDefining(this);
+            }
+            from.defineHere.removeAllElements();
+            StructuredBlock[] subs = from.getSubBlocks();
+            for (int i=0; i<subs.length; i++)
+                moveDefinitions(subs[i], sub);
+        }
+    }
+
+    /**
      * This function replaces sb with this block.  It copies outer and
      * from sb, and updates the outer block, so it knows that sb was
      * replaced.  You have to replace sb.outer or mustn't use sb
-     * anymore.
-     * @param sb The structured block that should be replaced.  */
-    public void replace(StructuredBlock sb) {
-        in = sb.in;
-        out = sb.out;
-        defineHere = sb.defineHere;
+     * anymore.  <p>
+     * It will also move the definitions of sb and childs to this block,
+     * but only descend to sub and not further.  It is assumed that
+     * sub will become a sub block of this block.
+     * @param sb The structured block that should be replaced.  
+     * @param sub  The uppermost sub block of structured block, 
+     *      that will be moved to this block (may be this).
+     */
+    public void replace(StructuredBlock sb, StructuredBlock sub) {
+        moveDefinitions(sb, sub);
         outer = sb.outer;
         flowBlock = sb.flowBlock;
 
@@ -245,6 +260,21 @@ public abstract class StructuredBlock {
      */
     public boolean jumpMayBeChanged() {
         return false;
+    }
+
+    public void define(VariableSet vars) {
+        java.util.Enumeration enum = vars.elements();
+        while (enum.hasMoreElements()) {
+            LocalInfo var = ((LocalInfo) enum.nextElement()).getLocalInfo();
+            StructuredBlock previous = var.getDefining();
+            if (previous != null) {
+                if (previous == this || !contains(previous))
+                    continue;
+                previous.defineHere.removeElement(var);
+            }
+            defineHere.addElement(var);
+            var.setDefining(this);
+        }
     }
 
     public void checkConsistent() {
@@ -279,6 +309,14 @@ public abstract class StructuredBlock {
     }
 
     /**
+     * Fill all in variables into the given VariableSet.
+     * @param in The VariableSet, the in variables should be stored to.
+     */
+    public void fillInSet(VariableSet in) {
+        /* overwritten by InstructionContainer */
+    }
+
+    /**
      * Put all the successors of this block and all subblocks into
      * the given vector.
      * @param succs The vector, the successors should be stored to.
@@ -298,22 +336,17 @@ public abstract class StructuredBlock {
      * dumpInstruction afterwards.
      * @param writer The tabbed print writer, where we print to.
      */
-    public void dumpSource(TabbedPrintWriter writer)
+    public void dumpSource(jode.TabbedPrintWriter writer)
         throws java.io.IOException
     {
+//         if (!defineHere.isEmpty())
+            writer.println("defining: "+defineHere);
         /* XXX declare variables needed in this block */
         dumpInstruction(writer);
-        if (jump != null) {
-            if (jump.destination == null)
-                writer.println ("GOTO null-ptr!!!!!");
-            else {
-                writer.println("GOTO "+jump.destination.getLabel());
-                if (jump.prev != this)
-                    writer.println("GOTO has wrong prev");
-            }
-        }
-    }
 
+        if (jump != null)
+            jump.dumpSource(writer);
+    }
 
     /**
      * Print the instruction expressing this structured block.

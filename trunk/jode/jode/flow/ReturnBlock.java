@@ -24,13 +24,29 @@ import jode.Instruction;
 /**
  * This is the structured block for an Return block.
  */
-public class ReturnBlock extends StructuredBlock {
-    Instruction instr = null;
+public class ReturnBlock extends InstructionContainer {
 
     public ReturnBlock() {
+        super(null);
     }
 
     public ReturnBlock(Instruction instr) {
+        super(instr);
+    }
+
+    /**
+     * Get the underlying instruction.
+     * @return the underlying instruction.
+     */
+    public Instruction getInstruction() {
+        return instr;
+    }
+
+    /**
+     * Change the underlying instruction.
+     * @param instr the new underlying instruction.
+     */
+    public void setInstruction(Instruction instr) {
         this.instr = instr;
     }
 
