@@ -150,9 +150,16 @@ public class MethodAnalyzer implements Analyzer {
     public void dumpSource(TabbedPrintWriter writer) 
          throws IOException
     {
-	if (synth != null && synth.getKind() != synth.UNKNOWN)
+	if (synth != null) {
 	    // We don't need this class anymore (hopefully?)
-	    return;
+	    if (synth.getKind() == synth.GETCLASS)
+		return;
+	    if (synth.getKind() >= synth.ACCESSGETFIELD
+		&& synth.getKind() <= synth.ACCESSSTATICMETHOD
+		&& (Decompiler.options & Decompiler.OPTION_INNER) != 0
+		&& (Decompiler.options & Decompiler.OPTION_ANON) != 0)
+		return;
+	}
 	
 	if (isConstructor && classAnalyzer.constructors.length == 1
 	    && (methodType.getParameterTypes().length == 0
