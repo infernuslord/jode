@@ -89,7 +89,7 @@ public class FlowBlock {
      * the elements is the first jump to that dictionary.  The other
      * jumps are accessible via the jump.next field.
      */
-    Dictionary successors = new Hashtable();
+    Dictionary successors = new SimpleDictionary();
 
     /**
      * This is a vector of flow blocks, which reference this block.
@@ -1185,7 +1185,7 @@ public class FlowBlock {
             destJumps = destJumps.next;
         }
         if (destJumps == null)
-            throw new AssertError("removing non existent jump");
+            throw new AssertError(""+addr+": removing non existent jump: " + jump);
         if (prev != null)
             prev.next = destJumps.next;
         else {
