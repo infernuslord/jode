@@ -151,15 +151,16 @@ jode/obfuscator/modules/Makefile
 jode/swingui/Makefile
 jode/type/Makefile
 jode/util/Makefile
-doc/download.html
 jode/bytecode/BinaryInfo.java
 jode/bytecode/BytecodeInfo.java
 jode/bytecode/ClassInfo.java
 jode/bytecode/Reference.java
 jode/decompiler/ImportHandler.java
+jode/decompiler/ClassAnalyzer.java
 jode/decompiler/MethodAnalyzer.java
 jode/decompiler/DeadCodeAnalysis.java
 jode/expr/Expression.java
+jode/expr/FieldOperator.java
 jode/expr/InvokeOperator.java
 jode/expr/Operator.java
 jode/expr/CheckNullOperator.java
@@ -216,5 +217,7 @@ jode/GlobalOptions.java
 bin/Makefile
 bin/jode
 doc/Makefile
+doc/download.html
+doc/applet.html
 test/Makefile,
 [chmod 755 javaDependencies.pl bin/jode])
