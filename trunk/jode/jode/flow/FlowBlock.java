@@ -134,6 +134,21 @@ public class FlowBlock {
             remainingJumps = lastJump;
         }
 
+        for (Jump jump = jumps; jump != null; jump = jump.next) {
+            /* First swap all conditional blocks, that have two jumps,
+             * so that the jump to succ will be on the outside.
+             */
+            if (jump.prev.outer instanceof ConditionalBlock
+                && jump.prev.outer.jump != null) {
+
+                StructuredBlock prev = jump.prev;
+                ConditionalBlock cb = (ConditionalBlock) prev.outer;
+                Expression instr = cb.getInstruction();
+                
+                cb.setInstruction(instr.negate());
+                cb.swapJump(prev);
+            }
+        }
     next_jump:
         while (jumps != null) {
             Jump jump = jumps;
@@ -161,44 +176,27 @@ public class FlowBlock {
 
             if (jump.prev.outer instanceof ConditionalBlock) {
 
-		if (jump.prev.outer.jump != null) {
+                StructuredBlock prev = jump.prev;
+                ConditionalBlock cb = (ConditionalBlock) prev.outer;
+                Expression instr = cb.getInstruction();
 
-                    StructuredBlock prev = jump.prev;
-                    ConditionalBlock cb = (ConditionalBlock) prev.outer;
-                    Expression instr = cb.getInstruction();
-                    
-                    if (cb.jump.destination == jump.destination) {
-                        /* This is a weired "if (cond) empty"-block.  We
-                         * transform it by hand.
-                         */
-                        prev.removeJump();
-                        IfThenElseBlock ifBlock = 
-                            new IfThenElseBlock(cb.getInstruction());
-                        ifBlock.moveDefinitions(cb, prev);
-                        ifBlock.replace(cb);
-                        ifBlock.setThenBlock(prev);
-                        continue;
-                    }
-
-                    /* Swap conditional blocks, that have two jumps, and where
-                     * this jump is the inner jump.  
+                if (cb.jump != null) {
+                    /* This can only happen if cb also jumps to succ.
+                     * This is a weired "if (cond) empty"-block.  We
+                     * transform it by hand.  
                      */
-                    
-                    cb.setInstruction(instr.negate());
-                    cb.swapJump(jump.prev);
-                    
-                    /* Consider this jump again
-                     */
-                    jumps = jump;
+                    prev.removeJump();
+                    IfThenElseBlock ifBlock = 
+                        new IfThenElseBlock(cb.getInstruction());
+                    ifBlock.moveDefinitions(cb, prev);
+                    ifBlock.replace(cb);
+                    ifBlock.setThenBlock(prev);
                     continue;
                 }
 
                 /* Now cb.jump is null, so cb.outer is not null,
                  * since otherwise it would have no successor.  */
 
-                ConditionalBlock cb = (ConditionalBlock) jump.prev.outer;
-                Expression instr = cb.getInstruction();
-                
                 /* If this is the first instruction of a
                  * while/for(true) block, make this the loop condition
                  * (negated of course).
@@ -316,7 +314,6 @@ public class FlowBlock {
                 StructuredBlock sb = jump.prev.outer;
                 while (sb instanceof SequentialBlock)
                     sb = sb.outer;
-                
                 
                 /* if this is a jump at the end of a then block belonging
                  * to a if-then block without else part, and the if-then
