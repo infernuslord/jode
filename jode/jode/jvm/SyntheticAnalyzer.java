@@ -18,7 +18,7 @@
  */
 
 package jode.decompiler;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.flow.*;
 import jode.expr.*;
 import jode.type.Type;
@@ -36,8 +36,8 @@ public class SyntheticAnalyzer {
     public SyntheticAnalyzer(MethodAnalyzer method) {
 	this.method = method;
 	if (method.getName().equals("class$"))
-	    if (!checkGetClass() && Decompiler.isVerbose)
-		Decompiler.err.println("class$ seems to be wrong");
+	    if (!checkGetClass() && GlobalOptions.verboseLevel > 0)
+		GlobalOptions.err.println("class$ seems to be wrong");
     }
 
     boolean checkGetClass() {

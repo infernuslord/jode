@@ -19,7 +19,7 @@
 
 package jode.expr;
 import jode.type.Type;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 
 public abstract class Expression {
@@ -43,7 +43,7 @@ public abstract class Expression {
 	Type newType = type.intersection(otherType);
 	if (newType == Type.tError 
 	    && type != Type.tError && otherType != Type.tError)
-	    Decompiler.err.println("Type error in "+this+": "
+	    GlobalOptions.err.println("Type error in "+this+": "
 				   +"merging "+type+" and "+otherType);
 	type = newType;
     }
@@ -86,7 +86,7 @@ public abstract class Expression {
      * conflict was found.  You may wish to check for >0.
      */
     public int canCombine(Expression e) {
-// 	jode.Decompiler.err.println("Try to combine "+e+" into "+this);
+// 	jode.GlobalOptions.err.println("Try to combine "+e+" into "+this);
         return containsMatchingLoad(e)? 1 : 0;
     }
 
@@ -173,7 +173,7 @@ public abstract class Expression {
     public void dumpExpression(TabbedPrintWriter writer, int minPriority)
 	throws java.io.IOException {
 	boolean needParen1 = false, needParen2 = false;
-	if (Decompiler.isTypeDebugging) {
+	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0) {
 	    if (minPriority > 700) {
 		needParen1 = true;
 		writer.print("(");

@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.AssertError;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.expr.*;
@@ -152,10 +152,10 @@ public class TransformExceptionHandlers {
         tryFlow.in.unionExact(catchFlow.in);
         tryFlow.gen.unionExact(catchFlow.gen);
     
-        if (Decompiler.debugInOut) {
-            Decompiler.err.println("UpdateInOutCatch: gens : "+gens);
-            Decompiler.err.println("                  s.in : "+catchFlow.in);
-            Decompiler.err.println("                  in   : "+tryFlow.in);
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_INOUT) != 0) {
+            GlobalOptions.err.println("UpdateInOutCatch: gens : "+gens);
+            GlobalOptions.err.println("                  s.in : "+catchFlow.in);
+            GlobalOptions.err.println("                  in   : "+tryFlow.in);
         }
     }
 
@@ -854,8 +854,8 @@ public class TransformExceptionHandlers {
             int endHandler = (i< count-1 && endPCs[i+1] > catches[i].addr) 
                 ? endPCs[i+1]
                 : Integer.MAX_VALUE;
-            if (Decompiler.debugAnalyze)
-                Decompiler.err.println("analyzeCatch(" + trys[i].addr + ", "
+            if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+                GlobalOptions.err.println("analyzeCatch(" + trys[i].addr + ", "
                                    + endPCs[i] + ", " +catches[i].addr + ")");
             FlowBlock tryFlow = trys[i];
             tryFlow.checkConsistent();
@@ -885,8 +885,8 @@ public class TransformExceptionHandlers {
                 analyzeCatchBlock(Type.tObject, tryFlow, catchFlow);
 
             tryFlow.checkConsistent();
-            if (Decompiler.debugAnalyze)
-                Decompiler.err.println("analyzeCatch(" + tryFlow.addr + ", "
+            if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+                GlobalOptions.err.println("analyzeCatch(" + tryFlow.addr + ", "
 				       + (tryFlow.addr + tryFlow.length) + 
 				       ") done.");
         }

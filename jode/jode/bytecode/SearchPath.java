@@ -22,7 +22,7 @@ import java.io.*;
 import java.net.*;
 import java.util.zip.*;
 import java.util.*;
-import jode.Decompiler;
+import jode.GlobalOptions;
 
 /**
  * This class represents a path of multiple directories and/or zip files,
@@ -112,7 +112,7 @@ public class SearchPath  {
 		urlzips[nr] = newarr;
 	    }
 	} catch (IOException ex) {
-	    Decompiler.err.println("IOException while reading "
+	    GlobalOptions.err.println("IOException while reading "
 				   +"remote zip file "+bases[nr]);
 	    // disable entry
 	    bases[nr] = null;
@@ -135,7 +135,7 @@ public class SearchPath  {
 	    }
 	    zis.close();
 	} catch (IOException ex) {
-	    Decompiler.err.println("Remote zip file "+bases[nr]
+	    GlobalOptions.err.println("Remote zip file "+bases[nr]
 				   +" is corrupted.");
 	    // disable entry
 	    bases[nr] = null;
@@ -181,7 +181,7 @@ public class SearchPath  {
 		    } catch (IOException ex) {
 			// ignore
 		    } catch (SecurityException ex) {
-			Decompiler.err.println("Warning: Security exception "
+			GlobalOptions.err.println("Warning: Security exception "
 					       +"while accessing "
 					       +bases[i]+".");
 		    }
@@ -203,7 +203,7 @@ public class SearchPath  {
 		    }
 		} catch (SecurityException ex) {
 		    /* disable this entry */
-		    Decompiler.err.println("Warning: SecurityException while"
+		    GlobalOptions.err.println("Warning: SecurityException while"
 					   + " accessing " + token);
 		    dirs[i] = null;
 		}
@@ -311,10 +311,10 @@ public class SearchPath  {
 		    conn.setAllowUserInteraction(true);
 		    return conn.getInputStream();
 		} catch (SecurityException ex) {
-		    Decompiler.err.println("Warning: SecurityException"
+		    GlobalOptions.err.println("Warning: SecurityException"
 					   +" while accessing "
 					   +bases[i]+filename);
-		    ex.printStackTrace(Decompiler.err);
+		    ex.printStackTrace(GlobalOptions.err);
 		    /* ignore and take next element */
 		} catch (FileNotFoundException ex) {
 		    /* ignore and take next element */
@@ -336,7 +336,7 @@ public class SearchPath  {
 		    if (f.exists())
 			return new FileInputStream(f);
 		} catch (SecurityException ex) {
-		    Decompiler.err.println("Warning: SecurityException"
+		    GlobalOptions.err.println("Warning: SecurityException"
 					   +" while accessing "
 					   +dirs[i]+filename);
 		    /* ignore and take next element */
@@ -372,7 +372,7 @@ public class SearchPath  {
 		    if (f.exists())
 			return f.isDirectory();
 		} catch (SecurityException ex) {
-		    Decompiler.err.println("Warning: SecurityException"
+		    GlobalOptions.err.println("Warning: SecurityException"
 					   +" while accessing "
 					   +dirs[i]+filename);
 		}
@@ -439,7 +439,7 @@ public class SearchPath  {
 				files = f.list();
 			    }
 			} catch (SecurityException ex) {
-			    Decompiler.err.println("Warning: SecurityException"
+			    GlobalOptions.err.println("Warning: SecurityException"
 						   +" while accessing "
 						   +dirs[pathNr]+localDirName);
 			    /* ignore and take next element */

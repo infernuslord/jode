@@ -18,7 +18,7 @@
  */
 
 package jode.expr;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
@@ -51,8 +51,8 @@ public class LocalLoadOperator extends NoArgOperator
     }
 
     public void updateType() {
-        if (Decompiler.isTypeDebugging)
-            Decompiler.err.println("local "+local.getName()+" changed: "
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+            GlobalOptions.err.println("local "+local.getName()+" changed: "
                                +type+" to "+local.getType()
                                +" in "+parent);
         super.setType(local.getType());
@@ -65,12 +65,12 @@ public class LocalLoadOperator extends NoArgOperator
     }
 
     public Type getType() {
-//  	Decompiler.err.println("LocalLoad.getType of "+local.getName()+": "+local.getType());
+//  	GlobalOptions.err.println("LocalLoad.getType of "+local.getName()+": "+local.getType());
 	return local.getType();
     }
 
     public void setType(Type type) {
-// 	Decompiler.err.println("LocalLoad.setType of "+local.getName()+": "+local.getType());
+// 	GlobalOptions.err.println("LocalLoad.setType of "+local.getName()+": "+local.getType());
 	super.setType(local.setType(type));
     }
 

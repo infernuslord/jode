@@ -18,7 +18,7 @@
  */
 
 package jode.flow;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.expr.*;
 
 /**
@@ -107,8 +107,9 @@ public class CreateExpression {
             sequBlock = (SequentialBlock)sequBlock.outer;
         }
 
-        if(Decompiler.isVerbose && lastExpression.getOperandCount() == 0)
-            Decompiler.err.print('x');
+        if (GlobalOptions.verboseLevel > 0
+	    && lastExpression.getOperandCount() == 0)
+            GlobalOptions.err.print('x');
 
 	ic.setInstruction(lastExpression);
         ic.moveDefinitions(sequBlock, last);

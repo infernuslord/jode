@@ -18,6 +18,7 @@
  */
 
 package jode.obfuscator;
+import jode.GlobalOptions;
 import jode.Obfuscator;
 import jode.bytecode.*;
 import java.lang.reflect.Modifier;
@@ -190,8 +191,8 @@ public class ClassIdentifier extends Identifier {
     }
     
     public void analyze() {
-	if (Obfuscator.verboseLevel > 0)
-	    Obfuscator.err.println("Reachable: "+this);
+	if (GlobalOptions.verboseLevel > 0)
+	    GlobalOptions.err.println("Reachable: "+this);
     }
 
     public void initClass() {
@@ -323,8 +324,8 @@ public class ClassIdentifier extends Identifier {
     }
 
     public void doTransformations() {
-	if (Obfuscator.verboseLevel > 0)
-	    Obfuscator.err.println("Transforming "+this);
+	if (GlobalOptions.verboseLevel > 0)
+	    GlobalOptions.err.println("Transforming "+this);
 	info.setName(getFullAlias());
 	transformSuperIfaces();
 
@@ -359,8 +360,8 @@ public class ClassIdentifier extends Identifier {
     }
     
     public void storeClass(DataOutputStream out) throws IOException {
-	if (Obfuscator.verboseLevel > 0)
-	    Obfuscator.err.println("Writing "+this);
+	if (GlobalOptions.verboseLevel > 0)
+	    GlobalOptions.err.println("Writing "+this);
 	info.write(out);
     }
 

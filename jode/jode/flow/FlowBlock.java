@@ -19,7 +19,7 @@
 
 package jode.flow;
 import java.util.*;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.AssertError;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.CodeAnalyzer;
@@ -654,11 +654,11 @@ public class FlowBlock {
         this.in.unionExact(successor.in);
         this.gen.unionExact(successor.gen);
 
-        if (Decompiler.debugInOut) {
-            Decompiler.err.println("UpdateInOut: gens : "+gens);
-            Decompiler.err.println("             kills: "+kills);
-            Decompiler.err.println("             s.in : "+successor.in);
-            Decompiler.err.println("             in   : "+in);
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_INOUT) != 0) {
+            GlobalOptions.err.println("UpdateInOut: gens : "+gens);
+            GlobalOptions.err.println("             kills: "+kills);
+            GlobalOptions.err.println("             s.in : "+successor.in);
+            GlobalOptions.err.println("             in   : "+in);
         }
     }
     
@@ -672,7 +672,7 @@ public class FlowBlock {
         /* This checks are very time consuming, so don't do them
          * normally.
          */
-        if (!Decompiler.doChecks)
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_CHECK) == 0)
             return;
 
 	try {
@@ -752,9 +752,9 @@ public class FlowBlock {
      */
     public void doSequentialT1(StructuredBlock succ, int length) {
         checkConsistent();
-	if (Decompiler.isFlowDebugging) {
-	    Decompiler.err.println("merging sequentialBlock: "+this);
-	    Decompiler.err.println("and: "+succ);
+	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0) {
+	    GlobalOptions.err.println("merging sequentialBlock: "+this);
+	    GlobalOptions.err.println("and: "+succ);
 	}
         VariableSet succIn = new VariableSet();
         succ.fillInGenSet(succIn, this.gen);
@@ -822,17 +822,17 @@ public class FlowBlock {
 
         /* Update the in/out-Vectors now */
         updateInOut(succ, jumps);
-        if (Decompiler.isFlowDebugging)
-            Decompiler.err.println("before Resolve: "+this);
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+            GlobalOptions.err.println("before Resolve: "+this);
 
         /* Try to eliminate as many jumps as possible.
          */
         jumps = resolveSomeJumps(jumps, succ);
-        if (Decompiler.isFlowDebugging)
-            Decompiler.err.println("before Remaining: "+this);
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+            GlobalOptions.err.println("before Remaining: "+this);
         resolveRemaining(jumps);
-        if (Decompiler.isFlowDebugging)
-            Decompiler.err.println("after Resolve: "+this);
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+            GlobalOptions.err.println("after Resolve: "+this);
 
         /* Now unify the blocks.
          */
@@ -1130,8 +1130,8 @@ public class FlowBlock {
     }
 
     public void doTransformations() {
-        if (Decompiler.isFlowDebugging)
-            Decompiler.err.println("before Transformation: "+this);
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+            GlobalOptions.err.println("before Transformation: "+this);
 
         while (lastModified instanceof SequentialBlock) {
             if (!lastModified.getSubBlocks()[0].doTransformations())
@@ -1140,8 +1140,8 @@ public class FlowBlock {
         while (lastModified.doTransformations())
             /* empty */;
 
-        if (Decompiler.isFlowDebugging)
-            Decompiler.err.println("after Transformation: "+this);
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+            GlobalOptions.err.println("after Transformation: "+this);
     }
 
     /**
@@ -1185,8 +1185,8 @@ public class FlowBlock {
      * @param end the end of the address range.
      */
     public boolean analyze(int start, int end) {
-        if (Decompiler.debugAnalyze)
-            Decompiler.err.println("analyze("+start+", "+end+")");
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+            GlobalOptions.err.println("analyze("+start+", "+end+")");
 
 	checkConsistent();
         boolean changed = false;
@@ -1202,11 +1202,11 @@ public class FlowBlock {
 
             if (doT2(start, end)) {
 
-                if (Decompiler.isFlowDebugging)
-                    Decompiler.err.println("after T2: "+this);
+                if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+                    GlobalOptions.err.println("after T2: "+this);
 
-                if (Decompiler.debugAnalyze)
-                    Decompiler.err.println("T2("+addr+","+getNextAddr()
+                if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+                    GlobalOptions.err.println("T2("+addr+","+getNextAddr()
 					   +") succeeded");
                 /* T2 transformation succeeded.  This may
                  * make another T1 analysis in the previous
@@ -1222,8 +1222,8 @@ public class FlowBlock {
                     /* the Block has no successor where t1 is applicable.
                      * Finish this analyzation.
                      */
-                    if (Decompiler.debugAnalyze)
-                        Decompiler.err.println
+                    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+                        GlobalOptions.err.println
                             ("No more successors applicable: "
                              + start + " - " + end + "; "
                              + addr + " - " + getNextAddr());
@@ -1236,8 +1236,8 @@ public class FlowBlock {
                         /* T1 transformation succeeded. */
                         changed = true;
                             
-                        if (Decompiler.isFlowDebugging)
-                            Decompiler.err.println("after T1: "+this);
+                        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+                            GlobalOptions.err.println("after T1: "+this);
                         break;
                     } 
 
@@ -1250,8 +1250,8 @@ public class FlowBlock {
                         int predAddr = 
                             ((FlowBlock)enum.nextElement()).addr;
                         if (predAddr < start || predAddr >= end) {
-                            if (Decompiler.debugAnalyze)
-                                Decompiler.err.println
+                            if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+                                GlobalOptions.err.println
                                     ("breaking analyze("
                                      + start + ", " + end + "); "
                                      + addr + " - " + getNextAddr());
@@ -1373,7 +1373,7 @@ public class FlowBlock {
             mergeSuccessors(lastFlow);
         }
 	
-	if (Decompiler.isFlowDebugging)
+	if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
 	    System.err.println("after analyzeSwitch: "+this);
         checkConsistent();
         return changed;
@@ -1426,9 +1426,9 @@ public class FlowBlock {
 	    mapStackToLocal(VariableStack.EMPTY);
 	    return true;
 //  	} catch (RuntimeException ex) {
-//  	    Decompiler.err.println("Can't resolve all PUSHes, "
+//  	    GlobalOptions.err.println("Can't resolve all PUSHes, "
 //  				   +"this is probably illegal bytecode:");
-//  	    ex.printStackTrace(Decompiler.err);
+//  	    ex.printStackTrace(GlobalOptions.err);
 //  	    return false;
 //  	}
     }
@@ -1510,7 +1510,7 @@ public class FlowBlock {
             writer.tab();
         }
 
-        if (Decompiler.debugInOut) {
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_INOUT) != 0) {
             writer.println("in: "+in);
         }
 
@@ -1559,7 +1559,7 @@ public class FlowBlock {
             java.io.StringWriter strw = new java.io.StringWriter();
             TabbedPrintWriter writer = new TabbedPrintWriter(strw);
             writer.println(super.toString() + ": "+addr+"-"+(addr+length));
-	    if (Decompiler.debugInOut) {
+	    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_INOUT) != 0) {
 		writer.println("in: "+in);
 	    }
             writer.tab();

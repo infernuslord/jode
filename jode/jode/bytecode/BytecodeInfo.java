@@ -18,7 +18,7 @@
  */
 
 package jode.bytecode;
-import jode.Decompiler/*XXX*/;
+import jode.GlobalOptions/*XXX*/;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.ByteArrayInputStream;
@@ -65,12 +65,12 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 				 DataInputStream input, 
 				 int howMuch) throws IOException {
 	if (name.equals("LocalVariableTable")) {
-	    if (Decompiler.showLVT) 
-		Decompiler.err.println("LocalVariableTable of "+methodInfo.clazzInfo.getName() + "." + methodInfo.getName());
+	    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_LVT) != 0) 
+		GlobalOptions.err.println("LocalVariableTable of "+methodInfo.clazzInfo.getName() + "." + methodInfo.getName());
             int count = input.readUnsignedShort();
 	    if (length != 2 + count * 10) {
-		if (Decompiler.showLVT) 
-		    Decompiler.err.println("Illegal LVT length, ignoring it");
+		if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_LVT) != 0) 
+		    GlobalOptions.err.println("Illegal LVT length, ignoring it");
 		return;
 	    }
 	    lvt = new LocalVariableInfo[count];
@@ -104,8 +104,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
 		    // This is probably an evil lvt as created by HashJava
 		    // simply ignore it.
-		    if (Decompiler.showLVT) 
-			Decompiler.err.println("Illegal entry, ignoring LVT");
+		    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_LVT) != 0) 
+			GlobalOptions.err.println("Illegal entry, ignoring LVT");
 		    lvt = null;
 		    return;
 		}
@@ -114,8 +114,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		lvt[i].name = cp.getUTF8(nameIndex);
                 lvt[i].type = cp.getUTF8(typeIndex);
                 lvt[i].slot = slot;
-                if (Decompiler.showLVT)
-                    Decompiler.err.println("\t" + lvt[i].name + ": "
+                if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_LVT) != 0)
+                    GlobalOptions.err.println("\t" + lvt[i].name + ": "
 					   + lvt[i].type
 					   +" range "+start+" - "+end
 					   +" slot "+slot);
@@ -123,7 +123,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	} else if (name.equals("LineNumberTable")) {
 	    int count = input.readUnsignedShort();
 	    if (length != 2 + count * 4) {
-		Decompiler.err.println
+		GlobalOptions.err.println
 		    ("Illegal LineNumberTable, ignoring it");
 		return;
 	    }
@@ -139,7 +139,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		}
 		if (startInstr == null
 		    || startInstr.addr != start) {
-		    Decompiler.err.println
+		    GlobalOptions.err.println
 			("Illegal entry, ignoring LineNumberTable table");
 		    lnt = null;
 		    return;
@@ -174,8 +174,11 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		lastInstr = instr;
 
 		int opcode = input.readUnsignedByte();
-		if (Decompiler.isDebugging)/*XXX*/
-		    Decompiler.err.print(addr+": "+opcodeString[opcode]);
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_BYTECODE) != 0) 
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_BYTECODE) != 0) 
+		    GlobalOptions.err.print(addr+": "+opcodeString[opcode]);
 
 		instr.opcode = opcode;
 		switch (opcode) {
@@ -190,8 +193,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			    throw new ClassFormatError
 				("Invalid local slot "+instr.localSlot);
 			instr.length = 4;
-			if (Decompiler.isDebugging)/*XXX*/
-			    Decompiler.err.print(" "+opcodeString[wideopcode]
+			if ((GlobalOptions.debuggingFlags
+			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			    GlobalOptions.err.print(" "+opcodeString[wideopcode]
 						 +" "+instr.localSlot);
 			break;
 		    case opc_lload: case opc_dload:
@@ -201,8 +205,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			    throw new ClassFormatError
 				("Invalid local slot "+instr.localSlot);
 			instr.length = 4;
-			if (Decompiler.isDebugging)/*XXX*/
-			    Decompiler.err.print(" "+opcodeString[wideopcode]
+			if ((GlobalOptions.debuggingFlags
+			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			    GlobalOptions.err.print(" "+opcodeString[wideopcode]
 						 +" "+instr.localSlot);
 			break;
 		    case opc_ret:
@@ -212,8 +217,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 				("Invalid local slot "+instr.localSlot);
 			instr.length = 4;
 			instr.alwaysJumps = true;
-			if (Decompiler.isDebugging)/*XXX*/
-			    Decompiler.err.print(" ret "+instr.localSlot);
+			if ((GlobalOptions.debuggingFlags
+			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			    GlobalOptions.err.print(" ret "+instr.localSlot);
 			break;
 			
 		    case opc_iinc:
@@ -223,8 +229,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 				("Invalid local slot "+instr.localSlot);
 			instr.intData = input.readShort();
 			instr.length = 6;
-			if (Decompiler.isDebugging)/*XXX*/
-			    Decompiler.err.print(" iinc "+instr.localSlot
+			if ((GlobalOptions.debuggingFlags
+			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			    GlobalOptions.err.print(" iinc "+instr.localSlot
 						 +" "+instr.intData);
 			break;
 		    default:
@@ -281,8 +288,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			throw new ClassFormatError
 			    ("Invalid local slot "+instr.localSlot);
 		    instr.length = 2;
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+instr.localSlot);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+instr.localSlot);
 		    break;
 		case opc_lstore: case opc_dstore:
 		case opc_lload: case opc_dload:
@@ -291,8 +299,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			throw new ClassFormatError
 			    ("Invalid local slot "+instr.localSlot);
 		    instr.length = 2;
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+instr.localSlot);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+instr.localSlot);
 		    break;
 
 		case opc_ret:
@@ -302,8 +311,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			    ("Invalid local slot "+instr.localSlot);
 		    instr.alwaysJumps = true;
 		    instr.length = 2;
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+instr.localSlot);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+instr.localSlot);
 		    break;
 
 		case opc_aconst_null:
@@ -371,8 +381,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			    ("Invalid local slot "+instr.localSlot);
 		    instr.intData = input.readByte();
 		    instr.length = 3;
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+instr.localSlot
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+instr.localSlot
 					     +" "+instr.intData);
 		    break;
 
@@ -392,8 +403,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    succAddrs[addr][0] = addr+input.readShort();
 		    predcounts[succAddrs[addr][0]]++;
 		    instr.length = 3;
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+succAddrs[addr][0]);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+succAddrs[addr][0]);
 		    break;
 
 		case opc_goto_w:
@@ -404,8 +416,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    succAddrs[addr][0] = addr+input.readInt();
 		    predcounts[succAddrs[addr][0]]++;
 		    instr.length = 5;
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+succAddrs[addr][0]);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+succAddrs[addr][0]);
 		    break;
 
 		case opc_tableswitch: {
@@ -478,8 +491,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			    || opcode != opc_invokespecial))
 			throw new ClassFormatException
 			    ("Illegal call of special method/field "+ref);
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+ref);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+ref);
 		    instr.objData = ref;
 		    instr.length = 3;
 		    break;
@@ -494,8 +508,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    if (ref.getName().charAt(0) == '<')
 			throw new ClassFormatException
 			    ("Illegal call of special method "+ref);
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+ref);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+ref);
 		    instr.objData = ref;
 		    instr.intData = input.readUnsignedByte();
 		    if (input.readUnsignedByte() != 0)
@@ -514,8 +529,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			throw new ClassFormatException
 			    ("Can't create array with opc_new");
 		    instr.objData = type;
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+instr.objData);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+instr.objData);
 		    instr.length = 3;
 		    break;
 		}
@@ -527,8 +543,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			    throw new ClassFormatException
 				("multianewarray called for non array:"
 				 + instr.getDescription());
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+instr.objData
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+instr.objData
 					     +" "+instr.intData);
 		    instr.length = 4;
 		    break;
@@ -536,8 +553,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    String type = cp.getClassType(input.readUnsignedShort());
 		    instr.opcode = opc_multianewarray;
 		    instr.objData = "["+type;
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+instr.objData);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+instr.objData);
 		    instr.intData = 1;
 		    instr.length = 3;
 		    break;
@@ -547,8 +565,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			(input.readUnsignedByte()-4);
 		    instr.opcode = opc_multianewarray;
 		    instr.objData = new String (new char[] { '[', sig });
-		    if (Decompiler.isDebugging)/*XXX*/
-			Decompiler.err.print(" "+instr.objData);
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
+			GlobalOptions.err.print(" "+instr.objData);
 		    instr.intData = 1;
 		    instr.length = 2;
 		    break;
@@ -562,8 +581,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			instr.length = 1;
 		}
 		addr += lastInstr.length;
-		if (Decompiler.isDebugging)/*XXX*/
-		    Decompiler.err.println();
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_BYTECODE) != 0) 
+		    GlobalOptions.err.println();
 	    }
 	}
 	firstInstr = instrs[0];

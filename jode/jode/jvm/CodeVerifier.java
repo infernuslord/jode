@@ -21,7 +21,7 @@ package jode.jvm;
 import jode.bytecode.*;
 import jode.type.*;
 import jode.AssertError;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import java.util.BitSet;
 import java.util.Stack;
 
@@ -182,16 +182,19 @@ public class CodeVerifier implements Opcodes {
     }
 
     public boolean isOfType(Type t1, Type t2) {
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_VERIFIER) != 0)
+	    GlobalOptions.err.println("isOfType("+t1+","+t2+")");
 	if (t1.equals(t2))
 	    return true;
 	if (t1.getTypeCode() == Type.TC_INTEGER
 	    && t2.getTypeCode() == Type.TC_INTEGER)
 	    return true;
-	if (t1 == Type.tUObject)
+	if (t1.equals(Type.tUObject))
 	    return (t2.getTypeCode() == Type.TC_CLASS
 		    || t2.getTypeCode() == Type.TC_ARRAY
 		    || t2.getTypeCode() == -Type.TC_CLASS);
-	if (t2 == Type.tUObject)
+	if (t2.equals(Type.tUObject))
 	    return (t1.getTypeCode() == Type.TC_CLASS
 		    || t1.getTypeCode() == Type.TC_ARRAY
 		    || t1.getTypeCode() == -Type.TC_CLASS);
@@ -206,10 +209,10 @@ public class CodeVerifier implements Opcodes {
 		Type e2 = ((ArrayType)t2).getElementType();
 		if ((e1.getTypeCode() == Type.TC_CLASS
 		     || e1.getTypeCode() == Type.TC_ARRAY
-		     || e1 == Type.tUObject)
+		     || e1.equals(Type.tUObject))
 		    && (e2.getTypeCode() == Type.TC_CLASS
 			|| e2.getTypeCode() == Type.TC_ARRAY
-			|| e2 == Type.tUObject))
+			|| e2.equals(Type.tUObject)))
 		    return isOfType(e1, e2);
 		return false;
 	    } else {
@@ -229,11 +232,11 @@ public class CodeVerifier implements Opcodes {
 	if (t1.getTypeCode() == Type.TC_INTEGER
 	    && t2.getTypeCode() == Type.TC_INTEGER)
 	    return t1;
-	if (t1 == Type.tUObject)
+	if (t1.equals(Type.tUObject))
 	    return (t2.getTypeCode() == Type.TC_CLASS
 		    || t2.getTypeCode() == Type.TC_ARRAY
 		    || t2.getTypeCode() == -Type.TC_CLASS) ? t2 : Type.tError;
-	if (t2 == Type.tUObject)
+	if (t2.equals(Type.tUObject))
 	    return (t1.getTypeCode() == Type.TC_CLASS
 		    || t1.getTypeCode() == Type.TC_ARRAY
 		    || t1.getTypeCode() == -Type.TC_CLASS) ? t1 : Type.tError;
@@ -248,10 +251,10 @@ public class CodeVerifier implements Opcodes {
 		Type e2 = ((ArrayType)t2).getElementType();
 		if ((e1.getTypeCode() == Type.TC_CLASS
 		     || e1.getTypeCode() == Type.TC_ARRAY
-		     || e1 == Type.tUObject)
+		     || e1.equals(Type.tUObject))
 		    && (e2.getTypeCode() == Type.TC_CLASS
 			|| e2.getTypeCode() == Type.TC_ARRAY
-			|| e2 == Type.tUObject))
+			|| e2.equals(Type.tUObject)))
 		    return Type.tArray(mergeType(e1, e2));
 		return Type.tObject;
 	    } else {
@@ -415,7 +418,7 @@ public class CodeVerifier implements Opcodes {
 		    || !isOfType(arrType, Type.tArray(Type.tBoolean))))
 		throw new VerifyException(instr.getDescription());
 	    
-	    Type elemType = (arrType == Type.tUObject ? Type.tUObject
+	    Type elemType = (arrType.equals(Type.tUObject) ? Type.tUObject
 			     :((ArrayType)arrType).getElementType());
 	    result.push(elemType);
 	    if (((1 << instr.opcode - opc_iaload) & 0xa) != 0)
@@ -985,14 +988,15 @@ public class CodeVerifier implements Opcodes {
 	    }
 	}
 
-	if (false /* debugVerify */) {
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_VERIFIER) != 0) {
 	    for (Instruction instr = bi.getFirstInstr(); instr != null;
 		 instr = instr.nextByAddr) {
 
 		VerifyInfo info = (VerifyInfo) instr.tmpInfo;
 		if (info != null)
-		    System.err.println(info.toString());
-		System.err.println(instr.getDescription());
+		    GlobalOptions.err.println(info.toString());
+		GlobalOptions.err.println(instr.getDescription());
 
 	    }
 	}
@@ -1011,8 +1015,8 @@ public class CodeVerifier implements Opcodes {
 
 		VerifyInfo info = (VerifyInfo) instr.tmpInfo;
 		if (info != null)
-		    System.err.println(info.toString());
-		System.err.println(instr.getDescription());
+		    GlobalOptions.err.println(info.toString());
+		GlobalOptions.err.println(instr.getDescription());
 
 		instr.tmpInfo = null;
 	    }

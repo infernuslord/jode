@@ -18,6 +18,7 @@
  */
 
 package jode.obfuscator;
+import jode.GlobalOptions;
 import jode.Obfuscator;
 import java.io.*;
 import java.util.Hashtable;
@@ -158,8 +159,8 @@ public abstract class Identifier {
     static int serialnr = 0;
     public void buildTable(int renameRule) {
 	if (isPreserved()) {
-	    if (Obfuscator.isDebugging)
-		Obfuscator.err.println(toString() + " is preserved");
+	    if (GlobalOptions.verboseLevel > 4)
+		GlobalOptions.err.println(toString() + " is preserved");
 	} else if (renameRule != Obfuscator.RENAME_NONE) {
 	    Identifier rep = getRepresentative();
 	    if (rep.wasAliased)

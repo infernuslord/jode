@@ -18,7 +18,7 @@
  */
 
 package jode.type;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 import java.util.Vector;
 import java.util.Stack;
@@ -112,8 +112,8 @@ public abstract class ReferenceType extends Type {
 	else
 	    result = tError;
 
-        if (Decompiler.isTypeDebugging) {
-	    Decompiler.err.println("intersecting "+ this +" and "+ type + 
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0) {
+	    GlobalOptions.err.println("intersecting "+ this +" and "+ type + 
                                    " to " + result);
 	}	    
         return result;

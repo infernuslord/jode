@@ -22,6 +22,7 @@ import jode.bytecode.MethodInfo;
 import jode.type.*;
 import jode.AssertError;
 import jode.Decompiler;
+import jode.GlobalOptions;
 
 import java.lang.reflect.Modifier;
 import java.io.*;
@@ -135,11 +136,11 @@ public class MethodAnalyzer implements Analyzer {
             imports.useType(methodType.getReturnType());
 
 	if (!Decompiler.immediateOutput) {
-	    if (Decompiler.isVerbose)
-		Decompiler.err.print(methodName+": ");
+	    if (GlobalOptions.verboseLevel > 0)
+		GlobalOptions.err.print(methodName+": ");
 	    code.analyze();
-	    if (Decompiler.isVerbose)
-		Decompiler.err.println("");
+	    if (GlobalOptions.verboseLevel > 0)
+		GlobalOptions.err.println("");
 	}
     }
     
@@ -169,11 +170,11 @@ public class MethodAnalyzer implements Analyzer {
             // We do the code.analyze() here, to get 
             // immediate output.
 
-	    if (Decompiler.isVerbose)
-		Decompiler.err.print(methodName+": ");
+	    if (GlobalOptions.verboseLevel > 0)
+		GlobalOptions.err.print(methodName+": ");
 	    code.analyze();
-	    if (Decompiler.isVerbose)
-		Decompiler.err.println("");
+	    if (GlobalOptions.verboseLevel > 0)
+		GlobalOptions.err.println("");
 	}
 
         if (isConstructor() && isStatic() 
