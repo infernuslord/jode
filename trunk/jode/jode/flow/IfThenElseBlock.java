@@ -153,6 +153,7 @@ public class IfThenElseBlock extends StructuredBlock {
 
     public boolean doTransformations() {
         StructuredBlock last = flowBlock.lastModified;
-        return CreateCheckNull.transformJikes(this, last);
+        return CreateCheckNull.transformJikes(this, last)
+	    || CreateClassField.transform(this,last);
     }
 }
