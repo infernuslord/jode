@@ -32,7 +32,8 @@ public class LocalVariableTable {
             locals[i] = new LocalVariableRangeList();
 
 	for (int i=0; i<lvt.length; i++)
-	    locals[lvt[i].slot].addLocal(lvt[i].start.addr, lvt[i].end.addr,
+	    locals[lvt[i].slot].addLocal(lvt[i].start.getAddr(), 
+					 lvt[i].end.getAddr(),
 					 lvt[i].name, Type.tType(lvt[i].type));
     }
 
