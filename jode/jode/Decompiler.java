@@ -48,6 +48,7 @@ public class Decompiler {
     public static boolean prettyLocals = false;
     public static boolean immediateOutput = false;
     public static boolean highlevelTrafos = true;
+    public static boolean stringDecrypting = true;
     public static boolean undoOptimizations = true;
     public static int outputStyle = SUN_STYLE;
     public static int importPackageLimit = 3;
@@ -58,7 +59,7 @@ public class Decompiler {
         err.println("use: jode [-v][--dest <destdir>]"
 			   +"[--imm][--pretty]"
 			   +"[--cp <classpath>]"
-		           +"[--nolvt][--usepush]"
+		           +"[--nolvt][--usepush][--nodecrypt]"
                            +"[--import <pkglimit> <clslimit>]"
 		           +"[--debug][--analyze][--flow]"
 			   +"[--type][--inout][--lvt][--check]"
@@ -77,6 +78,8 @@ public class Decompiler {
 		    "don't use the local variable table.");
 	err.println("\t--usepush        "+
 		    "don't remove non compilable PUSH instrucions.");
+	err.println("\t--nodecrypt      "+
+		    "don't try to decrypt encrypted strings.");
 	err.println("\t--style {sun|gnu}"+
 		    " specifies indentation style");
 	err.println("\t--import <pkglimit> <clslimit>");
@@ -134,6 +137,8 @@ public class Decompiler {
                 doChecks = true;
             else if (params[i].equals("--pretty"))
                 prettyLocals = true;
+            else if (params[i].equals("--nodecrypt"))
+                stringDecrypting = false;
             else if (params[i].equals("--style")) {
 		String style = params[++i];
 		if (style.equals("sun"))
