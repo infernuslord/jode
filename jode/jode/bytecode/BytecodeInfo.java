@@ -63,6 +63,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
         codeLength = input.readInt();
 	Instruction[] instrs = new Instruction[codeLength];
 	int[][] succAddrs = new int[codeLength][];
+	int[] predcounts = new int[codeLength];
 	{
 	    int addr = 0;
 	    Instruction lastInstr = null;
@@ -86,11 +87,23 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    int wideopcode = input.readUnsignedByte();
 		    instr.opcode = wideopcode;
 		    switch (wideopcode) {
-		    case opc_iload: case opc_lload: 
-		    case opc_fload: case opc_dload: case opc_aload:
-		    case opc_istore: case opc_lstore: 
-		    case opc_fstore: case opc_dstore: case opc_astore:
+		    case opc_iload: case opc_fload: case opc_aload:
+		    case opc_istore: case opc_fstore: case opc_astore:
 			instr.localSlot = input.readUnsignedShort();
+			if (instr.localSlot >= maxLocals)
+			    throw new ClassFormatError
+				("Invalid local slot "+instr.localSlot);
+			instr.length = 4;
+			if (Decompiler.isDebugging)/*XXX*/
+			    Decompiler.err.print(" "+opcodeString[wideopcode]
+						 +" "+instr.localSlot);
+			break;
+		    case opc_lload: case opc_dload:
+		    case opc_lstore: case opc_dstore:
+			instr.localSlot = input.readUnsignedShort();
+			if (instr.localSlot >= maxLocals-1)
+			    throw new ClassFormatError
+				("Invalid local slot "+instr.localSlot);
 			instr.length = 4;
 			if (Decompiler.isDebugging)/*XXX*/
 			    Decompiler.err.print(" "+opcodeString[wideopcode]
@@ -98,6 +111,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			break;
 		    case opc_ret:
 			instr.localSlot = input.readUnsignedShort();
+			if (instr.localSlot >= maxLocals)
+			    throw new ClassFormatError
+				("Invalid local slot "+instr.localSlot);
 			instr.length = 4;
 			instr.alwaysJumps = true;
 			if (Decompiler.isDebugging)/*XXX*/
@@ -106,6 +122,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			
 		    case opc_iinc:
 			instr.localSlot = input.readUnsignedShort();
+			if (instr.localSlot >= maxLocals)
+			    throw new ClassFormatError
+				("Invalid local slot "+instr.localSlot);
 			instr.intData = input.readShort();
 			instr.length = 6;
 			if (Decompiler.isDebugging)/*XXX*/
@@ -130,27 +149,51 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		case opc_aload_2: case opc_aload_3:
 		    instr.opcode = opc_iload + (opcode-opc_iload_0)/4;
 		    instr.localSlot = (opcode-opc_iload_0) & 3;
+		    if (instr.localSlot >= maxLocals)
+			throw new ClassFormatError
+			    ("Invalid local slot "+instr.localSlot);
 		    instr.length = 1;
 		    break;
 		case opc_istore_0: case opc_istore_1: 
 		case opc_istore_2: case opc_istore_3:
-		case opc_lstore_0: case opc_lstore_1: 
-		case opc_lstore_2: case opc_lstore_3:
 		case opc_fstore_0: case opc_fstore_1:
 		case opc_fstore_2: case opc_fstore_3:
-		case opc_dstore_0: case opc_dstore_1:
-		case opc_dstore_2: case opc_dstore_3:
 		case opc_astore_0: case opc_astore_1:
 		case opc_astore_2: case opc_astore_3:
 		    instr.opcode = opc_istore + (opcode-opc_istore_0)/4;
 		    instr.localSlot = (opcode-opc_istore_0) & 3;
+		    if (instr.localSlot >= maxLocals)
+			throw new ClassFormatError
+			    ("Invalid local slot "+instr.localSlot);
 		    instr.length = 1;
 		    break;
-		case opc_iload: case opc_lload: 
-		case opc_fload: case opc_dload: case opc_aload:
-		case opc_istore: case opc_lstore: 
-		case opc_fstore: case opc_dstore: case opc_astore:
+		case opc_lstore_0: case opc_lstore_1: 
+		case opc_lstore_2: case opc_lstore_3:
+		case opc_dstore_0: case opc_dstore_1:
+		case opc_dstore_2: case opc_dstore_3:
+		    instr.opcode = opc_istore + (opcode-opc_istore_0)/4;
+		    instr.localSlot = (opcode-opc_istore_0) & 3;
+		    if (instr.localSlot >= maxLocals-1)
+			throw new ClassFormatError
+			    ("Invalid local slot "+instr.localSlot);
+		    instr.length = 1;
+		    break;
+		case opc_iload: case opc_fload: case opc_aload:
+		case opc_istore: case opc_fstore: case opc_astore:
 		    instr.localSlot = input.readUnsignedByte();
+		    if (instr.localSlot >= maxLocals)
+			throw new ClassFormatError
+			    ("Invalid local slot "+instr.localSlot);
+		    instr.length = 2;
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+instr.localSlot);
+		    break;
+		case opc_lstore: case opc_dstore:
+		case opc_lload: case opc_dload:
+		    instr.localSlot = input.readUnsignedByte();
+		    if (instr.localSlot >= maxLocals - 1)
+			throw new ClassFormatError
+			    ("Invalid local slot "+instr.localSlot);
 		    instr.length = 2;
 		    if (Decompiler.isDebugging)/*XXX*/
 			Decompiler.err.print(" "+instr.localSlot);
@@ -158,6 +201,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
 		case opc_ret:
 		    instr.localSlot = input.readUnsignedByte();
+		    if (instr.localSlot >= maxLocals)
+			throw new ClassFormatError
+			    ("Invalid local slot "+instr.localSlot);
 		    instr.alwaysJumps = true;
 		    instr.length = 2;
 		    if (Decompiler.isDebugging)/*XXX*/
@@ -189,20 +235,44 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    instr.objData = new Integer(input.readShort());
 		    instr.length = 3;
 		    break;
-		case opc_ldc:
-		    instr.objData = cp.getConstant(input.readUnsignedByte());
+		case opc_ldc: {
+		    int index = input.readUnsignedByte();
+		    int tag = cp.getTag(index);
+		    if (tag != cp.STRING
+			 && tag != cp.INTEGER && tag != cp.FLOAT)
+			throw new ClassFormatException
+			    ("wrong constant tag: "+tag);
+		    instr.objData = cp.getConstant(index);
 		    instr.length = 2;
 		    break;
-		case opc_ldc_w:
+		}
+		case opc_ldc_w: {
+		    int index = input.readUnsignedShort();
+		    int tag = cp.getTag(index);
+		    if (tag != cp.STRING
+			 && tag != cp.INTEGER && tag != cp.FLOAT)
+			throw new ClassFormatException
+			    ("wrong constant tag: "+tag);
 		    instr.opcode = opc_ldc;
-		    /* fall through */
-		case opc_ldc2_w:
-		    instr.objData = cp.getConstant(input.readUnsignedShort());
+		    instr.objData = cp.getConstant(index);
 		    instr.length = 3;
 		    break;
-		
+		}
+		case opc_ldc2_w: {
+		    int index = input.readUnsignedShort();
+		    int tag = cp.getTag(index);
+		    if (tag != cp.LONG && tag != cp.DOUBLE)
+			throw new ClassFormatException
+			    ("wrong constant tag: "+tag);
+		    instr.objData = cp.getConstant(index);
+		    instr.length = 3;
+		    break;
+		}
 		case opc_iinc:
 		    instr.localSlot = input.readUnsignedByte();
+		    if (instr.localSlot >= maxLocals)
+			throw new ClassFormatError
+			    ("Invalid local slot "+instr.localSlot);
 		    instr.intData = input.readByte();
 		    instr.length = 3;
 		    if (Decompiler.isDebugging)/*XXX*/
@@ -211,6 +281,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    break;
 
 		case opc_goto:
+		case opc_jsr:
 		    instr.alwaysJumps = true;
 		    /* fall through */
 		case opc_ifeq: case opc_ifne: 
@@ -221,21 +292,21 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		case opc_if_icmpgt: case opc_if_icmple:
 		case opc_if_acmpeq: case opc_if_acmpne:
 		case opc_ifnull: case opc_ifnonnull:
-		case opc_jsr:
 		    succAddrs[addr] = new int[1];
 		    succAddrs[addr][0] = addr+input.readShort();
+		    predcounts[succAddrs[addr][0]]++;
 		    instr.length = 3;
 		    if (Decompiler.isDebugging)/*XXX*/
 			Decompiler.err.print(" "+succAddrs[addr][0]);
 		    break;
 
 		case opc_goto_w:
-		    instr.alwaysJumps = true;
-		    /* fall through */
 		case opc_jsr_w:
+		    instr.alwaysJumps = true;
 		    instr.opcode -= opc_goto_w - opc_goto;
 		    succAddrs[addr] = new int[1];
 		    succAddrs[addr][0] = addr+input.readInt();
+		    predcounts[succAddrs[addr][0]]++;
 		    instr.length = 5;
 		    if (Decompiler.isDebugging)/*XXX*/
 			Decompiler.err.print(" "+succAddrs[addr][0]);
@@ -251,8 +322,10 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    succAddrs[addr] = new int[high-low+2];
 		    for (int i=0; i+low <= high; i++) {
 			succAddrs[addr][i] = addr + input.readInt();
+			predcounts[succAddrs[addr][i]]++;
 		    }
 		    succAddrs[addr][high-low+1] = addr + def;
+		    predcounts[addr + def]++;
 		    instr.alwaysJumps = true;
 		    instr.length = length + 13 + 4 * (high-low+1);
 		    break;
@@ -267,8 +340,10 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    for (int i=0; i < npairs; i++) {
 			values[i] = input.readInt();
 			succAddrs[addr][i] = addr + input.readInt();
+			predcounts[succAddrs[addr][i]]++;
 		    }
 		    succAddrs[addr][npairs] = addr + def;
+		    predcounts[addr + def]++;
 		    instr.objData = values;
 		    instr.alwaysJumps = true;
 		    instr.length = length + 9 + 8 * npairs;
@@ -290,7 +365,23 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		case opc_invokespecial:
 		case opc_invokestatic:
 		case opc_invokevirtual: {
-		    Reference ref = cp.getRef(input.readUnsignedShort());
+		    int index = input.readUnsignedShort();
+		    int tag = cp.getTag(index);
+		    if (instr.opcode < opc_invokevirtual) {
+			if (tag != cp.FIELDREF)
+			    throw new ClassFormatException
+				("field tag mismatch: "+tag);
+		    } else {
+			if (tag != cp.METHODREF)
+			    throw new ClassFormatException
+				("method tag mismatch: "+tag);
+		    }
+		    Reference ref = cp.getRef(index);
+		    if (ref.getName().charAt(0) == '<'
+			&& (!ref.getName().equals("<init>")
+			    || opcode != opc_invokespecial))
+			throw new ClassFormatException
+			    ("Illegal call of special method/field "+ref);
 		    if (Decompiler.isDebugging)/*XXX*/
 			Decompiler.err.print(" "+ref);
 		    instr.objData = ref;
@@ -298,33 +389,73 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    break;
 		}
 		case opc_invokeinterface: {
-		    Reference ref = cp.getRef(input.readUnsignedShort());
+		    int index = input.readUnsignedShort();
+		    int tag = cp.getTag(index);
+		    if (tag != cp.INTERFACEMETHODREF)
+			throw new ClassFormatException
+			    ("interface tag mismatch: "+tag);
+		    Reference ref = cp.getRef(index);
+		    if (ref.getName().charAt(0) == '<')
+			throw new ClassFormatException
+			    ("Illegal call of special method "+ref);
 		    if (Decompiler.isDebugging)/*XXX*/
 			Decompiler.err.print(" "+ref);
 		    instr.objData = ref;
-		    instr.intData = input.readUnsignedShort();
+		    instr.intData = input.readUnsignedByte();
+		    if (input.readUnsignedByte() != 0)
+			throw new ClassFormatException
+			    ("Illegal call of special method "+ref);
+			
 		    instr.length = 5;
 		    break;
 		}
 
 		case opc_new:
-		case opc_anewarray:
 		case opc_checkcast:
 		case opc_instanceof:
 		    instr.objData = cp.getClassName(input.readUnsignedShort())
 			.replace('/','.');
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+instr.objData);
 		    instr.length = 3;
 		    break;
 		case opc_multianewarray:
-		    instr.objData = cp.getClassName(input.readUnsignedShort())
-			.replace('/','.');
+		    instr.objData = cp.getClassName(input.readUnsignedShort());
 		    instr.intData = input.readUnsignedByte();
+		    for (int i=0; i<instr.intData; i++)
+			if (((String)instr.objData).charAt(i) != '[')
+			    throw new ClassFormatException
+				("multianewarray called for non array:"
+				 + instr.getDescription());
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+instr.objData
+					     +" "+instr.intData);
 		    instr.length = 4;
 		    break;
-		case opc_newarray:
-		    instr.intData = input.readUnsignedByte();
+		case opc_anewarray: {
+		    String type = cp.getClassName(input.readUnsignedShort());
+		    instr.opcode = opc_multianewarray;
+		    if (type.charAt(0) == '[')
+			instr.objData = "["+type;
+		    else
+			instr.objData = "[L" + type + ';';
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+instr.objData);
+		    instr.intData = 1;
+		    instr.length = 3;
+		    break;
+		}
+		case opc_newarray: {
+		    char sig = newArrayTypes.charAt
+			(input.readUnsignedByte()-4);
+		    instr.opcode = opc_multianewarray;
+		    instr.objData = new String (new char[] { '[', sig });
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+instr.objData);
+		    instr.intData = 1;
 		    instr.length = 2;
 		    break;
+		}
 		
 		default:
 		    if (opcode == opc_xxxunusedxxx
@@ -346,15 +477,14 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		int length = succAddrs[addr].length;
 		instr.succs = new Instruction[length];
 		for (int i=0; i < length; i++) {
-		    instr.succs[i] = instrs[succAddrs[addr][i]];
-		    instr.succs[i].preds.addElement(instr);
+		    int succAddr = succAddrs[addr][i];
+		    instr.succs[i] = instrs[succAddr];
+		    if (instr.succs[i].preds == null) 
+			instr.succs[i].preds
+			    = new Instruction[predcounts[succAddr]];
+		    instr.succs[i].preds[--predcounts[succAddr]] = instr;
 		}
 	    }
-	    /* YES, if the last instruction is not reachable it may
-	     * not alwaysJump.  This happens under jikes
-	     */
-	    if (!instr.alwaysJumps && instr.nextByAddr != null)
-		instr.nextByAddr.preds.addElement(instr);
 	}
 	succAddrs = null;
 
@@ -380,20 +510,26 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
     public void dumpCode(java.io.PrintStream output) {
 	for (Instruction instr = firstInstr; 
 	     instr != null; instr = instr.nextByAddr) {
-	    output.println(instr+ ": " + opcodeString[instr.opcode]);
+	    output.println(instr.getDescription() + " "
+			   + Integer.toHexString(hashCode()));
 	    if (instr.succs != null) {
 		output.print("\tsuccs: "+instr.succs[0]);
 		for (int i = 1; i < instr.succs.length; i++)
 		    output.print(", "+instr.succs[i]);
 		output.println();
 	    }
-	    if (instr.preds.size() > 0) {
-		Enumeration enum = instr.preds.elements();
-		output.print("\tpreds: " + enum.nextElement());
-		while (enum.hasMoreElements())
-		    output.print(", " + enum.nextElement());
+	    if (instr.preds != null) {
+		output.print("\tpreds: " + instr.preds[0]);
+		for (int i=1; i < instr.preds.length; i++)
+		    output.print(", " + instr.preds[i]);
 		output.println();
 	    }
+	}
+	for (int i=0; i< exceptionHandlers.length; i++) {
+	    output.println("catch " + exceptionHandlers[i].type 
+			   + " from " + exceptionHandlers[i].start 
+			   + " to " + exceptionHandlers[i].end
+			   + " catcher " + exceptionHandlers[i].catcher);
 	}
     }
 
@@ -407,13 +543,11 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    if (instr.opcode == opc_ldc
 		|| instr.opcode == opc_ldc2_w) {
 		if (instr.objData == null) {
-		    instr.opcode = opc_aconst_null;
 		    instr.length = 1;
 		    continue next_instr;
 		}
 		for (int i=1; i < constants.length; i++) {
 		    if (instr.objData.equals(constants[i])) {
-			instr.opcode = opc_aconst_null+i;
 			instr.length = 1;
 			continue next_instr;
 		    }
@@ -426,21 +560,17 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    int value = ((Integer) instr.objData).intValue();
 		    if (value >= -Byte.MIN_VALUE
 			&& value <= Byte.MAX_VALUE) {
-			instr.opcode = opc_bipush;
 			instr.length = 2;
 			continue;
 		    } else if (value >= -Short.MIN_VALUE
 			       && value <= Short.MAX_VALUE) {
-			instr.opcode = opc_bipush;
 			instr.length = 2;
 			continue;
 		    }
 		}
 		if (gcp.reserveConstant(instr.objData) < 256) {
-		    instr.opcode = opc_ldc;
 		    instr.length = 2;
 		} else {
-		    instr.opcode = opc_ldc_w;
 		    instr.length = 3;
 		}
 	    } else if (instr.localSlot != -1) {
@@ -472,6 +602,15 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    instr.length = 5;
 		} else
 		    instr.length = 3;
+	    } else if (instr.opcode == opc_multianewarray
+		       && instr.intData == 1) {
+		String clazz = ((String) instr.objData).substring(1);
+		if (newArrayTypes.indexOf(clazz.charAt(0))
+		    != -1) {
+		    instr.length = 2;
+		} else {
+		    instr.length = 3;
+		}
 	    }
 	}
 	codeLength = addr;
@@ -485,6 +624,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	output.writeInt(codeLength);
 	for (Instruction instr = firstInstr; 
 	     instr != null; instr = instr.nextByAddr) {
+        switch_opc:
 	    switch (instr.opcode) {
 	    case opc_iload: case opc_lload: 
 	    case opc_fload: case opc_dload: case opc_aload:
@@ -521,26 +661,46 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		break;
 
 	    case opc_ldc:
-		output.writeByte(opc_ldc);
-		output.writeByte(gcp.putConstant(instr.objData));
-		break;
-	    case opc_ldc_w:
-		output.writeByte(opc_ldc_w);
-		output.writeShort(gcp.putConstant(instr.objData));
-		break;
 	    case opc_ldc2_w:
-		output.writeByte(instr.opcode);
-		output.writeShort(gcp.putConstant(instr.objData));
+		if (instr.objData == null) {
+		    output.writeByte(opc_aconst_null);
+		    instr.length = 1;
+		    break switch_opc;
+		}
+		for (int i=1; i < constants.length; i++) {
+		    if (instr.objData.equals(constants[i])) {
+			output.writeByte(opc_aconst_null + i);
+			break switch_opc;
+		    }
+		}
+		if (instr.opcode == opc_ldc2_w) {
+		    output.writeByte(instr.opcode);
+		    output.writeShort(gcp.putLongConstant(instr.objData));
+		} else {
+		    if (instr.objData instanceof Integer) {
+			int value = ((Integer) instr.objData).intValue();
+			if (value >= -Byte.MIN_VALUE
+			    && value <= Byte.MAX_VALUE) {
+			    
+			    output.writeByte(instr.opcode);
+			    output.writeByte(((Integer)instr.objData)
+					     .intValue());
+			} else if (value >= -Short.MIN_VALUE
+				   && value <= Short.MAX_VALUE) {
+			    output.writeByte(instr.opcode);
+			    output.writeShort(((Integer)instr.objData)
+					      .intValue());
+			}
+		    }
+		    if (instr.length == 2) {
+			output.writeByte(opc_ldc);
+			output.writeByte(gcp.putConstant(instr.objData));
+		    } else {
+			output.writeByte(opc_ldc_w);
+			output.writeShort(gcp.putConstant(instr.objData));
+		    }
+		}
 		break;
-	    case opc_bipush:
-		output.writeByte(instr.opcode);
-		output.writeByte(((Integer)instr.objData).intValue());
-		break;
-	    case opc_sipush:
-		output.writeByte(instr.opcode);
-		output.writeShort(((Integer)instr.objData).intValue());
-		break;
-
 	    case opc_iinc:
 		if (instr.length == 3) {
 		    output.writeByte(instr.opcode);
@@ -622,25 +782,36 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		if (instr.opcode == opc_invokeinterface) {
 		    output.writeShort(gcp.putRef(gcp.INTERFACEMETHODREF, 
 						 (Reference) instr.objData));
-		    output.writeShort(instr.intData);
+		    output.writeByte(instr.intData);
+		    output.writeByte(0);
 		} else 
 		    output.writeShort(gcp.putRef(gcp.METHODREF, 
 						 (Reference) instr.objData));
 		break;
 	    case opc_new:
-	    case opc_anewarray:
 	    case opc_checkcast:
 	    case opc_instanceof:
-	    case opc_multianewarray:
 		output.writeByte(instr.opcode);
 		output.writeShort(gcp.putClassRef((String) instr.objData));
-		if (instr.opcode == opc_multianewarray)
-		    output.writeByte(instr.intData);
 		break;
-
-	    case opc_newarray:
-		output.writeByte(instr.opcode);
-		output.writeByte(instr.intData);
+	    case opc_multianewarray:
+		if (instr.intData == 1) {
+		    String clazz = ((String) instr.objData).substring(1);
+		    int index = newArrayTypes.indexOf(clazz.charAt(0));
+		    if (index != -1) {
+			output.writeByte(opc_newarray);
+			output.writeByte(index + 4);
+		    } else {
+			output.writeByte(opc_anewarray);
+			if (clazz.charAt(0) == 'L')
+			    clazz = clazz.substring(1, clazz.indexOf(';'));
+			output.writeShort(gcp.putClassRef(clazz));
+		    }
+		} else {
+		    output.writeByte(instr.opcode);
+		    output.writeShort(gcp.putClassRef((String) instr.objData));
+		    output.writeByte(instr.intData);
+		}
 		break;
 
 	    default:
