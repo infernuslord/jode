@@ -111,12 +111,16 @@ public class ConstOperator extends NoArgOperator {
         if (type.isOfType(Type.tFloat))
             return value+"F";
         if (!type.isOfType(Type.tInt) && type.isOfType(Type.tUInt) 
-            && !isInitializer)
+            && !isInitializer
+	    && (parent == null 
+		|| parent.getOperator().getOperatorIndex() != ASSIGN_OP)) {
             /* One of the strange things in java.  All constants
              * are int and must be explicitly casted to byte,...,short.
-             * But in initializers this cast is unnecessary.
+             * But in assignments and initializers this cast is unnecessary.
+	     * See JLS section 5.2
              */
             return "("+type+") "+value;
+	}
 
         return value;
     }
