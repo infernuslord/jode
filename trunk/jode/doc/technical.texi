@@ -215,3 +215,65 @@ Zu betrachtende 32bit Typen:
   (I,S,B,Z)
   (I,S,B,cS,cB)
 
+@node Highlevel analysis, Technical Info, Solving unknown stack-ops, Technical Info
+@section Highlevel analysis
+@cindex passes
+
+@section The passes
+
+JODE works in three passes:
+
+@subsection Pass 1: Initialize
+
+In the initialize pass the methods, fields and inner classes are read in
+and the inner classes are recursively initialized.  In this pass the
+complexity of the class is calculated.  Anonymous and method scoped
+classes aren't even considered yet.
+
+@subsection Pass 2: Analyze
+
+The analyze pass is the real decompilation pass: The code of the methods
+is transformed into flow blocks and merged to one flow block as
+described in a previous section.  The in/out analysis for the local
+variables is completed, and the locals are merged as necessary.  The
+parameter 0 for non static method is marked as ThisOperator in this
+pass.  
+
+The constructors are analyzed first.  If they initialize synthetic
+fields, this is taken as clear sign that this are outer value
+parameters.  So afterwards, these synthetic fields know their value.
+
+Then the methods are analyzed.  Each method remembers the anonymous
+classes it creates for Pass 3, but these classes are not yet
+initialized.  Inner classes aren't analyzed yet, either.
+
+@subsection Pass 3: Analyze Inner
+
+As the name of this pass makes clear the inner classes are initialized
+in this pass, i.e. first Pass 2 and 3 are invoked for the inner classes.
+
+After that the method scoped classes are analyzed: For each constructor
+it is first check if one surrounding method knows about it.  If not, a
+new class analyzer is created for the method scoped class and Pass 1--3
+are invoked.  Every surrounding method is then told about this new class
+analyzer.
+
+After this pass, every anonymous constructor is analyzed, so we know
+which constructor parameters can be outer values.  The constructor
+transformation may force some other outer values, though.  It is also
+known, in which method a method scoped class must be declared.
+
+@subsection Pass 4: Make Declarations
+
+The last pass begins with transforming the constructors of a class.  Now
+the outer values are fixed and the constructor parameters and synthetic
+fields are told their values.
+
+After that every method determines where to declare local variables and
+method scoped classes.  Local variables are declared as final if a
+method scoped class uses it as outer value.   The name of local
+variables is guessed now.
+
+This pass is done recursively for inner and method scoped classes. 
+
+
