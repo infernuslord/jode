@@ -145,6 +145,7 @@ public class ImportHandler {
     {
         writer.println("/* "+ className 
 		       + " - Decompiled by JoDe (Jochen's Decompiler)");
+	writer.println(" * "+GlobalOptions.URL);
 	writer.println(" * Send comments or bug reports to "
 		       + GlobalOptions.email);
 	writer.println(" */");
