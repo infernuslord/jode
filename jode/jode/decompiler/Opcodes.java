@@ -147,7 +147,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return createNormal
                 (ca, instr, new LocalStoreOperator
                  (types[0][opcode-opc_istore], 
-                  ca.getLocalInfo(instr.addr+2, instr.localSlot),
+                  ca.getLocalInfo(instr.addr+instr.length, instr.localSlot),
                   Operator.ASSIGN_OP));
         case opc_iastore: case opc_lastore:
         case opc_fastore: case opc_dastore: case opc_aastore:
