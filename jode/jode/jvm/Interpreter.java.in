@@ -63,7 +63,7 @@ public class Interpreter implements Opcodes {
 	for (int i=0; i< stack.length; i++)
 	    stack[i] = new Value();
 
-	Instruction pc = code.getFirstInstr();
+	Instruction pc = (Instruction) code.getInstructions().get(0);
 	int stacktop = 0;
 	big_loop:
 	for(;;) {
@@ -410,7 +410,7 @@ public class Interpreter implements Opcodes {
 
 		case opc_iinc:
 		    locals[instr.getLocalSlot()].setInt
-			(locals[instr.getLocalSlot()].intValue() + instr.getIntData());
+			(locals[instr.getLocalSlot()].intValue() + instr.getIncrement());
 		    break;
 		case opc_i2l:
 		    stack[stacktop-1]
@@ -546,7 +546,7 @@ public class Interpreter implements Opcodes {
 		    if (value > 0 && (opc_mask & CMP_GREATER_MASK) != 0
 			|| value < 0 && (opc_mask & CMP_LESS_MASK) != 0
 			|| value == 0 && (opc_mask & CMP_EQUAL_MASK) != 0)
-			pc = instr.getSuccs()[0];
+			pc = instr.getSingleSucc();
 		    break;
 		}
 		case opc_jsr:
@@ -555,20 +555,11 @@ public class Interpreter implements Opcodes {
 		    /* fall through */
 		case opc_goto:
 		case opc_goto_w:
-		    pc = instr.getSuccs()[0];
+		    pc = instr.getSingleSucc();
 		    break;
 		case opc_ret:
 		    pc = (Instruction)locals[instr.getLocalSlot()].objectValue();
 		    break;
-		case opc_tableswitch: {
-		    int value = stack[--stacktop].intValue();
-		    int low  = instr.getIntData();
-		    if (value >= low && value <= low + instr.getSuccs().length - 2)
-			pc = instr.getSuccs()[value - low];
-		    else
-			pc = instr.getSuccs()[instr.getSuccs().length-1];
-		    break;
-		}
 		case opc_lookupswitch: {
 		    int value = stack[--stacktop].intValue();
 		    int[] values = instr.getValues();
@@ -663,53 +654,6 @@ public class Interpreter implements Opcodes {
 		    stack[stacktop++].setNewObject(new NewObject(clazz));
 		    break;
 		}
-		case opc_newarray: {
-		    int length = stack[--stacktop].intValue();
-		    try {
-			switch (instr.getIntData()) {
-			case  4: 
-			    stack[stacktop++].setObject(new boolean[length]); 
-			    break;
-			case  5:
-			    stack[stacktop++].setObject(new char[length]); 
-			    break;
-			case  6:
-			    stack[stacktop++].setObject(new float[length]); 
-			    break;
-			case  7:
-			    stack[stacktop++].setObject(new double[length]); 
-			    break;
-			case  8:
-			    stack[stacktop++].setObject(new byte[length]); 
-			    break;
-			case  9:
-			    stack[stacktop++].setObject(new short[length]); 
-			    break;
-			case 10:
-			    stack[stacktop++].setObject(new int[length]); 
-			    break;
-			case 11:
-			    stack[stacktop++].setObject(new long[length]); 
-			    break;
-			default:
-			    throw new AssertError("Invalid newarray operand");
-			}
-		    } catch (NegativeArraySizeException ex) {
-			throw new InvocationTargetException(ex);
-		    }
-		    break;
-		}
-		case opc_anewarray: {
-		    int length = stack[--stacktop].intValue();
-		    try {
-			stack[stacktop++].setObject
-			    (env.newArray(instr.getClazzType(), 
-					  new int[] { length }));
-		    } catch (NegativeArraySizeException ex) {
-			throw new InvocationTargetException(ex);
-		    }
-		    break;
-		}
 		case opc_arraylength: {
 		    Object array = stack[--stacktop].objectValue();
 		    stack[stacktop++].setInt(Array.getLength(array));
@@ -742,7 +686,7 @@ public class Interpreter implements Opcodes {
 		    env.exitMonitor(stack[--stacktop].objectValue());
 		    break;
 		case opc_multianewarray: {
-		    int dimension = instr.getIntData();
+		    int dimension = instr.getDimensions();
 		    int[] dims = new int[dimension];
 		    for (int i=dimension - 1; i >= 0; i--)
 			dims[i] = stack[--stacktop].intValue();
@@ -761,8 +705,8 @@ public class Interpreter implements Opcodes {
 		Handler[] handlers = code.getExceptionHandlers();
 		Throwable obj = ex.getTargetException();
 		for (int i=0; i< handlers.length; i++) {
-		    if (handlers[i].start.getAddr() <= pc.getAddr()
-			&& handlers[i].end.getAddr() >= pc.getAddr()
+		    if (handlers[i].start.compareTo(pc) <= 0
+			&& handlers[i].end.compareTo(pc) >= 0
 			&& (handlers[i].type == null
 			    || env.instanceOf(obj, handlers[i].type))) {
 			stacktop = 0;

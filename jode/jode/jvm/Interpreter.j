@@ -68,7 +68,10 @@ initstack_enter:
 	ifge initstack_loop
 	pop2
 
-	invokevirtual jode/bytecode/BytecodeInfo/getFirstInstr()Ljode/bytecode/Instruction;
+	invokevirtual jode/bytecode/BytecodeInfo/getInstructions()Ljava.util.List;
+	iconst_0
+	invokevirtual java/util/List/get(I)Ljava/lang/Object;
+	checkcast jode/bytecode/Instruction;
 	astore 4
 	iconst_0
 	istore 5
@@ -675,7 +678,7 @@ iinc_instr:
 	dup
 	invokevirtual jode/jvm/Value/intValue()I
 	aload 6
-	invokevirtual jode/bytecode/Instruction/getIntData()I
+	invokevirtual jode/bytecode/Instruction/getIncrement()I
 	iadd
 	invokevirtual jode/jvm/Value/setInt(I)V
 	goto big_loop
@@ -1221,7 +1224,7 @@ if_or_special_instr:
 		goto_instr
 		jsr_instr
 		ret_instr
-		tableswitch_instr
+		illegal_instr
 		lookupswitch_instr
 		areturn_instr
 		lreturn_instr
@@ -1318,9 +1321,7 @@ ificmp_final:
 	ifge big_loop
 jump_succ:
 	aload 6
-	invokevirtual jode/bytecode/Instruction/getSuccs()[Ljode/bytecode/Instruction;
-	iconst_0
-	aaload
+	invokevirtual jode/bytecode/Instruction/getSingleSucc()Ljode/bytecode/Instruction;
 	astore 4
 	goto big_loop
 
@@ -1347,43 +1348,6 @@ ret_instr:
 	astore 4
 	goto big_loop
 
-tableswitch_instr:
-	pop
-	iinc 5 -1
-	aload_3
-	iload 5
-	aaload
-	invokevirtual jode/jvm/Value/intValue()I
-	aload 6
-	invokevirtual jode/bytecode/Instruction/getIntData()I
-	isub
-	dup
-	aload 6
-	invokevirtual jode/bytecode/Instruction/getSuccs()[Ljode/bytecode/Instruction;
-	dup_x2
-; Stack:
-;  succs
-;  value - low
-;  value - low
-;  succs
-	arraylength
-	if_icmpge default_dest
-	dup
-	ifge load_dest
-default_dest:
-; Stack:
-;  value - low
-;  succs
-	pop
-	dup
-	arraylength
-	iconst_1
-	isub
-load_dest:
-	aaload
-	astore 4
-	goto big_loop
-	
 lookupswitch_instr:
 	pop
 	iinc 5 -1
@@ -1821,7 +1785,7 @@ monitorexit_instr:
 multianewarray_instr:
 	pop
 	aload 6
-	invokevirtual jode/bytecode/Instruction/getIntData()I
+	invokevirtual jode/bytecode/Instruction/getDimensions()I
 	dup
 	istore 7
 	newarray int
