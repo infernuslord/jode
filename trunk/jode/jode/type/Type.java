@@ -218,6 +218,10 @@ public class Type {
         return (this == tBoolByte || this == tBoolInt) ? tUnknown : this;
     }
 
+    public Type getHint() {
+	return this;
+    }
+
     /**
      * @return the type code of the type.
      */
