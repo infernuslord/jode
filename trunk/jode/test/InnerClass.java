@@ -42,7 +42,12 @@ public class InnerClass {
         }
     }
 
+    static Inner createInner(InnerClass outer) {
+	return outer.new Inner();
+    }
+
     InnerClass() {
         new Inner().createInnerInner(10).getB();
+	createInner(this);
     }
 }
