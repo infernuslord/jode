@@ -66,8 +66,8 @@ public class ClassIdentifier extends Identifier {
 	    if (wildcard.matches(fullName + identifiers[i].getName())
 		|| wildcard.matches(fullName + identifiers[i].getName()
 				    + "." +identifiers[i].getType())) {
-		if (GlobalOptions.verboseLevel > 1)
-		    GlobalOptions.err.println("preserving "+identifiers[i]);
+		if (GlobalOptions.verboseLevel > 0)
+		    GlobalOptions.err.println("Preserving "+identifiers[i]);
 		setPreserved();
 		identifiers[i].setPreserved();
 		identifiers[i].setReachable();
@@ -94,18 +94,22 @@ public class ClassIdentifier extends Identifier {
 
     public void reachableIdentifier(String name, String typeSig,
 				    boolean isVirtual) {
-//  	if (!isVirtual || (info.getModifiers() & Modifier.ABSTRACT) == 0) {
-	    for (int i=0; i< identifiers.length; i++) {
-		if (name.equals(identifiers[i].getName())
-		    && typeSig.equals(identifiers[i].getType()))
-		    identifiers[i].setReachable();
+	boolean found = false;
+	for (int i=0; i< identifiers.length; i++) {
+	    if (name.equals(identifiers[i].getName())
+		&& typeSig.equals(identifiers[i].getType())) {
+		identifiers[i].setReachable();
+		found = true;
 	    }
-//  	}
+	}
+	if (!found) {
+	    /*XXXXXXXX super reachableIdentifier */
+	} /*ELSE*/
 	if (isVirtual) {
 	    Enumeration enum = knownSubClasses.elements();
 	    while (enum.hasMoreElements())
 		((ClassIdentifier)enum.nextElement())
-		    .reachableIdentifier(name, typeSig, isVirtual);
+		    .reachableIdentifier(name, typeSig, false);
 	    virtualReachables.addElement
 		(new String[] { name, typeSig });
 	}
@@ -136,7 +140,73 @@ public class ClassIdentifier extends Identifier {
 		if ((ident.info.getModifiers() 
 		     & (Modifier.TRANSIENT | Modifier.STATIC)) == 0)
 		    identifiers[i].setPreserved();
+		/* XXX - only preserve them if writeObject not existent
+		 * or if writeObject calls defaultWriteObject
+		 */
 	    }
+	}
+    }
+
+    /**
+     * Marks the package as preserved, too.
+     */
+    protected void setSinglePreserved() {
+	pack.setPreserved();
+    }
+
+    public void setSingleReachable() {
+	super.setSingleReachable();
+	bundle.analyzeIdentifier(this);
+    }
+    
+    public void analyzeSuperClasses(ClassInfo superclass) {
+	while (superclass != null) {
+	    if (superclass.getName().equals("java.lang.Serializable"))
+		preserveSerializable();
+	    
+	    ClassIdentifier superident
+		= bundle.getClassIdentifier(superclass.getName());
+	    if (superident != null) {
+		superident.addSubClass(this);
+	    } else {
+		// all virtual methods in superclass are reachable now!
+		MethodInfo[] topmethods = superclass.getMethods();
+		for (int i=0; i< topmethods.length; i++) {
+		    int modif = topmethods[i].getModifiers();
+		    if (((Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL)
+			 & modif) == 0
+			&& !topmethods[i].getName().equals("<init>")) {
+			reachableIdentifier
+			    (topmethods[i].getName(), topmethods[i].getType(),
+			     true);
+		    }
+		}
+	    }
+	    ClassInfo[] ifaces = superclass.getInterfaces();
+	    for (int i=0; i < ifaces.length; i++)
+		initSuperClasses(ifaces[i]);
+	    superclass = superclass.getSuperclass();
+	}
+    }
+
+    public void analyze() {
+	if (GlobalOptions.verboseLevel > 0)
+	    GlobalOptions.err.println("Reachable: "+this);
+
+	ClassInfo[] ifaces = info.getInterfaces();
+	ifaceNames = new String[ifaces.length];
+	for (int i=0; i < ifaces.length; i++) {
+	    ifaceNames[i] = ifaces[i].getName();
+	    ClassIdentifier ifaceident
+		= bundle.getClassIdentifier(ifaceNames[i]);
+	    analyzeSuperClasses(ifaces[i]);
+	}
+
+	if (info.getSuperclass() != null) {
+	    superName = info.getSuperclass().getName();
+	    ClassIdentifier superident
+		= bundle.getClassIdentifier(superName);
+	    analyzeSuperClasses(info.getSuperclass());
 	}
     }
 
@@ -172,9 +242,6 @@ public class ClassIdentifier extends Identifier {
 		    if (((Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL)
 			 & modif) == 0
 			&& !topmethods[i].getName().equals("<init>")) {
-			reachableIdentifier
-			    (topmethods[i].getName(), topmethods[i].getType(),
-			     true);
 			preserveIdentifier
 			    (topmethods[i].getName(), topmethods[i].getType());
 		    }
@@ -185,16 +252,6 @@ public class ClassIdentifier extends Identifier {
 		initSuperClasses(ifaces[i]);
 	    superclass = superclass.getSuperclass();
 	}
-    }
-
-    public void setSingleReachable() {
-	super.setSingleReachable();
-	bundle.analyzeIdentifier(this);
-    }
-    
-    public void analyze() {
-	if (GlobalOptions.verboseLevel > 0)
-	    GlobalOptions.err.println("Reachable: "+this);
     }
 
     public void initClass() {
@@ -250,9 +307,6 @@ public class ClassIdentifier extends Identifier {
 	    ifaceNames[i] = ifaces[i].getName();
 	    ClassIdentifier ifaceident
 		= bundle.getClassIdentifier(ifaceNames[i]);
-	    if (ifaceident != null) {
-		ifaceident.addSubClass(this);
-	    }
 	    initSuperClasses(ifaces[i]);
 	}
 
@@ -260,10 +314,31 @@ public class ClassIdentifier extends Identifier {
 	    superName = info.getSuperclass().getName();
 	    ClassIdentifier superident
 		= bundle.getClassIdentifier(superName);
-	    if (superident != null) {
-		superident.addSubClass(this);
-	    }
 	    initSuperClasses(info.getSuperclass());
+	}
+
+	// load inner classes
+	InnerClassInfo[] innerClasses = info.getInnerClasses();
+	InnerClassInfo[] outerClasses = info.getOuterClasses();
+	InnerClassInfo[] extraClasses = info.getExtraClasses();
+	if (outerClasses != null) {
+	    for (int i=0; i < outerClasses.length; i++) {
+		if (outerClasses[i].outer != null) {
+		    bundle.getClassIdentifier(outerClasses[i].outer);
+		}
+	    }
+	}
+	if (innerClasses != null) {
+	    for (int i=0; i < innerClasses.length; i++) {
+		bundle.getClassIdentifier(innerClasses[i].inner);
+	    }
+	}
+	if (extraClasses != null) {
+	    for (int i=0; i < extraClasses.length; i++) {
+		bundle.getClassIdentifier(extraClasses[i].inner);
+		if (extraClasses[i].outer != null)
+		    bundle.getClassIdentifier(extraClasses[i].outer);
+	    }
 	}
     }
 
@@ -330,61 +405,147 @@ public class ClassIdentifier extends Identifier {
 
     public void transformInnerClasses() {
 	InnerClassInfo[] innerClasses = info.getInnerClasses();
-	if (innerClasses == null)
+	InnerClassInfo[] outerClasses = info.getOuterClasses();
+	InnerClassInfo[] extraClasses = info.getExtraClasses();
+	if (innerClasses == null && outerClasses == null
+	    && extraClasses == null)
 	    return;
 
-	int newInnerCount;
+	int newInnerCount, newOuterCount, newExtraCount;
 	if (Obfuscator.shouldStrip) {
-	    newInnerCount = 0;
-	    for (int i=0; i < innerClasses.length; i++) {
-		ClassIdentifier innerIdent
-		    = bundle.getClassIdentifier(innerClasses[i].inner);
-		if (innerIdent == null || innerIdent.isReachable())
-			newInnerCount++;
-	    }
-	} else
-	    newInnerCount = innerClasses.length;
-
-	InnerClassInfo[] newInners = new InnerClassInfo[newInnerCount];
-	newInnerCount = 0;
-
-	for (int i=0; i<innerClasses.length; i++) {
-	    ClassIdentifier innerIdent
-		= bundle.getClassIdentifier(innerClasses[i].inner);
-	    if (innerIdent != null && !innerIdent.isReachable())
-		continue;
-
-	    String inner, outer, name;
-	    if (innerIdent == null) {
-		inner = innerClasses[i].inner;
-	    } else {
-		inner = innerIdent.getAlias();
-	    }
-	    if (innerClasses[i].outer == null) {
-		outer = null;
-	    } else {
-		ClassIdentifier outerIdent
-		    = bundle.getClassIdentifier(innerClasses[i].outer);
-		if (outerIdent != null) {
-		    if (Obfuscator.shouldStrip && !outerIdent.isReachable())
-			outer = null;
-		    else
-			outer = outerIdent.getAlias();
-		} else {
-		    outer = innerClasses[i].outer;
+	    newInnerCount = newOuterCount = newExtraCount = 0;
+	    if (outerClasses != null) {
+		for (int i=0; i < outerClasses.length; i++) {
+		    if (outerClasses[i].outer != null) {
+			ClassIdentifier outerIdent
+			    = bundle.getClassIdentifier(outerClasses[i].outer);
+			if (outerIdent == null || outerIdent.isReachable())
+			    newOuterCount++;
+		    } else
+			newOuterCount++;
 		}
 	    }
-	    if (innerClasses[i].name == null)
-		/* This is an anonymous class */
-		name = null;
-	    else if (outer != null && inner.startsWith(outer+"$"))
-		name = inner.substring(outer.length()+1);
-	    else
-		name = inner;
-	    newInners[newInnerCount++] = new InnerClassInfo
-		(inner, outer, name, innerClasses[i].modifiers);
+	    if (innerClasses != null) {
+		for (int i=0; i < innerClasses.length; i++) {
+		    ClassIdentifier innerIdent
+			= bundle.getClassIdentifier(innerClasses[i].inner);
+		    if (innerIdent == null || innerIdent.isReachable())
+			newInnerCount++;
+		}
+	    }
+	    if (extraClasses != null) {
+		for (int i=0; i < extraClasses.length; i++) {
+		    ClassIdentifier outerIdent = extraClasses[i].outer != null
+			? bundle.getClassIdentifier(extraClasses[i].outer)
+			: null;
+		    ClassIdentifier innerIdent
+			= bundle.getClassIdentifier(extraClasses[i].inner);
+		    if ((outerIdent == null || outerIdent.isReachable())
+			&& (innerIdent == null || innerIdent.isReachable()))
+			newExtraCount++;
+		}
+	    }
+	} else {
+	    newInnerCount = innerClasses != null ? innerClasses.length : 0;
+	    newOuterCount = outerClasses != null ? outerClasses.length : 0;
+	    newExtraCount = extraClasses != null ? extraClasses.length : 0;
+	}
+
+	InnerClassInfo[] newInners = newInnerCount > 0 
+	    ? new InnerClassInfo[newInnerCount] : null;
+	InnerClassInfo[] newOuters = newOuterCount > 0 
+	    ? new InnerClassInfo[newOuterCount] : null;
+	InnerClassInfo[] newExtras = newExtraCount > 0 
+	    ? new InnerClassInfo[newExtraCount] : null;
+
+	if (newInners  != null) {
+	    int pos = 0;
+	    for (int i=0; i<innerClasses.length; i++) {
+		ClassIdentifier innerIdent
+		    = bundle.getClassIdentifier(innerClasses[i].inner);
+		if (innerIdent != null && !innerIdent.isReachable())
+		    continue;
+		
+		String inner, outer, name;
+		if (innerIdent == null) {
+		    inner = innerClasses[i].inner;
+		} else {
+		    inner = innerIdent.getFullAlias();
+		}
+		outer = getFullAlias();
+		if (innerClasses[i].name == null)
+		    /* This is an anonymous class */
+		    name = null;
+		else if (outer != null && inner.startsWith(outer+"$"))
+		    name = inner.substring(outer.length()+1);
+		else
+		    name = inner;
+		newInners[pos++] = new InnerClassInfo
+		    (inner, outer, name, innerClasses[i].modifiers);
+	    }
+	}
+
+	if (newOuters  != null) {
+	    int pos = 0;
+	    String lastClass = getFullAlias();
+	    for (int i=0; i<outerClasses.length; i++) {
+		ClassIdentifier outerIdent = outerClasses[i].outer != null
+		    ? bundle.getClassIdentifier(outerClasses[i].outer)
+		    : null;
+
+		if (outerIdent != null && !outerIdent.isReachable())
+		    continue;
+		
+		String inner = lastClass;
+		String outer = outerIdent == null
+		    ? outerClasses[i].outer : outerIdent.getFullAlias();
+		String name;
+		lastClass = outer;
+		if (outerClasses[i].name == null)
+		    /* This is an anonymous class */
+		    name = null;
+		else if (outer != null && inner.startsWith(outer+"$"))
+		    name = inner.substring(outer.length()+1);
+		else
+		    name = inner.substring(inner.lastIndexOf('.')+1);
+		newOuters[pos++] = new InnerClassInfo
+		    (inner, outer, name, outerClasses[i].modifiers);
+	    }
+	}
+	if (newExtras  != null) {
+	    int pos = 0;
+	    for (int i=0; i<extraClasses.length; i++) {
+		ClassIdentifier outerIdent = extraClasses[i].outer != null
+		    ? bundle.getClassIdentifier(extraClasses[i].outer)
+		    : null;
+		ClassIdentifier innerIdent
+		    = bundle.getClassIdentifier(extraClasses[i].inner);
+
+		if (innerIdent != null && !innerIdent.isReachable())
+		    continue;
+		if (outerIdent != null && !outerIdent.isReachable())
+		    continue;
+
+		String inner = innerIdent == null
+		    ? extraClasses[i].inner : innerIdent.getFullAlias();
+		String outer = outerIdent == null
+		    ? extraClasses[i].outer : outerIdent.getFullAlias();
+		String name;
+		
+		if (extraClasses[i].name == null)
+		    /* This is an anonymous class */
+		    name = null;
+		else if (outer != null && inner.startsWith(outer+"$"))
+		    name = inner.substring(outer.length()+1);
+		else
+		    name = inner;
+		newExtras[pos++] = new InnerClassInfo
+		    (inner, outer, name, extraClasses[i].modifiers);
+	    }
 	}
 	info.setInnerClasses(newInners);
+	info.setOuterClasses(newOuters);
+	info.setExtraClasses(newExtras);
     }
 
     public void doTransformations() {
@@ -456,7 +617,10 @@ public class ClassIdentifier extends Identifier {
      * @return the full qualified alias, excluding trailing dot.
      */
     public String getFullAlias() {
-	return pack.getFullAlias() + getAlias();
+	if (pack.parent == null)
+	    return getAlias();
+	else 
+	    return pack.getFullAlias() + "." + getAlias();
     }
 
     public String getName() {
