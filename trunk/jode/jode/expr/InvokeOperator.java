@@ -139,7 +139,9 @@ public final class InvokeOperator extends Operator
                   isThis() ? operands[0] : "NON VIRTUAL " + operands[0]))
             : (methodType.isStatic()
                ? (isThis() ? "" : classType.toString())
-               : (operands[0].equals("this") ? "" : operands[0]));
+               : (operands[0].equals("this") ? "" 
+		  : operands[0].equals("null") ? "((" + classType + ") null)"
+		  : operands[0]));
 
         int arg = methodType.isStatic() ? 0 : 1;
         String method = isConstructor() 
@@ -153,6 +155,17 @@ public final class InvokeOperator extends Operator
             params.append(operands[arg++]);
         }
         return method+"("+params+")";
+    }
+
+    /**
+     * Checks if the method is the magic class$ method.
+     * @return true if this is the magic class$ method, false otherwise.
+     */
+    public boolean isGetClass() {
+	if (!classType.equals(Type.tClass(codeAnalyzer.getClazz().getName())))
+	    return false;
+	return codeAnalyzer.getClassAnalyzer()
+	    .getMethod(methodName, methodType).isGetClass();
     }
 
     /* Invokes never equals: they may return different values even if
