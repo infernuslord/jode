@@ -30,9 +30,19 @@ import jode.bytecode.*;
 import jode.jvm.*;
 import jode.type.*;
 import jode.decompiler.Scope;
+import jode.util.SimpleMap;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Hashtable;
+///#ifdef JDK12
+///import java.util.Collections;
+///import java.util.Map;
+///import java.util.Iterator;
+///#else
+import jode.util.Collections;
+import jode.util.Map;
+import jode.util.Iterator;
+///#endif
 
 public final class InvokeOperator extends Operator 
     implements MatchableOperator {
@@ -44,85 +54,65 @@ public final class InvokeOperator extends Operator
     Type classType;
     Type[] hints;
 
+    /**
+     * This hashtable contains hints for every library method.  Some
+     * library method take or return an int, but it should be a char
+     * instead.  We will remember that here to give them the right
+     * hint.
+     *
+     * The key is the string: methodName + "." + methodType, the value
+     * is a map: It maps base class types for which this hint applies,
+     * to an array of hint types corresponding to the parameters: The
+     * first element is the hint type of the return value, the
+     * remaining entries are the hint types of the parameters.  All
+     * hint types may be null, if that parameter shouldn't be hinted.  
+     */
     private final static Hashtable hintTypes = new Hashtable();
 
     static {
-	/* Fill the hint type hashtable.  For example, the  first
+	/* Fill the hint type hashtable.  For example, the first
 	 * parameter of String.indexOf should be hinted as char, even
 	 * though the formal parameter is an int.
 	 * First hint is hint of return value (even if void)
 	 * other hints are that of the parameters in order
+	 *
+	 * You only have to hint the base class.  Other classes will
+	 * inherit the hints.
+	 *
+	 * We reuse a lot of objects, since they are all unchangeable
+	 * this is no problem.  We only hint for chars; it doesn't
+	 * make much sense to hint for byte, since its constant
+	 * representation is more difficult than an int
+	 * representation.  If you have more hints to suggest, please
+	 * write contact me. (see GlobalOptions.EMAIL)
 	 */
 	Type tCharHint = new IntegerType(IntegerType.IT_I, IntegerType.IT_C);
 	Type[] hintC   = new Type[] { tCharHint };
 	Type[] hint0C  = new Type[] { null, tCharHint };
 	Type[] hint0C0 = new Type[] { null, tCharHint, null };
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/String;", "indexOf", "(I)I"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/String;", "indexOf", "(II)I"),
-		      hint0C0);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/String;", "lastIndexOf", "(I)I"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/String;", "lastIndexOf", "(II)I"),
-		      hint0C0);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/io/Writer;", "write", "(I)V"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/io/BufferedWriter;", "write", "(I)V"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/io/CharArrayWriter;", "write", "(I)V"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/io/FilterWriter;", "write", "(I)V"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/io/OutputStreamWriter;", "write", "(I)V"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/io/PipedWriter;", "write", "(I)V"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/io/PrintWriter;", "write", "(I)V"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/io/StringWriter;", "write", "(I)V"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/io/PushbackReader;", "unread", "(I)V"),
-		      hint0C);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/Reader;", "read", "()I"),
-		      hintC);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/BufferedReader;", "read", "()I"),
-		      hintC);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/CharArrayReader;", "read", "()I"),
-		      hintC);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/FilterReader;", "read", "()I"),
-		      hintC);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/InputStreamReader;", "read", "()I"),
-		      hintC);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/LineNumberReader;", "read", "()I"),
-		      hintC);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/PipedReader;", "read", "()I"),
-		      hintC);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/PushBackReader;", "read", "()I"),
-		      hintC);
-	hintTypes.put(Reference.getReference
-		      ("Ljava/lang/StringReader;", "read", "()I"),
-		      hintC);
+
+	Map hintString0CMap = new SimpleMap
+	    (Collections.singleton
+	     (new SimpleMap.SimpleEntry(Type.tString, hint0C)));
+	Map hintString0C0Map = new SimpleMap
+	    (Collections.singleton
+	     (new SimpleMap.SimpleEntry(Type.tString, hint0C0)));
+	hintTypes.put("indexOf.(I)I", hintString0CMap);
+	hintTypes.put("lastIndexOf.(I)I", hintString0CMap);
+	hintTypes.put("indexOf.(II)I", hintString0C0Map);
+	hintTypes.put("lastIndexOf.(II)I", hintString0C0Map);
+	hintTypes.put("write.(I)V", new SimpleMap
+		      (Collections.singleton
+		       (new SimpleMap.SimpleEntry
+			(Type.tClass("java.io.Writer"), hint0C))));
+	hintTypes.put("read.()I", new SimpleMap
+		      (Collections.singleton
+		       (new SimpleMap.SimpleEntry
+			(Type.tClass("java.io.Reader"), hintC))));
+	hintTypes.put("unread.(I)V", new SimpleMap
+		      (Collections.singleton
+		       (new SimpleMap.SimpleEntry
+			(Type.tClass("java.io.PushbackReader"), hint0C))));
     }
 
 
@@ -133,7 +123,17 @@ public final class InvokeOperator extends Operator
         this.methodType = Type.tMethod(reference.getType());
         this.methodName = reference.getName();
         this.classType = Type.tType(reference.getClazz());
-	this.hints = (Type[]) hintTypes.get(reference);
+	this.hints = null;
+	Map allHints = (Map) hintTypes.get(methodName+"."+methodType);
+	if (allHints != null) {
+	    for (Iterator i = allHints.entrySet().iterator(); i.hasNext();) {
+		Map.Entry e = (Map.Entry) i.next();
+		if (classType.isOfType(((Type)e.getKey()).getSubType())) {
+		    this.hints = (Type[]) e.getValue();
+		    break;
+		}
+	    }
+	}
 	if (hints != null && hints[0] != null)
 	    this.type = hints[0];
 	else
@@ -241,11 +241,11 @@ public final class InvokeOperator extends Operator
     }
 
     public MethodAnalyzer getMethodAnalyzer() {
-	if (classType instanceof ClassInterfacesType) {
+	ClassInfo clazz = getClassInfo();
+	if (clazz != null) {
 	    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
 	    while (true) {
-		if (((ClassInterfacesType) classType).getClassInfo() 
-		    == ana.getClazz()) {
+		if (clazz == ana.getClazz()) {
 		    return ana.getMethod(methodName, methodType);
 		}
 		if (ana.getParent() == null)
@@ -267,9 +267,9 @@ public final class InvokeOperator extends Operator
      * @XXX check, if its the first super class that implements the method.
      */
     public boolean isSuperOrThis() {
-	if (classType instanceof ClassInterfacesType) {
-	    return ((ClassInterfacesType) classType).getClassInfo()
-		.superClassOf(methodAnalyzer.getClazz());
+	ClassInfo clazz = getClassInfo();
+	if (clazz != null) {
+	    return clazz.superClassOf(methodAnalyzer.getClazz());
 	}
 	return false;
     }
@@ -446,7 +446,7 @@ public final class InvokeOperator extends Operator
 	if (getMethodAnalyzer() != null) {
 	    SyntheticAnalyzer synth = getMethodAnalyzer().getSynthetic();
 	    if (synth != null) {
-		Operator op = null;
+		Expression op = null;
 		switch (synth.getKind()) {
 		case SyntheticAnalyzer.ACCESSGETFIELD:
 		    op = new GetFieldOperator(methodAnalyzer, false,
@@ -478,8 +478,11 @@ public final class InvokeOperator extends Operator
 
 		if (op != null) {
 		    if (subExpressions != null) {
-			for (int i=subExpressions.length; i-- > 0; )
-			    op.addOperand(subExpressions[i]);
+			for (int i=subExpressions.length; i-- > 0; ) {
+			    op = op.addOperand(subExpressions[i]);
+			    if (subExpressions[i].getFreeOperandCount() > 0)
+				break;
+			}
 		    }
 		    return op;
 		}
@@ -639,6 +642,9 @@ public final class InvokeOperator extends Operator
 		    /* XXX check that this is the first defined
 		     * super method. */
 		    writer.print("super");
+		    ClassInfo superClazz = getClassInfo().getSuperclass();
+		    paramTypes[0] = superClazz == null
+			? Type.tObject : Type.tClass(superClazz);
 		    opIsThis = false;
 		}
 	    } else {
@@ -675,8 +681,20 @@ public final class InvokeOperator extends Operator
 			    */
 			   getMethodAnalyzer() == null 
 			   && writer.conflicts(methodName, null,
-					       Scope.METHODNAME)) {
-		    writer.print("this.");
+					       Scope.NOSUPERMETHODNAME)) {
+		    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
+		    while (ana.getParent() instanceof ClassAnalyzer
+			   && ana != scope)
+			ana = (ClassAnalyzer) ana.getParent();
+		    if (ana == scope)
+			// For a simple outer class we can say this
+			writer.print("this.");
+		    else {
+			// For a class that owns a method that owns
+			// us, we have to give the full class name
+			thisOp.dumpExpression(writer, 950);
+			writer.print(".");
+		    }
 		}
 	    } else {
 		if (needsCast(0, paramTypes)){
@@ -712,7 +730,7 @@ public final class InvokeOperator extends Operator
 		Type castType = methodType.getParameterTypes()[arg-offset];
 		writer.print("(");
 		writer.printType(castType);
-		writer.print(")");
+		writer.print(") ");
 		paramTypes[arg] = castType;
 		priority = 700;
 	    }
