@@ -28,14 +28,23 @@ public class CreateCheckNull {
      * 
      * javac: 
      *  DUP
-     *  stack_0.getClass();
+     *  POP.getClass();
      *
      * jikes:
      *  DUP
-     *  if (!stack_0 != null)
+     *  if (!POP != null)
      *    throw null;
      */
 
+    /**
+     * Transforms the code
+     * <pre>
+     *   DUP
+     *   POP.getClass()
+     * </pre>
+     * to a CheckNullOperator.  This is what javac generates when it
+     * calls ".new" on an operand.
+     */
     public static boolean transformJavac(InstructionContainer ic,
 					 StructuredBlock last) {
         if (!(last.outer instanceof SequentialBlock)
@@ -67,6 +76,16 @@ public class CreateCheckNull {
         return true;
     }
 
+    /**
+     * Transforms the code
+     * <pre>
+     *   DUP
+     *   if (POP == null)
+     *       throw null
+     * </pre>
+     * to a CheckNullOperator.  This is what jikes generates when it
+     * calls ".new" on an operand.
+     */
     public static boolean transformJikes(IfThenElseBlock ifBlock,
 					 StructuredBlock last) {
         if (!(last.outer instanceof SequentialBlock)
@@ -80,12 +99,9 @@ public class CreateCheckNull {
 	    || dup.count != 1 || dup.depth != 0)
 	    return false;
 	   
-	/* negate the instruction back to its original state */
-	Expression expr = ifBlock.cond.negate();
-	if (!(expr instanceof CompareUnaryOperator))
+	if (!(ifBlock.cond instanceof CompareUnaryOperator))
 	    return false;
-
-	CompareUnaryOperator cmpOp = (CompareUnaryOperator) expr;
+	CompareUnaryOperator cmpOp = (CompareUnaryOperator) ifBlock.cond;
 	if (cmpOp.getOperatorIndex() != Operator.NOTEQUALS_OP
 	    || !(cmpOp.getCompareType().isOfType(Type.tUObject)))
 	    return false;
