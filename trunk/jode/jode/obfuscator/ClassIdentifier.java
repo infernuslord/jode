@@ -186,9 +186,10 @@ public class ClassIdentifier extends Identifier {
 	MethodInfo[] minfos  = info.getMethods();
 	if (Obfuscator.swapOrder) {
 	    Random rand = new Random();
-	    // XXX replace the following for JDK12 with:
-	    // Collections.shuffle(Arrays.asList(finfos), rand);
-	    // Collections.shuffle(Arrays.asList(minfos), rand);
+///#ifdef JDK12
+///	    Collections.shuffle(Arrays.asList(finfos), rand);
+///	    Collections.shuffle(Arrays.asList(minfos), rand);
+///#else
 	    for (int i=1; i < finfos.length; i++) {
 		int j = (Math.abs(rand.nextInt()) % (i+1)); 
 		if (j != i) {
@@ -205,6 +206,7 @@ public class ClassIdentifier extends Identifier {
 		    minfos[j] = tmp;
 		}
 	    }
+///#endif
 	}
 	fieldCount = finfos.length;
 	identifiers = new Identifier[finfos.length + minfos.length];
