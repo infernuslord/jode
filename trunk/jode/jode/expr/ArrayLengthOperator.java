@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class ArrayLengthOperator extends Operator {
 
@@ -37,10 +38,6 @@ public class ArrayLengthOperator extends Operator {
         return 1;
     }
 
-    public int getOperandPriority(int i) {
-        return 900;
-    }
-
     public Type getOperandType(int i) {
         return arrayType;
     }
@@ -49,7 +46,10 @@ public class ArrayLengthOperator extends Operator {
         arrayType = arrayType.intersection(types[0]);
     }
 
-    public String toString(String[] operands) {
-        return operands[0] + ".length";
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
+	operands[0].dumpExpression(writer, 900);
+	writer.print(".length");
     }
 }
