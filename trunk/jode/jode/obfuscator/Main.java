@@ -1,4 +1,4 @@
-/* Obfuscator Copyright (C) 1998-1999 Jochen Hoenicke.
+/* Main Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,29 +17,41 @@
  * $Id$
  */
 
-package jode;
+package jode.obfuscator;
 import jode.bytecode.ClassInfo;
-import jode.obfuscator.*;
+import jode.bytecode.SearchPath;
+import jode.GlobalOptions;
 import java.util.Vector;
+import java.util.StringTokenizer;
 import java.lang.reflect.Modifier;
 import java.io.PrintWriter;
+import java.io.File;
+///#ifdef JDK12
+///import java.util.Collection;
+///import java.util.HashSet;
+///#else
+import jode.util.Collection;
+import jode.util.HashSet;
+///#endif
 
-public class Obfuscator {
-    public static boolean shouldStrip = true;
+public class Main {
     public static boolean swapOrder   = false;
-    public static boolean preserveSerial = true;
 
-    public static final int PRESERVE_NONE = 0;
-    public static final int PRESERVE_PUBLIC = Modifier.PUBLIC;
-    public static final int PRESERVE_PROTECTED =
-	PRESERVE_PUBLIC | Modifier.PROTECTED;
-    public static final int PRESERVE_PACKAGE = 
-	PRESERVE_PROTECTED | Modifier.PRIVATE; //XXX
+    public static final int OPTION_STRONGOVERLOAD  = 0x0001;
+    public static final int OPTION_PRESERVESERIAL  = 0x0002;
+    public static int options = OPTION_PRESERVESERIAL;
 
-    public static final int RENAME_STRONG = 0;
-    public static final int RENAME_WEAK   = 1;
-    public static final int RENAME_UNIQUE = 2;
-    public static final int RENAME_NONE   = 3;
+    public static final String[] stripNames = {
+	"unreach", "inner", "lvt", "lnt", "source"
+    };
+    public static final int STRIP_UNREACH    = 0x0001;
+    public static final int STRIP_INNERINFO  = 0x0002;
+    public static final int STRIP_LVT        = 0x0004;
+    public static final int STRIP_LNT        = 0x0008;
+    public static final int STRIP_SOURCE     = 0x0010;
+    public static int stripping = 0x1;
+
+    private static ClassBundle bundle;
 
     public static void usage() {
 	PrintWriter err = GlobalOptions.err;
@@ -67,6 +79,8 @@ public class Obfuscator {
         err.println("Obfuscating options: ");
         err.println("\t--rename={strong|weak|unique|none} "+
 		    "Rename identifiers with given scheme");
+        err.println("\t--strip=...       "+
+		    "use --strip=help for more information.");
         err.println("\t--table <file>    "+
 		    "Read (some) translation table from file");
         err.println("\t--revtable <file> "+
@@ -77,31 +91,106 @@ public class Obfuscator {
 		    "use --debug=help for more information.");
     }
 
-    public static int parseRenameOption(String option) {
+    public static void usageStrip() {
+	PrintWriter err = GlobalOptions.err;
+	err.println("Strip options: --strip=flag1,flag2,...");
+	err.println("possible flags:");
+	err.println("\tunreach      " +
+		    "strip all unreachable methods and classes.");
+	err.println("\tinner        " +
+		    "strip inner classes info.");
+	err.println("\tlvt          " +
+		    "strip local variable tables.");
+	err.println("\tlnt          " +
+		    "strip line number tables.");
+	err.println("\tsource       " +
+		    "strip the name of the source file.");
+	err.println("\tinout        " +
+		    "show T1/T2 in/out set analysis.");
+	err.println("\tlvt          " +
+		    "dump LocalVariableTable.");
+	err.println("\tcheck        " +
+		    "do time consuming sanity checks.");
+	err.println("\tlocals       " +
+		    "dump local merging information.");
+	err.println("\tconstructors " +
+		    "dump constructor simplification.");
+	err.println("\tinterpreter  " +
+		    "debug execution of interpreter.");
+	System.exit(0);
+    }
+
+    public static void setStripOptions(String stripString) {
+	if (stripString.length() == 0 || stripString.equals("help"))
+	    usageStrip();
+
+	StringTokenizer st = new StringTokenizer(stripString, ",");
+    next_token:
+	while (st.hasMoreTokens()) {
+	    String token = st.nextToken().intern();
+	    for (int i=0; i < stripNames.length; i++) {
+		if (token == stripNames[i]) {
+		    stripping |= 1 << i;
+		    continue next_token;
+		}
+	    }
+	    GlobalOptions.err.println("Illegal strip flag: "+token);
+	    usageStrip();
+	}
+    }
+
+    public static Renamer getRenamer(String option) {
 	if (option.equals("strong"))
-	    return RENAME_STRONG;
+	    return new StrongRenamer
+	("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+	 "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
 	else if (option.equals("weak"))
-	    return RENAME_WEAK;
-	else if (option.equals("unique"))
-	    return RENAME_UNIQUE;
-	else if (option.equals("none"))
-	    return RENAME_NONE;
+	    return new StrongRenamer
+		("abcdefghijklmnopqrstuvwxyz",
+		 "0123456789abcdefghijklmnopqrstuvwxyz");
+	else if (option.equals("unique")) {
+	    return new Renamer() {
+		static int serialnr = 0;
+		public String generateName(Identifier ident, String lastName) {
+		    return ("xxx" + serialnr++);
+		}
+	    };
+	} else if (option.equals("none")) {
+	    return new Renamer() {
+		public String generateName(Identifier ident, String lastName) {
+		    String name = ident.getName();
+		    if (lastName == null)
+			return name;
+
+		    int nr = 2;
+		    if (lastName.length() > name.length())
+			nr = 1 + Integer.parseInt
+			    (lastName.substring(name.length()));
+		    return name + nr;
+		}
+	    };
+	}
 	GlobalOptions.err.println("Incorrect value for --rename option: "
 				  + option);
 	usage();
 	System.exit(0);
-	return 0;
+	return null;
+    }
+
+    public static ClassBundle getClassBundle() {
+	return bundle;
     }
 
     public static void main(String[] params) {
         int i;
-        String sourcePath = System.getProperty("java.class.path");
+        String sourcePath = System.getProperty("java.class.path")
+	    .replace(File.pathSeparatorChar, SearchPath.pathSeparatorChar);
         String destPath = ".";
 
-        Vector preservedIdents = new Vector();
+        Collection preservedIdents = new HashSet();
 
-        int preserveRule = PRESERVE_NONE;
-        int rename       = RENAME_WEAK;
+        ModifierMatcher preserveRule = ModifierMatcher.denyAll;
+        Renamer renamer = null;
         String table = null;
         String toTable = null;
 
@@ -119,9 +208,10 @@ public class Obfuscator {
 		    flags = params[++i];
 		}
 		GlobalOptions.setDebugging(flags);
-            } else if (params[i].equals("--nostrip"))
-                shouldStrip = false;
-
+            } else if (params[i].equals("--strip"))
+		setStripOptions(params[++i]);
+	    else if (params[i].startsWith("--strip="))
+		setStripOptions(params[i].substring(8));
             else if (params[i].equals("--sourcepath")
 		     || params[i].equals("--classpath")
 		     || params[i].equals("--cp"))
@@ -132,24 +222,27 @@ public class Obfuscator {
 
             /* Preserve options */
             else if (params[i].equals("--package"))
-                preserveRule = PRESERVE_PACKAGE;
+                preserveRule = ModifierMatcher.allowAll.forceAccess
+		    (0, true);
             else if (params[i].equals("--protected"))
-                preserveRule = PRESERVE_PROTECTED;
+                preserveRule = ModifierMatcher.allowAll.forceAccess
+		    (Modifier.PROTECTED, true);
             else if (params[i].equals("--public"))
-                preserveRule = PRESERVE_PUBLIC;
+                preserveRule = ModifierMatcher.allowAll.forceAccess
+		    (Modifier.PUBLIC, true);
             else if (params[i].equals("--preserve")) {
                 String ident = params[++i];
-                preservedIdents.addElement(ident);
+                preservedIdents.add(ident);
             }
             else if (params[i].equals("--breakserial"))
-		preserveSerial = false;
+		options &= ~OPTION_PRESERVESERIAL;
 
             /* Obfuscate options */
             else if (params[i].equals("--rename"))
-		rename = parseRenameOption(params[++i]);
+		renamer = getRenamer(params[++i]);
 	    else if (params[i].startsWith("--rename="))
-		rename = parseRenameOption(params[i].substring(9));
-            else if (params[i].equals("--table")) {
+		renamer = getRenamer(params[i].substring(9));
+	    else if (params[i].equals("--table")) {
                 table  = params[++i];
             }
             else if (params[i].equals("--revtable")) {
@@ -167,6 +260,9 @@ public class Obfuscator {
                 return;
             }
         }
+	if (renamer == null)
+	    renamer = getRenamer("none");
+	
         if (i == params.length) {
             GlobalOptions.err.println("No package or classes specified.");
             usage();
@@ -175,7 +271,7 @@ public class Obfuscator {
 
 	GlobalOptions.err.println("Loading classes");
         ClassInfo.setClassPath(sourcePath);
-        ClassBundle bundle = new ClassBundle();
+        bundle = new ClassBundle();
         for (; i< params.length; i++)
             bundle.loadClasses(params[i]);
 
@@ -185,7 +281,7 @@ public class Obfuscator {
 	GlobalOptions.err.println("Renaming methods");
 	if (table != null)
             bundle.readTable(table);
-	bundle.buildTable(rename);
+	bundle.buildTable(renamer);
         if (toTable != null)
             bundle.writeTable(toTable);
 
