@@ -41,8 +41,9 @@ public class Decompiler {
     public static final int OPTION_IMMEDIATE = 0x0080;
     public static final int OPTION_VERIFY    = 0x0100;
 
-    public static int options
-	= OPTION_LVT | OPTION_INNER | OPTION_DECRYPT | OPTION_VERIFY;
+    public static int options = 
+	OPTION_LVT | OPTION_INNER | OPTION_ANON | 
+	OPTION_DECRYPT | OPTION_VERIFY;
 
     public static final String[] optionNames = {
 	"lvt", "inners", "anonymous", "push", 
