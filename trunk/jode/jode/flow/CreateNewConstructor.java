@@ -38,7 +38,7 @@ public class CreateNewConstructor {
 	 *   SWAP
 	 *   PUSH POP.append(POP)
          *
-         * We transform it to javac String +=:
+         * We transform it to the javac String +=:
 	 *
 	 *   PUSH new StringBuffer(String.valueOf(POP))
 	 */
@@ -68,14 +68,15 @@ public class CreateNewConstructor {
 
 	InstructionBlock ib = (InstructionBlock) sequBlock.subBlocks[0];
 	sequBlock = (SequentialBlock) sequBlock.outer;
-	if (!(ib.getInstruction() instanceof ConstructorOperator)
+	if (!(ib.getInstruction() instanceof InvokeOperator)
 	    || !(sequBlock.subBlocks[0] instanceof InstructionBlock))
 	    return false;
 
-	ConstructorOperator constr = (ConstructorOperator) ib.getInstruction();
+	InvokeOperator constr = (InvokeOperator) ib.getInstruction();
 	ib = (InstructionBlock) sequBlock.subBlocks[0];
 
-	if (constr.getClassType() != Type.tStringBuffer
+	if (!constr.isConstructor()
+	    || !constr.getClassType().equals(Type.tStringBuffer)
 	    || constr.isVoid()
 	    || constr.getMethodType().getParameterTypes().length != 0)
 	    return false;
@@ -92,10 +93,14 @@ public class CreateNewConstructor {
 					+ ")Ljava/lang/String;"));
 	    expr = valueOf.addOperand(expr);
 	}
-	ConstructorOperator newConstr = new ConstructorOperator
-	    (Reference.getReference("Ljava/lang/StringBuffer;", "<init>",
-				    "(Ljava/lang/String;)V"), methodAna, false);
-	ic.setInstruction(newConstr.addOperand(expr));
+	InvokeOperator newConstr = new InvokeOperator
+	    (methodAna, false, true, 
+	     Reference.getReference("Ljava/lang/StringBuffer;", "<init>",
+				    "(Ljava/lang/String;)V"));
+	newConstr.makeNonVoid();
+	newConstr.setSubExpressions(0, constr.getSubExpressions()[0]);
+	newConstr.setSubExpressions(1, expr);
+	ic.setInstruction(newConstr);
 	last.replace(sequBlock);
 	return true;
     }
@@ -111,6 +116,7 @@ public class CreateNewConstructor {
          *
          * transform it to
          *
+	 *  (void resolved expressions)
          *  (optional PUSH) new <object>((optional: stack_n), 
 	 *                               resolved expressions)
 	 *
@@ -125,6 +131,7 @@ public class CreateNewConstructor {
          *
          * transform it to
          *
+	 *  (void resolved expressions)
          *  PUSH load_ops
          *  DUP       <= remove the depth
          *  (optional PUSH) new <object>(stack_n, resolved expressions)
@@ -135,7 +142,7 @@ public class CreateNewConstructor {
         if (!(ic.getInstruction() instanceof InvokeOperator))
             return false;
         InvokeOperator constrCall = (InvokeOperator) ic.getInstruction();
-        if (!constrCall.isConstructor())
+        if (!constrCall.isConstructor() || !constrCall.isVoid())
             return false;
 
         /* The rest should probably succeed */
@@ -218,15 +225,17 @@ public class CreateNewConstructor {
         if (optDupX2 != null)
             optDupX2.depth = 0;
 
-	Expression newExpr = new ConstructorOperator
-	    (constrCall, dup == null);
+	constrCall.setSubExpressions(0, op);
+	if (dup != null)
+	    constrCall.makeNonVoid();
+//  	Expression newExpr = new ConstructorOperator
+//  	    (constrCall, dup == null);
 
-	if (subs != null) {
-	    for (int i=subs.length; i-- > 1; )
-		newExpr = newExpr.addOperand(subs[i]);
-	}
-	ic.setInstruction(newExpr);
+//  	if (subs != null) {
+//  	    for (int i=subs.length; i-- > 1; )
+//  		newExpr = newExpr.addOperand(subs[i]);
+//  	}
+//  	ic.setInstruction(newExpr);
         return true;
     }
 }
-
