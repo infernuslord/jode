@@ -849,11 +849,11 @@ class BasicBlockReader implements Opcodes {
 	    LVTEntry lve = new LVTEntry();
 	    lve.start  = input.readUnsignedShort();
 	    lve.end    = lve.start + input.readUnsignedShort();
-	    int slot = input.readUnsignedShort();
 	    int nameIndex = input.readUnsignedShort();
 	    int typeIndex = input.readUnsignedShort();
-	    if (cp.getTag(nameIndex) != cp.UTF8
-		|| cp.getTag(typeIndex) != cp.UTF8) {
+	    int slot = input.readUnsignedShort();
+	    if (nameIndex == 0 || cp.getTag(nameIndex) != cp.UTF8
+		|| typeIndex == 0 || cp.getTag(typeIndex) != cp.UTF8) {
 		
 		// This is probably an evil lvt as created by HashJava
 		// simply ignore it.
