@@ -76,18 +76,11 @@ public class JodeWindow
 
 	startButton.addActionListener(this);
 	saveButton.addActionListener(this);
-
-	String cp = System.getProperty("java.class.path");
-	if (cp != null)
-	    classpathField.setText(cp);
-	String cls = "jode.JodeWindow";
-	classField.setText(cls);
-
 	Decompiler.err = new PrintStream(new AreaOutputStream(errorArea));
     }
 
     public void setClasspath(String cp) {
-	classpathField.setText(cp.replace(File.pathSeparatorChar, ','));
+	classpathField.setText(cp);
     }
     public void setClass(String cls) {
 	classField.setText(cls);
@@ -172,7 +165,14 @@ public class JodeWindow
 
     public static void main(String argv[]) {
 	Frame frame = new Frame(Decompiler.copyright);
-	new JodeWindow(frame);
+	JodeWindow win = new JodeWindow(frame);
+
+	String cp = System.getProperty("java.class.path");
+	if (cp != null)
+	    win.setClasspath(cp.replace(File.pathSeparatorChar, ','));
+	String cls = win.getClass().getName();
+	win.setClass(cls);
+
 	frame.addWindowListener(new WindowAdapter() {
 	    public void windowClosing(WindowEvent e) {
 		System.exit(0);
