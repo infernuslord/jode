@@ -18,9 +18,9 @@
  */
 
 package jode.obfuscator;
-import jode.MethodType;
+import jode.type.MethodType;
 import jode.Obfuscator;
-import jode.Type;
+import jode.type.Type;
 import jode.bytecode.*;
 import jode.jvm.InterpreterException;
 import java.util.*;
@@ -401,7 +401,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
         case opc_bastore: case opc_castore: case opc_sastore: {
 	    int size = (opcode == opc_lastore
 			|| opcode == opc_dastore) ? 2 : 1;
-	    mergeInfo(instr.nextByAddr, info.pop(3));
+	    mergeInfo(instr.nextByAddr, info.pop(2+size));
 	    break;
 	}
         case opc_pop: case opc_pop2:
