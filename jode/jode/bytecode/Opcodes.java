@@ -263,6 +263,6 @@ public interface Opcodes {
 	"ifnull", "ifnonnull", "goto_w", "jsr_w", "breakpoint"
     };
 
-    public String newArrayTypes = "ZCFDBSIJ";
-}
 
+    public final static String newArrayTypes = "ZCFDBSIJ";
+}
