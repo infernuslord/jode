@@ -104,17 +104,8 @@ public class CodeAnalyzer implements Analyzer, Constants {
 //         new CreateNewConstructor(),
 //         new CombineIfGotoExpressions(),
 //         new CreateIfThenElseOperator(),
-//         new CreateConstantArray()
-    };
-
-    static Transformation[] simplifyTrafos = { new SimplifyExpression() };
-    static Transformation[] blockTrafos = { 
-        new CreateDoWhileStatements(),
-        new CreateTryCatchStatements(),
-        new CreateIfStatements(),
-        new CreateBreakStatement(),
-        new CreateWhileStatements(),
-        new CreateSwitchStatements()
+//         new CreateConstantArray(),
+//         new SimplifyExpression()
     };
 
     public void analyze()
