@@ -50,29 +50,36 @@ public class MethodAnalyzer implements Analyzer, Constants {
     }
 
     public void analyze() 
-         throws ClassFormatError
+      throws ClassFormatError
     {
 	if (code == null)
 	    return;
-// 	if (Decompiler.isVerbose)
-// 	    System.err.print(mdef.getName().toString()+": ");
-//         lva.createLocalInfo(code);
-//         code.analyze();
-// 	if (Decompiler.isVerbose)
-// 	    System.err.println("");
-    }
 
+	int offset = 0;
+	if (!mdef.isStatic()) {
+	    LocalInfo clazz = code.getParamInfo(0);
+	    clazz.setType(mdef.getClassDefinition().getType());
+	    clazz.setName(Constants.idThis);
+	    offset++;
+	}
+	Type[] paramTypes = mdef.getType().getArgumentTypes();
+	for (int i=0; i< paramTypes.length; i++)
+	    code.getParamInfo(offset+i).setType(paramTypes[i]);
+	
+	// We do the code.analyze() in dumpSource, to get 
+	// immediate output.
+    }
+    
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
 	if (code != null) {
-            if (Decompiler.isVerbose)
-                System.err.print(mdef.getName().toString()+": ");
-//             lva.createLocalInfo(code);
-            code.analyze();
-            if (Decompiler.isVerbose)
-                System.err.println("");
-        }
+	    if (Decompiler.isVerbose)
+		System.err.print(mdef.getName().toString()+": ");
+	    code.analyze();
+	    if (Decompiler.isVerbose)
+		System.err.println("");
+	}
 
         writer.println("");
 	String modif = Modifier.toString(mdef.getModifiers());
@@ -97,7 +104,7 @@ public class MethodAnalyzer implements Analyzer, Constants {
 		     env.getTypeString(paramTypes[i]):
 		     env.getTypeString
 		     (paramTypes[i], 
-                      code.getLocalInfo(-1, i+offset).getName()));
+                      code.getParamInfo(i+offset).getName()));
             }
             writer.print(")");
         }
@@ -116,7 +123,6 @@ public class MethodAnalyzer implements Analyzer, Constants {
         if (code != null) {
             writer.println(" {");
             writer.tab();
-// 	    lva.dumpSource(writer);
             code.dumpSource(writer);
             writer.untab();
             writer.println("}");

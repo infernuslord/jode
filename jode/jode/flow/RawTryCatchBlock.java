@@ -42,24 +42,119 @@ import jode.TabbedPrintWriter;
 
 public class RawTryCatchBlock extends StructuredBlock {
 
-    /**
-     * An unconditional jump to the EndBlock.
-     */
-    Jump EndBlock;
+    public RawTryCatchBlock(sun.tools.java.Type type, 
+                            StructuredBlock tryBlock, 
+                            Jump endDest, Jump catchDest) {
+        this.type = type;
+
+        endBlock = new EmptyBlock(endDest);
+        endBlock.outer = this;
+
+        catchBlock = new EmptyBlock(catchDest);
+        catchBlock.outer = this;
+
+        replace(tryBlock, tryBlock);
+        this.tryBlock = tryBlock;
+        tryBlock.outer = this;
+
+        endBlock.setFlowBlock(flowBlock);
+        if (tryBlock instanceof RawTryCatchBlock
+            && ((RawTryCatchBlock)tryBlock).endBlock.jump.destination 
+            == endDest.destination)
+            endBlock.jump = null;
+        else
+            flowBlock.addSuccessor(endDest);
+
+        catchBlock.setFlowBlock(flowBlock);
+        flowBlock.addSuccessor(catchDest);
+    }
 
     /**
-     * An unconditional jump to the CatchBlock.
+     * The try block.
      */
-    Jump CatchBlock;
+    StructuredBlock tryBlock;
+
+    /**
+     * An empty block containing an unconditional jump to the EndBlock.
+     * Or null if the try block is completely read.
+     */
+    StructuredBlock endBlock;
+
+    /**
+     * The catch block.
+     */
+    StructuredBlock catchBlock;
 
     /** 
      * The type of the exception that is catched. This is null for a
      * synchronized/finally block 
      */
-    jode.MyType type;
+    sun.tools.java.Type type;
+
+    /**
+     * Replaces the given sub block with a new block.
+     * @param oldBlock the old sub block.
+     * @param newBlock the new sub block.
+     * @return false, if oldBlock wasn't a direct sub block.
+     */
+    public boolean replaceSubBlock(StructuredBlock oldBlock, 
+                                   StructuredBlock newBlock) {
+        if (tryBlock == oldBlock) {
+            tryBlock = newBlock;
+
+            if (tryBlock instanceof RawTryCatchBlock
+                && ((RawTryCatchBlock)tryBlock).endBlock.jump.destination 
+                == endBlock.jump.destination) {
+                endBlock.removeJump();
+            }
+        } else if (endBlock == oldBlock)
+            endBlock = newBlock;
+        else if (catchBlock == oldBlock)
+            catchBlock = newBlock;
+        else
+            return false;
+        return true;
+    }
+
+    /**
+     * Returns all sub block of this structured block.
+     */
+    public StructuredBlock[] getSubBlocks() {
+        StructuredBlock[] result = { tryBlock, endBlock, catchBlock };
+        return result;
+    }
+
+//     /**
+//      * Determines if there is a sub block, that flows through to the end
+//      * of this block.  If this returns true, you know that jump is null.
+//      * @return true, if the jump may be safely changed.
+//      */
+//     public boolean jumpMayBeChanged() {
+//         return (  tryBlock.jump != null || tryBlock.jumpMayBeChanged())
+//             && (catchBlock.jump != null || catchBlock.jumpMayBeChanged());
+//     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 
         throws java.io.IOException {
-        writer.println("IMPLEMENT FINALLY");
+        writer.println("TRY "+(type != null ? type.toString() : "ALL"));
+        writer.tab();
+        tryBlock.dumpSource(writer);
+        writer.untab();
+        writer.println("UNTIL");
+        writer.tab();
+        endBlock.dumpSource(writer);
+        writer.untab();
+        writer.println("CATCH TO");
+        writer.tab();
+        catchBlock.dumpSource(writer);
+        writer.untab();
+    }
+
+    public StructuredBlock getTryBlock() {
+        return tryBlock;
+    }
+
+    public int getCatchAddr() {
+        return catchBlock.jump.destination.addr;
     }
 }

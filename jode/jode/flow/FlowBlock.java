@@ -104,6 +104,34 @@ public class FlowBlock {
     public int getNextAddr() {
         return addr+length;
     }
+
+
+    /**
+     * Create a Catch- resp. FinallyBlock (maybe even SynchronizedBlock)
+     * @param sequBlock a SequentialBlock whose first sub block is a 
+     * RawTryCatchBlock.
+     */
+    public StructuredBlock createCatchBlock(SequentialBlock sequBlock) {
+        RawTryCatchBlock tryBlock = (RawTryCatchBlock) sequBlock.subBlocks[0];
+        StructuredBlock catchBlock = sequBlock.subBlocks[1];
+        if (tryBlock.type != null) {
+            /*XXX crude hack */
+            catchBlock.replace(sequBlock, tryBlock);
+            CatchBlock newBlock = new CatchBlock(tryBlock);
+            newBlock.replace(catchBlock, catchBlock);
+            newBlock.setCatchBlock(catchBlock);
+            if (sequBlock.jump != null) {
+                if (newBlock.catchBlock.jump == null)
+                    newBlock.catchBlock.moveJump(sequBlock);
+                else
+                    sequBlock.removeJump();
+            }
+            return newBlock;
+        } else {
+            /* XXX implement finally */
+            return sequBlock;
+        }
+    }
     
     /**
      * This method optimizes the jumps to successor.
@@ -238,9 +266,22 @@ public class FlowBlock {
                 SequentialBlock sequBlock = new SequentialBlock();
                 StructuredBlock prevBlock = jump.prev;
                 prevBlock.removeJump();
-                sequBlock.replace(prevBlock, prevBlock);
-                sequBlock.setFirst(prevBlock);
-                sequBlock.setSecond(new ReturnBlock());
+                if (prevBlock instanceof EmptyBlock) {
+                    if (prevBlock.outer instanceof ConditionalBlock) {
+                        IfThenElseBlock ifBlock = 
+                            new IfThenElseBlock
+                            (((ConditionalBlock)prevBlock.outer).
+                             getInstruction());
+                        ifBlock.replace(prevBlock.outer, prevBlock);
+                        ifBlock.moveJump(prevBlock.outer);
+                        ifBlock.setThenBlock(prevBlock);
+                    }
+                    new ReturnBlock().replace(prevBlock, null);
+                } else {
+                    sequBlock.replace(prevBlock, prevBlock);
+                    sequBlock.setFirst(prevBlock);
+                    sequBlock.setSecond(new ReturnBlock());
+                }
                 continue next_jump;
             }
 
@@ -331,12 +372,27 @@ public class FlowBlock {
                         else
                             prevBlock.removeJump();
 
-                        sequBlock.replace(prevBlock, prevBlock);
-                        sequBlock.setFirst(prevBlock);
-                        sequBlock.setSecond
-                            (new BreakBlock((BreakableBlock) surrounder, 
-                                            breaklevel > 1));
-                        continue next_jump;
+                        if (prevBlock instanceof EmptyBlock) {
+                            if (prevBlock.outer instanceof ConditionalBlock) {
+                                IfThenElseBlock ifBlock = 
+                                    new IfThenElseBlock
+                                    (((ConditionalBlock)prevBlock.outer)
+                                     .getInstruction());
+                                ifBlock.replace(prevBlock.outer, prevBlock);
+                                ifBlock.moveJump(prevBlock.outer);
+                                ifBlock.setThenBlock(prevBlock);
+                            }
+                            new BreakBlock((BreakableBlock) surrounder,
+                                           breaklevel >1
+                                           ).replace(prevBlock, null);
+                        } else {
+                            sequBlock.replace(prevBlock, prevBlock);
+                            sequBlock.setFirst(prevBlock);
+                            sequBlock.setSecond
+                                (new BreakBlock((BreakableBlock) surrounder, 
+                                                breaklevel > 1));
+                        }
+                        continue same_jump;
                     }
                 }
             }
@@ -373,8 +429,8 @@ public class FlowBlock {
                 intersectOut = intersectOut.intersect(jump.out);
         }
 
-        System.err.println("UpdateInOut: allOuts     : "+allOuts);
-        System.err.println("             intersectOut: "+intersectOut);
+//         System.err.println("UpdateInOut: allOuts     : "+allOuts);
+//         System.err.println("             intersectOut: "+intersectOut);
         
         /* Merge the locals used in successing block with those written
          * by this blocks
@@ -382,7 +438,7 @@ public class FlowBlock {
         VariableSet defineHere = successor.in.merge(allOuts);
         defineHere.subtractExact(in);
         
-        System.err.println("             defineHere  : "+defineHere);
+//         System.err.println("             defineHere  : "+defineHere);
         if (t1Transformation) {
             /* Now update in and out set of successing block */
             successor.in.subtract(intersectOut);
@@ -394,9 +450,9 @@ public class FlowBlock {
                     jump.out.add(intersectOut);
             }
         }
-        System.err.println("             successor.in: "+successor.in);
+//         System.err.println("             successor.in: "+successor.in);
         in.union(successor.in);
-        System.err.println("             in          : "+in);
+//         System.err.println("             in          : "+in);
         /* XXX - do something with defineHere */
         return defineHere; /*XXX - correct???*/
     }
@@ -484,7 +540,7 @@ public class FlowBlock {
             if (prevSucc != null && fb.addr <= prevSucc.addr)
                 continue;
             if (succ == null || fb.addr < succ.addr) {
-                System.err.println("trying "+fb.getLabel());
+//                 System.err.println("trying "+fb.getLabel());
                 succ = fb;
             }
         }
@@ -546,13 +602,14 @@ public class FlowBlock {
             return false;
 
         try{
-            System.err.println("doing T1 analysis on: "+getLabel());
-            System.err.println("***in: "+in);
+//             System.err.println("doing T1 analysis on: "+getLabel());
+//             System.err.println("***in: "+in);
             checkConsistent();
-            System.err.println("and "+succ.getLabel());
-            System.err.println("+++in: "+succ.in);
+//             System.err.println("and "+succ.getLabel());
+//             System.err.println("+++in: "+succ.in);
             succ.checkConsistent();
         } catch (RuntimeException ex) {
+            ex.printStackTrace();
             try {
                 jode.TabbedPrintWriter writer = 
                     new jode.TabbedPrintWriter(System.err, "    ");
@@ -573,8 +630,19 @@ public class FlowBlock {
             if (jump == null || jump.destination != succ)
                 continue;
 
-            while (!appendBlock.contains(jump.prev))
+            while (!appendBlock.contains(jump.prev)) {
                 appendBlock = appendBlock.outer;
+                if (appendBlock instanceof SequentialBlock
+                    && appendBlock.getSubBlocks()[0] 
+                    instanceof RawTryCatchBlock) {
+                    
+                    /* We leave the catch block of a raw-try-catch-block.
+                     * We shall now create the Catch- resp. FinallyBlock.
+                     */
+                    appendBlock = 
+                        createCatchBlock((SequentialBlock)appendBlock);
+                }
+            }
             /* appendBlock can't be null now, because the
              * outermost block contains every structured block.  
              */
@@ -650,9 +718,10 @@ public class FlowBlock {
         }
 
         try {
-            System.err.println("before optimizeJump: "+getLabel());
+//             System.err.println("before optimizeJump: "+getLabel());
             checkConsistent();
         } catch (RuntimeException ex) {
+            ex.printStackTrace();
             try {
                 jode.TabbedPrintWriter writer = 
                     new jode.TabbedPrintWriter(System.err, "    ");
@@ -668,9 +737,10 @@ public class FlowBlock {
         appendBlock = optimizeJumps(succ, appendBlock);
 
         try {
-            System.err.println("after optimizeJump: "+getLabel());
+//             System.err.println("after optimizeJump: "+getLabel());
             checkConsistent();
         } catch (RuntimeException ex) {
+            ex.printStackTrace();
             try {
                 jode.TabbedPrintWriter writer = 
                     new jode.TabbedPrintWriter(System.err, "    ");
@@ -703,6 +773,7 @@ public class FlowBlock {
                                              LoopBlock.FALSE);
 
             int breaklevel = 1;
+            Jump debug=jump;
             for (StructuredBlock surrounder = jump.prev.outer;
                  surrounder != appendBlock.outer; 
                  surrounder = surrounder.outer) {
@@ -745,10 +816,11 @@ public class FlowBlock {
 
         /* T1 transformation succeeded */
         try {
-            System.err.println("T1 succeeded:");
-            System.err.println("===in: "+in);
+//             System.err.println("T1 succeeded:");
+//             System.err.println("===in: "+in);
             checkConsistent();
         } catch (RuntimeException ex) {
+            ex.printStackTrace();
             try {
                 jode.TabbedPrintWriter writer = 
                     new jode.TabbedPrintWriter(System.err, "    ");
@@ -773,17 +845,18 @@ public class FlowBlock {
             FlowBlock predFlow = (FlowBlock) preds.nextElement();
             if (predFlow != null && predFlow != this
                 && !triedBlocks.contains(predFlow)) {
-                System.err.println("refusing T2 on: "+getLabel()+
-                                   " because of "+predFlow.getLabel());
+//                 System.err.println("refusing T2 on: "+getLabel()+
+//                                    " because of "+predFlow.getLabel());
                 /* XXX Is this enough to refuse T2 trafo ??? */
                 return false;
             }
         }
 
         try {
-            System.err.println("doing T2 analysis on: "+getLabel());
+//             System.err.println("doing T2 analysis on: "+getLabel());
             checkConsistent();
         } catch (RuntimeException ex) {
+            ex.printStackTrace();
             try {
                 jode.TabbedPrintWriter writer = 
                     new jode.TabbedPrintWriter(System.err, "    ");
@@ -874,9 +947,10 @@ public class FlowBlock {
 
         /* T2 analysis succeeded */
         try {
-            System.err.println("T2 succeeded:");
+//             System.err.println("T2 succeeded:");
             checkConsistent();
         } catch (RuntimeException ex) {
+            ex.printStackTrace();
             try {
                 jode.TabbedPrintWriter writer = 
                     new jode.TabbedPrintWriter(System.err, "    ");
@@ -912,6 +986,12 @@ public class FlowBlock {
      */
     public void makeStartBlock() {
         predecessors.addElement(null);
+    }
+
+    public void addSuccessor(Jump jump) {
+        successors.addElement(jump);
+        if (!jump.destination.predecessors.contains(this))
+            jump.destination.predecessors.addElement(this);
     }
 
     public void removeSuccessor(Jump jump) {
@@ -968,5 +1048,12 @@ public class FlowBlock {
         if (label == null)
             label = "flow_"+addr+"_"+(serialno++)+"_";
         return label;
+    }
+
+    /**
+     * Returns the structured block, that this flow block contains.
+     */
+    public StructuredBlock getBlock() {
+        return block;
     }
 }

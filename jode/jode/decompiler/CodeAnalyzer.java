@@ -22,6 +22,9 @@ import sun.tools.java.*;
 import java.util.Stack;
 import java.io.*;
 import jode.flow.FlowBlock;
+import jode.flow.Jump;
+import jode.flow.StructuredBlock;
+import jode.flow.RawTryCatchBlock;
 
 public class CodeAnalyzer implements Analyzer, Constants {
     
@@ -31,6 +34,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
     MethodAnalyzer method;
     public JodeEnvironment env;
 
+    jode.flow.VariableSet param;
     LocalVariableTable lvt;
     
     /**
@@ -73,26 +77,43 @@ public class CodeAnalyzer implements Analyzer, Constants {
         } catch (IOException ex) {
             throw new ClassFormatError(ex.toString());
         }
-        BinaryExceptionHandler[] handlers = bincode.getExceptionHandlers();
         for (int addr=0; addr<instr.length; ) {
             instr[addr].resolveJumps(instr);
             addr = instr[addr].getNextAddr();
         }
 	methodHeader = instr[0];
         methodHeader.makeStartBlock();
-        /* XXX do something with handlers */
-    }
 
-	/*
-        tryAddrs.put(new Integer(handler.startPC), handler);
-        references[handler.startPC]++;
-        catchAddrs.put(new Integer(handler.handlerPC), handler);
-        references[handler.handlerPC]++;
-	*/
+        BinaryExceptionHandler[] handlers = bincode.getExceptionHandlers();
+        for (int i=0; i<handlers.length; i++) {
+            StructuredBlock tryBlock = instr[handlers[i].startPC].getBlock();
+            while (tryBlock instanceof RawTryCatchBlock
+                   && (((RawTryCatchBlock) tryBlock).getCatchAddr()
+                       > handlers[i].handlerPC)) {
+
+                tryBlock = ((RawTryCatchBlock)tryBlock).getTryBlock();
+            }
+            
+            Type type = 
+                (handlers[i].exceptionClass != null)? 
+                handlers[i].exceptionClass.getType() : null;
+            
+            new RawTryCatchBlock(type, tryBlock, 
+                                 new Jump(instr[handlers[i].endPC]),
+                                 new Jump(instr[handlers[i].handlerPC]));
+        }
+
+	int paramCount = method.mdef.getType().getArgumentTypes().length 
+	    + (method.mdef.isStatic() ? 0 : 1);
+	param = new jode.flow.VariableSet();
+	for (int i=0; i<paramCount; i++)
+	    param.addElement(getLocalInfo(-1, i));
+    }
 
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
+	methodHeader.makeDeclaration(param);
         methodHeader.dumpSource(writer);
     }
 
@@ -109,18 +130,22 @@ public class CodeAnalyzer implements Analyzer, Constants {
         if (lvt != null)
             return lvt.getLocal(slot).getInfo(addr);
         else
-            return new LocalInfo(slot); /*XXX*/
+            return new LocalInfo(slot);
+    }
+
+    public LocalInfo getParamInfo(int slot) {
+	return (LocalInfo) param.elementAt(slot);
     }
 
     static jode.flow.Transformation[] exprTrafos = {
         new jode.flow.RemoveEmpty(),
 //         new CombineCatchLocal(),
         new jode.flow.CreateExpression(),
-//         new CreatePostIncExpression(),
-//         new CreateAssignExpression(),
+        new jode.flow.CreatePostIncExpression(),
+        new jode.flow.CreateAssignExpression(),
         new jode.flow.CreateNewConstructor(),
         new jode.flow.CombineIfGotoExpressions(),
-//         new CreateIfThenElseOperator(),
+        new jode.flow.CreateIfThenElseOperator(),
 //         new CreateConstantArray(),
         new jode.flow.SimplifyExpression()
     };
@@ -176,14 +201,16 @@ public class CodeAnalyzer implements Analyzer, Constants {
                  *
                  * Otherwise flow transformation didn't succeeded.
                  */
-                System.err.println("breaking analyzation; flow: "
-                                   + flow.getLabel());
+//                 System.err.println("breaking analyzation; flow: "
+//                                    + flow.getLabel());
                 while (!todo.isEmpty()) {
                     System.err.println("on Stack: "
                                        + ((FlowBlock)todo.pop()).getLabel());
                 }
                 break analyzation;
             }
+	    if (Decompiler.isVerbose)
+		System.err.print(".");
         }
     }
 
