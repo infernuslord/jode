@@ -21,6 +21,7 @@ package jode.decompiler;
 import java.util.Enumeration;
 import java.util.Vector;
 import jode.GlobalOptions;
+import jode.Decompiler;
 import jode.type.Type;
 import jode.expr.LocalVarOperator;
 
@@ -46,6 +47,7 @@ public class LocalInfo {
     private LocalInfo shadow;
     private Vector operators = new Vector();
     private Vector hints = new Vector();
+    private boolean removed = false;
 
     /**
      * Create a new local info with an anonymous slot.
@@ -169,7 +171,8 @@ public class LocalInfo {
 		}
 	    }
 	    nameIsGenerated = true;
-            if (jode.Decompiler.prettyLocals && type != null) {
+            if ((Decompiler.options & Decompiler.OPTION_PRETTY) != 0
+		&& type != null) {
                 name = type.getHint().getDefaultName();
             } else {
                 name = type.getHint().getDefaultName()
@@ -274,6 +277,14 @@ public class LocalInfo {
     public boolean equals(Object obj) {
         return (obj instanceof LocalInfo
                 && ((LocalInfo)obj).getLocalInfo() == getLocalInfo());
+    }
+
+    public void remove() {
+	removed  = true;
+    }
+
+    public boolean isRemoved() {
+	return true;
     }
 
     public String toString() {
