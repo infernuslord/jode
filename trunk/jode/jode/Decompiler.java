@@ -36,13 +36,13 @@ public class Decompiler {
     public static void usage() {
         System.err.println("use: jode [-v][--imm][--debug][--analyze][--flow]"
                            +"[--type][--inout][--lvt][--check]"
-                           +"[--import pkglimit clslimit]"
+                           +"[--import pkglimit clslimit][--cp classpath]"
                            +" class1 [class2 ...]");
     }
 
     public static void main(String[] params) {
-        JodeEnvironment env = new JodeEnvironment();
         int i;
+        String classPath = System.getProperty("java.class.path");
         for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
                 isVerbose = true;
@@ -67,6 +67,8 @@ public class Decompiler {
             else if (params[i].equals("--import")) {
                 importPackageLimit = Integer.parseInt(params[++i]);
                 importClassLimit = Integer.parseInt(params[++i]);
+            } else if (params[i].equals("--cp")) {
+                classPath = params[++i];
             } else if (params[i].equals("--")) {
                 i++;
                 break;
@@ -77,10 +79,13 @@ public class Decompiler {
                 return;
             }
         }
-        if (i == params.length)
+        if (i == params.length) {
             usage();
-        else 
-            for (; i< params.length; i++)
-                env.doClass(params[i]);
+            return;
+        }
+        JodeEnvironment env = new JodeEnvironment(classPath);
+        for (; i< params.length; i++)
+            env.doClass(params[i]);
     }
 }
+
