@@ -153,8 +153,7 @@ public class LocalTypes {
 	System.err.println(((Object)this) instanceof RuntimeException);
 	System.err.println(((RuntimeException)(Object)this).getMessage());
 	((java.io.PrintStream)null).println("Hallo");
-	((LocalTypes) null).a = new A();
-	((LocalTypes) null).b = new B();
+	((LocalTypes) null).a = ((LocalTypes) null).b;
     }
 }
 
