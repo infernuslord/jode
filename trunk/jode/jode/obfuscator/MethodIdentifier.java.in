@@ -88,9 +88,8 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	int index = type.indexOf('L');
 	while (index != -1) {
 	    int end = type.indexOf(';', index);
-	    Main.getClassBundle()
-		.reachableIdentifier(type.substring(index+1, end)
-					     , false);
+	    Main.getClassBundle().reachableClass
+		(type.substring(index+1, end).replace('/', '.'));
 	    index = type.indexOf('L', end);
 	}
 
@@ -98,20 +97,12 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	if (exceptions != null) {
 	    for (int i=0; i< exceptions.length; i++)
 		Main.getClassBundle()
-		    .reachableIdentifier(exceptions[i], false);
+		    .reachableClass(exceptions[i]);
 	}
 
 	BytecodeInfo code = info.getBytecode();
 	if (code != null)
 	    codeAnalyzer.analyzeCode(this, code);
-    }
-
-    public void readTable(Map table) {
-	setAlias((String) table.get(getFullName() + "." + getType()));
-    }
-
-    public void writeTable(Map table) {
-	table.put(getFullAlias(), getName());
     }
 
     public Identifier getParent() {
@@ -140,7 +131,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     }
 
     public String toString() {
-	return "MethodIdentifier "+getFullName()+"."+getType();
+	return "MethodIdentifier "+getFullName();
     }
 
     public boolean hasGlobalSideEffects() {
@@ -187,9 +178,10 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		ex.printStackTrace(GlobalOptions.err);
 		bytecode.dumpCode(GlobalOptions.err);
 	    }
-
-	    for (Instruction instr = bytecode.getFirstInstr(); 
-		 instr != null; instr = instr.getNextByAddr()) {
+	    
+	    for (Iterator iter = bytecode.getInstructions().iterator(); 
+		 iter.hasNext(); ) {
+		Instruction instr = (Instruction) iter.next();
 		switch (instr.getOpcode()) {
 		case opc_invokespecial:
 		case opc_invokestatic:

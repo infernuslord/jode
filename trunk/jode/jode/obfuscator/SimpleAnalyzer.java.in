@@ -27,6 +27,9 @@ import jode.bytecode.Reference;
 import jode.GlobalOptions;
 import jode.type.Type;
 
+import @COLLECTIONS@.Iterator;
+import @COLLECTIONS@.ListIterator;
+
 public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 
     public Identifier canonizeReference(Instruction instr) {
@@ -87,8 +90,9 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
      * @return an enumeration of the references.
      */
     public void analyzeCode(MethodIdentifier m, BytecodeInfo bytecode) {
-	for (Instruction instr = bytecode.getFirstInstr();
-	     instr != null; instr = instr.getNextByAddr()) {
+	for (Iterator iter = bytecode.getInstructions().iterator(); 
+	     iter.hasNext(); ) {
+	    Instruction instr = (Instruction) iter.next();
 	    switch (instr.getOpcode()) {
 	    case opc_checkcast:
 	    case opc_instanceof:
@@ -98,8 +102,9 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		while (i < clName.length() && clName.charAt(i) == '[')
 		    i++;
 		if (i < clName.length() && clName.charAt(i) == 'L') {
-		    clName = clName.substring(i+1, clName.length()-1);
-		    Main.getClassBundle().reachableIdentifier(clName, false);
+		    clName = clName.substring(i+1, clName.length()-1)
+			.replace('/','.');
+		    Main.getClassBundle().reachableClass(clName);
 		}
 		break;
 	    }
@@ -123,8 +128,7 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		    } else if (instr.getOpcode() == opc_invokevirtual
 			       || instr.getOpcode() == opc_invokeinterface) {
 			((ClassIdentifier) ident.getParent())
-			    .reachableIdentifier(ident.getName(), 
-						 ident.getType(), true);
+			    .reachableReference(instr.getReference(), true);
 		    } else {
 			ident.setReachable();
 		    }
@@ -138,13 +142,14 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 	for (int i=0; i< handlers.length; i++) {
 	    if (handlers[i].type != null)
 		Main.getClassBundle()
-		    .reachableIdentifier(handlers[i].type, false);
+		    .reachableClass(handlers[i].type);
 	}
     }
 
     public void transformCode(BytecodeInfo bytecode) {
-	for (Instruction instr = bytecode.getFirstInstr(); 
-	     instr != null; instr = instr.getNextByAddr()) {
+	for (ListIterator iter = bytecode.getInstructions().listIterator(); 
+	     iter.hasNext(); ) {
+	    Instruction instr = (Instruction) iter.next();
 	    if (instr.getOpcode() == opc_putstatic
 		|| instr.getOpcode() == opc_putfield) {
 		Reference ref = instr.getReference();
@@ -158,13 +163,18 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 			(instr.getOpcode() 
 			 == Instruction.opc_putstatic) ? 0 : 1;
 		    stacksize += Type.tType(ref.getType()).stackSize();
-		    if (stacksize == 3) {
-			/* Add a pop instruction after this opcode. */
-			instr.appendInstruction(Instruction.opc_pop);
-			stacksize--;
+		    switch (stacksize) {
+		    case 1:
+			iter.set(new Instruction(Instruction.opc_pop));
+			break;
+		    case 2:
+			iter.set(new Instruction(Instruction.opc_pop2));
+			break;
+		    case 3:
+			iter.set(new Instruction(Instruction.opc_pop2));
+			iter.add(new Instruction(Instruction.opc_pop));
+			break;
 		    }
-		    instr.replaceInstruction(Instruction.opc_pop - 1
-					     + stacksize);
 		}
 	    }
 	}

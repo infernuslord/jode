@@ -1,6 +1,7 @@
 package jode.obfuscator;
 
 import @COLLECTIONS@.Iterator;
+import @COLLECTIONEXTRA@.UnsupportedOperationException;
 
 public class UniqueRenamer implements Renamer {
     static int serialnr = 0;

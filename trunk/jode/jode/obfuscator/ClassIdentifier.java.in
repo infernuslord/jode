@@ -60,10 +60,8 @@ public class ClassIdentifier extends Identifier {
 
     public void addSubClass(ClassIdentifier ci) {
 	knownSubClasses.add(ci);
-	for(Iterator i = virtualReachables.iterator(); i.hasNext(); ) {
-	    String[] method = (String[]) i.next();
-	    ci.reachableIdentifier(method[0], method[1], true);
-	}
+	for(Iterator i = virtualReachables.iterator(); i.hasNext(); )
+	    ci.reachableReference((Reference) i.next(), true);
     }
 
     private FieldIdentifier findField(String name, String typeSig) {
@@ -86,13 +84,12 @@ public class ClassIdentifier extends Identifier {
 	return null;
     }
 
-    public void reachableIdentifier(String name, String typeSig,
-				    boolean isVirtual) {
+    public void reachableReference(Reference ref, boolean isVirtual) {
 	boolean found = false;
 	for (Iterator i = getChilds(); i.hasNext(); ) {
 	    Identifier ident = (Identifier) i.next();
-	    if (name.equals(ident.getName())
-		&& typeSig.equals(ident.getType())) {
+	    if (ref.getName().equals(ident.getName())
+		&& ref.getType().equals(ident.getType())) {
 		ident.setReachable();
 		found = true;
 	    }
@@ -108,14 +105,21 @@ public class ClassIdentifier extends Identifier {
 	    ClassIdentifier superIdent = Main.getClassBundle()
 		.getClassIdentifier(info.getSuperclass().getName());
 	    if (superIdent != null)
-		superIdent.reachableIdentifier(name, typeSig, false);
+		superIdent.reachableReference(ref, false);
 	}
 	    
 	if (isVirtual) {
+	    for(Iterator i = virtualReachables.iterator(); i.hasNext(); ) {
+		Reference prevRef = (Reference) i.next();
+		if (prevRef.getName().equals(ref.getName())
+		    && prevRef.getType().equals(ref.getType()))
+		    // already handled.
+		    return;
+	    }
 	    for (Iterator i = knownSubClasses.iterator(); i.hasNext(); )
 		((ClassIdentifier)i.next())
-		    .reachableIdentifier(name, typeSig, false);
-	    virtualReachables.add(new String[] { name, typeSig });
+		    .reachableReference(ref, false);
+	    virtualReachables.add(ref);
 	}
     }
 
@@ -308,14 +312,18 @@ public class ClassIdentifier extends Identifier {
 		superident.addSubClass(this);
 	    } else {
 		// all virtual methods in superclass are reachable now!
+		String clazzType = ("L"+superclass.getName().replace('.', '/')
+				    +";").intern();
 		MethodInfo[] topmethods = superclass.getMethods();
 		for (int i=0; i< topmethods.length; i++) {
 		    int modif = topmethods[i].getModifiers();
 		    if (((Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL)
 			 & modif) == 0
 			&& !topmethods[i].getName().equals("<init>")) {
-			reachableIdentifier
-			    (topmethods[i].getName(), topmethods[i].getType(),
+			reachableReference
+			    (Reference.getReference(clazzType, 
+						    topmethods[i].getName(), 
+						    topmethods[i].getType()), 
 			     true);
 		    }
 		}

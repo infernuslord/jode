@@ -65,8 +65,8 @@ public class FieldIdentifier extends Identifier{
 	int index = type.indexOf('L');
 	if (index != -1) {
 	    int end = type.indexOf(';', index);
-	    Main.getClassBundle().reachableIdentifier
-		(type.substring(index+1, end), false);
+	    Main.getClassBundle().reachableClass
+		(type.substring(index+1, end).replace('/', '.'));
 	}
     }
 
@@ -75,11 +75,12 @@ public class FieldIdentifier extends Identifier{
     }
 
     public String getFullName() {
-	return clazz.getFullName() + "." + getName();
+	return clazz.getFullName() + "." + getName() + "." + getType();
     }
 
     public String getFullAlias() {
-	return clazz.getFullAlias() + "." + getAlias();
+	return clazz.getFullAlias() + "." + getAlias() + "."
+	    + Main.getClassBundle().getTypeAlias(getType());
     }
 
     public String getName() {
@@ -120,20 +121,7 @@ public class FieldIdentifier extends Identifier{
     }
 
     public String toString() {
-	return "FieldIdentifier "+getFullName()+"."+getType();
-    }
-
-    public void readTable(Map table) {
-	String alias = (String) table.get(getFullName() + "." + getType());
-	if (alias == null)
-	    alias = (String) table.get(getFullName());
-	if (alias != null)
-	    setAlias(alias);
-    }
-
-    public void writeTable(Map table) {
-	table.put(getFullAlias() + "." 
-		  + Main.getClassBundle().getTypeAlias(getType()), getName());
+	return "FieldIdentifier "+getFullName();
     }
 
     public boolean conflicting(String newAlias) {

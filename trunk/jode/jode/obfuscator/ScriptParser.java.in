@@ -251,7 +251,9 @@ public class ScriptParser {
 	    } catch (RuntimeException ex) {
 		throw new ParseException(linenr, 
 					 optionHandler.getClass().getName()
-					 +": Illegal value: "+ex.getMessage());
+					 +": Illegal value: "
+					 +ex.getClass().getName()
+					 +": "+ex.getMessage());
 	    }
 	}
     }

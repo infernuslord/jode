@@ -99,6 +99,21 @@ public class ClassBundle implements OptionHandler {
 	    return;
 	}
 
+	if (option.equals("table")) {
+	    if (values.size() != 1)
+		throw new IllegalArgumentException
+		    ("Only one destination path allowed");
+	    tableFile = (String) values.iterator().next();
+	    return;
+	}
+
+	if (option.equals("revtable")) {
+	    if (values.size() != 1)
+		throw new IllegalArgumentException
+		    ("Only one destination path allowed");
+	    toTableFile = (String) values.iterator().next();
+	    return;
+	}
 	if (option.equals("strip")) {
 	next_token:
 	    for (Iterator iter = values.iterator(); iter.hasNext(); ) {
@@ -116,33 +131,72 @@ public class ClassBundle implements OptionHandler {
 	}
 
 	if (option.equals("load")) {
-	    if (values.size() == 1)
-		loading = (IdentifierMatcher) values.iterator().next();
-	    else
+	    if (values.size() == 1) {
+		Object value = values.iterator().next();
+		if (value instanceof String)
+		    loading = new WildCard((String)value);
+		else
+		    loading = (IdentifierMatcher) value;
+	    } else {
+		IdentifierMatcher[] matchers
+		    = new IdentifierMatcher[values.size()];
+		int j = 0;
+		for (Iterator i = values.iterator(); i.hasNext(); ) {
+		    Object value = i.next();
+		    matchers[j++] = (value instanceof String
+				     ? new WildCard((String)value)
+				     : (IdentifierMatcher) value);
+		}
 		loading = new MultiIdentifierMatcher
-		    (MultiIdentifierMatcher.OR, (IdentifierMatcher[])
-		     values.toArray(new IdentifierMatcher[values.size()]));
+		    (MultiIdentifierMatcher.OR, matchers);
+	    }
 	    return;
 	}
 
 	if (option.equals("preserve")) {
-	    if (values.size() == 1)
-		preserving = (IdentifierMatcher) values.iterator().next();
-	    else
+	    if (values.size() == 1) {
+		Object value = values.iterator().next();
+		if (value instanceof String)
+		    preserving = new WildCard((String)value);
+		else
+		    preserving = (IdentifierMatcher) value;
+	    } else {
+		IdentifierMatcher[] matchers
+		    = new IdentifierMatcher[values.size()];
+		int j = 0;
+		for (Iterator i = values.iterator(); i.hasNext(); ) {
+		    Object value = i.next();
+		    matchers[j++] = (value instanceof String
+				     ? new WildCard((String)value)
+				     : (IdentifierMatcher) value);
+		}
 		preserving = new MultiIdentifierMatcher
-		    (MultiIdentifierMatcher.OR, (IdentifierMatcher[])
-		     values.toArray(new IdentifierMatcher[values.size()]));
+		    (MultiIdentifierMatcher.OR, matchers);
+	    }
 	    return;
 	}
 
 	if (option.equals("reach")) {
 	    // NOT IMPLEMENTED YET
-	    if (values.size() == 1)
-		reaching = (IdentifierMatcher) values.iterator().next();
-	    else
+	    if (values.size() == 1) {
+		Object value = values.iterator().next();
+		if (value instanceof String)
+		    reaching = new WildCard((String)value);
+		else
+		    reaching = (IdentifierMatcher) value;
+	    } else {
+		IdentifierMatcher[] matchers
+		    = new IdentifierMatcher[values.size()];
+		int j = 0;
+		for (Iterator i = values.iterator(); i.hasNext(); ) {
+		    Object value = i.next();
+		    matchers[j++] = (value instanceof String
+				     ? new WildCard((String)value)
+				     : (IdentifierMatcher) value);
+		}
 		reaching = new MultiIdentifierMatcher
-		    (MultiIdentifierMatcher.OR, (IdentifierMatcher[])
-		     values.toArray(new IdentifierMatcher[values.size()]));
+		    (MultiIdentifierMatcher.OR, matchers);
+	    }
 	}
 
 	if (option.equals("pre")) {
@@ -228,8 +282,22 @@ public class ClassBundle implements OptionHandler {
 	return ident.getIdentifier(ref.getName(), ref.getType());
     }
 
-    public void reachableIdentifier(String fqn, boolean isVirtual) {
-	basePackage.reachableIdentifier(fqn, isVirtual);
+    public void reachableClass(String clazzName) {
+	ClassIdentifier ident = getClassIdentifier(clazzName);
+	if (ident != null)
+	    ident.setReachable();
+    }
+
+    public void reachableReference(Reference ref, boolean isVirtual) {
+	String clName = ref.getClazz();
+	if (clName.charAt(0) == '[')
+	    /* Can't represent arrays */
+	    return;
+	ClassIdentifier ident =
+	    getClassIdentifier(clName.substring(1, clName.length()-1)
+			       .replace('/','.'));
+	if (ident != null)
+	    ident.reachableReference(ref, isVirtual);
     }
 
     public void analyzeIdentifier(Identifier ident) {
@@ -340,7 +408,7 @@ public class ClassBundle implements OptionHandler {
 			}
 			
 			public Object next() {
-			    return (last++ == 1 ? base : base + last);
+			    return (last++ == 0 ? base : base + last);
 			}
 			
 			public void remove() {
@@ -349,24 +417,72 @@ public class ClassBundle implements OptionHandler {
 		    };
 		}
 	    };
-	
+
+
+	Runtime runtime = Runtime.getRuntime();
+	long free = runtime.freeMemory();
+	long last;
+	do {
+	    last = free;
+	    runtime.gc();
+	    runtime.runFinalization();
+	    free = runtime.freeMemory();
+	} while (free < last);
+	System.err.println("used before: "+(runtime.totalMemory()- free));
+
 	GlobalOptions.err.println("Loading and preserving classes");
+
+	long time = System.currentTimeMillis();
 	basePackage.loadMatchingClasses(loading);
 	basePackage.applyPreserveRule(preserving);
+	System.err.println("Time used: "+(System.currentTimeMillis() - time));
+
 
 	GlobalOptions.err.println("Computing reachable settings");
+	time = System.currentTimeMillis();
 	analyze();
+	System.err.println("Time used: "+(System.currentTimeMillis() - time));
+
+	free = runtime.freeMemory();
+	do {
+	    last = free;
+	    runtime.gc();
+	    runtime.runFinalization();
+	    free = runtime.freeMemory();
+	} while (free < last);
+	System.err.println("used after analyze: "
+			   + (runtime.totalMemory() - free));
 
 	GlobalOptions.err.println("Renaming methods");
+	time = System.currentTimeMillis();
 	if (tableFile != null)
             readTable();
 	buildTable(renamer);
         if (toTableFile != null)
             writeTable();
+	System.err.println("Time used: "+(System.currentTimeMillis() - time));
 
 	GlobalOptions.err.println("Transforming the classes");
+	time = System.currentTimeMillis();
 	doTransformations();
+	System.err.println("Time used: "+(System.currentTimeMillis() - time));
+
+	free = runtime.freeMemory();
+	do {
+	    last = free;
+	    runtime.gc();
+	    runtime.runFinalization();
+	    free = runtime.freeMemory();
+	} while (free < last);
+	System.err.println("used after transform: "
+			   + (runtime.totalMemory() - free));
+
 	GlobalOptions.err.println("Writing new classes");
+	time = System.currentTimeMillis();
         storeClasses();
+	System.err.println("Time used: "+(System.currentTimeMillis() - time));
     }
 }
+
+
+
