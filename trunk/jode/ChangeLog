@@ -1,3 +1,14 @@
+2002-02-15  Jochen Hoenicke  <jochen@gnu.org>
+
+	* net/sf/jode/bytecode/BasicBlockReader.java: handle empty loops.
+	(IS_NULL): new constant to tag empty blocks.
+	(markReachableBlocks): check for empty loops. 
+	(convertBlock): Handle empty blocks.
+	(convert): Handle IS_NULL.
+
+	* net/sf/jode/decompiler/MethodAnalyzer.java:
+	(analyzeCode): handle empty blocks.
+
 2001-08-14  Jochen Hoenicke  <jochen@gnu.org>
 
 	* build.xml: test is default.

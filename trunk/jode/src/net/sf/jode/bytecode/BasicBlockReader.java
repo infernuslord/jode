@@ -39,6 +39,7 @@ class BasicBlockReader implements Opcodes {
     static final int IS_REACHABLE = 2;
     static final int IS_FORWARD   = 4;
     static final int IS_CATCHER   = 8;
+    static final int IS_NULL      = 16;
 
     private class InstrInfo {
 	Instruction instr;
@@ -97,9 +98,21 @@ class BasicBlockReader implements Opcodes {
 		&& (info.instr.getOpcode() == opc_goto
 		    || (info.instr.getOpcode() == opc_return
 			&& info.stack == 0))) {
-		/* This is a forward block.
+		/* This is a forward block.  We need to check for loops,
+		 * though.
 		 */
-		info.flags |= IS_FORWARD;
+		InstrInfo succ = info;
+		do {
+		    if (succ.instr.getOpcode() == opc_return) {
+			succ = null;
+			break;
+		    }
+		    succ = infos[info.succs[0]];
+		} while ((succ.flags & IS_FORWARD) != 0);
+		if (succ == info)
+		    info.flags |= IS_NULL;
+		else
+		    info.flags |= IS_FORWARD;
 	    } else {
 		// Check for reachable exception handlers
 		for (int i=0; i < handlers.length; i++) {
@@ -240,15 +253,15 @@ class BasicBlockReader implements Opcodes {
 
     private void convertBlock(int firstAddr, int count) {
 	Instruction[] instrs = new Instruction[count];
-
 	InstrInfo info = infos[firstAddr];
 	int blockNr = info.blockNr;
-	instrs[0] = info.instr;
-	for (int i=1; i < count; i++) {
-	    info = infos[info.nextAddr];
+
+	for (int i = 0; i < count; i++) {
+	    if (i > 0)
+		info = infos[info.nextAddr];
 	    instrs[i] = info.instr;
 	}
-
+	
 	int[] lastSuccs = info.succs;
 	int succLength = lastSuccs != null ? lastSuccs.length : 0;
 	boolean alwaysJump = info.instr.doesAlwaysJump();
@@ -292,8 +305,12 @@ class BasicBlockReader implements Opcodes {
 		start = -1;
 	    }
 	    if ((info.flags & (IS_REACHABLE | IS_FORWARD)) == IS_REACHABLE) {
-		start = i;
-		count = 0;
+		if ((info.flags & IS_NULL) != 0) {
+		    convertBlock(i, 0);
+		} else {
+		    start = i;
+		    count = 0;
+		}
 	    }
 	    if (start != -1)
 		count++;
