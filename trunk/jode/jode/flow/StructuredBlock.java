@@ -369,7 +369,7 @@ public abstract class StructuredBlock {
 	    after = stack;
 	else {
 	    after = null;
-	    for (int i=1; i< subBlocks.length; i++) {
+	    for (int i=0; i< subBlocks.length; i++) {
 		after = VariableStack.merge
 		    (after, subBlocks[i].mapStackToLocal(stack));
 	    }
