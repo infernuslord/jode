@@ -68,6 +68,10 @@ public class LocalInfo {
         this.slot = slot;
     }
 
+    public static void init() {
+	serialnr = 0;
+    }
+
     public void setOperator(LocalVarOperator operator) {
         getLocalInfo().operators.addElement(operator);
     }
@@ -171,14 +175,20 @@ public class LocalInfo {
 		}
 	    }
 	    nameIsGenerated = true;
-            if ((Decompiler.options & Decompiler.OPTION_PRETTY) != 0
-		&& type != null) {
-                name = type.getHint().getDefaultName();
+	    setType(type.getHint());
+            if ((Decompiler.options & Decompiler.OPTION_PRETTY) != 0) {
+                name = type.getDefaultName();
             } else {
-                name = type.getHint().getDefaultName()
+                name = type.getDefaultName()
 		    + (slot >= 0 ? "_" + slot : "") + "_" + serialnr++ + "_";
                 isUnique = true;
             }
+	    if ((GlobalOptions.debuggingFlags 
+		 & GlobalOptions.DEBUG_LOCALS) != 0) {
+		GlobalOptions.err.println("Guessed name: " + name
+					  + " from type: " + type);
+		Thread.dumpStack();
+	    }
 	}
 	return name;
     }
@@ -284,7 +294,7 @@ public class LocalInfo {
     }
 
     public boolean isRemoved() {
-	return true;
+	return removed;
     }
 
     public String toString() {
