@@ -180,9 +180,9 @@ public abstract class Identifier {
 				    newAlias.setCharAt(pos, (char)(c+1));
 				    break okay;
 				}
-				newAlias.setCharAt(pos, '0');
+				newAlias.setCharAt(pos, pos == 0 ? 'A': '0');
 			    } else {
-				while (c++ < 255) {
+				while (c++ < 126) {
 				    if (Character.isJavaIdentifierPart(c)) {
 					newAlias.setCharAt(pos, c);
 					break okay;
@@ -191,8 +191,8 @@ public abstract class Identifier {
 				newAlias.setCharAt(pos, '0');
 			    }
 			}
-			newAlias.insert(0, renameRule == Obfuscator.RENAME_WEAK
-					? 'A': '0');
+			newAlias.append(renameRule == Obfuscator.RENAME_WEAK
+					&& newAlias.length() == 0 ? "A": "0");
 		    } while (false);
 		    Identifier ptr = this;
 		    while (ptr != null) {
