@@ -20,6 +20,10 @@
 package jode.flow;
 import jode.type.Type;
 import jode.decompiler.LocalInfo;
+import jode.expr.Expression;
+import jode.expr.LocalLoadOperator;
+import jode.expr.LocalStoreOperator;
+import jode.expr.StoreInstruction;
 
 /**
  * 
@@ -42,12 +46,8 @@ public class CatchBlock extends StructuredBlock {
      */
     LocalInfo exceptionLocal;
 
-    CatchBlock() {
-    }
-
-    public CatchBlock(Type type, LocalInfo local) {
+    public CatchBlock(Type type) {
         exceptionType = type;
-        exceptionLocal = local;
     }
 
     public Type getExceptionType() {
@@ -66,6 +66,8 @@ public class CatchBlock extends StructuredBlock {
         this.catchBlock = catchBlock;
         catchBlock.outer = this;
         catchBlock.setFlowBlock(flowBlock);
+	if (exceptionLocal == null)
+	    combineLocal();
     }
 
     /* The implementation of getNext[Flow]Block is the standard
@@ -118,28 +120,42 @@ public class CatchBlock extends StructuredBlock {
 	super.removePush();
     }
 
-    public VariableSet propagateUsage() {
-	if (used == null)
-	    used = new VariableSet(); /*XXX*/
+    public VariableSet getUsed() {
+	used = new VariableSet();
 	if (exceptionLocal != null)
 	    used.addElement(exceptionLocal);
-	return super.propagateUsage();
+	return used;
     }
-
+    
     /**
-     * Print the code for the declaration of a local variable.
-     * @param writer The tabbed print writer, where we print to.
-     * @param local  The local that should be declared.
+     * Make the declarations, i.e. initialize the declare variable
+     * to correct values.  This will declare every variable that
+     * is marked as used, but not done.
+     * @param done The set of the already declare variables.
      */
-    public void dumpDeclaration(jode.decompiler.TabbedPrintWriter writer, LocalInfo local)
-        throws java.io.IOException
-    {
-        if (local != exceptionLocal) {
-            /* exceptionLocal will be automatically declared in
-             * dumpInstruction.
-             */
-            super.dumpDeclaration(writer, local);
-        }
+    public void makeDeclaration(VariableSet done) {
+	super.makeDeclaration(done);
+	/* Normally we have to declare our exceptionLocal.  This
+	 * is automatically done in dumpSource.
+	 *
+	 * If we are unlucky the exceptionLocal is used outside of 
+	 * this block.  In that case we do a transformation.
+	 */
+	if (declare.contains(exceptionLocal))
+	    declare.removeElement(exceptionLocal);
+	else {
+	    LocalInfo dummyLocal = new LocalInfo();
+	    Expression store = new StoreInstruction
+		(new LocalStoreOperator
+		 (exceptionLocal.getType(), exceptionLocal)).addOperand
+		(new LocalLoadOperator(dummyLocal.getType(), 
+				       null, dummyLocal));
+	    InstructionBlock ib = new InstructionBlock(store);
+	    ib.setFlowBlock(flowBlock);
+	    ib.appendBlock(catchBlock);
+	    catchBlock = ib;
+	    exceptionLocal = dummyLocal;
+	}
     }
 
     public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 
@@ -162,5 +178,40 @@ public class CatchBlock extends StructuredBlock {
      */
     public boolean jumpMayBeChanged() {
         return (catchBlock.jump != null || catchBlock.jumpMayBeChanged());
+    }
+
+    /**
+     * Check if this is an local store instruction to a not yet declared
+     * variable.  In that case mark this as declaration and return the 
+     * variable.
+     */
+    public boolean combineLocal() {
+	StructuredBlock firstInstr = (catchBlock instanceof SequentialBlock)
+            ? catchBlock.getSubBlocks()[0] : catchBlock;
+
+	if (firstInstr instanceof SpecialBlock
+	    && ((SpecialBlock) firstInstr).type == SpecialBlock.POP
+	    && ((SpecialBlock) firstInstr).count == 1) {
+	    /* The exception is ignored.  Create a dummy local for it */
+	    exceptionLocal = new LocalInfo();
+	    exceptionLocal.setType(exceptionType);
+	    firstInstr.removeBlock();
+	    return true;
+	} else if (firstInstr instanceof InstructionBlock) {
+            Expression instr = 
+                ((InstructionBlock) firstInstr).getInstruction();
+            if (instr instanceof StoreInstruction
+		&& (((StoreInstruction)instr).getLValue()
+		    instanceof LocalStoreOperator)) {
+                /* The exception is stored in a local variable */
+                exceptionLocal = ((LocalStoreOperator) 
+				  ((StoreInstruction)instr).getLValue())
+		    .getLocalInfo();
+		exceptionLocal.setType(exceptionType);
+                firstInstr.removeBlock();
+		return true;
+            }
+        }
+	return false;
     }
 }
