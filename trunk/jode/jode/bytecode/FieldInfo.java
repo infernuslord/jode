@@ -1,4 +1,4 @@
-/* jode.bytecode.FieldInfo Copyright (C) 1997-1998 Jochen Hoenicke.
+/* FieldInfo Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *
  * $Id$
  */
+
 package jode.bytecode;
 import jode.Type;
 import java.io.*;
@@ -25,6 +26,7 @@ public class FieldInfo extends BinaryInfo {
     int modifier;
     String name;
     Type type;
+    Object constant;
 
     public String getName() {
         return name;
@@ -38,6 +40,10 @@ public class FieldInfo extends BinaryInfo {
         return modifier;
     }
 
+    public Object getConstant() {
+        return constant;
+    }
+
     public void read(ConstantPool constantPool, 
                      DataInputStream input, int howMuch) throws IOException {
 	modifier = input.readUnsignedShort();
@@ -45,6 +51,18 @@ public class FieldInfo extends BinaryInfo {
 	type = Type.tType(constantPool.getUTF8(input.readUnsignedShort()));
 
         readAttributes(constantPool, input, howMuch);
+
+	if ((howMuch & ClassInfo.ALL_ATTRIBUTES) != 0) {
+	    AttributeInfo attribute = findAttribute("ConstantValue");
+	    if (attribute != null) {
+		byte[] contents = attribute.getContents();
+		if (contents.length != 2)
+		    throw new ClassFormatException("ConstantValue attribute"
+						   + " has wrong length");
+		int index = (contents[0] & 0xff) << 8 | (contents[1] & 0xff);
+		constant = constantPool.getConstant(index);
+	    }
+	}
     }
 
     public String toString() {
