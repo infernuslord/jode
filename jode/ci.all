@@ -1,2 +1,2 @@
 #!/bin/sh
-for i in *.java */*.java; do test -w $i && (rcsdiff $i; ci -u $i); done
+for i in *.java */*.java; do test -w $i && (rcsdiff $i; ci -u $* $i); done
