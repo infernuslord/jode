@@ -23,10 +23,12 @@ import jode.bytecode.ClassInfo;
 ///import javax.swing.tree.TreeModel;
 ///import javax.swing.tree.TreePath;
 ///import javax.swing.event.TreeModelListener;
+///import javax.swing.event.TreeModelEvent;
 ///#else
 import com.sun.java.swing.tree.TreeModel;
 import com.sun.java.swing.tree.TreePath;
 import com.sun.java.swing.event.TreeModelListener;
+import com.sun.java.swing.event.TreeModelEvent;
 ///#endif
 import java.util.*;
 
@@ -79,6 +81,19 @@ public class PackagesTreeModel implements TreeModel {
     }
 
     TreeElement root = new TreeElement("","");
+    Vector listeners = new Vector();
+
+    public void rebuild() {
+	cachedChildrens.clear();
+	TreeModelListener[] ls;
+	synchronized (listeners) {
+	    ls = new TreeModelListener[listeners.size()];
+	    listeners.copyInto(ls);
+	}
+	TreeModelEvent ev = new TreeModelEvent(this, new Object[] { root });
+	for (int i=0; i< ls.length; i++)
+	    ls[i].treeStructureChanged(ev);
+    }
 
     public TreeElement[] getChildrens(TreeElement parent) {
 	TreeElement[] result = 
@@ -113,10 +128,10 @@ public class PackagesTreeModel implements TreeModel {
     }
 
     public void addTreeModelListener(TreeModelListener l) {
-	// we never change
+	listeners.add(l);
     }
     public void removeTreeModelListener(TreeModelListener l) {
-	// we never change
+	listeners.remove(l);
     }
     public void valueForPathChanged(TreePath path, Object newValue) {
 	// we don't allow values
