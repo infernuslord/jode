@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.type;
+import jode.AssertError;
+import jode.Decompiler;
 import java.util.Hashtable;
 
 /**
@@ -96,17 +98,6 @@ public class RangeType extends Type {
 //      }
 	    
     /**
-     * Marks this type as used, so that the class is imported.
-     */
-    public void useType() {
-        /* The topType will be printed */
-        if (topType.isClassType() || !bottomType.isValidType())
-            topType.useType();
-        else
-            bottomType.useType();
-    }
-
-    /**
      * Checks if we need to cast to a middle type, before we can cast from
      * fromType to this type.
      * @return the middle type, or null if it is not necessary.
@@ -166,8 +157,8 @@ public class RangeType extends Type {
 	    return this;
 
 	Type top, bottom, result;
-	top = topType.getGeneralizedType(type);
 	bottom = bottomType.getSpecializedType(type);
+	top = topType.getGeneralizedType(type);
 	if (top.equals(bottom))
 	    result = top;
 	else if (top instanceof ReferenceType

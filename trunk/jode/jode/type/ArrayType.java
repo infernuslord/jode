@@ -17,7 +17,7 @@
  * $Id$
  */
 
-package jode;
+package jode.type;
 import jode.bytecode.ClassInfo;
 import java.util.Vector;
 
@@ -208,13 +208,6 @@ public class ArrayType extends ReferenceType {
 
     public boolean isClassType() {
         return true;
-    }
-
-    /**
-     * Marks this type as used, so that the class is imported.
-     */
-    public void useType() {
-        elementType.useType();
     }
 
     public String getTypeSignature() {
