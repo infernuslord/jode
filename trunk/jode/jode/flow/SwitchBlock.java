@@ -128,6 +128,11 @@ implements BreakableBlock {
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
+        if (label != null) {
+            writer.untab();
+            writer.println(label+":");
+            writer.tab();
+        }
         writer.println("switch ("+instr+") {");
 	for (int i=0; i < caseBlocks.length; i++)
 	    caseBlocks[i].dumpSource(writer);
