@@ -1,42 +1,41 @@
-/* 
- * PutFieldOperator (c) 1998 Jochen Hoenicke
+/* PutFieldOperator Copyright (C) 1998-1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
 
 package jode.expr;
 import jode.Type;
+import jode.bytecode.Reference;
 import jode.decompiler.CodeAnalyzer;
 import jode.decompiler.FieldAnalyzer;
 
 public class PutFieldOperator extends StoreInstruction {
     CodeAnalyzer codeAnalyzer;
     boolean staticFlag;
-    String fieldName;
-    Type fieldType;
+    Reference ref;
     Type classType;
 
     public PutFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag, 
-                            Type classType, Type type, String fieldName) {
-        super(type, ASSIGN_OP);
+                            Reference ref) {
+        super(Type.tType(ref.getType()), ASSIGN_OP);
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
-        this.fieldName = fieldName;
-	this.fieldType = type;
-        this.classType = classType;
+	this.ref = ref;
+        this.classType = Type.tClass(ref.getClazz());
         if (staticFlag)
             classType.useType();
     }
@@ -59,21 +58,20 @@ public class PutFieldOperator extends StoreInstruction {
 	if (!isThis())
 	    return null;
 	return codeAnalyzer.getClassAnalyzer()
-	    .getField(fieldName, fieldType);
+	    .getField(ref.getName(), Type.tType(ref.getType()));
     }
 
     public String getFieldName() {
-        return fieldName;
+        return ref.getName();
     }
 
     public Type getFieldType() {
-        return fieldType;
+        return Type.tType(ref.getType());
     }
 
     public boolean matches(Operator loadop) {
         return loadop instanceof GetFieldOperator
-	    && ((GetFieldOperator)loadop).classType.equals(classType)
-	    && ((GetFieldOperator)loadop).fieldName.equals(fieldName);
+	    && ((GetFieldOperator)loadop).ref.equals(ref);
     }
 
     public int getLValueOperandCount() {
@@ -92,6 +90,7 @@ public class PutFieldOperator extends StoreInstruction {
     }
 
     public String getLValueString(String[] operands) {
+	String fieldName = getFieldName();
         return staticFlag
             ? (classType.equals(Type.tClass(codeAnalyzer.getClazz().getName()))
                && codeAnalyzer.findLocal(fieldName) == null
@@ -107,7 +106,6 @@ public class PutFieldOperator extends StoreInstruction {
 
     public boolean equals(Object o) {
 	return o instanceof PutFieldOperator
-	    && ((PutFieldOperator)o).classType.equals(classType)
-	    && ((PutFieldOperator)o).fieldName.equals(fieldName);
+	    && ((PutFieldOperator)o).ref.equals(ref);
     }
 }
