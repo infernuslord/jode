@@ -1,21 +1,22 @@
-/* 
- * jode.obfuscator.FieldIdentifier (c) 1998 Jochen Hoenicke
+/* FieldIdentifier Copyright (C) 1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
+
 package jode.obfuscator;
 import java.lang.reflect.Modifier;
 import jode.bytecode.*;
@@ -25,11 +26,25 @@ import java.util.*;
 public class FieldIdentifier extends Identifier{
     FieldInfo info;
     ClassIdentifier clazz;
+    /**
+     * This field tells if the value is not constant.  It is initially
+     * set to false, and if a write to that field is found, it is set
+     * to true.
+     */
+    private boolean notConstant;
+    private Object constant;
+
+    /**
+     * The FieldChangeListener that should be notified if a 
+     * write to this field is found.
+     */
+    private Vector fieldListeners = new Vector();
 
     public FieldIdentifier(ClassIdentifier clazz, FieldInfo info) {
 	super(info.getName());
 	this.info = info;
 	this.clazz = clazz;
+	this.constant = info.getConstant();
     }
 
     public void applyPreserveRule(int preserveRule) {
@@ -41,12 +56,16 @@ public class FieldIdentifier extends Identifier{
 
     public void setSingleReachable() {
 	super.setSingleReachable();
+	clazz.bundle.analyzeIdentifier(this);
+    }
+    
+    public void analyze() {
 	String type = getType();
 	int index = type.indexOf('L');
 	if (index != -1) {
 	    int end = type.indexOf(';', index);
-	    clazz.bundle.reachableIdentifier(type.substring(index+1, end)
-					     , false);
+	    clazz.bundle.reachableIdentifier(type.substring(index+1, end),
+					     false);
 	}
     }
 
@@ -70,8 +89,34 @@ public class FieldIdentifier extends Identifier{
 	return info.getType().getTypeSignature();
     }
 
+    public boolean isNotConstant() {
+	return notConstant;
+    }
+    
+    public Object getConstant() {
+	return constant;
+    }
+    
+    public void addFieldListener(Identifier ident) {
+	if (!fieldListeners.contains(ident))
+	    fieldListeners.addElement(ident);
+    }
+
+    public void setNotConstant() {
+	if (notConstant)
+	    return;
+
+	notConstant = true;
+	IdentifierEvent ev = 
+	    new IdentifierEvent(this, IdentifierEvent.CONSTANT);
+	Enumeration enum = fieldListeners.elements();
+	while (enum.hasMoreElements())
+	    clazz.bundle.analyzeIdentifier((Identifier) enum.nextElement());
+	fieldListeners = null;
+    }
+
     public String toString() {
-	return "MethodIdentifier "+getFullName()+"."+getType();
+	return "FieldIdentifier "+getFullName()+"."+getType();
     }
 
     public void readTable(Hashtable table) {
@@ -137,4 +182,3 @@ public class FieldIdentifier extends Identifier{
 	    out.writeShort(0);
     }
 }
-
