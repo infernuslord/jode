@@ -209,7 +209,7 @@ public class ClassInterfacesType extends Type {
         int code = type.typecode;
         if (code == TC_UNKNOWN)
             return this;
-        if (code == TC_ARRAY && this == tObject)
+        if ((code == TC_ARRAY || code == TC_UCLASS) && this == tObject)
             return type;
         if (code != TC_CLASS)
             return tError;
@@ -297,7 +297,7 @@ public class ClassInterfacesType extends Type {
         int code = type.typecode;
         if (code == TC_UNKNOWN)
             return this;
-        if (code == TC_ARRAY)
+        if (code == TC_ARRAY || code == TC_UCLASS)
             return tObject;
         if (code != TC_CLASS)
             return tError;

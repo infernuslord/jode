@@ -475,7 +475,7 @@ public abstract class Opcodes {
             return createNormal
                 (ca, addr, 1, new ConstOperator
                  (FLOAT_TYPE, 
-                  Integer.toString(opcode - opc_fconst_0) + ".0F"));
+                  Integer.toString(opcode - opc_fconst_0) + ".0"));
         case opc_dconst_0: case opc_dconst_1:
             return createNormal
                 (ca, addr, 1, new ConstOperator
@@ -485,11 +485,15 @@ public abstract class Opcodes {
             return createNormal
                 (ca, addr, 2, new ConstOperator
                  (ALL_INT_TYPE, Integer.toString(stream.readByte())));
-        case opc_sipush:
+        case opc_sipush: {
+            short value = stream.readShort();
             return createNormal
                 (ca, addr, 3, new ConstOperator
-                 (Type.tRange(Type.tInt, Type.tChar), 
-                  Integer.toString(stream.readShort())));
+                 ((value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) 
+                  /* yes javac codes -128 with sipush :-( */
+                  ? Type.tRange(Type.tInt, Type.tChar) : ALL_INT_TYPE,
+                  Integer.toString(value)));
+        }
         case opc_ldc: {
             int index = stream.readUnsignedByte();
             return createNormal

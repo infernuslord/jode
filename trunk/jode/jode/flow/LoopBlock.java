@@ -95,45 +95,42 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         body.setFlowBlock(flowBlock);
     }
 
-    public Expression getCondition() {
-        return cond;
+    public void setInit(InstructionBlock init) {
+        this.init = init;
+        if (type == FOR)
+            init.removeBlock();
     }
 
-    public void putBackInit() {
-        StructuredBlock last = 
-            (outer instanceof SequentialBlock
-             && outer.getSubBlocks()[0] == this) ? outer : this;
+    public boolean conditionMatches(InstructionBlock instr) {
+        return (type == POSSFOR ||
+                cond.containsMatchingLoad(instr.getInstruction()));
+    }
 
-        SequentialBlock sequBlock = new SequentialBlock();
-        sequBlock.replace(last);
-        sequBlock.setFirst(init);
-        sequBlock.setSecond(last);
-        init = null;
+
+    public Expression getCondition() {
+        return cond;
     }
 
     public void setCondition(Expression cond) {
         this.cond = cond;
         if (type == POSSFOR) {
-            /* canCombine returns 1 if cond contains a sub expression
-             * that matches the store in incr */
+            /* We can now say, if this is a for block or not.
+             */
             if (cond.containsMatchingLoad(incr.getInstruction())) {
                 type = FOR;
-                if (init != null
-                    && !cond.containsMatchingLoad(init.getInstruction())) {
-                    /* This is a for, but the init instruction doesn't
-                     * match.  Put the init back to its old place.
-                     */
-                    putBackInit();
+                incr.removeBlock();
+                if (init != null) {
+                    if (cond.containsMatchingLoad(init.getInstruction()))
+                        init.removeBlock();
+                    else
+                        init = null;
                 }
             } else {
+                /* This is not a for block, as it seems first.  Make
+                 * it a while block again, and forget about init and
+                 * incr.  */
                 type = WHILE;
-                StructuredBlock last = bodyBlock;
-                while (last instanceof SequentialBlock)
-                    last = last.getSubBlocks()[1];
-                last.appendBlock(incr);
-                incr = null;
-                if (init != null)
-                    putBackInit();
+                init = incr = null;
             }
         }
         mayChangeJump = false;
@@ -148,9 +145,9 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     }
 
     public VariableSet propagateUsage() {
-        if (init != null)
+        if (type == FOR && init != null)
             used.unionExact(init.used);
-        if (incr != null)
+        if (type == FOR && incr != null)
             used.unionExact(incr.used);
         VariableSet allUse = (VariableSet) used.clone();
         allUse.unionExact(bodyBlock.propagateUsage());
@@ -211,6 +208,8 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         }
         boolean needBrace = bodyBlock.needsBraces();
         switch (type) {
+        case POSSFOR:
+            /* a possible for is now treated like a WHILE */
         case WHILE:
             if (cond == TRUE)
                 /* special syntax for endless loops: */
@@ -222,7 +221,6 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
             writer.print("do");
             break;
         case FOR:
-        case POSSFOR:
             writer.print("for (");
             if (init != null) {
                 if (isDeclaration)
@@ -231,7 +229,8 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
                                  .getLocalInfo().getType().toString()
                                  + " ");
                 writer.print(init.getInstruction().simplify().toString());
-            }
+            } else
+                writer.print("/**/");
             writer.print("; "+cond.simplify().toString()+"; "
                          +incr.getInstruction().simplify().toString()+")");
             break;
@@ -278,7 +277,9 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     }
 
     /**
-     * Replace all breaks to this block with a continue to this block.
+     * Replace all breaks to block with a continue to this.
+     * @param block the breakable block where the breaks originally 
+     * breaked to (Have a break now, if you didn't understand that :-).
      */
     public void replaceBreakContinue(BreakableBlock block) {
         java.util.Stack todo = new java.util.Stack();

@@ -92,12 +92,16 @@ public class ConstOperator extends NoArgOperator {
                 } else if (type.equals(Type.tLong)) {
                     long l = Long.parseLong(value);
                     if (l < -1) 
-                        return "~0x"+Long.toHexString(-l-1);
+                        return "~0x"+Long.toHexString(-l-1)+"L";
                     else
-                        return "0x"+Long.toHexString(l);
+                        return "0x"+Long.toHexString(l)+"L";
                 }
             }
         }
+        if (type.isOfType(Type.tLong))
+            return value+"L";
+        if (type.isOfType(Type.tFloat))
+            return value+"F";
         return value;
     }
 }

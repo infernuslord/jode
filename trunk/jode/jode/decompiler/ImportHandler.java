@@ -21,7 +21,9 @@ package jode;
 import java.util.*;
 
 public class JodeEnvironment {
-    Hashtable imports = new Hashtable();
+    Hashtable imports;
+    /* Classes that doesn't need to be qualified. */
+    Hashtable goodClasses = new Hashtable();
     ClassAnalyzer main;
     String className;
     String pkg;
@@ -31,6 +33,9 @@ public class JodeEnvironment {
     JodeEnvironment() {
 	Type.setEnvironment(this);
         classPath = new SearchPath(System.getProperty("java.class.path"));
+        imports = new Hashtable();
+        /* java.lang is always imported */
+        imports.put("java.lang.*", new Integer(Integer.MAX_VALUE));
     }
 
     public java.io.InputStream getClassStream(Class clazz) 
@@ -40,13 +45,61 @@ public class JodeEnvironment {
                                  +".class");
     }
 
-    public void dumpHeader(TabbedPrintWriter writer) 
-         throws java.io.IOException
-    {
-        writer.println("/* "+ className + " - Decompiled by JoDe (Jochen's Decompiler)\n * Send comments or bug reports to Jochen Hoenicke <jochenh@bigfoot.com>\n */");
-        if (pkg.length() != 0)
-            writer.println("package "+pkg+";");
+    /**
+     * Checks if the className conflicts with a class imported from
+     * another package and must be fully qualified therefore.
+     * The imports must should have been cleaned up before.
+     * <p>
+     * Known Bug: If a class, local, field or method with the same
+     * name as the package of className exists, using the fully
+     * qualified name is no solution.  This sometimes can't be fixed
+     * at all (except by renaming the package).  It happens only in
+     * ambigous contexts, namely static field/method access.
+     * @param name The full qualified class name.
+     * @return true if this className must be printed fully qualified.  
+     */
+    private boolean conflictsImport(String name) {
+        int pkgdelim = name.lastIndexOf('.');
+        if (pkgdelim != -1) {
+            String pkgName = name.substring(0, pkgdelim);
+            /* All classes in this package doesn't conflict */
+            if (pkgName.equals(pkg))
+                return false;
 
+            name = name.substring(pkgdelim+1);
+            Enumeration enum = imports.keys();
+            while (enum.hasMoreElements()) {
+                String importName = (String) enum.nextElement();
+                if (importName.endsWith(".*")) {
+                    /* strip the "*" */
+                    importName = importName.substring
+                        (0, importName.length()-2);
+                    if (!importName.equals(pkgName)) {
+                        String checkName = importName + "." + name;
+                        try {
+                            Class.forName(checkName);
+                            /* UGLY: If class doesn't conflict, above
+                             * Instruction throws an exception and we
+                             * doesn't reach here.  
+                             * XXX - Is there a better way to do it ???
+                             */
+                            return true;
+                        } catch (ClassNotFoundException ex) {
+                            /* BTW: Exception generation is slow.  I'm
+                             * really sad that this is the default.
+                             */
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private void cleanUpImports() {
+        Integer dummyVote = new Integer(Integer.MAX_VALUE);
+        Hashtable newImports = new Hashtable();
+        Vector classImports = new Vector();
         Enumeration enum = imports.keys();
         while (enum.hasMoreElements()) {
             String importName = (String) enum.nextElement();
@@ -59,12 +112,47 @@ public class JodeEnvironment {
                     imports.get(importName.substring(0, delim)+".*");
                 if (pkgvote.intValue() >= Decompiler.importPackageLimit)
                     continue;
-                                                     
+
+                /* This is a single Class import.  Mark it for importation,
+                 * but don't put it in newImports, yet.
+                 */
+                classImports.addElement(importName);
             } else {
                 if (vote.intValue() < Decompiler.importPackageLimit)
                     continue;
             }
-            writer.println("import "+importName+";");
+            newImports.put(importName, dummyVote);
+        }
+
+        imports = newImports;
+
+        /* Now check if the class import conflict with any of the
+         * package imports.
+         */
+        enum = classImports.elements();
+        while (enum.hasMoreElements()) {
+            /* If there are more than one single class imports with
+             * the same name, exactly the first (in hash order) will
+             * be imported. */
+            String className = (String) enum.nextElement();
+            if (!conflictsImport(className))
+                imports.put(className, dummyVote);
+        }
+    }
+
+    private void dumpHeader(TabbedPrintWriter writer) 
+         throws java.io.IOException
+    {
+        writer.println("/* "+ className + " - Decompiled by JoDe (Jochen's Decompiler)\n * Send comments or bug reports to Jochen Hoenicke <jochenh@bigfoot.com>\n */");
+        if (pkg.length() != 0)
+            writer.println("package "+pkg+";");
+
+        cleanUpImports();
+        Enumeration enum = imports.keys();
+        while (enum.hasMoreElements()) {
+            String pkgName = (String)enum.nextElement();
+            if (!pkgName.equals("java.lang.*"))
+                writer.println("import "+pkgName+";");
         }
         writer.println("");
     }
@@ -109,8 +197,7 @@ public class JodeEnvironment {
     /* Marks the clazz as used, so that it will be imported if used often
      * enough.
      */
-    public void useClass(Class clazz) {
-        String name = clazz.getName();
+    public void useClass(String name) {
         int pkgdelim = name.lastIndexOf('.');
         if (pkgdelim != -1) {
             String pkgName = name.substring(0, pkgdelim);
@@ -118,9 +205,13 @@ public class JodeEnvironment {
                 || pkgName.equals("java.lang"))
                 return;
             Integer i = (Integer) imports.get(name);
-            if (i== null) {
+            if (i == null) {
+                /* This class wasn't imported before.  Mark the package
+                 * as used. */
 
                 i = (Integer) imports.get(pkgName+".*");
+                if (i != null && i.intValue() >= Decompiler.importPackageLimit)
+                    return;
                 i = (i == null)? new Integer(1): new Integer(i.intValue()+1);
                 imports.put(pkgName+".*", i);
                 if (i.intValue() >= Decompiler.importPackageLimit)
@@ -128,37 +219,59 @@ public class JodeEnvironment {
 
                 i = new Integer(1);
 
-            } else
+            } else {
+                if (i.intValue() >= Decompiler.importClassLimit)
+                    return;
                 i = new Integer(i.intValue()+1);
+            }
             imports.put(name, i);
         }
+    }
+
+    /* Marks the clazz as used, so that it will be imported if used often
+     * enough.
+     */
+    public void useClass(Class clazz) {
+        useClass(clazz.getName());
     }
 
     /**
      * Check if clazz is imported and maybe remove package delimiter from
      * full qualified class name.
      * <p>
-     * Known Bug: If the same class name is in more than one imported package
-     * the name should be qualified, but isn't.
+     * Known Bug 1: If this is called before the imports are cleaned up,
+     * (that is only for debugging messages), the result is unpredictable.
+     * <p>
+     * Known Bug 2: It is not checked if the class name conflicts with
+     * a local variable, field or method name.  This is very unlikely
+     * since the java standard has different naming convention for those
+     * names. (But maybe a intelligent obfuscator may use this fact.)
+     * This can only happen with static fields or static methods.
      * @return a legal string representation of clazz.  
      */
-    public String classString(Class clazz) {
-        String name = clazz.getName();
+    public String classString(String name) {
         int pkgdelim = name.lastIndexOf('.');
         if (pkgdelim != -1) {
+            /* First look in our cache. */
+            if (goodClasses.get(name) != null)
+                return name.substring(pkgdelim+1);
+                
             String pkgName = name.substring(0, pkgdelim);
 
             Integer i;
-            if (pkgName.equals(pkg) 
-                || pkgName.equals("java.lang")
-                || ( (i = (Integer)imports.get(pkgName+".*")) != null
-                     && i.intValue() >= Decompiler.importPackageLimit )
-                || ( (i = (Integer)imports.get(name)) != null
-                     && i.intValue() >= Decompiler.importClassLimit )) {
+            if (pkgName.equals(pkg)
+                || ((   imports.get(pkgName+".*") != null
+                     || imports.get(name) != null)
+                    && !conflictsImport(name))) {
+                goodClasses.put(name, name);
                 return  name.substring(pkgdelim+1);
             }
         }
         return name;
+    }
+
+    public String classString(Class clazz) {
+        return classString(clazz.getName());
     }
 
     protected int loadFileFlags()

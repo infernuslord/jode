@@ -85,6 +85,7 @@ public class Type {
     public static final int TC_RANGE = 103;
     public static final int TC_BOOLBYTE = 105;
     public static final int TC_BOOLINT  = 106;
+    public static final int TC_UCLASS   = 107;
 
     protected static JodeEnvironment env;
 
@@ -165,7 +166,12 @@ public class Type {
         clazzname = clazzname.replace(java.io.File.separatorChar, '.');
         Object result = classHash.get(clazzname);
         if (result == null) {
-            result = new ClassInterfacesType(clazzname);
+            try {
+                Class clazz = Class.forName(clazzname);
+                result = new ClassInterfacesType(clazzname);
+            } catch (ClassNotFoundException ex) {
+                result = new UnfoundClassType(clazzname);
+            }
             classHash.put(clazzname, result);
         }
         return (Type) result;
