@@ -59,6 +59,7 @@ public class CreateIfThenElseOperator {
             if (ifBlock.elseBlock == null)
                 return false;
 
+	    /* Next is a non-shortcut "or": simplify both blocks! */
             if (!createFunnyHelper(trueDest, falseDest, ifBlock.thenBlock)
                 | !createFunnyHelper(trueDest, falseDest, ifBlock.elseBlock))
                 return false;
@@ -66,14 +67,13 @@ public class CreateIfThenElseOperator {
             if (GlobalOptions.verboseLevel > 0)
                 GlobalOptions.err.print('?');
 
-            IfThenElseOperator iteo = new IfThenElseOperator(Type.tBoolean);
-            ((InstructionBlock)ifBlock.thenBlock).setInstruction
-                (new ComplexExpression
-                 (iteo, new Expression[] {
-                     ifBlock.cond,
-                     ((InstructionBlock) ifBlock.thenBlock).getInstruction(),
-                     ((InstructionBlock) ifBlock.elseBlock).getInstruction() 
-                  }));
+            Expression iteo = new IfThenElseOperator(Type.tBoolean)
+		.addOperand(((InstructionBlock) ifBlock.elseBlock)
+			    .getInstruction())
+		.addOperand(((InstructionBlock) ifBlock.thenBlock)
+			    .getInstruction())
+		.addOperand(ifBlock.cond);
+            ((InstructionBlock)ifBlock.thenBlock).setInstruction(iteo);
 
             ifBlock.thenBlock.moveDefinitions(ifBlock, null);
             ifBlock.thenBlock.replace(ifBlock);
@@ -192,7 +192,7 @@ public class CreateIfThenElseOperator {
      */
     public static boolean create(InstructionContainer ic,
                                  StructuredBlock last) {
-        Expression e[] = new Expression[3];
+        Expression cond, thenExpr, elseExpr;
         InstructionBlock thenBlock;
         if (ic.jump == null
             || !(last.outer instanceof SequentialBlock))
@@ -210,13 +210,13 @@ public class CreateIfThenElseOperator {
         
         thenBlock = (InstructionBlock) ifBlock.thenBlock;
         
-        e[1] = thenBlock.getInstruction();
-        if (e[1].isVoid() || e[1].getOperandCount() > 0)
+        thenExpr = thenBlock.getInstruction();
+        if (thenExpr.isVoid() || thenExpr.getFreeOperandCount() > 0)
             return false;
-        e[2] = ic.getInstruction();
-        if (e[2].isVoid() || e[2].getOperandCount() > 0)
+        elseExpr = ic.getInstruction();
+        if (elseExpr.isVoid() || elseExpr.getFreeOperandCount() > 0)
             return false;
-        e[0] = ifBlock.cond;
+        cond = ifBlock.cond;
         
         if (GlobalOptions.verboseLevel > 0)
             GlobalOptions.err.print('?');
@@ -225,10 +225,12 @@ public class CreateIfThenElseOperator {
         thenBlock.removeJump();
 
         IfThenElseOperator iteo = new IfThenElseOperator
-            (Type.tSuperType(e[1].getType())
-             .intersection(Type.tSuperType(e[2].getType())));
-
-        ic.setInstruction(new ComplexExpression(iteo, e));
+            (Type.tSuperType(thenExpr.getType())
+             .intersection(Type.tSuperType(elseExpr.getType())));
+	iteo.addOperand(elseExpr);
+	iteo.addOperand(thenExpr);
+	iteo.addOperand(cond);
+        ic.setInstruction(iteo);
         ic.moveDefinitions(last.outer, last);
         last.replace(last.outer);
         return true;

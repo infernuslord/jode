@@ -39,7 +39,7 @@ public class CreateCheckNull {
     public static boolean transformJavac(InstructionContainer ic,
 					 StructuredBlock last) {
         if (!(last.outer instanceof SequentialBlock)
-	    || !(ic.getInstruction() instanceof ComplexExpression)
+	    || !(ic.getInstruction() instanceof Operator)
 	    || !(last.outer.getSubBlocks()[0] instanceof SpecialBlock))
             return false;
 
@@ -48,7 +48,7 @@ public class CreateCheckNull {
 	    || dup.count != 1 || dup.depth != 0)
 	    return false;
 	   
-	ComplexExpression ce = (ComplexExpression) ic.getInstruction();
+	Operator ce = (Operator) ic.getInstruction();
 
 	if (!(ce.getOperator() instanceof PopOperator)
 	    || !(ce.getSubExpressions()[0] instanceof InvokeOperator))
@@ -83,9 +83,12 @@ public class CreateCheckNull {
 	   
 	/* negate the instruction back to its original state */
 	Expression expr = ifBlock.cond.negate();
-	if (!(expr instanceof CompareUnaryOperator)
-	    || expr.getOperator().getOperatorIndex() != Operator.NOTEQUALS_OP
-	    || !(expr.getOperator().getOperandType(0).isOfType(Type.tUObject)))
+	if (!(expr instanceof CompareUnaryOperator))
+	    return false;
+
+	CompareUnaryOperator cmpOp = (CompareUnaryOperator) expr;
+	if (cmpOp.getOperatorIndex() != Operator.NOTEQUALS_OP
+	    || !(cmpOp.getCompareType().isOfType(Type.tUObject)))
 	    return false;
 
 	LocalInfo li = new LocalInfo();

@@ -965,8 +965,7 @@ public class FlowBlock {
             } 
 
             if (!createdForBlock 
-                && (((InstructionBlock)
-		     lastModified).getInstruction().getOperator()
+                && (((InstructionBlock) lastModified).getInstruction()
 		    instanceof CombineableOperator)) {
 		
                 /* The only jump is the jump of the last

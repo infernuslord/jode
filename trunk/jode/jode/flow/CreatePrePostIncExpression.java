@@ -77,12 +77,13 @@ public class CreatePrePostIncExpression {
 	else if (!iinc.getValue().equals("1"))
 	    return false;
 	
-	if (!iinc.matches(load))
+	if (!iinc.lvalueMatches(load))
 	    return false;
 	
 	Type type = load.getType().intersection(Type.tUInt);
+	iinc.makeNonVoid();
 	Operator ppop = 
-	    new LocalPrePostFixOperator(type, op, iinc, isPost);
+	    new PrePostFixOperator(type, op, iinc.getLValue(), isPost);
 	
 	ic.setInstruction(ppop);
 	ic.moveDefinitions(last.outer, last);
@@ -103,41 +104,28 @@ public class CreatePrePostIncExpression {
          *   store(stack) = stack_0 +/- 1
          */
 
-        if (!(ic.getInstruction() instanceof ComplexExpression)
-	    || !(ic.getInstruction().getOperator() instanceof StoreInstruction)
-            || !(ic.getInstruction().isVoid()))
+        if (!(ic.getInstruction() instanceof StoreInstruction))
             return false;
         
-	ComplexExpression storeExpr = (ComplexExpression) ic.getInstruction();
-        StoreInstruction store = 
-            (StoreInstruction) ic.getInstruction().getOperator();
+        StoreInstruction store = (StoreInstruction) ic.getInstruction();
 
 	/* Make sure that the lvalue part of the store is
-	 * not yet resolved (and not that the rvalue part 
+	 * not yet resolved (and note that the rvalue part 
 	 * should also have 1 remaining operand)
 	 */
-	int storeParams = store.getLValueOperandCount();
-	if (storeExpr.getOperandCount() != storeParams + 1
-	    || !(storeExpr.getSubExpressions()[storeParams] 
-		 instanceof ComplexExpression))
+	int lvalueCount = store.getLValue().getFreeOperandCount();
+	if (!store.getLValue().isFreeOperator()
+	    || !store.isVoid()
+	    || !(store.getSubExpressions()[1] instanceof BinaryOperator))
 	    return false;
-	if (storeParams > 0) {
-	    for (int i=0; i< storeParams; i++) {
-		if (!(storeExpr.getSubExpressions()[i] instanceof NopOperator))
-		    return false;
-	    }
-	}
 
-        ComplexExpression binExpr = (ComplexExpression)
-	    storeExpr.getSubExpressions()[storeParams];
-        if (!(binExpr instanceof ComplexExpression)
-	    || !(binExpr.getOperator() instanceof BinaryOperator)
-	    || !(binExpr.getSubExpressions()[0] instanceof NopOperator)
-	    || !(binExpr.getSubExpressions()[1] instanceof ConstOperator))
+        BinaryOperator binOp = (BinaryOperator) store.getSubExpressions()[1];
+        if (binOp.getSubExpressions() == null
+	    || !(binOp.getSubExpressions()[0] instanceof NopOperator)
+	    || !(binOp.getSubExpressions()[1] instanceof ConstOperator))
             return false;
 
-        BinaryOperator binOp = (BinaryOperator) binExpr.getOperator();
-        ConstOperator constOp = (ConstOperator) binExpr.getSubExpressions()[1];
+        ConstOperator constOp = (ConstOperator) binOp.getSubExpressions()[1];
         int op;
         if (binOp.getOperatorIndex() == store.ADD_OP)
             op = Operator.INC_OP;
@@ -161,8 +149,8 @@ public class CreatePrePostIncExpression {
             
         SpecialBlock dup = (SpecialBlock) sb.subBlocks[0];
         if (dup.type != SpecialBlock.DUP
-            || dup.count != store.getLValueType().stackSize()
-            || dup.depth != store.getLValueOperandCount())
+            || dup.count != store.getLValue().getType().stackSize()
+            || dup.depth != lvalueCount)
             return false;
 
         if (!(sb.outer instanceof SequentialBlock))
@@ -173,10 +161,10 @@ public class CreatePrePostIncExpression {
         InstructionBlock ib = (InstructionBlock) sb.subBlocks[0];
 
         if (!(ib.getInstruction() instanceof Operator)
-            || !store.matches((Operator) ib.getInstruction()))
+            || !store.lvalueMatches((Operator) ib.getInstruction()))
             return false;
 
-        if (store.getLValueOperandCount() > 0) {
+        if (lvalueCount > 0) {
             if (!(sb.outer instanceof SequentialBlock))
                 return false;
             sb = (SequentialBlock) sb.outer;
@@ -184,14 +172,16 @@ public class CreatePrePostIncExpression {
                 return false;
             SpecialBlock dup2 = (SpecialBlock) sb.subBlocks[0];
             if (dup2.type != SpecialBlock.DUP
-                || dup2.count != store.getLValueOperandCount() 
+                || dup2.count != lvalueCount
                 || dup2.depth != 0)
                 return false;
         }
         ic.setInstruction
-            (new PrePostFixOperator(store.getLValueType(), op, store, true));
+	    (new PrePostFixOperator(store.getLValue().getType(), op, 
+				    store.getLValue(), true));
         ic.moveDefinitions(sb, last);
         last.replace(sb);
 	return true;
     }
 }
+

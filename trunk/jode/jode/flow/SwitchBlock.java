@@ -89,7 +89,7 @@ implements BreakableBlock {
      */
     public VariableStack mapStackToLocal(VariableStack stack) {
 	VariableStack newStack;
-	int params = instr.getOperandCount();
+	int params = instr.getFreeOperandCount();
 	if (params > 0) {
 	    exprStack = stack.peek(params);
 	    newStack = stack.pop(params);

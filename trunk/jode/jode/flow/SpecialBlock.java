@@ -113,8 +113,8 @@ public class SpecialBlock extends StructuredBlock {
 	    Expression expr2 = block2.getInstruction();
 
             if (expr1.isVoid() || expr2.isVoid()
-		|| expr1.getOperandCount() != 0
-		|| expr2.getOperandCount() != 0
+		|| expr1.getFreeOperandCount() != 0
+		|| expr2.getFreeOperandCount() != 0
 		|| expr1.hasSideEffects(expr2) 
 		|| expr2.hasSideEffects(expr1))
                 return false;
@@ -175,18 +175,16 @@ public class SpecialBlock extends StructuredBlock {
 
 	    if (instr.getType().stackSize() == count) {
 		StructuredBlock newBlock;
-		if (instr.getOperator() instanceof InvokeOperator
-		    || instr.getOperator() instanceof ConstructorOperator) {
-		    ComplexExpression newExpr = new ComplexExpression
-			(new PopOperator(instr.getType()),
-			 new Expression[] { instr });
+		if (instr instanceof InvokeOperator
+		    || instr instanceof ConstructorOperator) {
+		    Expression newExpr
+			= new PopOperator(instr.getType()).addOperand(instr);
 		    prev.setInstruction(newExpr);
 		    newBlock = prev;
 		} else {
-		    ComplexExpression newCond = new ComplexExpression
-			(new CompareUnaryOperator(instr.getType(), 
-						  Operator.NOTEQUALS_OP), 
-			 new Expression[] { instr });
+		    Expression newCond = new CompareUnaryOperator
+			(instr.getType(), Operator.NOTEQUALS_OP)
+			.addOperand(instr);
 		    IfThenElseBlock newIfThen = new IfThenElseBlock(newCond);
 		    newIfThen.setThenBlock(new EmptyBlock());
 		    newBlock = newIfThen;
@@ -204,41 +202,6 @@ public class SpecialBlock extends StructuredBlock {
 		}
 		return true;
 	    }
-	    /* The following was another possibility to resolve pops,
-	     * but it turned out to lead to stupid type errors, and
-	     * it is obsolete due to the new stack analysis, now
-	     */
-//  	    } else if (last.outer.outer instanceof SequentialBlock
-//  		       && (last.outer.outer.getSubBlocks()[0] 
-//  			   instanceof InstructionBlock)) {
-//  		InstructionBlock prevprev
-//  		    = (InstructionBlock) last.outer.outer.getSubBlocks()[0];
-//  		Expression previnstr = prevprev.getInstruction();
-//  		if (previnstr.getType().stackSize() == 1 
-//  		    && instr.getType().stackSize() == 1
-//  		    && count == 2
-//  		    && (previnstr.getType().getSuperType()
-//  			.isOfType(instr.getType())
-//  			|| instr.getType().getSuperType()
-//  			.isOfType(previnstr.getType()))) {
-//  		    /* compare two objects */
-
-//  		    ComplexExpression newCond = new ComplexExpression
-//  			(new CompareBinaryOperator(instr.getType(), 
-//  						   Operator.EQUALS_OP), 
-//  			 new Expression[] { previnstr, instr });
-//  		    IfThenElseBlock newIfThen = new IfThenElseBlock(newCond);
-//  		    newIfThen.setThenBlock(new EmptyBlock());
-//  		    newIfThen.moveJump(jump);
-//  		    if (this == last) {
-//  			newIfThen.replace(last.outer.outer);
-//  			flowBlock.lastModified = newIfThen;
-//  		    } else {
-//  			newIfThen.replace(this);
-//  			last.replace(last.outer.outer);
-//  		    }
-//  		    return true;
-//  		}
         }
         return false;
     }

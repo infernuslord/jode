@@ -42,9 +42,9 @@ public class CreateAssignExpression {
          * sequBlock:
          *   dup (may be missing for static / local variables)
          * opBlock:
-         *   (optional narrow) ((optional wide) load(stack) * rightHandSide)
+         *   PUSH (optional narrow)((optional wide) load(stack) * RHS)
          *   (optional dup_x)
-         *   store(stack)
+         *   store(POP)
          *
          * We transform it to:
          *   (push loadstoreOps)
@@ -53,15 +53,19 @@ public class CreateAssignExpression {
          *   store(stack) *= (stack)
          *
          * If the optional dup is present the store*= becomes non void.  */
+
         SequentialBlock opBlock = (SequentialBlock) last.outer;
         StoreInstruction store = (StoreInstruction) ic.getInstruction();
+	if (!store.isFreeOperator())
+	    return false;
+	int lvalueCount = store.getLValue().getFreeOperandCount();
 
         boolean isAssignOp = false;
         if (opBlock.subBlocks[0] instanceof SpecialBlock) {
             SpecialBlock dup = (SpecialBlock) opBlock.subBlocks[0];
             if (dup.type != SpecialBlock.DUP
-                || dup.depth != store.getLValueOperandCount()
-                || dup.count != store.getLValueType().stackSize()
+                || dup.depth != lvalueCount
+                || dup.count != store.getLValue().getType().stackSize()
                 || !(opBlock.outer instanceof SequentialBlock))
                 return false;
             opBlock = (SequentialBlock) opBlock.outer;
@@ -72,13 +76,15 @@ public class CreateAssignExpression {
             return false;
 
         InstructionBlock ib = (InstructionBlock) opBlock.subBlocks[0];
-	if (!(ib.getInstruction() instanceof ComplexExpression))
+	if (!(ib.getInstruction() instanceof Operator))
 	    return false;
-
-	ComplexExpression expr = (ComplexExpression) ib.getInstruction();
+	Operator expr = (Operator) ib.getInstruction();
+	if (expr.getFreeOperandCount() != lvalueCount)
+	    return false;
+	
 	SpecialBlock dup = null;
         
-	if (store.getLValueOperandCount() > 0) {
+	if (lvalueCount > 0) {
 	    if (!(opBlock.outer instanceof SequentialBlock)
 		|| !(opBlock.outer.getSubBlocks()[0] instanceof SpecialBlock))
 		return false;
@@ -87,48 +93,46 @@ public class CreateAssignExpression {
 	    dup = (SpecialBlock) sequBlock.subBlocks[0];
 	    
 	    if (dup.type != SpecialBlock.DUP
-		|| dup.depth != 0
-		|| dup.count != store.getLValueOperandCount())
+		|| dup.depth != 0 || dup.count != lvalueCount)
 		return false;
 	}
         int opIndex;
         Expression rightHandSide;
-	Type rhsType;
 
-        if (expr.getOperator() instanceof ConvertOperator
-            && expr.getSubExpressions()[0] instanceof ComplexExpression
-            && expr.getOperator().getType().isOfType(store.getLValueType())) {
+        if (expr instanceof ConvertOperator
+            && expr.getSubExpressions()[0] instanceof Operator
+            && expr.getType().isOfType(store.getLValue().getType())) {
 
 	    /* This gets tricky.  We need to allow something like
 	     *  s = (short) (int) ((double) s / 0.1);
 	     */
-            expr = (ComplexExpression) expr.getSubExpressions()[0];
-	    while (expr.getOperator() instanceof ConvertOperator
-		   && expr.getSubExpressions()[0] instanceof ComplexExpression)
-		expr = (ComplexExpression) expr.getSubExpressions()[0];
+            expr = (Operator) expr.getSubExpressions()[0];
+	    while (expr instanceof ConvertOperator
+		   && expr.getSubExpressions()[0] instanceof Operator)
+		expr = (Operator) expr.getSubExpressions()[0];
         }
-        if (expr.getOperator() instanceof BinaryOperator) {
-            BinaryOperator binop = (BinaryOperator) expr.getOperator();
-            
-            opIndex = binop.getOperatorIndex();
-            if (opIndex <  binop.ADD_OP || opIndex >= binop.ASSIGN_OP)
+        if (expr instanceof BinaryOperator) {
+            opIndex = expr.getOperatorIndex();
+            if (opIndex <  expr.ADD_OP || opIndex >= expr.ASSIGN_OP)
 		return false;
 
-	    Expression loadExpr = expr.getSubExpressions()[0];
-	    while (loadExpr instanceof ComplexExpression
-		   && loadExpr.getOperator() instanceof ConvertOperator)
-		loadExpr = ((ComplexExpression)loadExpr)
-		    .getSubExpressions()[0];
-	    if (!(loadExpr instanceof Operator)
-                || !store.matches((Operator) loadExpr))
+	    if (!(expr.getSubExpressions()[0] instanceof Operator))
+		return false;
+
+	    Operator loadExpr = (Operator) expr.getSubExpressions()[0];
+	    while (loadExpr instanceof ConvertOperator
+		   && loadExpr.getSubExpressions()[0] instanceof Operator)
+		loadExpr = (Operator) loadExpr.getSubExpressions()[0];
+
+	    if (!store.lvalueMatches((Operator) loadExpr)
+		|| !(loadExpr.isFreeOperator(lvalueCount)))
                 return false;
 
-	    if (store instanceof LocalStoreOperator)
+	    if (store.getLValue() instanceof LocalStoreOperator)
 		((LocalLoadOperator)loadExpr).getLocalInfo().combineWith
-		    (((LocalStoreOperator)store).getLocalInfo());
+		    (((LocalStoreOperator)store.getLValue()).getLocalInfo());
 		
             rightHandSide = expr.getSubExpressions()[1];
-	    rhsType = binop.getOperandType(1);
         } else {
 	    /* For String += the situation is more complex.
 	     * what is marked as load(stack) * rightHandSide above is
@@ -139,31 +143,29 @@ public class CreateAssignExpression {
             Expression simple = expr.simplifyString();
             rightHandSide = simple;
             /* Now search for the leftmost operand ... */
-            ComplexExpression lastExpr = null;
-            while (simple instanceof ComplexExpression
-                   && simple.getOperator() instanceof StringAddOperator) {
-                lastExpr = (ComplexExpression) simple;
+            Operator lastExpr = null;
+	    Operator parent = null;
+            while (simple instanceof StringAddOperator) {
+		parent = lastExpr;
+                lastExpr = (Operator) simple;
                 simple = lastExpr.getSubExpressions()[0];
             }
 
             /* ... check it ... */
-            if (lastExpr == null || !(simple instanceof Operator)
-                || !store.matches((Operator) simple))
+            if (lastExpr == null
+		|| !(simple instanceof Operator)
+                || !store.lvalueMatches((Operator) simple)
+		|| !(((Operator) simple).isFreeOperator(lvalueCount)))
                 return false;
 
-	    if (store instanceof LocalStoreOperator)
+	    if (store.getLValue() instanceof LocalStoreOperator)
 		((LocalLoadOperator)simple).getLocalInfo().combineWith
-		    (((LocalStoreOperator)store).getLocalInfo());
+		    (((LocalStoreOperator)store.getLValue()).getLocalInfo());
 		
             /* ... and remove it. */
-            if (lastExpr.getParent() != null) {
-		ComplexExpression ce = (ComplexExpression)lastExpr.getParent();
-		StringAddOperator addOp = (StringAddOperator) ce.getOperator();
-		addOp.clearFirstType();
-		ce.setSubExpressions(0,lastExpr.getSubExpressions()[1]);
-		rhsType = Type.tString;
+            if (parent != null) {
+		parent.setSubExpressions(0, lastExpr.getSubExpressions()[1]);
             } else {
-		rhsType = lastExpr.getOperator().getOperandType(1);
                 rightHandSide = lastExpr.getSubExpressions()[1]; 
 	    }
 
@@ -174,7 +176,7 @@ public class CreateAssignExpression {
 	    dup.removeBlock();
         ib.setInstruction(rightHandSide);
         
-        store.makeOpAssign(store.OPASSIGN_OP+opIndex, rhsType);
+        store.makeOpAssign(store.OPASSIGN_OP + opIndex);
 
         if (isAssignOp)
             store.makeNonVoid();
@@ -187,17 +189,18 @@ public class CreateAssignExpression {
         /* Situation:
          * sequBlock:
          *   dup_X(lvalue_count)
-         *   store instruction
+         *   store(POP) = POP
          */
         SequentialBlock sequBlock = (SequentialBlock) last.outer;
         StoreInstruction store = (StoreInstruction) ic.getInstruction();
 
-        if (sequBlock.subBlocks[0] instanceof SpecialBlock) {
+        if (sequBlock.subBlocks[0] instanceof SpecialBlock
+	    && store.isFreeOperator()) {
 
             SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
             if (dup.type != SpecialBlock.DUP
-                || dup.depth != store.getLValueOperandCount()
-                || dup.count != store.getLValueType().stackSize())
+                || dup.depth != store.getLValue().getFreeOperandCount()
+                || dup.count != store.getLValue().getType().stackSize())
                 return false;
             
             dup.removeBlock();
