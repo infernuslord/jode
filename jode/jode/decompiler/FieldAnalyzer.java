@@ -33,6 +33,7 @@ public class FieldAnalyzer implements Analyzer {
     Type type;
     String fieldName;
     Expression constant;
+    boolean isSynthetic;
     
     public FieldAnalyzer(ClassAnalyzer cla, FieldInfo fd, 
                          JodeEnvironment e)
@@ -44,6 +45,7 @@ public class FieldAnalyzer implements Analyzer {
         type = fd.getType();
         fieldName = fd.getName();
         constant = null;
+	this.isSynthetic = (fd.findAttribute("Synthetic") != null);
 
         AttributeInfo attribute = fd.findAttribute("ConstantValue");
 
@@ -74,6 +76,10 @@ public class FieldAnalyzer implements Analyzer {
 	return type;
     }
 
+    public boolean isSynthetic() {
+	return isSynthetic;
+    }
+
     public boolean setInitializer(Expression expr) {
         expr.makeInitializer();
         if (constant != null)
@@ -89,6 +95,8 @@ public class FieldAnalyzer implements Analyzer {
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException 
     {
+	if (isSynthetic)
+	    return; /*XXX*/
 	String modif = Modifier.toString(modifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
@@ -100,3 +108,4 @@ public class FieldAnalyzer implements Analyzer {
         writer.println(";");
     }
 }
+
