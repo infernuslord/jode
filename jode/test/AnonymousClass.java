@@ -32,6 +32,10 @@ public class AnonymousClass {
 	    class Hello {
 		int var = (int) longVar;
 
+		{
+		    System.err.println("all constructors");
+		}
+
 		Hello() {
 		    System.err.println("construct");
 		}
@@ -53,12 +57,21 @@ public class AnonymousClass {
 
 		Hello hii = hi;
 
+		{
+		    System.err.println("Anonymous Constructor speaking");
+		}
+
 		public String toString() {
 		    this.hii.hello();
 		    hi.hello();
 		    return Integer.toHexString(AnonymousClass.this.hashCode()
 					       +blah);
 		}
+
+		{
+		    System.err.println("Anonymous Constructor continues");
+		}
+
 	    };
 	    Object p = new Object() {
 		public String toString() {
