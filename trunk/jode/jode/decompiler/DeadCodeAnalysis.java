@@ -47,6 +47,10 @@ public class DeadCodeAnalysis {
 		    if (!instr.alwaysJumps && instr.nextByAddr != null)
 			if (instr.nextByAddr.tmpInfo == null)
 			    instr.nextByAddr.tmpInfo = reachChanged;
+		    /*XXX code after jsr reachable iff ret is reachable...*/
+		    if (instr.opcode == Opcodes.opc_jsr)
+			if (instr.nextByAddr.tmpInfo == null)
+			    instr.nextByAddr.tmpInfo = reachChanged;
 		}
 	    }
 	} while (changed);
@@ -78,13 +82,14 @@ public class DeadCodeAnalysis {
 	    }
 	} while (changed);
 	/* Now remove the dead code */
+	Instruction nextInstr;
 	for (Instruction instr = code.getFirstInstr(); 
-	     instr != null; instr = instr.nextByAddr) {
+	     instr != null; instr = nextInstr) {
+	    nextInstr = instr.nextByAddr;
 	    if (instr.tmpInfo == null) {
+		instr.removeInstruction();
+		/* adjust length, since someone may rely on this */
 		/* first block is always reachable, so prevByAddr != null */
-		instr.prevByAddr.nextByAddr = instr.nextByAddr;
-		instr.nextByAddr.prevByAddr = instr.prevByAddr;
-		/* adjust length, since someon may rely on this */
 		instr.prevByAddr.length += instr.length;
 	    }
 	}
