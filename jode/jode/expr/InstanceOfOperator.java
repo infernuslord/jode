@@ -20,9 +20,10 @@
 package jode;
 
 public class InstanceOfOperator extends SimpleOperator {
-    String typeString;
 
-    public InstanceOfOperator(Type type, String typeString) {
+    Type instanceType;
+
+    public InstanceOfOperator(Type type) {
         super(Type.tBoolean, 0, 1);
         /* The following is wrong.  The operand must not
          * be a super type of the given type, but any type
@@ -35,8 +36,8 @@ public class InstanceOfOperator extends SimpleOperator {
          *
          * The forgiving solution:
          */
+        this.instanceType = type;
         this.operandTypes[0] = Type.tUnknown;
-        this.typeString = typeString;
     }
     public int getOperandCount() {
         return 1;
@@ -51,6 +52,6 @@ public class InstanceOfOperator extends SimpleOperator {
     }
 
     public String toString(String[] operands) {
-        return operands[0] + " instanceof "+typeString;
+        return operands[0] + " instanceof "+instanceType;
     }
 }
