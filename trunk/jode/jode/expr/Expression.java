@@ -19,6 +19,7 @@
 
 package jode.expr;
 import jode.Type;
+import jode.Decompiler;
 
 public abstract class Expression {
     protected Type type;
@@ -37,8 +38,13 @@ public abstract class Expression {
         return parent;
     }
 
-    public void setType(Type newType) {
-        type = type.intersection(newType);
+    public void setType(Type otherType) {
+	Type newType = type.intersection(otherType);
+	if (newType == Type.tError 
+	    && type != Type.tError && otherType != Type.tError)
+	    Decompiler.err.println("Type error in "+this+": "
+				   +"merging "+type+" and "+otherType);
+	type = newType;
     }
 
     public void updateType() {
@@ -126,6 +132,18 @@ public abstract class Expression {
         return null;
     }
 
+    /** 
+     * This method should remove local variables that are only written
+     * and read one time directly after another.  <br>
+     *
+     * In this case this is a non void LocalStoreOperator, whose local
+     * isn't used in other places.
+     * @return an expression where the locals are removed.
+     */
+    public Expression removeOnetimeLocals() {
+	return this;
+    }
+
     public Expression simplify() {
         return this;
     }
@@ -134,7 +152,7 @@ public abstract class Expression {
     }
 
     public static Expression EMPTYSTRING
-	= new ConstOperator(Type.tString, "\"\"");
+	= new ConstOperator(Type.tString, "");
 
     public Expression simplifyStringBuffer() {
         return null;
