@@ -20,7 +20,7 @@
 package jode.flow;
 import jode.expr.*;
 import jode.bytecode.Reference;
-import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.type.Type;
 
 public class CreateNewConstructor {
@@ -81,12 +81,12 @@ public class CreateNewConstructor {
 	    return false;
 
 	/* Okay everything checked. */
-	CodeAnalyzer codeAna = constr.getCodeAnalyzer();
+	MethodAnalyzer methodAna = constr.getMethodAnalyzer();
 	Expression expr = ib.getInstruction();
 	Type appendType = appendCall.getMethodType().getParameterTypes()[0];
 	if (!appendType.equals(Type.tString)) {
 	    InvokeOperator valueOf = new InvokeOperator
-		(codeAna, true, false,
+		(methodAna, true, false,
 		 Reference.getReference("Ljava/lang/String;", "valueOf",
 					"(" + appendType.getTypeSignature()
 					+ ")Ljava/lang/String;"));
@@ -94,7 +94,7 @@ public class CreateNewConstructor {
 	}
 	ConstructorOperator newConstr = new ConstructorOperator
 	    (Reference.getReference("Ljava/lang/StringBuffer;", "<init>",
-				    "(Ljava/lang/String;)V"), codeAna, false);
+				    "(Ljava/lang/String;)V"), methodAna, false);
 	ic.setInstruction(newConstr.addOperand(expr));
 	last.replace(sequBlock);
 	return true;
