@@ -250,6 +250,10 @@ public class CodeAnalyzer implements Analyzer {
         return method.classAnalyzer.getTypeString(type);
     }
 
+    public ClassAnalyzer getClassAnalyzer() {
+	return method.classAnalyzer;
+    }
+
     public ClassInfo getClazz() {
         return method.classAnalyzer.clazz;
     }
