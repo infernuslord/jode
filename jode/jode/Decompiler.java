@@ -181,7 +181,7 @@ public class Decompiler {
 	}
 
         String classPath = System.getProperty("java.class.path")
-	    .replace(File.pathSeparatorChar, SearchPath.pathSeparatorChar);
+	    .replace(File.pathSeparatorChar, SearchPath.altPathSeparatorChar);
 	String destDir = null;
 
 	int importPackageLimit = ImportHandler.DEFAULT_PACKAGE_LIMIT;
