@@ -78,9 +78,16 @@ public abstract class StructuredBlock {
      * block in a flow block, outer is null.  */
     StructuredBlock outer;
 
+//     /**
+//      * The surrounding non sequential block.  This is the same as if
+//      * you would repeatedly get outer until you reach a non sequential
+//      * block.  This is field is only valid, if the outer block is a
+//      * sequential block.
+//      */
+//     StructuredBlock realOuter;
+
     /**
-     * The flow block in which this structured block lies.
-     */
+     * The flow block in which this structured block lies.  */
     FlowBlock flowBlock;
     
     /** 
@@ -231,8 +238,7 @@ public abstract class StructuredBlock {
      * @param sub  The uppermost sub block of structured block, 
      *      that will be moved to this block (may be this).
      */
-    public void replace(StructuredBlock sb, StructuredBlock sub) {
-        moveDefinitions(sb, sub);
+    public void replace(StructuredBlock sb) {
         outer = sb.outer;
         setFlowBlock(sb.flowBlock);
         if (outer != null) {
@@ -277,7 +283,7 @@ public abstract class StructuredBlock {
      */
     public StructuredBlock appendBlock(StructuredBlock block) {
 	SequentialBlock sequBlock = new SequentialBlock();
-	sequBlock.replace(this, this);
+	sequBlock.replace(this);
 	sequBlock.setFirst(this);
 	sequBlock.setSecond(block);
 	return sequBlock;
@@ -292,15 +298,15 @@ public abstract class StructuredBlock {
             if (outer.getSubBlocks()[1] == this) {
                 if (jump != null)
                     outer.getSubBlocks()[0].moveJump(jump);
-                outer.getSubBlocks()[0].replace(outer, null);
+                outer.getSubBlocks()[0].replace(outer);
             } else
-                outer.getSubBlocks()[1].replace(outer, null);
+                outer.getSubBlocks()[1].replace(outer);
             return;
         }
 
         EmptyBlock eb = new EmptyBlock();
         eb.moveJump(jump);
-        eb.replace(this, null);
+        eb.replace(this);
     }
 
     /**
@@ -398,7 +404,7 @@ public abstract class StructuredBlock {
      * Fill all in variables into the given VariableSet.
      * @param in The VariableSet, the in variables should be stored to.
      */
-    public void fillInSet(VariableSet in) {
+    public void fillInGenSet(VariableSet in, VariableSet gen) {
         /* overwritten by InstructionContainer */
     }
 

@@ -19,8 +19,6 @@
 package jode.flow;
 import jode.Type;
 import jode.LocalInfo;
-import jode.Expression;
-import jode.PopOperator;
 
 /**
  * 
@@ -28,11 +26,6 @@ import jode.PopOperator;
  */
 public class CatchBlock extends StructuredBlock {
     
-    /**
-     * The try block.  This may be another CatchBlock!
-     */
-    StructuredBlock tryBlock;
-
     /**
      * The catch block.
      */
@@ -48,17 +41,15 @@ public class CatchBlock extends StructuredBlock {
      */
     LocalInfo exceptionLocal;
 
-    public CatchBlock(Type type) {
+    CatchBlock() {
+    }
+
+    public CatchBlock(Type type, LocalInfo local) {
         exceptionType = type;
+        exceptionLocal = local;
+        used.addElement(exceptionLocal);
     }
 
-    static int serialno=0;
-
-    public void setTryBlock(StructuredBlock tryBlock) {
-        this.tryBlock = tryBlock;
-        tryBlock.outer = this;
-        tryBlock.setFlowBlock(flowBlock);
-    }
 
     /** 
      * Sets the catch block.
@@ -68,37 +59,8 @@ public class CatchBlock extends StructuredBlock {
         this.catchBlock = catchBlock;
         catchBlock.outer = this;
         catchBlock.setFlowBlock(flowBlock);
-
-        StructuredBlock firstInstr = (catchBlock instanceof SequentialBlock)
-            ? catchBlock.getSubBlocks()[0] : catchBlock;
-
-        if (firstInstr instanceof InstructionBlock) {
-            Expression instr = 
-                ((InstructionBlock) firstInstr).getInstruction();
-            if (instr instanceof PopOperator
-                && ((PopOperator) instr).getCount() == 1) {
-                /* The exception is ignored.  Create a dummy local for it */
-                exceptionLocal = new LocalInfo(-1);
-                exceptionLocal.setName("exception_"+(serialno++)+"_");
-
-            } else if (instr instanceof jode.LocalStoreOperator) {
-                /* The exception is stored in a local variable */
-                exceptionLocal = 
-                    ((jode.LocalStoreOperator) instr).getLocalInfo();
-            }
-        }
-
-        if (exceptionLocal != null)
-            firstInstr.removeBlock();
-        else {
-            exceptionLocal = new LocalInfo(-1);
-            exceptionLocal.setName("ERROR!!!");
-        }
-
-        exceptionLocal.setType(exceptionType);
-        used.addElement(exceptionLocal);
     }
-    
+
     /* The implementation of getNext[Flow]Block is the standard
      * implementation */
 
@@ -110,9 +72,7 @@ public class CatchBlock extends StructuredBlock {
      */
     public boolean replaceSubBlock(StructuredBlock oldBlock, 
                                    StructuredBlock newBlock) {
-        if (tryBlock == oldBlock)
-            tryBlock = newBlock;
-        else if (catchBlock == oldBlock)
+        if (catchBlock == oldBlock)
             catchBlock = newBlock;
         else
             return false;
@@ -123,17 +83,7 @@ public class CatchBlock extends StructuredBlock {
      * Returns all sub block of this structured block.
      */
     public StructuredBlock[] getSubBlocks() {        
-        return new StructuredBlock[] { tryBlock, catchBlock };
-    }
-
-    /**
-     * Determines if there is a sub block, that flows through to the end
-     * of this block.  If this returns true, you know that jump is null.
-     * @return true, if the jump may be safely changed.
-     */
-    public boolean jumpMayBeChanged() {
-        return (  tryBlock.jump != null || tryBlock.jumpMayBeChanged())
-            && (catchBlock.jump != null || catchBlock.jumpMayBeChanged());
+        return new StructuredBlock[] { catchBlock };
     }
 
     /**
@@ -154,20 +104,10 @@ public class CatchBlock extends StructuredBlock {
 
     public void dumpInstruction(jode.TabbedPrintWriter writer) 
         throws java.io.IOException {
-        /* avoid ugly nested tries */
-        if (!(outer instanceof CatchBlock)) {
-            writer.println("try {");
-            writer.tab();
-        }
-        tryBlock.dumpSource(writer);
-        writer.untab();
         writer.println("} catch ("+exceptionType.toString() + " "
                        + exceptionLocal.getName().toString()+ ") {");
         writer.tab();
         catchBlock.dumpSource(writer);
-        if (!(outer instanceof CatchBlock)) {
-            writer.untab();
-            writer.println("}");
-        }
+        writer.untab();
     }
 }

@@ -52,7 +52,8 @@ public class CreateForInitializer implements Transformation {
             System.err.print('f');
 
         forBlock.init = initializer;
-        forBlock.replace(forBlock.outer, forBlock);
+        forBlock.moveDefinitions(forBlock.outer, forBlock);
+        forBlock.replace(forBlock.outer);
         return true;
     }
 }

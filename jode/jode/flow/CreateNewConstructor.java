@@ -63,7 +63,8 @@ public class CreateNewConstructor implements Transformation{
 		    exprs[i] = exprs[i].combine(expr);
                     SequentialBlock subExprBlock = 
                         (SequentialBlock) sequBlock.subBlocks[1];
-                    subExprBlock.replace(sequBlock, subExprBlock);
+                    subExprBlock.moveDefinitions(sequBlock, subExprBlock);
+                    subExprBlock.replace(sequBlock);
                     sequBlock = subExprBlock;
                     ((InstructionContainer)subExprBlock.subBlocks[0]).
                         setInstruction(exprs[i]);
@@ -93,7 +94,8 @@ public class CreateNewConstructor implements Transformation{
                                       constrCall.getField()),
               exprs));
              
-        flow.lastModified.replace(sequBlock, flow.lastModified);
+        flow.lastModified.moveDefinitions(sequBlock, null);
+        flow.lastModified.replace(sequBlock);
         return true;
     }
 }

@@ -46,12 +46,13 @@ public abstract class InstructionContainer extends StructuredBlock {
      * Fill all in variables into the given VariableSet.
      * @param in The VariableSet, the in variables should be stored to.
      */
-    public void fillInSet(VariableSet in) {
+    public void fillInGenSet(VariableSet in, VariableSet gen) {
         if (instr instanceof LocalVarOperator) {
             LocalVarOperator varOp = (LocalVarOperator) instr;
             if (varOp.isRead()) {
                 in.addElement(varOp.getLocalInfo());
             }
+            gen.addElement(varOp.getLocalInfo());
         }
     }
 

@@ -237,7 +237,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
                     BreakBlock breakblk = (BreakBlock) subs[i];
                     if (breakblk.breaksBlock == block) {
                         new ContinueBlock(this, breakblk.label != null)
-                            .replace(breakblk, null);
+                            .replace(breakblk);
                     }
                 }
                 todo.push(subs[i]);

@@ -53,6 +53,12 @@ public class FlowBlock {
      * uses that variable, on which it is never assigned 
      */
     VariableSet in = new VariableSet(); 
+    /**
+     * The gen locals.  This are the locals, to which are written
+     * somewhere in this flow block.  This is only used for try
+     * catch blocks.
+     */
+    VariableSet gen = new VariableSet(); 
 
     /**
      * The starting address of this flow block.  This is mainly used
@@ -106,15 +112,11 @@ public class FlowBlock {
         this.block = block;
         lastModified = block;
         block.setFlowBlock(this);
-        block.fillInSet(in);
+        block.fillInGenSet(in, gen);
     }
 
     public int getNextAddr() {
-        if (block instanceof RawTryCatchBlock)
-            return ((RawTryCatchBlock)block).getTryBlock()
-                .jump.destination.getNextAddr();
-        else
-            return addr+length;
+        return addr+length;
     }
 
     /**
@@ -171,7 +173,8 @@ public class FlowBlock {
                         prev.removeJump();
                         IfThenElseBlock ifBlock = 
                             new IfThenElseBlock(cb.getInstruction());
-                        ifBlock.replace(cb, prev);
+                        ifBlock.moveDefinitions(cb, prev);
+                        ifBlock.replace(cb);
                         ifBlock.setThenBlock(prev);
                         continue;
                     }
@@ -276,7 +279,8 @@ public class FlowBlock {
                         = new IfThenElseBlock(instr.negate());
                     StructuredBlock thenBlock = sequBlock.getSubBlocks()[1];
 
-                    newIfBlock.replace(sequBlock, thenBlock);
+                    newIfBlock.moveDefinitions(sequBlock, thenBlock);
+                    newIfBlock.replace(sequBlock);
                     newIfBlock.setThenBlock(thenBlock);
 
                     if (thenBlock.contains(lastModified)) {
@@ -328,7 +332,7 @@ public class FlowBlock {
                         && (elseBlock.getNextFlowBlock() == successor
                             || elseBlock.jumpMayBeChanged())) {
                         
-                        ifBlock.replace(sequBlock, elseBlock);
+                        ifBlock.replace(sequBlock);
                         ifBlock.setElseBlock(elseBlock);
 
                         if (elseBlock.contains(lastModified)) {
@@ -433,7 +437,7 @@ public class FlowBlock {
             lastModified.removeJump();
 
         if (doWhileFalse != null) {
-            doWhileFalse.replace(outerMost, outerMost);
+            doWhileFalse.replace(outerMost);
             doWhileFalse.setBody(outerMost);
             doWhileFalse.jump = null;
             lastModified = doWhileFalse;
@@ -516,7 +520,8 @@ public class FlowBlock {
                 }
             }
         }
-        in.unionExact(successor.in);
+        this.in.unionExact(successor.in);
+        this.gen.unionExact(successor.gen);
 
         if (Decompiler.debugInOut) {
             System.err.println("UpdateInOut: gens : "+gens);
@@ -555,7 +560,8 @@ public class FlowBlock {
         }
 
         StructuredBlock last = lastModified;
-        while (last.outer instanceof SequentialBlock)
+        while (last.outer instanceof SequentialBlock
+               || last.outer instanceof TryBlock)
             last = last.outer;
         if (last.outer != null)
             throw new AssertError("Inconsistency");
@@ -703,13 +709,14 @@ public class FlowBlock {
                     
                     LoopBlock forBlock = 
                         new LoopBlock(LoopBlock.FOR, LoopBlock.TRUE);
-                    forBlock.replace(bodyBlock, bodyBlock);
+                    forBlock.replace(bodyBlock);
                     forBlock.setBody(bodyBlock);
                     forBlock.incr = instr;
-                    lastModified.removeJump();
-                    
+                    forBlock.moveDefinitions(lastModified, null);
                     forBlock.replaceBreakContinue(lb);
-                    lb.bodyBlock.replace(lastModified.outer, null);
+
+                    lastModified.removeJump();
+                    lb.bodyBlock.replace(lastModified.outer);
                     createdForBlock = true;
                 }
                 
@@ -724,13 +731,14 @@ public class FlowBlock {
                 
                 LoopBlock forBlock = 
                     new LoopBlock(LoopBlock.FOR, LoopBlock.TRUE);
-                forBlock.replace(bodyBlock, bodyBlock);
+                forBlock.replace(bodyBlock);
                 forBlock.setBody(bodyBlock);
                 forBlock.incr = instr;
+                forBlock.moveDefinitions(lastModified, null);
                 
                 lastModified.removeJump();
                 lastModified.outer.getSubBlocks()[0]
-                    .replace(lastModified.outer, null);
+                    .replace(lastModified.outer);
                 createdForBlock = true;
             }
         }
@@ -746,7 +754,7 @@ public class FlowBlock {
             LoopBlock whileBlock = 
                 new LoopBlock(LoopBlock.WHILE, LoopBlock.TRUE);
             
-            whileBlock.replace(bodyBlock, bodyBlock);
+            whileBlock.replace(bodyBlock);
             whileBlock.setBody(bodyBlock);
             
             /* if there are further jumps to this, replace every jump with a
@@ -936,13 +944,6 @@ public class FlowBlock {
 
         boolean changed = false;
 
-        if (block instanceof RawTryCatchBlock) {
-            /* analyze the try and catch blocks separately
-             * and create a new CatchBlock afterwards.
-             */
-            changed |= analyzeCatchBlock(start, end);
-        }
-
         while (true) {
                 
             if (Decompiler.isFlowDebugging)
@@ -1004,18 +1005,6 @@ public class FlowBlock {
                             break;
 
                     } 
-                    if (succ.block instanceof RawTryCatchBlock) {
-                        /* analyze the try and catch blocks separately
-                         * and create a new CatchBlock afterwards.
-                         */
-                        int newStart = (succ.addr > addr)
-                            ? addr+length : start;
-                        int newEnd   = (succ.addr > addr)
-                            ? end         : addr;
-                        if (succ.analyzeCatchBlock(newStart, newEnd)) {
-                            break;
-                        }
-                    } 
                     if ((succ.addr == addr+length 
                          || succ.addr+succ.length == addr)
                         /* Only do T1 transformation if the blocks are
@@ -1063,517 +1052,6 @@ public class FlowBlock {
                  */
                 succ = getSuccessor(succ.addr+1, end);
             }
-        }
-    }
-
-    public void removeJSR(FlowBlock subRoutine) {
-        Stack jumps = (Stack)successors.remove(subRoutine);
-        if (jumps == null)
-            return;
-        Enumeration enum = jumps.elements();
-        while (enum.hasMoreElements()) {
-            Jump jump = (Jump)enum.nextElement();
-
-            StructuredBlock prev = jump.prev;
-            prev.removeJump();
-            if (prev instanceof EmptyBlock
-                && prev.outer instanceof JsrBlock) {
-                if (prev.outer.getNextFlowBlock() != null) {
-                    /* The jsr is directly before a jump, okay. */
-                    prev.outer.removeBlock();
-                    continue;
-                }
-                if (prev.outer.outer instanceof SequentialBlock
-                    && prev.outer.outer.getSubBlocks()[0] == prev.outer) {
-                    SequentialBlock seq = (SequentialBlock) prev.outer.outer;
-                    if (seq.subBlocks[1] instanceof JsrBlock) {
-                        /* The jsr is followed by a jsr, okay. */
-                        prev.outer.removeBlock();
-                        continue;
-                    }
-                    if (seq.subBlocks[1] instanceof ReturnBlock
-                        && !(seq.subBlocks[1] instanceof ThrowBlock)) {
-
-                        /* The jsr is followed by a return, okay. */
-                        ReturnBlock ret = (ReturnBlock) seq.subBlocks[1];
-                        prev.outer.removeBlock();
-
-                        if (ret.outer != null 
-                            && ret.outer instanceof SequentialBlock) {
-                            /* Try to eliminate the local that javac uses
-                             * in this case.
-                             */
-                            try {
-                                ComplexExpression expr = (ComplexExpression)
-                                    ((InstructionBlock)
-                                     ret.outer.getSubBlocks()[0]).instr;
-                                LocalStoreOperator store = 
-                                    (LocalStoreOperator) expr.getOperator();
-                                if (store.matches((LocalLoadOperator)
-                                                  ret.getInstruction())) {
-                                    ret.setInstruction(expr.
-                                                       getSubExpressions()[0]);
-                                    ret.replace(ret.outer, null);
-                                    ret.used.removeElement
-                                        (store.getLocalInfo());
-                                }
-                            } catch(ClassCastException ex) {
-                                /* didn't succeed */
-                            }
-                        }
-                        continue;
-                    }
-                } 
-            }
-            /* Now we have a dangling JSR at the wrong place.
-             * We don't do anything, so that JSR will show up in
-             * the output.
-             */
-        }
-    }
-    
-    public void checkAndRemoveJSR(FlowBlock subRoutine) {
-        Enumeration keys = successors.keys();
-        Enumeration stacks = successors.elements();
-        while (keys.hasMoreElements()) {
-            Stack jumps = (Stack) stacks.nextElement();
-            if (keys.nextElement() == subRoutine)
-                continue;
-
-            Enumeration enum = jumps.elements();
-            while (enum.hasMoreElements()) {
-                Jump jump = (Jump)enum.nextElement();
-
-                StructuredBlock prev = jump.prev;
-                if (prev instanceof ThrowBlock) {
-                    /* The jump is a throw.  We have a catch-all block
-                     * that will do the finally.
-                     */
-                    continue;
-                }
-                if (prev instanceof JsrBlock) {
-                    /* The jump is directly preceeded by a jsr.
-                     * Everything okay.
-                     */
-                    continue;
-                }
-                
-                if (prev instanceof EmptyBlock
-                    && prev.outer instanceof JsrBlock) {
-                    /* If jump is a jsr check the outer
-                     * block instead.
-                     */
-                    prev = prev.outer;
-                }
-                if ((prev instanceof ReturnBlock
-                     || prev instanceof JsrBlock)
-                    && prev.outer instanceof SequentialBlock) {
-                    SequentialBlock seq = (SequentialBlock) prev.outer;
-                    if (seq.subBlocks[1] == prev
-                        && (seq.subBlocks[0] instanceof JsrBlock)) {
-                        /* The jump is preceeded by another jsr, okay.
-                         */
-                        continue;
-                    }
-                    if (seq.subBlocks[0] == prev
-                        && seq.outer instanceof SequentialBlock
-                        && (seq.outer.getSubBlocks()[0] instanceof JsrBlock)) {
-                        /* Again the jump is preceeded by another jsr, okay.
-                         */
-                        continue;
-                    }
-                }
-                /* Now we have a jump with a wrong destination.
-                 * Complain!
-                 */
-                System.err.println("non well formed try-finally block");
-            }
-        }
-        removeJSR(subRoutine);
-    }
-
-    public boolean isMonitorExit(Expression instr, LocalInfo local) {
-        if (instr instanceof ComplexExpression) {
-            ComplexExpression expr = (ComplexExpression)instr;
-            if (expr.getOperator() instanceof MonitorExitOperator
-                && expr.getSubExpressions()[0] instanceof LocalLoadOperator
-                && (((LocalLoadOperator) expr.getSubExpressions()[0])
-                    .getLocalInfo().getSlot() == local.getSlot())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public void checkAndRemoveMonitorExit(LocalInfo local, int end) {
-        FlowBlock subRoutine = null;
-        Enumeration stacks = successors.elements();
-    dest_loop:
-        while (stacks.hasMoreElements()) {
-            Enumeration enum = ((Stack) stacks.nextElement()).elements();
-            while (enum.hasMoreElements()) {
-                Jump jump = (Jump)enum.nextElement();
-
-                StructuredBlock prev = jump.prev;
-                if (prev instanceof EmptyBlock
-                    && prev.outer instanceof JsrBlock
-                    && subRoutine == null) {
-                    
-                    subRoutine = jump.destination;
-                    subRoutine.analyzeSubRoutine(addr+length, end);
-                
-                    if (subRoutine.block instanceof InstructionBlock) {
-                        Expression instr = 
-                            ((InstructionBlock)subRoutine.block)
-                            .getInstruction();
-                        if (isMonitorExit(instr, local)) {
-
-                            updateInOut(subRoutine, true, 
-                                        (Stack)successors.get(subRoutine));
-                            length += subRoutine.length;
-                            continue dest_loop;
-                        }
-                    }
-                }
-
-                if (prev instanceof ThrowBlock) {
-                    /* The jump is a throw.  We have a catch all block
-                     * that will do the monitorexit.
-                     */
-                    continue;
-                }
-                if (prev instanceof JsrBlock) {
-                    /* The jump is directly preceeded by a jsr.
-                     */
-                    continue;
-                }
-                if (prev instanceof EmptyBlock
-                    && prev.outer instanceof JsrBlock) {
-                    /* If jump is a jsr check the outer
-                     * block instead.
-                     */
-                    prev = prev.outer;
-                }
-
-                if ((prev instanceof JsrBlock
-                     || prev instanceof ReturnBlock)
-                    && prev.outer instanceof SequentialBlock) {
-                    SequentialBlock seq = (SequentialBlock) prev.outer;
-                    StructuredBlock pred = null;
-                    if (seq.subBlocks[1] == prev)
-                        pred = seq.subBlocks[0];
-                    else if (seq.outer instanceof SequentialBlock)
-                        pred = seq.outer.getSubBlocks()[0];
-                    
-                    if (pred != null) {
-                        if (pred instanceof JsrBlock  || pred.jump != null)
-                            /* The jump is preceeded by another jump
-                             * or jsr and last in its block, okay.
-                             */
-                            continue;
-                        
-                        if (pred instanceof InstructionBlock) {
-                            Expression instr = 
-                                ((InstructionBlock)pred).getInstruction();
-                            if (instr instanceof ComplexExpression
-                                && ((ComplexExpression)instr)
-                                .getOperator() instanceof MonitorExitOperator
-                                && ((ComplexExpression)instr)
-                                .getSubExpressions()[0] 
-                                instanceof LocalLoadOperator
-                                && (((LocalLoadOperator) 
-                                     ((ComplexExpression)instr)
-                                     .getSubExpressions()[0]).getLocalInfo()
-                                    .getSlot() == local.getSlot())) 
-                                continue;
-                        }
-                    }
-                }
-
-                if (prev instanceof InstructionBlock
-                    && isMonitorExit(((InstructionBlock)prev).instr, local)) {
-                    /* This is probably the last expression in the
-                     * synchronized block, and has the right monitor exit
-                     * attached.  Remove this block.
-                     */
-                    prev.removeBlock();
-                    continue;
-                }
-
-                /* Now we have a jump that is not preceded by a monitorexit.
-                 * Complain!
-                 */
-                System.err.println("non well formed synchronized block");
-            }  
-        }
-
-        if (subRoutine != null)
-            removeJSR(subRoutine);
-    }
-    
-    
-    /**
-     * Create a Catch- resp. FinallyBlock (maybe even SynchronizedBlock).
-     * The root block MUST be a RawTryCatchBlock.
-     * @param start the start address
-     * @param end and the end address of FlowBlocks, we may use.
-     */
-    public boolean analyzeCatchBlock(int start, int end) {
-        if (Decompiler.debugAnalyze)
-            System.err.println("analyzeCatch("+start+", "+end+")");
-        RawTryCatchBlock rawBlock = (RawTryCatchBlock) block;
-        FlowBlock tryFlow = rawBlock.tryBlock.jump.destination;
-        FlowBlock catchFlow = rawBlock.catchBlock.jump.destination;
-
-        /* This are the only jumps in this block.  Make sure they
-         * are disjunct, the successing code relies on that!
-         */
-        if (tryFlow == catchFlow)
-            throw new AssertError("try == catch");
-
-        checkConsistent();
-        boolean changed = false;
-        while(tryFlow.analyze(addr, catchFlow.addr));
-        while(catchFlow.analyze(catchFlow.addr, end));
-        checkConsistent();
-
-        updateInOut(tryFlow, true, (Stack) successors.remove(tryFlow));
-        updateInOut(catchFlow, true, (Stack) successors.remove(catchFlow));
-        length += tryFlow.length;
-        length += catchFlow.length;
-
-        if (rawBlock.type != null) {
-            /* simple try catch block:
-             *
-             *   try-header
-             *      |- first instruction
-             *      |  ...
-             *      |  last instruction
-             *      |- optional jump (last+1)
-             *      |  ...
-             *      `- catch block
-             */
-            CatchBlock newBlock = new CatchBlock(rawBlock.type);
-            newBlock.replace(rawBlock, rawBlock);
-            newBlock.moveJump(rawBlock.jump);
-
-            newBlock.setTryBlock(tryFlow.block);
-            mergeSuccessors(tryFlow);
-            newBlock.setCatchBlock(catchFlow.block);
-            mergeSuccessors(catchFlow);
-
-            lastModified = newBlock;
-            changed = true;
-        } else if (catchFlow.block instanceof SequentialBlock
-                   && catchFlow.block.getSubBlocks()[0] 
-                   instanceof InstructionBlock) {
-
-            SequentialBlock catchBlock = (SequentialBlock) catchFlow.block;
-            int type = 0;
-
-            Expression instr = 
-                ((InstructionBlock)catchBlock.subBlocks[0]).getInstruction();
-
-            if (instr instanceof ComplexExpression
-                && ((ComplexExpression)instr).getOperator() 
-                instanceof MonitorExitOperator
-                && ((ComplexExpression)instr).getSubExpressions()[0] 
-                instanceof LocalLoadOperator
-                && catchBlock.subBlocks[1] instanceof ThrowBlock
-                && ((ThrowBlock)catchBlock.subBlocks[1]).instr 
-                instanceof NopOperator) {
-                
-                /* This is a synchronized block:
-                 *
-                 *  local_x = monitor object;  // later
-                 *  monitorenter local_x       // later
-                 *  try-header any
-                 *   |- syncronized block
-                 *   |  ...
-                 *   |   every jump to outside is preceded by jsr monexit ---,
-                 *   |  ...                                                  |
-                 *   |- monitorexit local_x                                  |
-                 *   |  jump after this block (without jsr monexit)          |
-                 *   `- catch any                                            |
-                 *      local_n = stack                                      |
-                 *      monitorexit local_x                                  |
-                 *      throw local_n                                        |
-                 *  monexit: <-----------------------------------------------'
-                 *    astore_n
-                 *    monitorexit local_x
-                 *    return_n
-                 */
-
-                /* Now remove the jump (after the throw) from the
-                 * catch block so that we can forget about it.  
-                 */
-                catchBlock.subBlocks[1]
-                    .jump.destination.predecessors.removeElement(catchFlow);
-
-                ComplexExpression monexit = (ComplexExpression)
-                    ((InstructionBlock) catchBlock.subBlocks[0]).instr;
-                LocalInfo local = 
-                    ((LocalLoadOperator)monexit.getSubExpressions()[0])
-                    .getLocalInfo();
-        
-                length -= tryFlow.length;
-                tryFlow.checkAndRemoveMonitorExit(local, end);
-                length += tryFlow.length;
-
-                SynchronizedBlock syncBlock = new SynchronizedBlock(local);
-                syncBlock.replace(rawBlock, rawBlock);
-                syncBlock.moveJump(rawBlock.jump);
-                syncBlock.setBodyBlock(tryFlow.block);
-                mergeSuccessors(tryFlow);
-                lastModified = syncBlock;
-                changed = true;
-
-            } else if (catchBlock.subBlocks[1] instanceof SequentialBlock
-                     && catchBlock.subBlocks[1].getSubBlocks()[0] 
-                     instanceof JsrBlock
-                     && instr instanceof LocalStoreOperator
-                     && catchBlock.subBlocks[1].getSubBlocks()[1]
-                     instanceof ThrowBlock
-                     && ((ThrowBlock)catchBlock.subBlocks[1]
-                         .getSubBlocks()[1]).instr
-                     instanceof LocalLoadOperator
-                     && ((LocalStoreOperator) instr)
-                     .matches((LocalLoadOperator) 
-                              ((ThrowBlock)catchBlock.subBlocks[1]
-                               .getSubBlocks()[1]).instr)) {
-                /* Wow that was complicated :-)
-                 * But now we know that the catch block looks
-                 * exactly like an try finally block:
-                 *
-                 *   try-header any
-                 *    | 
-                 *    |- first instruction
-                 *    |  ...
-                 *    |  every jump to outside is preceded by jsr finally
-                 *    |  ...
-                 *    |  jsr finally -----------------,
-                 *    |- jump after finally           |
-                 *    `- catch any                    |
-                 *       local_n = stack              v
-                 *       jsr finally ---------------->|
-                 *       throw local_n;               |
-                 *   finally: <-----------------------'
-                 *      astore_n
-                 *      ...
-                 *      return_n
-                 */
-                FlowBlock subRoutine = 
-                    ((JsrBlock)catchBlock.subBlocks[1].getSubBlocks()[0])
-                    .innerBlock.jump.destination;
-
-                /* Now remove the two jumps of the catch block
-                 * so that we can forget about them.
-                 * This are the jsr and the throw.
-                 */
-                catchBlock.subBlocks[1].getSubBlocks()[0].getSubBlocks()[0]
-                    .jump.destination.predecessors.removeElement(catchFlow);
-                catchBlock.subBlocks[1].getSubBlocks()[1]
-                    .jump.destination.predecessors.removeElement(catchFlow);
-                
-                subRoutine.analyzeSubRoutine(addr+length, end);
-                Stack jumps = (Stack)successors.get(subRoutine);
-                if (jumps != null)
-                    updateInOut(subRoutine, true, jumps);
-                            
-                if (subRoutine.successors.size() != 0)
-                    throw new AssertError("Jump inside subroutine");
-                length += subRoutine.length;
-                tryFlow.checkAndRemoveJSR(subRoutine);
-                
-                CatchFinallyBlock newBlock = new CatchFinallyBlock();
-                newBlock.replace(rawBlock, rawBlock);
-                newBlock.setTryBlock(tryFlow.block);
-                mergeSuccessors(tryFlow);
-                newBlock.setFinallyBlock(subRoutine.block);
-                mergeSuccessors(subRoutine);
-                newBlock.moveJump(rawBlock.jump);
-                lastModified = newBlock;
-                changed = true;
-            }
-        } else if (catchFlow.block instanceof InstructionBlock 
-                   && ((InstructionBlock) catchFlow.block).getInstruction()
-                   instanceof PopOperator
-                   && ((PopOperator) ((InstructionBlock) catchFlow.block)
-                       .getInstruction()).getCount() == 1) {
-
-            /* This is a special try/finally-block, where
-             * the finally block ends with a break, return or
-             * similar.
-             */
-            FlowBlock succ = catchFlow.block.jump.destination;
-            Stack jumps = (Stack) tryFlow.successors.remove(succ);
-            if (tryFlow.successors.size() > 0) {
-                /* Only do the rest if tryFlow has no other exit point,
-                 * undo the previous remove.
-                 */
-                tryFlow.successors.put(succ,jumps);
-
-            } else {
-
-                succ.predecessors.removeElement(tryFlow);
-
-                /* Handle the jumps in the tryFlow.  Note that
-                 * we call updateInOut on ourself, don't change it.
-                 */
-                updateInOut(succ, true, jumps);
-                tryFlow.optimizeJumps(jumps, succ);
-                tryFlow.resolveRemaining(jumps);
-                
-                CatchFinallyBlock newBlock = new CatchFinallyBlock();
-                newBlock.replace(rawBlock, rawBlock);
-                newBlock.setTryBlock(tryFlow.block);
-                /* try block has no successors */
-                
-                if (succ.predecessors.size() == 1) {
-                    while (succ.analyze(addr+length, end));
-                    length += succ.length;
-                    successors.remove(succ);
-                    newBlock.setFinallyBlock(succ.block);
-                    mergeSuccessors(succ);
-                } else {
-                    /* The finally block is empty, put the jump back 
-                     * into the finally block.
-                     */
-                    newBlock.setFinallyBlock
-                        (new EmptyBlock(catchFlow.block.jump));
-                    mergeSuccessors(catchFlow);
-                }
-                lastModified = newBlock;
-                changed = true;
-            }
-        }
-        checkConsistent();
-        if (Decompiler.debugAnalyze)
-            System.err.println("analyzeCatch("+start+", "+end+") "
-                               +(changed?"succeeded":"failed")
-                               +"; "+addr+","+(addr+length));
-        return changed;
-    }
-
-    public void analyzeSubRoutine(int start, int end) {
-        analyze(start, end);
-        /* throws ClassCastException if something isn't as exspected. */
-        SequentialBlock sequBlock = (SequentialBlock) block;
-        LocalStoreOperator store = (LocalStoreOperator)
-            ((InstructionBlock)sequBlock.subBlocks[0]).instr.getOperator();
-
-        while (sequBlock.subBlocks[1] instanceof SequentialBlock)
-            sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
-
-        if (! ((RetBlock)sequBlock.subBlocks[1]).local
-            .equals(store.getLocalInfo()))
-            throw new AssertError("Ret doesn't match");
-
-        if (sequBlock.outer == null) {
-            new EmptyBlock().replace(sequBlock, sequBlock);
-        } else {
-            sequBlock.subBlocks[0].replace(sequBlock, sequBlock);
-            block.getSubBlocks()[1].replace(block, block);
         }
     }
     
@@ -1646,7 +1124,7 @@ public class FlowBlock {
                     
                     if (lastFlow != null) {
                         lastFlow.block.replace
-                            (switchBlock.caseBlocks[last].subBlock, null);
+                            (switchBlock.caseBlocks[last].subBlock);
                         mergeSuccessors(lastFlow);
                     }
 
@@ -1667,7 +1145,7 @@ public class FlowBlock {
         }
         if (lastFlow != null) {
             lastFlow.block.replace
-                (switchBlock.caseBlocks[last].subBlock, null);
+                (switchBlock.caseBlocks[last].subBlock);
             mergeSuccessors(lastFlow);
         }
         checkConsistent();
@@ -1679,10 +1157,6 @@ public class FlowBlock {
      * the successors map.
      */
     public void resolveJumps(FlowBlock[] instr) {
-        if (block instanceof RawTryCatchBlock) {
-            ((RawTryCatchBlock)block).getTryBlock()
-                .jump.destination.resolveJumps(instr);
-        }
         Vector allJumps = new Vector();
         block.fillSuccessors(allJumps);
         Enumeration enum = allJumps.elements();
@@ -1739,8 +1213,7 @@ public class FlowBlock {
     public void dumpSource(TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        if (predecessors.size() != 1 || 
-            predecessors.elementAt(0) != null) {
+        if (predecessors.size() != 0) {
             writer.untab();
             writer.println(label+":");
             writer.tab();

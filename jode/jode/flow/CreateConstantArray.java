@@ -119,8 +119,11 @@ public class CreateConstantArray implements Transformation {
 	    (new ComplexExpression
              (new ConstantArrayOperator(type, consts.length), 
               consts));
-	lastBlock.replace(sequBlock.subBlocks[0], lastBlock);
-	flow.lastModified.replace(sequBlock.subBlocks[1], flow.lastModified);
+	lastBlock.moveDefinitions(sequBlock.subBlocks[0], lastBlock);
+	lastBlock.replace(sequBlock.subBlocks[0]);
+	flow.lastModified.moveDefinitions(sequBlock.subBlocks[1], 
+                                          flow.lastModified);
+	flow.lastModified.replace(sequBlock.subBlocks[1]);
         return true;
     }
 }

@@ -92,7 +92,8 @@ public class CombineIfGotoExpressions implements Transformation{
                 new ComplexExpression
                 (new BinaryOperator(Type.tBoolean, operator), e);
             cb.setInstruction(cond);
-            cb.replace(sequBlock, cb);
+            cb.moveDefinitions(sequBlock, cb);
+            cb.replace(sequBlock);
             return true;
         }
         return false;    

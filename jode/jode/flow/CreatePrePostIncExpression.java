@@ -80,7 +80,8 @@ public class CreatePrePostIncExpression implements Transformation {
         }
 	Operator ppop = new LocalPrePostFixOperator(type, op, iinc, isPost);
         lastBlock.setInstruction(ppop);
-        lastBlock.replace(lastBlock.outer, lastBlock);
+        lastBlock.moveDefinitions(lastBlock.outer, lastBlock);
+        lastBlock.replace(lastBlock.outer);
 	return true;
     }
 
@@ -155,7 +156,8 @@ public class CreatePrePostIncExpression implements Transformation {
         }
 	Operator postop = new PrePostFixOperator(type, op, store, true);
         lastBlock.setInstruction(postop);
-        lastBlock.replace(sequBlock, lastBlock);
+        lastBlock.moveDefinitions(sequBlock, lastBlock);
+        lastBlock.replace(sequBlock);
 	return true;
     }
 }
