@@ -39,7 +39,7 @@ public class ClassInterfacesType extends Type {
     ClassHierarchy ifaces[];
 
     public ClassHierarchy getClazz() {
-        return clazz;
+        return clazz != null ? clazz : ClassHierarchy.javaLangObject;
     }
 
     public ClassInterfacesType(String clazzName) {
