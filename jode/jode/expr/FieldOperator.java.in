@@ -80,15 +80,23 @@ public abstract class FieldOperator extends Operator {
 	return null;
     }
 
+    /**
+     * Returns the field analyzer for the field, if the field is
+     * declared in the same class or some outer class as the method
+     * containing this instruction.  Otherwise it returns null.
+     * @return see above.  
+     */
     public FieldAnalyzer getField() {
 	ClassInfo clazz = getClassInfo();
 	if (clazz != null) {
 	    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
 	    while (true) {
 		if (clazz == ana.getClazz()) {
-		    return ana.getField(ana.getFieldIndex
-					(ref.getName(), 
-					 Type.tType(ref.getType())));
+		    int field = ana.getFieldIndex
+			(ref.getName(), Type.tType(ref.getType()));
+		    if (field >= 0)
+			return ana.getField(field);
+		    return null;
 		}
 		if (ana.getParent() == null)
 		    return null;
