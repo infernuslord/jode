@@ -47,11 +47,12 @@ public class EmptyBlock extends StructuredBlock {
 	    IfThenElseBlock ifBlock = 
 		new IfThenElseBlock(((ConditionalBlock)outer).
 				    getInstruction());
-	    ifBlock.replace(outer, this);
+	    ifBlock.moveDefinitions(outer, this);
+	    ifBlock.replace(outer);
 	    ifBlock.moveJump(outer.jump);
 	    ifBlock.setThenBlock(this);
 	}
-	block.replace(this, null);
+	block.replace(this);
 	return block;
     }
 

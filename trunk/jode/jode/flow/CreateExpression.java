@@ -110,7 +110,8 @@ public class CreateExpression implements Transformation {
                 System.err.print('x');
             
             ic.setInstruction(new ComplexExpression(op, exprs));
-            ic.replace(sequBlock, ic);
+            ic.moveDefinitions(sequBlock, ic);
+            ic.replace(sequBlock);
             return true;
         }
         return false;

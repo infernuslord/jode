@@ -41,8 +41,9 @@ public class RetBlock extends StructuredBlock {
      * Fill all in variables into the given VariableSet.
      * @param in The VariableSet, the in variables should be stored to.
      */
-    public void fillInSet(VariableSet in) {
+    public void fillInGenSet(VariableSet in, VariableSet gen) {
 	in.addElement(local);
+	gen.addElement(local);
     }
 
     public void dumpInstruction(jode.TabbedPrintWriter writer) 

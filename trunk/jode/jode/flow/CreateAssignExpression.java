@@ -83,7 +83,8 @@ public class CreateAssignExpression implements Transformation{
         }
         ((InstructionBlock)opBlock.subBlocks[0])
             .setInstruction(rightHandSide);
-        opBlock.replace(sequBlock, opBlock);
+        opBlock.moveDefinitions(sequBlock, opBlock);
+        opBlock.replace(sequBlock);
 
         store.setOperatorIndex(store.OPASSIGN_OP+binop.getOperatorIndex());
         store.setLValueType(binop.getType()
@@ -94,7 +95,8 @@ public class CreateAssignExpression implements Transformation{
                 (new AssignOperator(store.getOperatorIndex(), store));
         else
             lastBlock.setInstruction(store);
-        lastBlock.replace(opBlock.subBlocks[1], lastBlock);
+        lastBlock.moveDefinitions(opBlock.subBlocks[1], lastBlock);
+        lastBlock.replace(opBlock.subBlocks[1]);
         return true;
     }
 
@@ -120,7 +122,8 @@ public class CreateAssignExpression implements Transformation{
         }
         lastBlock.setInstruction
             (new AssignOperator(store.getOperatorIndex(), store));
-        lastBlock.replace(sequBlock, lastBlock);
+        lastBlock.moveDefinitions(sequBlock, lastBlock);
+        lastBlock.replace(sequBlock);
         return true;
                           
     }

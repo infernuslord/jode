@@ -59,7 +59,8 @@ public class CompleteSynchronized implements Transformation {
             System.err.print('s');
 
         synBlock.isEntered = true;
-        synBlock.replace(synBlock.outer, synBlock);
+        synBlock.moveDefinitions(synBlock.outer,synBlock);
+        synBlock.replace(synBlock.outer);
 
         /* Is there another expression? */
         if (synBlock.outer == null)
@@ -84,7 +85,8 @@ public class CompleteSynchronized implements Transformation {
         }
 
         synBlock.object = object;
-        synBlock.replace(synBlock.outer, synBlock);
+        synBlock.moveDefinitions(synBlock.outer,synBlock);
+        synBlock.replace(synBlock.outer);
         return true;
     }
 }

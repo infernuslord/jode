@@ -19,9 +19,7 @@
 
 package jode;
 import jode.flow.FlowBlock;
-import jode.flow.Jump;
-import jode.flow.StructuredBlock;
-import jode.flow.RawTryCatchBlock;
+import jode.flow.TransformExceptionHandlers;
 
 import java.util.Stack;
 import java.util.Vector;
@@ -37,7 +35,9 @@ import gnu.bytecode.CpoolClass;
 
 public class CodeAnalyzer implements Analyzer {
     
+    TransformExceptionHandlers handler;
     FlowBlock methodHeader;
+    CodeAttr code;
     MethodAnalyzer method;
     public JodeEnvironment env;
 
@@ -51,6 +51,19 @@ public class CodeAnalyzer implements Analyzer {
      */
     public MethodAnalyzer getMethod() {return method;}
     
+    public CodeAnalyzer(MethodAnalyzer ma, CodeAttr bc, JodeEnvironment e)
+         throws ClassFormatError
+    {
+        code = bc;
+        method = ma;
+        env  = e;
+
+	int paramCount = method.getParamCount();
+	param = new jode.flow.VariableSet();
+	for (int i=0; i<paramCount; i++)
+	    param.addElement(getLocalInfo(0, i));
+    }
+
     void readCode(CodeAttr bincode) 
          throws ClassFormatError
     {
@@ -76,10 +89,15 @@ public class CodeAnalyzer implements Analyzer {
             throw new ClassFormatError(ex.toString());
         }
 
-        short[] handlers = gnu.bytecode.Spy.getExceptionHandlers(bincode);
-        for (int i=0; i<handlers.length; i += 4) {
-            FlowBlock startBlock = instr[handlers[i + 0]];
+        for (int addr=0; addr<instr.length; ) {
+            instr[addr].resolveJumps(instr);
+            addr = instr[addr].getNextAddr();
+        }
 
+        handler = new TransformExceptionHandlers(instr);
+        short[] handlers = gnu.bytecode.Spy.getExceptionHandlers(bincode);
+
+        for (int i=0; i<handlers.length; i += 4) {
             Type type = null;
             if (handlers[i + 3 ] != 0) {
                 CpoolClass cpcls = (CpoolClass)
@@ -87,24 +105,23 @@ public class CodeAnalyzer implements Analyzer {
                 type = Type.tClass(cpcls.getName().getString());
             }
 
-            instr[handlers[i + 0]] =             
-                new RawTryCatchBlock(type,
-                                     new Jump(instr[handlers[i + 1]]),
-                                     new Jump(instr[handlers[i + 2]])
-                                     ).chainTo(instr[handlers[i + 0]]);
-        }
-
-        for (int addr=0; addr<instr.length; ) {
-            instr[addr].resolveJumps(instr);
-            addr = instr[addr].getNextAddr();
+            handler.addHandler(handlers[i + 0], handlers[i + 1],
+                               handlers[i + 2], type);
         }
 	methodHeader = instr[0];
-        methodHeader.makeStartBlock();
+    }
 
-	int paramCount = method.getParamCount();
-	param = new jode.flow.VariableSet();
-	for (int i=0; i<paramCount; i++)
-	    param.addElement(getLocalInfo(0, i));
+    public void analyze()
+    {
+        readCode(code);
+        handler.analyze();
+        methodHeader.analyze();
+        Enumeration enum = allLocals.elements();
+        while (enum.hasMoreElements()) {
+            LocalInfo li = (LocalInfo)enum.nextElement();
+            if (!li.isShadow())
+                li.getType().useType();
+        }
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -112,14 +129,6 @@ public class CodeAnalyzer implements Analyzer {
     {
 	methodHeader.makeDeclaration(param);
         methodHeader.dumpSource(writer);
-    }
-
-    public CodeAnalyzer(MethodAnalyzer ma, CodeAttr bc, JodeEnvironment e)
-         throws ClassFormatError
-    {
-        method = ma;
-        env  = e;
-        readCode(bc);
     }
 
     public LocalInfo getLocalInfo(int addr, int slot) {
@@ -133,17 +142,6 @@ public class CodeAnalyzer implements Analyzer {
 
     public LocalInfo getParamInfo(int slot) {
 	return (LocalInfo) param.elementAt(slot);
-    }
-
-    public void analyze()
-    {
-        methodHeader.analyze();
-        Enumeration enum = allLocals.elements();
-        while (enum.hasMoreElements()) {
-            LocalInfo li = (LocalInfo)enum.nextElement();
-            if (!li.isShadow())
-                li.getType().useType();
-        }
     }
 
     public void useClass(Class clazz) 

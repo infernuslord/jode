@@ -134,7 +134,8 @@ public class CreateIfThenElseOperator implements Transformation {
                 flow.removeSuccessor(condBlock.trueBlock.jump);
                 condBlock.trueBlock.removeJump();
                 pushBlock.setInstruction(cond);
-                pushBlock.replace(sequBlock, pushBlock);
+                pushBlock.moveDefinitions(sequBlock, pushBlock);
+                pushBlock.replace(sequBlock);
 
                 e[i+1] = cond;
             }
@@ -152,7 +153,8 @@ public class CreateIfThenElseOperator implements Transformation {
 
         ((InstructionBlock)ifBlock.thenBlock).
             setInstruction(new ComplexExpression(iteo, e));
-        ifBlock.thenBlock.replace(ifBlock, ifBlock.thenBlock);
+        ifBlock.thenBlock.moveDefinitions(ifBlock, ifBlock.thenBlock);
+        ifBlock.thenBlock.replace(ifBlock);
         return true;
     }
 
@@ -216,7 +218,8 @@ public class CreateIfThenElseOperator implements Transformation {
 
         ((InstructionBlock)flow.lastModified).
             setInstruction(new ComplexExpression(iteo, e));
-        flow.lastModified.replace(flow.lastModified.outer, flow.lastModified);
+        flow.lastModified.moveDefinitions(flow.lastModified.outer, null);
+        flow.lastModified.replace(flow.lastModified.outer);
         return true;
     }
 
