@@ -46,8 +46,11 @@ public class PackageIdentifier extends Identifier {
     }
 
     public Identifier getIdentifier(String name) {
-	if (loadOnDemand)
-	    return loadClass(name);
+	if (loadOnDemand) {
+	    Identifier ident = loadClass(name);
+	    if (bundle.preserveRule != -1)
+		ident.applyPreserveRule(bundle.preserveRule);
+	}
 
 	int index = name.indexOf('.');
 	if (index == -1)
@@ -114,6 +117,12 @@ public class PackageIdentifier extends Identifier {
 	    }
 	    return pack.loadClasses(packageOrClass.substring(index+1));
 	}
+    }
+
+    public void applyPreserveRule(int preserveRule) {
+	Enumeration enum = loadedClasses.elements();
+	while(enum.hasMoreElements())
+	    ((Identifier) enum.nextElement()).applyPreserveRule(preserveRule);
     }
 
     public void reachableIdentifier(String fqn, boolean isVirtual) {

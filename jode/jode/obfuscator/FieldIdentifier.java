@@ -17,6 +17,7 @@
  * $Id$
  */
 package jode.obfuscator;
+import java.lang.reflect.Modifier;
 import jode.bytecode.*;
 import java.io.*;
 
@@ -28,6 +29,13 @@ public class FieldIdentifier extends Identifier{
 	super(info.getName());
 	this.info = info;
 	this.clazz = clazz;
+    }
+
+    public void applyPreserveRule(int preserveRule) {
+	if ((preserveRule & (info.getModifiers() ^ Modifier.PRIVATE)) != 0) {
+	    setReachable();
+	    setPreserved();
+	}
     }
 
     public void setSingleReachable() {
