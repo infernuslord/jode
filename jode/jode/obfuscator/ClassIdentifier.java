@@ -31,7 +31,6 @@ public class ClassIdentifier extends Identifier {
     ClassInfo info;
     boolean willStrip;
 
-    int preserveRule;
     int fieldCount;
     /* The first fieldCount are of type FieldIdentifier, the remaining
      * are MethodIdentifier
@@ -47,12 +46,6 @@ public class ClassIdentifier extends Identifier {
 	this.pack = pack;
 	this.name = name;
 	this.info = info;
-
-	preserveRule = bundle.preserveRule;
-	if ((preserveRule & (info.getModifiers() ^ Modifier.PRIVATE)) != 0) {
-	    setReachable();
-	    setPreserved();
-	}
     }
 
     public void addSubClass(ClassIdentifier ci) {
@@ -71,6 +64,15 @@ public class ClassIdentifier extends Identifier {
 		    || identifiers[i].getType().equals(typeSig)))
 		identifiers[i].setPreserved();
 	}
+    }
+
+    public void applyPreserveRule(int preserveRule) {
+	if ((preserveRule & (info.getModifiers() ^ Modifier.PRIVATE)) != 0) {
+	    setReachable();
+	    setPreserved();
+	}
+	for (int i=0; i< identifiers.length; i++)
+	    identifiers[i].applyPreserveRule(preserveRule);
     }
 
     public void reachableIdentifier(String name, String typeSig,
@@ -208,20 +210,10 @@ public class ClassIdentifier extends Identifier {
 	identifiers = new Identifier[finfos.length + minfos.length];
 	for (int i=0; i< fieldCount; i++) {
 	    identifiers[i] = new FieldIdentifier(this, finfos[i]);
-	    if ((preserveRule & (finfos[i].getModifiers() ^ Modifier.PRIVATE))
-		!= 0) {
-		identifiers[i].setReachable();
-		identifiers[i].setPreserved();
-	    }
 	}
 	for (int i=0; i< minfos.length; i++) {
 	    identifiers[fieldCount + i]
 		= new MethodIdentifier(this, minfos[i]);
-	    if ((preserveRule & (minfos[i].getModifiers() ^ Modifier.PRIVATE))
-		!= 0) {
-		identifiers[i].setReachable();
-		identifiers[i].setPreserved();
-	    }
 	    if (identifiers[i].getName().equals("<init>"))
 		identifiers[i].setPreserved();
 	}
