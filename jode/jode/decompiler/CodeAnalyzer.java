@@ -18,7 +18,8 @@
  */
 
 package jode.decompiler;
-import jode.*;
+import jode.Decompiler;
+import jode.type.Type;
 import jode.bytecode.*;
 import jode.flow.FlowBlock;
 import jode.flow.TransformExceptionHandlers;
@@ -38,23 +39,17 @@ public class CodeAnalyzer implements Analyzer {
     FlowBlock methodHeader;
     BytecodeInfo code;
     MethodAnalyzer method;
-    public JodeEnvironment env;
+    ImportHandler imports;
 
     Vector allLocals = new Vector();
     LocalInfo[] param;
     LocalVariableTable lvt;
     
-    /**
-     * Get the method.
-     * @return The method to which this code belongs.
-     */
-    public MethodAnalyzer getMethod() {return method;}
-    
     public CodeAnalyzer(MethodAnalyzer ma, MethodInfo minfo,
-			AttributeInfo codeattr, JodeEnvironment e)
+			AttributeInfo codeattr, ImportHandler i)
     {
         method = ma;
-        env  = e;
+	imports = i;
 	DataInputStream stream = new DataInputStream
 	    (new ByteArrayInputStream(codeattr.getContents()));
 
@@ -229,7 +224,7 @@ public class CodeAnalyzer implements Analyzer {
         while (enum.hasMoreElements()) {
             LocalInfo li = (LocalInfo)enum.nextElement();
             if (!li.isShadow())
-                li.getType().useType();
+                imports.useType(li.getType());
         }
 	for (int i=0; i < param.length; i++) {
 	    for (int j=0; j < i; j++) {
@@ -278,11 +273,6 @@ public class CodeAnalyzer implements Analyzer {
 	return param[nr];
     }
 
-    public void useClass(String clazz) 
-    {
-        env.useClass(clazz);
-    }
-
     public String getTypeString(Type type) {
         return method.classAnalyzer.getTypeString(type);
     }
@@ -293,5 +283,15 @@ public class CodeAnalyzer implements Analyzer {
 
     public ClassInfo getClazz() {
         return method.classAnalyzer.clazz;
+    }
+
+    /**
+     * Get the method.
+     * @return The method to which this code belongs.
+     */
+    public MethodAnalyzer getMethod() {return method;}
+
+    public void useType(Type type) {
+	imports.useType(type);
     }
 }

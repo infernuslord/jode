@@ -18,8 +18,8 @@
  */
 
 package jode.decompiler;
-import jode.Type;
-import jode.MethodType;
+import jode.type.Type;
+import jode.type.MethodType;
 import jode.expr.*;
 import jode.flow.*;
 import jode.bytecode.*;
@@ -118,7 +118,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
      * @exception ClassFormatError  if an invalid opcode is detected.
      */
     public static StructuredBlock readOpcode(Instruction instr, 
-					     CodeAnalyzer ca) 
+					     CodeAnalyzer ca)
         throws ClassFormatError
     {
         int opcode = instr.opcode;
@@ -197,7 +197,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             int operation = Operator.ADD_OP;
             if (value < 0) {
                 value = -value;
-                operation = Operator.NEG_OP;
+                operation = Operator.SUB_OP;
             }
             LocalInfo li = ca.getLocalInfo(instr.addr, instr.localSlot);
             li.setType(Type.tUInt);
@@ -228,7 +228,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return createNormal
                 (ca, instr, new CompareToIntOperator
                  (types[3][(opcode-(opc_lcmp-3))/2], 
-                  (opcode-(opc_lcmp-3))%2));
+                  (opcode == opc_fcmpg || opcode == opc_dcmpg)));
         case opc_ifeq: case opc_ifne: 
             return createIfGoto
 		(ca, instr,
@@ -320,7 +320,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         }
         case opc_new: {
             Type type = Type.tType((String) instr.objData);
-            type.useType();
+            ca.useType(type);
             return createNormal(ca, instr, new NewOperator(type));
         }
         case opc_arraylength:
@@ -332,13 +332,13 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                  new ThrowBlock(new NopOperator(Type.tUObject)));
         case opc_checkcast: {
             Type type = Type.tType((String) instr.objData);
-            type.useType();
+            ca.useType(type);
             return createNormal
                 (ca, instr, new CheckCastOperator(type));
         }
         case opc_instanceof: {
             Type type = Type.tType((String) instr.objData);
-            type.useType();
+            ca.useType(type);
             return createNormal
                 (ca, instr, new InstanceOfOperator(type));
         }
@@ -350,7 +350,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                                 new MonitorExitOperator());
         case opc_multianewarray: {
             Type type = Type.tType((String) instr.objData);
-	    type.useType();
+	    ca.useType(type);
             int dimension = instr.intData;
             return createNormal(ca, instr, 
 				new NewArrayOperator(type, dimension));
