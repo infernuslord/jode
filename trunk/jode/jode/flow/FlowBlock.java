@@ -1416,7 +1416,8 @@ public class FlowBlock {
      */
     public final boolean mapStackToLocal() {
 	try {
-	    return mapStackToLocal(VariableStack.EMPTY);
+	    mapStackToLocal(VariableStack.EMPTY);
+	    return true;
 	} catch (RuntimeException ex) {
 	    Decompiler.err.println("Can't resolve all PUSHes, "
 				   +"this is probably illegal bytecode:");
@@ -1433,18 +1434,13 @@ public class FlowBlock {
      * @return false if the bytecode isn't correct and stack mapping
      * didn't worked.
      */
-    public boolean mapStackToLocal(VariableStack initialStack) {
+    public void mapStackToLocal(VariableStack initialStack) {
 	if (stackMap != null) {
 	    stackMap.merge(initialStack);
 	} else
 	    stackMap = initialStack;
 
-	if (block.mapStackToLocal(initialStack) == null) {
-	    // bytecode is not correct!  Give up!
-	    stackMap = null;
-	    return false;
-	}
-
+	block.mapStackToLocal(initialStack);
 	Enumeration enum = successors.elements();
 	while (enum.hasMoreElements()) {
 	    Jump jumps = (Jump) enum.nextElement();
@@ -1455,10 +1451,8 @@ public class FlowBlock {
 		stack = VariableStack.merge(stack, jumps.stackMap);
 	    }
 	    if (succ.stackMap == null)
-		if (!succ.mapStackToLocal(stack))
-		    return false;
+		succ.mapStackToLocal(stack);
 	}
-	return true;
     }
 
     public void removePush() {
