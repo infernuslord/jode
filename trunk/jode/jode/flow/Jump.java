@@ -36,6 +36,12 @@ public class Jump {
     int destAddr;
 
     /**
+     * The jumps in a flow block, that have the same destination, are
+     * in a link list.  This field points to the next jump in this link.
+     */
+    Jump next;
+
+    /**
      * The kill locals.  This are the slots, which must be overwritten
      * in this block on every path to this jump.  That means, that all
      * paths form the start of the current flow block to this jump
