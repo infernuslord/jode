@@ -26,6 +26,12 @@ import jode.expr.StoreInstruction;
 import jode.expr.LocalStoreOperator;
 import jode.util.SimpleSet;
 
+///#ifdef JDK12
+///import java.util.Set;
+///#else
+import jode.util.Set;
+///#endif
+
 /**
  * This is the structured block for atomic instructions.
  */
@@ -101,7 +107,7 @@ public class InstructionBlock extends InstructionContainer {
      * variable.  In that case mark this as declaration and return the 
      * variable.
      */
-    public void checkDeclaration(SimpleSet declareSet) {
+    public void checkDeclaration(Set declareSet) {
         if (instr instanceof StoreInstruction
 	    && (((StoreInstruction)instr).getLValue() 
 		instanceof LocalStoreOperator)) {
@@ -126,7 +132,7 @@ public class InstructionBlock extends InstructionContainer {
      * is marked as used, but not done.
      * @param done The set of the already declare variables.
      */
-    public void makeDeclaration(SimpleSet done) {
+    public void makeDeclaration(Set done) {
 	super.makeDeclaration(done);
 	checkDeclaration(declare);
     }

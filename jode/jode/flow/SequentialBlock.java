@@ -24,6 +24,12 @@ import jode.expr.LocalStoreOperator;
 import jode.expr.StoreInstruction;
 import jode.util.SimpleSet;
 
+///#ifdef JDK12
+///import java.util.Set;
+///#else
+import jode.util.Set;
+///#endif
+
 /**
  * A sequential block combines exactly two structured blocks to a new
  * one. The first sub block mustn't be another sequential block,
@@ -168,16 +174,17 @@ public class SequentialBlock extends StructuredBlock {
      * @return all locals that are used in this block or in some sub
      * block (this is <i>not</i> the used set).
      */
-    public SimpleSet propagateUsage() {
-	used = getDeclarables();
-        SimpleSet allUse = new SimpleSet();
-	SimpleSet childUse0 = subBlocks[0].propagateUsage();
-	SimpleSet childUse1 = subBlocks[1].propagateUsage();
+    public Set propagateUsage() {
+	used = new SimpleSet();
+        Set allUse = new SimpleSet();
+	Set childUse0 = subBlocks[0].propagateUsage();
+	Set childUse1 = subBlocks[1].propagateUsage();
 	/* All variables used somewhere inside both sub blocks, are
 	 * used in this block, too.  
 	 * Also the variables used in first block are used in this
 	 * block, except when it can be declared locally.  (Note that
-	 * subBlocks[0].used != childUse0) */
+	 * subBlocks[0].used != childUse0) 
+	 */
 	used.addAll(subBlocks[0].used);
 	if (subBlocks[0] instanceof LoopBlock)
 	    ((LoopBlock) subBlocks[0]).removeLocallyDeclareable(used);
@@ -194,7 +201,7 @@ public class SequentialBlock extends StructuredBlock {
      * is marked as used, but not done.
      * @param done The set of the already declare variables.
      */
-    public void makeDeclaration(SimpleSet done) {
+    public void makeDeclaration(Set done) {
 	super.makeDeclaration(done);
 	if (subBlocks[0] instanceof InstructionBlock)
 	    /* An instruction block may declare a variable for us.

@@ -40,23 +40,6 @@ public class Jump {
     Jump next;
 
     /**
-     * The kill locals.  This are the slots, which must be overwritten
-     * in this block on every path to this jump.  That means, that all
-     * paths form the start of the current flow block to this jump
-     * contain (unconditional) assignments to this slot.
-     */
-    VariableSet kill;
-
-    /**
-     * The gen locals.  This are the locals, which can be overwritten
-     * in this block on a path to this jump.  That means, that there
-     * exists a path form the start of the current flow block to this
-     * jump that contains an (unconditional) assignments to this
-     * local, and that is not overwritten afterwards.  
-     */
-    VariableSet gen;
-
-    /**
      * The stack map.  This tells how many objects are on stack at
      * begin of the flow block, and to what locals they are maped.
      * @see FlowBlock.mapStackToLocal
@@ -65,16 +48,12 @@ public class Jump {
 
     public Jump (FlowBlock dest) {
         this.destination = dest;
-	kill = new VariableSet();
-	gen = new VariableSet();
     }
 
     public Jump (Jump jump) {
 	destination = jump.destination;
 	next = jump.next;
 	jump.next = this;
-	gen = (VariableSet) jump.gen.clone();
-	kill = (VariableSet) jump.kill.clone();
     }
 
     /**
@@ -86,11 +65,6 @@ public class Jump {
     public void dumpSource(jode.decompiler.TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        if ((GlobalOptions.debuggingFlags
-	     & GlobalOptions.DEBUG_INOUT) != 0) {
-            writer.println("gen : "+ gen.toString());
-            writer.println("kill: "+ kill.toString());
-        }
         if (destination == null)
             writer.println ("GOTO null-ptr!!!!!");
         else

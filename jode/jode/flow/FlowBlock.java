@@ -34,10 +34,14 @@ import jode.util.SimpleSet;
 ///import java.util.Iterator;
 ///import java.util.Set;
 ///import java.util.SimpleSet;
+///import java.util.ArrayList;
+///import java.util.List;
 ///#else
 import jode.util.Map;
 import jode.util.Iterator;
 import jode.util.Set;
+import jode.util.ArrayList;
+import jode.util.List;
 import jode.util.SimpleSet;
 ///#endif
 
@@ -80,7 +84,7 @@ public class FlowBlock {
      * path from the start of the flow block to the instruction that
      * uses that variable, on which it is never assigned 
      */
-    VariableSet in = new VariableSet(); 
+    private SlotSet in = new SlotSet(); 
     /**
      * The gen locals.  This are the locals, to which are written
      * somewhere in this flow block.  This is only used for try
@@ -92,12 +96,12 @@ public class FlowBlock {
      * The starting address of this flow block.  This is mainly used
      * to produce the source code in code order.
      */
-    int addr;
+    private int addr;
 
     /**
      * The length of the structured block, only needed at the beginning.
      */
-    int length;
+    private int length;
 
     /**
      * The outermost structructed block in this flow block.
@@ -117,7 +121,7 @@ public class FlowBlock {
      * the elements is the first jump to that flow block.  The other
      * jumps are accessible via the jump.next field.
      */
-    Map successors = new SimpleMap();
+    private Map successors = new SimpleMap();
 
     /**
      * This is a vector of flow blocks, which reference this block.
@@ -127,7 +131,7 @@ public class FlowBlock {
      * If this vectors contains the null element, this is the first
      * flow block in a method.
      */
-    Vector predecessors = new Vector();
+    List predecessors = new ArrayList();
 
     /**
      * This is a pointer to the next flow block in byte code order.
@@ -147,6 +151,33 @@ public class FlowBlock {
      * @see mapStackToLocal
      */
     VariableStack stackMap;
+
+    static class SuccessorInfo {
+	/**
+	 * The kill locals.  This are the slots, which must be
+	 * overwritten in this block on every path to the successor.
+	 * That means, that all paths from the start of the current
+	 * flow block to the successor contain (unconditional)
+	 * assignments to this slot.  
+	 */
+	SlotSet kill;
+	
+	/**
+	 * The gen locals.  This are the locals, which can be
+	 * overwritten in this block on a path to the successor.  That
+	 * means, that there exists a path form the start of the
+	 * current flow block to the successor that contains a
+	 * assignments to this local, and that is not overwritten
+	 * afterwards.  
+	 */
+	VariableSet gen;
+	
+	/**
+	 * The linked list of jumps.
+	 */
+	Jump jumps;
+    }
+
 
     /**
      * The default constructor.  Creates a new empty flowblock.
@@ -577,25 +608,28 @@ public class FlowBlock {
      * @param succ the other flow block 
      */
     void mergeSuccessors(FlowBlock succ) {
-        /* Merge the sucessors from the successing flow block
+        /* Merge the successors from the successing flow block
          */
         Iterator iter = succ.successors.entrySet().iterator();
         while (iter.hasNext()) {
 	    Map.Entry entry = (Map.Entry) iter.next();
             FlowBlock dest = (FlowBlock) entry.getKey();
-            Jump hisJumps = (Jump) entry.getValue();
-            Jump myJumps = (Jump) successors.get(dest);
+            SuccessorInfo hisInfo = (SuccessorInfo) entry.getValue();
+            SuccessorInfo myInfo = (SuccessorInfo) successors.get(dest);
 
 	    if (dest != END_OF_METHOD)
-		dest.predecessors.removeElement(succ);
-            if (myJumps == null) {
+		dest.predecessors.remove(succ);
+            if (myInfo == null) {
 		if (dest != END_OF_METHOD)
-		    dest.predecessors.addElement(this);
-                successors.put(dest, hisJumps);
+		    dest.predecessors.add(this);
+                successors.put(dest, hisInfo);
             } else {
-                while (myJumps.next != null)
+		myInfo.gen.addAll(hisInfo.gen);
+		myInfo.kill.retainAll(hisInfo.kill);
+		Jump myJumps = myInfo.jumps;
+		while (myJumps.next != null)
                     myJumps = myJumps.next;
-                myJumps.next = hisJumps;
+                myJumps.next = hisInfo.jumps;
             }
         }
     }
@@ -632,45 +666,36 @@ public class FlowBlock {
      * @param jumps The list of jumps to successor in this block.
      * @return The variables that must be defined in this block.
      */
-    void updateInOut (FlowBlock successor, Jump jumps) {
-        /* First get the out vectors of all jumps to successor and
+    void updateInOut(FlowBlock successor, SuccessorInfo succInfo) {
+        /* First get the gen/kill sets of all jumps to successor and
          * calculate the intersection.
-         */
-        VariableSet gens = new VariableSet();
-        VariableSet kills =  null;
+	 */
+        SlotSet kills = succInfo.kill;
+        VariableSet gens = succInfo.gen;
 
-        for (;jumps != null; jumps = jumps.next) {
-            gens.unionExact(jumps.gen);
-            if (kills == null) 
-                kills = jumps.kill;
-            else
-                kills = kills.intersect(jumps.kill);
-        }
-        
         /* Merge the locals used in successing block with those written
-         * by this blocks
+         * by this blocks.
          */
         successor.in.merge(gens);
         
-        /* Now update in and out set of successing block */
-
-        if (successor != this)
-            successor.in.subtract(kills);
+        /* The ins of the successor that are not killed
+	 * (i.e. unconditionally overwritten) by this block are new
+	 * ins for this block.  
+	 */
+	SlotSet newIn = (SlotSet) successor.in.clone();
+	newIn.removeAll(kills);
 
         /* The gen/kill sets must be updated for every jump 
          * in the other block */
-        Iterator succSuccs = successor.successors.values().iterator();
-        while (succSuccs.hasNext()) {
-            Jump succJumps = (Jump) succSuccs.next();
-            for (; succJumps != null; succJumps = succJumps.next) {
-
-                succJumps.gen.mergeGenKill(gens, succJumps.kill);
-                if (successor != this)
-                    succJumps.kill.add(kills);
-            }
+        Iterator i = successor.successors.values().iterator();
+        while (i.hasNext()) {
+	    SuccessorInfo succSuccInfo = (SuccessorInfo) i.next();
+	    succSuccInfo.gen.mergeGenKill(gens, succSuccInfo.kill);
+	    if (successor != this)
+		succSuccInfo.kill.addAll(kills);
         }
-        this.in.unionExact(successor.in);
-        this.gen.unionExact(successor.gen);
+        this.in.addAll(newIn);
+        this.gen.addAll(successor.gen);
 
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_INOUT) != 0) {
             GlobalOptions.err.println("UpdateInOut: gens : "+gens);
@@ -679,6 +704,53 @@ public class FlowBlock {
             GlobalOptions.err.println("             in   : "+in);
         }
     }
+
+    /** 
+     * Updates the in/out-Vectors of the structured block of the
+     * successing flow block for a try catch block.  The main difference
+     * to updateInOut in FlowBlock is, that this function works, as if
+     * every instruction would have a jump.  This is because every
+     * instruction can throw an exception and thus enter the catch block.<br>
+     *
+     * For example this code prints <code>0</code>:
+     * <pre>
+     *   int a=3;
+     *   try {
+     *     a = 5 / (a=0);
+     *   } catch (DivideByZeroException ex) {
+     *     System.out.println(a);
+     *   }
+     * </pre>
+     *
+     * @param successor The flow block which is unified with this flow
+     * block.  
+     * @return The variables that must be defined in this block.
+     */
+    public void updateInOutCatch (FlowBlock catchFlow) {
+        VariableSet gens = ((TryBlock)block).gen;
+
+        /* Merge the locals used in the catch block with those written
+         * by the try block
+         */
+        catchFlow.in.merge(gens);
+        
+        /* The gen/kill sets must be updated for every jump 
+         * in the other block */
+        Iterator i = catchFlow.successors.values().iterator();
+        while (i.hasNext()) {
+	    SuccessorInfo succSuccInfo = (SuccessorInfo) i.next();
+	    succSuccInfo.gen.mergeGenKill(gens, succSuccInfo.kill);
+        }
+        in.addAll(catchFlow.in);
+        gen.addAll(catchFlow.gen);
+    
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_INOUT) != 0) {
+            GlobalOptions.err.println("UpdateInOutCatch: gens : "+gens);
+            GlobalOptions.err.println("                  s.in : "+catchFlow.in);
+            GlobalOptions.err.println("                  in   : "+in);
+        }
+    }
+
     
     /**
      * Checks if the FlowBlock and its StructuredBlocks are
@@ -699,9 +771,8 @@ public class FlowBlock {
         }
         block.checkConsistent();
 
-        Enumeration preds = predecessors.elements();
-        while (preds.hasMoreElements()) {
-            FlowBlock pred = (FlowBlock)preds.nextElement();
+        for (Iterator i = predecessors.iterator(); i.hasNext(); ) {
+            FlowBlock pred = (FlowBlock)i.next();
             if (pred == null)
                 /* The special start marker */
                 continue;
@@ -723,7 +794,7 @@ public class FlowBlock {
             if (dest.predecessors.contains(this) == (dest == END_OF_METHOD))
                 throw new AssertError("Inconsistency");
                 
-            Jump jumps = (Jump)entry.getValue();
+            Jump jumps = ((SuccessorInfo) entry.getValue()).jumps;
             if (jumps == null)
                 throw new AssertError("Inconsistency");
                 
@@ -774,20 +845,28 @@ public class FlowBlock {
 	    GlobalOptions.err.println("merging sequentialBlock: "+this);
 	    GlobalOptions.err.println("and: "+succ);
 	}
-        VariableSet succIn = new VariableSet();
-        succ.fillInGenSet(succIn, this.gen);
+        SlotSet succIn = new SlotSet();
+	SlotSet succKill = new SlotSet();
+	VariableSet succGen = new VariableSet();
+        succ.fillInGenSet(succIn, succKill);
+	succGen.addAll(succKill);
+	
+	SuccessorInfo succInfo = (SuccessorInfo) successors.get(NEXT_BY_ADDR);
+        succIn.merge(succInfo.gen);
+        succIn.removeAll(succInfo.kill);
 
-        succIn.merge(lastModified.jump.gen);
-        succIn.subtract(lastModified.jump.kill);
-
-        succ.jump.gen.mergeGenKill(lastModified.jump.gen, succ.jump.kill);
-        succ.jump.kill.add(lastModified.jump.kill);
-        this.in.unionExact(succIn);
+        succGen.mergeGenKill(succInfo.gen, succKill);
+        succKill.addAll(succInfo.kill);
+        this.in.addAll(succIn);
+	this.gen.addAll(succKill);
 
 	removeSuccessor(lastModified.jump);
         lastModified.removeJump();
         lastModified = lastModified.appendBlock(succ);
 	succ.fillSuccessors();
+	succInfo = (SuccessorInfo) successors.get(NEXT_BY_ADDR);
+	succInfo.gen = succGen;
+	succInfo.kill = succKill;
         this.length += length;
         checkConsistent();
         doTransformations();
@@ -798,21 +877,31 @@ public class FlowBlock {
      * nextByAddr should be null, when calling this.
      * @param flow The flowBlock to append
      */
-    public void setNextByAddr(FlowBlock flow) {
-	Jump jumps = (Jump) successors.remove(NEXT_BY_ADDR);
-	Jump flowJumps = (Jump) successors.get(flow);
-	if (jumps != null) {
-	    NEXT_BY_ADDR.predecessors.removeElement(this);
+    public void setNextByAddr(FlowBlock flow) 
+    {
+	/* nextByAddr can be set, when reordering block in transform exc */
+//  	if (nextByAddr != null)
+//  	    throw new IllegalStateException("nextByAddr already set");
+	if (flow == END_OF_METHOD || flow == NEXT_BY_ADDR)
+	    throw new IllegalArgumentException
+		("nextByAddr mustn't be special");
+	SuccessorInfo info = (SuccessorInfo) successors.remove(NEXT_BY_ADDR);
+	SuccessorInfo flowInfo = (SuccessorInfo) successors.get(flow);
+	if (info != null) {
+	    NEXT_BY_ADDR.predecessors.remove(this);
+	    Jump jumps = info.jumps;
 	    jumps.destination = flow;
 	    while (jumps.next != null) {
 		jumps = jumps.next;
 		jumps.destination = flow;
 	    }
-	    successors.put(flow, jumps);
-	    if (flowJumps != null)
-		jumps.next = flowJumps;
-	    else if (flow != END_OF_METHOD)
-		flow.predecessors.addElement(this);
+	    successors.put(flow, info);
+	    if (flowInfo != null) {
+		info.gen.addAll(flowInfo.gen);
+		info.kill.retainAll(flowInfo.kill);
+		jumps.next = flowInfo.jumps;
+	    } else 
+		flow.predecessors.add(this);
         }
 	checkConsistent();
 
@@ -830,22 +919,22 @@ public class FlowBlock {
         /* check if this successor has only this block as predecessor. 
          * if the predecessor is not unique, return false. */
         if (succ.predecessors.size() != 1 ||
-            succ.predecessors.elementAt(0) != this)
+            succ.predecessors.get(0) != this)
             return false;
 
         checkConsistent();
         succ.checkConsistent();
 
-        Jump jumps = (Jump) successors.remove(succ);
+        SuccessorInfo succInfo = (SuccessorInfo) successors.remove(succ);
 
         /* Update the in/out-Vectors now */
-        updateInOut(succ, jumps);
+        updateInOut(succ, succInfo);
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
             GlobalOptions.err.println("before Resolve: "+this);
 
         /* Try to eliminate as many jumps as possible.
          */
-        jumps = resolveSomeJumps(jumps, succ);
+        Jump jumps = resolveSomeJumps(succInfo.jumps, succ);
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
             GlobalOptions.err.println("before Remaining: "+this);
         resolveRemaining(jumps);
@@ -868,44 +957,81 @@ public class FlowBlock {
         return true;
     }
 
-//     /**
-//      * Find the exit condition of a for/while block.  The loop block
-//      * mustn't have an exit condition yet.
-//      */
-//     public void mergeCondition() {
-//         /* If the first instruction of a while is a conditional
-//          * block, which jumps to the next address use the condition
-//          * as while condition.  
-//          */
-//         LoopBlock loopBlock = (LoopBlock) lastModified;
-//         int loopType = loopBlock.getType();
+    /**
+     * Do a T2 transformation with the end_of_method block.
+     */
+    public void mergeEndBlock() {
+        checkConsistent();
 
-//         ConditionalBlock cb = null;
-//         if (loopBlock.bodyBlock instanceof ConditionalBlock)
-//             cb = (ConditionalBlock) loopBlock.bodyBlock;
-//         else if (loopBlock.bodyBlock instanceof SequentialBlock
-//                  && loopBlock.bodyBlock.getSubBlocks()[0] 
-//                  instanceof ConditionalBlock)
-//             cb = (ConditionalBlock) loopBlock.bodyBlock.getSubBlocks()[0];
-//         else if (loopBlock.bodyBlock instanceof SequentialBlock
-//                  && loopType == LoopBlock.WHILE) {
-//             loopType = LoopBlock.DOWHILE;
-//             SequentialBlock sequBlock = (SequentialBlock) loopBlock.bodyBlock;
-//             while (sequBlock.subBlocks[1] instanceof SequentialBlock)
-//                 sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
-//             if (sequBlock.subBlocks[1] instanceof ConditionalBlock)
-//                 cb = (ConditionalBlock) sequBlock.subBlocks[1];
-//         }
+        SuccessorInfo endInfo
+	    = (SuccessorInfo) successors.remove(END_OF_METHOD);
+        if (endInfo == null)
+            return;
 
-//         if (cb != null 
-//             && cb.trueBlock.jump.destination.addr == getNextAddr()) {
-//             loopBlock.moveJump(cb.trueBlock.jump);
-//             loopBlock.setCondition(cb.getInstruction().negate());
-//             loopBlock.setType(loopType);
-//             loopBlock.moveDefinitions(cb, null);
-//             cb.removeBlock();
-//         }
-//     }
+	Jump allJumps = endInfo.jumps;
+        /* First remove all implicit jumps to the END_OF_METHOD block.
+         */
+        Jump jumps = null;
+        for (; allJumps != null; ) {
+            Jump jump = allJumps;
+            allJumps = allJumps.next;
+
+            if (jump.prev instanceof ReturnBlock) {
+                /* This jump is implicit */
+                jump.prev.removeJump();
+                continue;
+            }
+            jump.next = jumps;
+            jumps = jump;
+        }
+            
+        /* Try to eliminate as many jumps as possible.
+         */
+        jumps = resolveSomeJumps(jumps, END_OF_METHOD);
+            
+    next_jump:
+        for (; jumps != null; jumps = jumps.next) {
+
+            StructuredBlock prevBlock = jumps.prev;
+	    
+            if (lastModified == prevBlock)
+                /* handled later */
+                continue;
+
+            BreakableBlock breakToBlock = null;
+            for (StructuredBlock surrounder = prevBlock.outer;
+                 surrounder != null; surrounder = surrounder.outer) {
+                if (surrounder instanceof BreakableBlock) {
+                    if (surrounder.getNextFlowBlock() == END_OF_METHOD)
+                        breakToBlock = (BreakableBlock) surrounder;
+
+                    /* We don't want labeled breaks, because we can
+                     * simply return.  */
+                    break;
+                }
+            }
+            prevBlock.removeJump();
+
+            if (breakToBlock == null)
+                /* The successor is the dummy return instruction, so
+                 * replace the jump with a return.  
+                 */
+                prevBlock.appendBlock(new ReturnBlock());
+            else
+                prevBlock.appendBlock
+                    (new BreakBlock(breakToBlock, false));
+        }	    
+
+        /* Now remove the jump of the lastModified if it points to
+         * END_OF_METHOD.  
+         */
+        if (lastModified.jump.destination == END_OF_METHOD)
+            lastModified.removeJump();
+
+        doTransformations();
+        /* transformation succeeded */
+        checkConsistent();
+    }
 
     public boolean doT1(int start, int end) {
         /* If there are no jumps to the beginning of this flow block
@@ -915,9 +1041,8 @@ public class FlowBlock {
          */
         if (!predecessors.contains(this))
             return false;
-        Enumeration preds = predecessors.elements();
-        while (preds.hasMoreElements()) {
-            FlowBlock predFlow = (FlowBlock) preds.nextElement();
+        for (Iterator i = predecessors.iterator(); i.hasNext(); ) {
+            FlowBlock predFlow = (FlowBlock) i.next();
             if (predFlow != null && predFlow != this
                 && predFlow.addr >= start && predFlow.addr < end) {
                 return false;
@@ -926,10 +1051,11 @@ public class FlowBlock {
 
         checkConsistent();
 
-        Jump jumps = (Jump) successors.remove(this);
+        SuccessorInfo succInfo = (SuccessorInfo) successors.remove(this);
 
         /* Update the in/out-Vectors now */
-        updateInOut(this, jumps);
+        updateInOut(this, succInfo);
+	Jump jumps = succInfo.jumps;
 
         StructuredBlock bodyBlock = block;
 
@@ -1061,7 +1187,7 @@ public class FlowBlock {
 
         /* remove ourself from the predecessor list.
          */
-        predecessors.removeElement(this);
+        predecessors.remove(this);
         lastModified = block;
         doTransformations();
 //         mergeCondition();
@@ -1070,81 +1196,6 @@ public class FlowBlock {
         checkConsistent();
 
         return true;
-    }
-
-
-    /**
-     * Do a T2 transformation with the end_of_method block.
-     */
-    public void mergeEndBlock() {
-        checkConsistent();
-
-        Jump allJumps = (Jump) successors.remove(END_OF_METHOD);
-        if (allJumps == null)
-            return;
-
-        /* First remove all implicit jumps to the END_OF_METHOD block.
-         */
-        Jump jumps = null;
-        for (; allJumps != null; ) {
-            Jump jump = allJumps;
-            allJumps = allJumps.next;
-
-            if (jump.prev instanceof ReturnBlock) {
-                /* This jump is implicit */
-                jump.prev.removeJump();
-                continue;
-            }
-            jump.next = jumps;
-            jumps = jump;
-        }
-            
-        /* Try to eliminate as many jumps as possible.
-         */
-        jumps = resolveSomeJumps(jumps, END_OF_METHOD);
-            
-    next_jump:
-        for (; jumps != null; jumps = jumps.next) {
-
-            StructuredBlock prevBlock = jumps.prev;
-	    
-            if (lastModified == prevBlock)
-                /* handled later */
-                continue;
-
-            BreakableBlock breakToBlock = null;
-            for (StructuredBlock surrounder = prevBlock.outer;
-                 surrounder != null; surrounder = surrounder.outer) {
-                if (surrounder instanceof BreakableBlock) {
-                    if (surrounder.getNextFlowBlock() == END_OF_METHOD)
-                        breakToBlock = (BreakableBlock) surrounder;
-
-                    /* We don't want labeled breaks, because we can
-                     * simply return.  */
-                    break;
-                }
-            }
-            prevBlock.removeJump();
-
-            if (breakToBlock == null)
-                /* The successor is the dummy return instruction, so
-                 * replace the jump with a return.  
-                 */
-                prevBlock.appendBlock(new ReturnBlock());
-            else
-                prevBlock.appendBlock
-                    (new BreakBlock(breakToBlock, false));
-        }	    
-
-        /* Now remove the jump of the lastModified if it points to
-         * END_OF_METHOD.  
-         */
-        if (lastModified.jump.destination == END_OF_METHOD)
-            lastModified.removeJump();
-
-        doTransformations();
-        /* transformation succeeded */
-        checkConsistent();
     }
 
     public void doTransformations() {
@@ -1269,12 +1320,12 @@ public class FlowBlock {
                      * lie in range [start,end).  Otherwise
                      * we have no chance to combine succ
                      */
-                    Enumeration enum = succ.predecessors.elements();
-                    while (enum.hasMoreElements()) {
-                        int predAddr = 
-                            ((FlowBlock)enum.nextElement()).addr;
+		    for (Iterator i = succ.predecessors.iterator(); 
+			 i.hasNext(); ) {
+                        int predAddr = ((FlowBlock)i.next()).addr;
                         if (predAddr < start || predAddr >= end) {
-                            if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_ANALYZE) != 0)
+                            if ((GlobalOptions.debuggingFlags
+				 & GlobalOptions.DEBUG_ANALYZE) != 0)
                                 GlobalOptions.err.println
                                     ("breaking analyze("
                                      + start + ", " + end + "); "
@@ -1331,7 +1382,7 @@ public class FlowBlock {
                      * until nothing more is possible.  
                      */
                     while (nextFlow.analyze(getNextAddr(), end))
-                        changed = changed || true;
+                        changed = true;
                     
                     if (nextFlow.addr != getNextAddr())
                         break;
@@ -1344,31 +1395,34 @@ public class FlowBlock {
                         || (nextFlow.predecessors.size() > 1
                             && (lastFlow == null
                                 || !nextFlow.predecessors.contains(lastFlow)))
-                        || ((Jump)successors.get(nextFlow)).next != null)
+                        || (((SuccessorInfo)successors.get(nextFlow))
+			    .jumps.next != null))
                         break;
 
                     checkConsistent();
-                    
-                    Jump jumps = (Jump) successors.remove(nextFlow);
-                    /* note that this is the single caseBlock jump */
+
+                    /* note that this info only contains
+		     * the single caseBlock jump */
+                    SuccessorInfo info = (SuccessorInfo)
+			successors.remove(nextFlow);
 
                     if (nextFlow.predecessors.size() == 2) {
-                        Jump lastJumps = 
-                            (Jump) lastFlow.successors.remove(nextFlow);
+			SuccessorInfo lastInfo = (SuccessorInfo) 
+			    lastFlow.successors.remove(nextFlow);
 
                         /* Do the in/out analysis with all jumps 
                          * Note that this won't update lastFlow.in, but
                          * this will not be used anymore.
                          */
-                        jumps.next = lastJumps;
-                        updateInOut(nextFlow, jumps);
+			info.kill.retainAll(lastInfo.kill);
+			info.gen.addAll(lastInfo.gen);
 
-                        lastJumps = 
-                            lastFlow.resolveSomeJumps(lastJumps, nextFlow);
+                        Jump lastJumps = lastFlow.resolveSomeJumps
+			    (lastInfo.jumps, nextFlow);
                         lastFlow.resolveRemaining(lastJumps);
 			switchBlock.caseBlocks[last+1].isFallThrough = true;
-                    } else
-                        updateInOut(nextFlow, jumps);
+                    }
+		    updateInOut(nextFlow, info);
                     
                     if (lastFlow != null) {
                         lastFlow.block.replace
@@ -1407,54 +1461,72 @@ public class FlowBlock {
      * Mark the flow block as first flow block in a method.
      */
     public void makeStartBlock() {
-        predecessors.addElement(null);
+        predecessors.add(null);
     }
 
     public void removeSuccessor(Jump jump) {
-        Jump destJumps = (Jump) successors.get(jump.destination);
+        SuccessorInfo destInfo
+	    = (SuccessorInfo) successors.get(jump.destination);
         Jump prev = null;
+	Jump destJumps = destInfo.jumps;
         while (destJumps != jump && destJumps != null) {
             prev = destJumps;
             destJumps = destJumps.next;
         }
         if (destJumps == null)
-            throw new AssertError(addr+": removing non existent jump: " + jump);
+            throw new IllegalArgumentException
+		(addr+": removing non existent jump: " + jump);
+
         if (prev != null)
             prev.next = destJumps.next;
         else {
             if (destJumps.next == null) {
                 successors.remove(jump.destination);
-		jump.destination.predecessors.removeElement(this);
+		jump.destination.predecessors.remove(this);
             } else
-                successors.put(jump.destination, destJumps.next);
+		destInfo.jumps = destJumps.next;
         }
     }
 
+    public Jump getJumps(FlowBlock dest) {
+	return ((SuccessorInfo) successors.get(dest)).jumps;
+    }
+
+    public Jump removeJumps(FlowBlock dest) {
+	return ((SuccessorInfo) successors.remove(dest)).jumps;
+    }
+
+    public Set getSuccessors() {
+	return successors.keySet();
+    }
+
     public void addSuccessor(Jump jump) {
-        jump.next = (Jump) successors.get(jump.destination);
-        if (jump.next == null && jump.destination != END_OF_METHOD)
-            jump.destination.predecessors.addElement(this);
-        
-        successors.put(jump.destination, jump);
+	SuccessorInfo info = (SuccessorInfo) successors.get(jump.destination);
+	if (info == null) {
+	    info = new SuccessorInfo();
+	    info.gen = new VariableSet();
+	    info.kill = new SlotSet();
+	    block.fillInGenSet(null, info.kill);
+	    info.gen.addAll(info.kill);
+	    info.jumps = jump;
+	    if (jump.destination != END_OF_METHOD)
+		jump.destination.predecessors.add(this);
+	    successors.put(jump.destination, info);
+	} else {
+	    jump.next = info.jumps;
+	    info.jumps = jump;
+	}
     }
 
     /** 
      * This is called after the analysis is completely done.  It
      * will remove all PUSH/stack_i expressions, (if the bytecode
      * is correct).
-     * @return false if the bytecode isn't correct and stack mapping
-     * didn't worked.
+     * @return true, if the stack mapping succeeded.
      */
     public final boolean mapStackToLocal() {
-//  	try {
-	    mapStackToLocal(VariableStack.EMPTY);
-	    return true;
-//  	} catch (RuntimeException ex) {
-//  	    GlobalOptions.err.println("Can't resolve all PUSHes, "
-//  				   +"this is probably illegal bytecode:");
-//  	    ex.printStackTrace(GlobalOptions.err);
-//  	    return false;
-//  	}
+	mapStackToLocal(VariableStack.EMPTY);
+	return true;
     }
 
     /** 
@@ -1472,7 +1544,8 @@ public class FlowBlock {
 	block.mapStackToLocal(initialStack);
 	Iterator iter = successors.values().iterator();
 	while (iter.hasNext()) {
-	    Jump jumps = (Jump) iter.next();
+	    SuccessorInfo succInfo = (SuccessorInfo) iter.next();
+	    Jump jumps = succInfo.jumps;
 	    VariableStack stack;
 	    FlowBlock succ = jumps.destination;
 	    if (succ == END_OF_METHOD)
@@ -1509,44 +1582,76 @@ public class FlowBlock {
 	    nextByAddr.removeOnetimeLocals();
     }
 
-    public void mergeParams(LocalInfo[] param) {
-	VariableSet paramSet = new VariableSet(param);
-	in.merge(paramSet);
-	in.subtract(paramSet);
-    }
+    private void promoteInSets() {
+	for (Iterator i = predecessors.iterator(); i.hasNext(); ) {
+	    FlowBlock pred = (FlowBlock) i.next();
+	    SuccessorInfo succInfo = (SuccessorInfo) pred.successors.get(this);
 
-    public void makeDeclaration(LocalInfo[] param) {
-	block.propagateUsage();
-	SimpleSet declared = new SimpleSet();
-	for (int i=0; i < param.length; i++) {
-	    declared.add(param[i]);
+	    /* First get the gen/kill sets of all jumps of predecessor
+	     * to this block and calculate the intersection.  
+	     */
+	    VariableSet gens = succInfo.gen;
+	    SlotSet kills =  succInfo.kill;
+        
+	    /* Merge in locals of this block with those condionally
+	     * written by previous blocks */
+	    in.merge(gens);
+		
+	    /* The ins of the successor that are not killed
+	     * (i.e. unconditionally overwritten) by this block are new
+	     * ins for this block.  
+	     */
+	    SlotSet newIn = (SlotSet) in.clone();
+	    newIn.removeAll(kills);
+
+	    if (pred.in.addAll(newIn))
+		pred.promoteInSets();
 	}
-	block.makeDeclaration(declared);
+
+	if (nextByAddr != null)
+	    nextByAddr.promoteInSets();
     }
 
     /**
-     * Simplify all reachable flowblocks, that are not already
-     * simplified, i.e.  that don't occur in doneSet.  
-     */
-    private void simplify(Set doneSet) {
-	if (doneSet.contains(this))
-	    return;
-	doneSet.add(this);
-	block.simplify();
-	Iterator iter = successors.keySet().iterator();
-	while (iter.hasNext()) {
-	    FlowBlock succ = (FlowBlock)iter.next();
-	    succ.simplify(doneSet);
-	}
+     * Merge the parameter locals with the in set of this flow block.
+     * This will also make a successive analysis to merge the gen/kill
+     * set of the jumps with the next flow block.  */
+    public void mergeParams(LocalInfo[] param) {
+	// Now we promote the final (maybe slow) in set analysis
+	promoteInSets();
+
+	VariableSet paramSet = new VariableSet(param);
+	in.merge(paramSet);
     }
 
+    /**
+     * Make declarations.  It will determine, where in each block the
+     * 
+     */
+    public void makeDeclaration() {
+	block.propagateUsage();
+	Set done = new SimpleSet();
+	done.addAll(in);
+	block.makeDeclaration(done);
+	if (nextByAddr != null)
+	    nextByAddr.makeDeclaration();
+    }
+
+    /**
+     * Make declarations.  It will determine, where in each block the
+     * 
+     */
+    public void makeDeclaration(LocalInfo[] param) {
+	makeDeclaration();
+    }
+
+    /**
+     * Simplify this and all following flowblocks.
+     */
     public void simplify() {
-	if (successors.size() == 0) {
-	    // optimize default path.
-	    block.simplify();
-	    return;
-	}
-	simplify(new SimpleSet());
+	block.simplify();
+	if (nextByAddr != null)
+	    nextByAddr.simplify();
     }
 
     /**
@@ -1569,6 +1674,20 @@ public class FlowBlock {
         }
 
         block.dumpSource(writer);
+
+        if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_INOUT) != 0) {
+	    
+	    Iterator iter = successors.entrySet().iterator();
+	    while (iter.hasNext()) {
+		Map.Entry entry = (Map.Entry) iter.next();
+		FlowBlock dest = (FlowBlock) entry.getKey();
+		SuccessorInfo info = (SuccessorInfo) entry.getValue();
+		writer.println("successor: "+dest.getLabel()
+			       +"  gen : "+ info.gen
+			       +"  kill: "+ info.kill);
+	    }
+	}
 
 	if (nextByAddr != null)
 	    nextByAddr.dumpSource(writer);
@@ -1618,9 +1737,24 @@ public class FlowBlock {
 	    }
             writer.tab();
             block.dumpSource(writer);
+            writer.untab();
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_INOUT) != 0) {
+		
+		Iterator iter = successors.entrySet().iterator();
+		while (iter.hasNext()) {
+		    Map.Entry entry = (Map.Entry) iter.next();
+		    FlowBlock dest = (FlowBlock) entry.getKey();
+		    SuccessorInfo info = (SuccessorInfo) entry.getValue();
+		    writer.println("successor: "+dest.getLabel()
+				   +"  gen : "+ info.gen
+				   +"  kill: "+ info.kill);
+		}
+	    }
             return strw.toString();
         } catch (java.io.IOException ex) {
             return super.toString();
         }
     }
 }
+

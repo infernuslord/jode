@@ -28,6 +28,12 @@ import jode.expr.LocalStoreOperator;
 import jode.expr.CombineableOperator;
 import jode.util.SimpleSet;
 
+///#ifdef JDK12
+///import java.util.Set;
+///#else
+import jode.util.Set;
+///#endif
+
 /**
  * This is the structured block for an Loop block.
  */
@@ -201,7 +207,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * Remove all variables from set, that we can declare inside the
      * loop-block.  This is the initializer for for-blocks.
      */
-    public void removeLocallyDeclareable(SimpleSet set) {
+    public void removeLocallyDeclareable(Set set) {
 	if (type == FOR && initInstr instanceof StoreInstruction) {
 	    StoreInstruction storeOp = (StoreInstruction) initInstr;
 	    if (storeOp.getLValue() instanceof LocalStoreOperator) {
@@ -212,8 +218,8 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 	}
     }
 
-    public SimpleSet getDeclarables() {
-	SimpleSet used = new SimpleSet();
+    public Set getDeclarables() {
+	Set used = new SimpleSet();
         if (type == FOR) {
 	    incrInstr.fillDeclarables(used);
 	    if (initInstr != null)
@@ -250,7 +256,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * variable.  In that case mark this as declaration and return the 
      * variable.
      */
-    public void checkDeclaration(SimpleSet declareSet) {
+    public void checkDeclaration(Set declareSet) {
         if (initInstr instanceof StoreInstruction
 	    && (((StoreInstruction)initInstr).getLValue() 
 		instanceof LocalStoreOperator)) {
@@ -275,7 +281,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * is marked as used, but not done.
      * @param done The set of the already declare variables.
      */
-    public void makeDeclaration(SimpleSet done) {
+    public void makeDeclaration(Set done) {
 	super.makeDeclaration(done);
         if (type == FOR && initInstr != null)
 	    checkDeclaration(declare);
