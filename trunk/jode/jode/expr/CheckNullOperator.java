@@ -23,6 +23,12 @@ import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 import jode.flow.VariableSet;
 
+///#ifdef JDK12
+///import java.util.Set;
+///#else
+import jode.util.SimpleSet;
+///#endif
+
 /**
  * This is a pseudo operator, which represents the check against null
  * that jikes and javac generates for inner classes:
@@ -75,10 +81,23 @@ public class CheckNullOperator extends Operator {
 	super.fillInGenSet(in, gen);
     }
 
+///#ifdef JDK12
+///    public void fillDeclarables(Set used) {
+///#else
+    public void fillDeclarables(SimpleSet used) {
+///#endif
+	used.add(local);
+	super.fillDeclarables(used);
+    }
+
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	writer.print("("+local.getName()+" = ");
 	subExpressions[0].dumpExpression(writer, 0);
 	writer.print(").getClass() != null ? "+local.getName()+" : null");
+    }
+
+    public boolean opEquals(Operator o) {
+	return o instanceof CheckNullOperator;
     }
 }
