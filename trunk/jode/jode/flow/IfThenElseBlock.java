@@ -126,13 +126,9 @@ public class IfThenElseBlock extends StructuredBlock {
      * Returns all sub block of this structured block.
      */
     public StructuredBlock[] getSubBlocks() {
-        if (elseBlock == null) {
-            StructuredBlock[] result = { thenBlock };
-            return result;
-        } else {
-            StructuredBlock[] result = { thenBlock, elseBlock };
-            return result;
-        }
+        return (elseBlock == null)
+            ? new StructuredBlock[] { thenBlock }
+            : new StructuredBlock[] { thenBlock, elseBlock };
     }
 
     /**

@@ -42,43 +42,46 @@ import jode.TabbedPrintWriter;
 
 public class RawTryCatchBlock extends StructuredBlock {
 
+    int endAddr;
+
     public RawTryCatchBlock(jode.Type type, 
-                            StructuredBlock tryBlock, 
                             Jump endDest, Jump catchDest) {
         this.type = type;
-
-//         endBlock = new EmptyBlock(endDest);
-//         endBlock.outer = this;
-
+        
+        endAddr = endDest.destAddr;
         catchBlock = new EmptyBlock(catchDest);
         catchBlock.outer = this;
+    }
 
-        replace(tryBlock, tryBlock);
-        this.tryBlock = tryBlock;
+    public FlowBlock chainTo(FlowBlock flow) {
+        FlowBlock first = flow;
+        RawTryCatchBlock parent = null;
+        while (flow.getBlock() instanceof RawTryCatchBlock
+               && (((RawTryCatchBlock) flow.getBlock()).getCatchAddr() 
+                   > this.getCatchAddr())) {
+
+            parent = (RawTryCatchBlock) flow.getBlock();
+            flow = parent.getTryBlock().jump.destination;
+        }
+
+        tryBlock = new EmptyBlock(new Jump(flow));
         tryBlock.outer = this;
+        new FlowBlock(flow.code, flow.addr, 0, this);
 
-//         endBlock.setFlowBlock(flowBlock);
-//         if (tryBlock instanceof RawTryCatchBlock
-//             && ((RawTryCatchBlock)tryBlock).endBlock.jump.destination 
-//             == endDest.destination)
-//             endBlock.jump = null;
-//         else
-//             flowBlock.addSuccessor(endDest);
-
-        catchBlock.setFlowBlock(flowBlock);
-        flowBlock.addSuccessor(catchDest);
+        if (parent == null) {
+            /* We are the outermost try block */
+            return flowBlock;
+        } else {
+            /* Chain into existing try block list */
+            parent.getTryBlock().jump.destination = flowBlock;
+            return first;
+        }
     }
 
     /**
      * The try block.
      */
     StructuredBlock tryBlock;
-
-//     /**
-//      * An empty block containing an unconditional jump to the EndBlock.
-//      * Or null if the try block is completely read.
-//      */
-//     StructuredBlock endBlock;
 
     /**
      * The catch block.
@@ -101,14 +104,6 @@ public class RawTryCatchBlock extends StructuredBlock {
                                    StructuredBlock newBlock) {
         if (tryBlock == oldBlock)
             tryBlock = newBlock;
-
-//             if (tryBlock instanceof RawTryCatchBlock
-//                 && ((RawTryCatchBlock)tryBlock).endBlock.jump.destination 
-//                 == endBlock.jump.destination) {
-//                 endBlock.removeJump();
-//             }
-//         } else if (endBlock == oldBlock) {
-//             endBlock = newBlock;
         else if (catchBlock == oldBlock)
             catchBlock = newBlock;
         else
@@ -120,19 +115,8 @@ public class RawTryCatchBlock extends StructuredBlock {
      * Returns all sub block of this structured block.
      */
     public StructuredBlock[] getSubBlocks() {
-        StructuredBlock[] result = { tryBlock/*, endBlock*/, catchBlock };
-        return result;
+        return new StructuredBlock[] { tryBlock, catchBlock };
     }
-
-//     /**
-//      * Determines if there is a sub block, that flows through to the end
-//      * of this block.  If this returns true, you know that jump is null.
-//      * @return true, if the jump may be safely changed.
-//      */
-//     public boolean jumpMayBeChanged() {
-//         return (  tryBlock.jump != null || tryBlock.jumpMayBeChanged())
-//             && (catchBlock.jump != null || catchBlock.jumpMayBeChanged());
-//     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 
         throws java.io.IOException {
@@ -140,10 +124,6 @@ public class RawTryCatchBlock extends StructuredBlock {
         writer.tab();
         tryBlock.dumpSource(writer);
         writer.untab();
-//         writer.println("UNTIL");
-//         writer.tab();
-//         endBlock.dumpSource(writer);
-//         writer.untab();
         writer.println("CATCH TO");
         writer.tab();
         catchBlock.dumpSource(writer);

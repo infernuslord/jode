@@ -46,13 +46,17 @@ public class CatchBlock extends StructuredBlock {
      */
     LocalInfo exceptionLocal;
 
-    public CatchBlock(RawTryCatchBlock rawBlock) {
-        exceptionType = rawBlock.type;
-        this.tryBlock = rawBlock.tryBlock;
-        tryBlock.outer = this;
+    public CatchBlock(Type type) {
+        exceptionType = type;
     }
 
     static int serialno=0;
+
+    public void setTryBlock(StructuredBlock tryBlock) {
+        this.tryBlock = tryBlock;
+        tryBlock.outer = this;
+        tryBlock.setFlowBlock(flowBlock);
+    }
 
     /** 
      * Sets the catch block.
@@ -122,9 +126,8 @@ public class CatchBlock extends StructuredBlock {
     /**
      * Returns all sub block of this structured block.
      */
-    public StructuredBlock[] getSubBlocks() {
-        StructuredBlock[] result = { tryBlock, catchBlock };
-        return result;
+    public StructuredBlock[] getSubBlocks() {        
+        return new StructuredBlock[] { tryBlock, catchBlock };
     }
 
     /**

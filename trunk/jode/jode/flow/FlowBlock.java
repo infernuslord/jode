@@ -19,10 +19,7 @@
 
 package jode.flow;
 import java.util.*;
-import jode.TabbedPrintWriter;
-import jode.Expression;
-import jode.CodeAnalyzer;
-import jode.Decompiler;
+import jode.*;
 
 /**
  * A flow block is the structure of which the flow graph consists.  A
@@ -112,37 +109,13 @@ public class FlowBlock {
     }
 
     public int getNextAddr() {
-        return addr+length;
+        if (block instanceof RawTryCatchBlock)
+            return ((RawTryCatchBlock)block).getTryBlock()
+                .jump.destination.getNextAddr();
+        else
+            return addr+length;
     }
 
-
-    /**
-     * Create a Catch- resp. FinallyBlock (maybe even SynchronizedBlock)
-     * @param sequBlock a SequentialBlock whose first sub block is a 
-     * RawTryCatchBlock.
-     */
-    public StructuredBlock createCatchBlock(SequentialBlock sequBlock) {
-        RawTryCatchBlock tryBlock = (RawTryCatchBlock) sequBlock.subBlocks[0];
-        StructuredBlock catchBlock = sequBlock.subBlocks[1];
-        if (tryBlock.type != null) {
-            /*XXX crude hack */
-            catchBlock.replace(sequBlock, tryBlock);
-            CatchBlock newBlock = new CatchBlock(tryBlock);
-            newBlock.replace(catchBlock, catchBlock);
-            newBlock.setCatchBlock(catchBlock);
-            if (sequBlock.jump != null) {
-                if (newBlock.catchBlock.jump == null)
-                    newBlock.catchBlock.moveJump(sequBlock.jump);
-                else
-                    sequBlock.removeJump();
-            }
-            return newBlock;
-        } else {
-            /* XXX implement finally */
-            return sequBlock;
-        }
-    }
-    
     /**
      * This method optimizes the jumps to successor.
      * @param successor The successing flow block
@@ -659,16 +632,6 @@ public class FlowBlock {
 
             while (!appendBlock.contains(jump.prev)) {
                 appendBlock = appendBlock.outer;
-                if (appendBlock instanceof SequentialBlock
-                    && appendBlock.getSubBlocks()[0] 
-                    instanceof RawTryCatchBlock) {
-                    
-                    /* We leave the catch block of a raw-try-catch-block.
-                     * We shall now create the Catch- resp. FinallyBlock.
-                     */
-                    appendBlock = 
-                        createCatchBlock((SequentialBlock)appendBlock);
-                }
             }
             /* appendBlock can't be null now, because the
              * outermost block contains every structured block.  
@@ -813,32 +776,96 @@ public class FlowBlock {
         updateInOut(this, false);
 
 	
-	while (lastModified != block) {
+	while (lastModified != block)
 	    lastModified = lastModified.outer;
-	    if (lastModified instanceof SequentialBlock
-		&& lastModified.getSubBlocks()[0] 
-		instanceof RawTryCatchBlock) {
-		
-		/* We leave the catch block of a raw-try-catch-block.
-		 * We shall now create the Catch- resp. FinallyBlock.
-		 */
-		lastModified = 
-		    createCatchBlock((SequentialBlock)lastModified);
-	    }
-	}
 
-        /* If there is only one jump to the beginning and it is the
-         * last jump and (there is a do/while(0) block surrounding
-         * everything but the last instruction, or the last
-         * instruction is a increase/decrease statement), replace the
-         * do/while(0) with a for(;;last_instr) resp. create a new one
-         * and replace breaks to do/while with continue to for.  
-         */
-        /* XXX implement above */
-        /* XXX condition for do/while(cond) blocks */
-        {
+    transformation:
+        do {
+            /* If there is only one jump to the beginning and it is the
+             * last jump and (there is a do/while(0) block surrounding
+             * everything but the last instruction, or the last
+             * instruction is a increase/decrease statement), replace the
+             * do/while(0) with a for(;;last_instr) resp. create a new one
+             * and replace breaks to do/while with continue to for.  
+             */
+
+            Jump onlyJump = null;
+            Enumeration enum = successors.elements();
+            while (enum.hasMoreElements()) {
+                Jump jump = (Jump) enum.nextElement();
+                
+                if (jump == null || jump.destination != this)
+                    continue;
+                if (onlyJump == null)
+                    onlyJump = jump;
+                else {
+                    onlyJump = null;
+                    break;
+                }
+            }
+            if (onlyJump != null &&
+                onlyJump.prev instanceof InstructionBlock) {
+
+                InstructionBlock prev = (InstructionBlock) onlyJump.prev;
+                
+                if (prev.outer != null && prev.outer.outer == null
+                    && prev.outer instanceof SequentialBlock
+                    && prev.outer.getSubBlocks()[0] instanceof LoopBlock) {
+                    LoopBlock lb = (LoopBlock) prev.outer.getSubBlocks()[0];
+                    if (lb.cond == lb.FALSE && lb.type == lb.DOWHILE) {
+                        /* Replace the do/while(0) with a
+                         * for(;;last_instr) and replace breaks to
+                         * do/while with continue to for.
+                         */
+                        
+                        lb.type = lb.FOR;
+                        lb.cond = lb.TRUE;
+                        lb.incr = prev.getInstruction();
+                        lb.init = null;
+                        
+                        lb.replaceBreakContinue();
+                        lb.replace(prev.outer, prev);
+
+                        prev.removeJump();
+                        lastModified = lb;
+                        break transformation;
+                    }
+                }
+                
+                StructuredBlock sb = prev;
+                while (sb.outer != null 
+                   && sb.outer instanceof SequentialBlock
+                       && sb.outer.getSubBlocks()[1] == sb)
+                    sb = sb.outer;
+
+                Instruction instr = prev.getInstruction();
+                Operator    op;
+                if (instr instanceof Expression
+                    && ((op = ((Expression)instr).getOperator())
+                        instanceof jode.StoreInstruction 
+                        || op instanceof jode.IIncOperator)
+                    && sb.outer == null) {
+
+                    /* The only jump is the jump of the last
+                     * instruction prev */
+
+                    LoopBlock forBlock = 
+                        new LoopBlock(LoopBlock.FOR, LoopBlock.TRUE);
+                    forBlock.replace(sb, sb);
+                    forBlock.setBody(sb);
+
+                    prev.outer.getSubBlocks()[0].replace(prev.outer, null);
+                    forBlock.incr = instr;
+                    prev.removeJump();
+                    lastModified = forBlock;
+                    break transformation;
+                }
+            }
+
+            /* XXX condition for do/while(cond) blocks */
+
             /* Otherwise: */
-
+            
             /* create a new while(true) block.
              */
             StructuredBlock bodyBlock = block;
@@ -853,18 +880,18 @@ public class FlowBlock {
 
             LoopBlock whileBlock = 
                 new LoopBlock(LoopBlock.WHILE, LoopBlock.TRUE);
-
+            
             whileBlock.replace(bodyBlock, bodyBlock);
             whileBlock.setBody(bodyBlock);
-
+            
             /* Try to eliminate as many jumps as possible.
              */
             bodyBlock = optimizeJumps(this, bodyBlock);
-
+            
             /* if there are further jumps to this, replace every jump with a
              * continue to while block and return true.  
              */
-            Enumeration enum = successors.elements();
+            enum = successors.elements();
             while (enum.hasMoreElements()) {
                 Jump jump = (Jump) enum.nextElement();
                 
@@ -897,7 +924,7 @@ public class FlowBlock {
                         (new BreakBlock(breakToBlock, breaklevel > 1));
                     
             }
-
+            
             /* Now remove the jump of block if it points to this.
              */
             if (bodyBlock.jump != null &&
@@ -905,7 +932,7 @@ public class FlowBlock {
                 bodyBlock.removeJump();
 
             lastModified = whileBlock;
-        }
+        } while (false);
 
         /* remove ourself from the predecessor list.
          */
@@ -934,19 +961,9 @@ public class FlowBlock {
             if (jump == null || jump.destination != END_OF_METHOD)
                 continue;
 
-            while (!appendBlock.contains(jump.prev)) {
+            while (!appendBlock.contains(jump.prev))
                 appendBlock = appendBlock.outer;
-                if (appendBlock instanceof SequentialBlock
-                    && appendBlock.getSubBlocks()[0] 
-                    instanceof RawTryCatchBlock) {
-                    
-                    /* We leave the catch block of a raw-try-catch-block.
-                     * We shall now create the Catch- resp. FinallyBlock.
-                     */
-                    appendBlock = 
-                        createCatchBlock((SequentialBlock)appendBlock);
-                }
-            }
+
             /* appendBlock can't be null now, because the
              * outermost block contains every structured block.  
              */
@@ -1007,12 +1024,13 @@ public class FlowBlock {
     static Transformation[] exprTrafos = {
         new RemoveEmpty(),
         new CreateExpression(),
-        new CreatePostIncExpression(),
+        new CreatePrePostIncExpression(),
         new CreateAssignExpression(),
         new CreateNewConstructor(),
         new CombineIfGotoExpressions(),
         new CreateIfThenElseOperator(),
         new CreateConstantArray(),
+        new CreateForInitializer(),
     };
 
 
@@ -1060,12 +1078,21 @@ public class FlowBlock {
      * @param end the end of the address range.
      */
     public boolean analyze(int start, int end) {
+        if (Decompiler.debugAnalyze)
+            System.err.println("analyze("+start+", "+end+")");
         try {
             jode.TabbedPrintWriter writer = null;
             if (Decompiler.isFlowDebugging)
                 writer = new jode.TabbedPrintWriter(System.err, "    ");
 
             boolean changed = false;
+
+            if (block instanceof RawTryCatchBlock) {
+                /* analyze the try and catch blocks separately
+                 * and create a new CatchBlock afterwards.
+                 */
+                changed |= analyzeCatchBlock(start, end);
+            }
 
             while (true) {
                 
@@ -1101,6 +1128,9 @@ public class FlowBlock {
                         writer.untab();
                     }
 
+                    if (Decompiler.debugAnalyze)
+                        System.err.println("T2("+addr+","+(addr+length)
+                                           +") succeeded");
                     /* T2 transformation succeeded.  This may
                      * make another T1 analysis in the previous
                      * block possible.  
@@ -1115,18 +1145,16 @@ public class FlowBlock {
                         /* the Block has no successor where t1 is applicable.
                          * Finish this analyzation.
                          */
-                        if (Decompiler.isFlowDebugging) {
-                            writer.println("No more successors applicable: "
-                                           + start + " - " + end + "; "
-                                           + addr + " - " + (addr+length));
-                        }
+                        if (Decompiler.debugAnalyze)
+                            System.err.println
+                                ("No more successors applicable: "
+                                 + start + " - " + end + "; "
+                                 + addr + " - " + (addr+length));
                         return changed;
                     } else {
-                        /* Only do T1 transformation if the blocks are
-                         * adjacent.  */
                         if (succ.block instanceof SwitchBlock) {
                             /* analyze succ, the new region is the
-                             * continous region of
+                             * continuous region of
                              * [start,end) \cap \compl [addr, addr+length)
                              * where succ.addr lies in.
                              */
@@ -1137,8 +1165,23 @@ public class FlowBlock {
                             if (succ.analyzeSwitch(newStart, newEnd))
                                 break;
 
-                        } if ((succ.addr == addr+length 
+                        } 
+                        if (succ.block instanceof RawTryCatchBlock) {
+                            /* analyze the try and catch blocks separately
+                             * and create a new CatchBlock afterwards.
+                             */
+                            int newStart = (succ.addr > addr)
+                                ? addr+length : start;
+                            int newEnd   = (succ.addr > addr)
+                                ? end         : addr;
+                            if (succ.analyzeCatchBlock(newStart, newEnd)) {
+                                break;
+                            }
+                        } 
+                        if ((succ.addr == addr+length 
                              || succ.addr+succ.length == addr)
+                              /* Only do T1 transformation if the blocks are
+                               * adjacent.  */
                             && doT1(succ)) {
                             /* T1 transformation succeeded. */
                             changed = true;
@@ -1148,30 +1191,221 @@ public class FlowBlock {
                                 writer.tab();
                                 dumpSource(writer);
                                 writer.untab();
-                            }                            
+                            }
                             break;
-                        } else {
-                            /* analyze succ, the new region is the
-                             * continous region of
-                             * [start,end) \cap \compl [addr, addr+length)
-                             * where succ.addr lies in.
-                             */
-                            int newStart = (succ.addr > addr)
-                                ? addr+length : start;
-                            int newEnd   = (succ.addr > addr)
-                                ? end         : addr;
-                            if (succ.analyze(newStart, newEnd))
-                                break;
-                        }
+                        } 
+
+                        /* Check if all predecessors of succ
+                         * lie in range [start,end).  Otherwise
+                         * we have no chance to combine succ
+                         */
+                        Enumeration enum = succ.predecessors.elements();
+                        while (enum.hasMoreElements()) {
+                            int predAddr = 
+                                ((FlowBlock)enum.nextElement()).addr;
+                            if (predAddr < start || predAddr >= end) {
+                                if (Decompiler.debugAnalyze)
+                                    System.err.println
+                                        ("breaking analyze("
+                                         + start + ", " + end + "); "
+                                         + addr + " - " + (addr+length));
+                                return changed;
+                            }
+                        }                            
+                        /* analyze succ, the new region is the
+                         * continuous region of
+                         * [start,end) \cap \compl [addr, addr+length)
+                         * where succ.addr lies in.
+                         */
+                        int newStart = (succ.addr > addr)
+                            ? addr+length : start;
+                        int newEnd   = (succ.addr > addr)
+                            ? end         : addr;
+                        if (succ.analyze(newStart, newEnd))
+                            break;
                     }
-                
+                    
                     /* Try the next successor.
                      */
                     succ = getSuccessor(succ.addr+1, end);
                 }
             }
         } catch (java.io.IOException ioex) {
-            return false;
+            throw new AssertError(ioex.toString());
+        }
+    }
+    
+    /**
+     * Create a Catch- resp. FinallyBlock (maybe even SynchronizedBlock).
+     * The root block MUST be a RawTryCatchBlock.
+     * @param start the start address
+     * @param end and the end address of FlowBlocks, we may use.
+     */
+    public boolean analyzeCatchBlock(int start, int end) {
+        if (Decompiler.debugAnalyze)
+            System.err.println("analyzeCatch("+start+", "+end+")");
+        RawTryCatchBlock rawBlock = (RawTryCatchBlock) block;
+        FlowBlock tryFlow = rawBlock.tryBlock.jump.destination;
+        FlowBlock catchFlow = rawBlock.catchBlock.jump.destination;
+        boolean changed = false;
+        tryFlow.analyze(addr, catchFlow.addr);
+        catchFlow.analyze(catchFlow.addr, end);
+
+        updateInOut(tryFlow, true);
+        rawBlock.tryBlock.removeJump();
+        tryFlow.getBlock().replace(rawBlock.tryBlock, null);
+        mergeSuccessors(tryFlow);
+        length += tryFlow.length;
+
+        updateInOut(catchFlow, true);
+        rawBlock.catchBlock.removeJump();
+        catchFlow.block.replace(rawBlock.catchBlock, null);
+        mergeSuccessors(catchFlow);
+        length += catchFlow.length;
+
+        if (rawBlock.type != null) {
+
+            CatchBlock newBlock = new CatchBlock(rawBlock.type);
+            newBlock.replace(rawBlock, rawBlock);
+            newBlock.setTryBlock(rawBlock.tryBlock);
+            newBlock.setCatchBlock(rawBlock.catchBlock);
+            lastModified = newBlock;
+            changed = true;
+        } else if (catchFlow.block instanceof SequentialBlock) {
+            SequentialBlock catchBlock = null;
+            int type = 0;
+
+            try {
+                catchBlock = (SequentialBlock) catchFlow.block;
+                if (((Expression)((InstructionBlock)catchBlock.subBlocks[0])
+                 .instr).getOperator() instanceof jode.MonitorExitOperator
+                    && ((ThrowBlock)catchBlock.subBlocks[1]).instr 
+                    instanceof jode.NopOperator)
+                    
+                    /* This is a synchronized block */
+                    type = 2;
+
+                else if 
+                    (((SequentialBlock)catchBlock.subBlocks[1]).subBlocks[0] 
+                     instanceof JsrBlock
+                     && ((LocalStoreOperator) 
+                         ((Expression)
+                          ((InstructionBlock)catchBlock.subBlocks[0])
+                          .instr).getOperator())
+                     .matches((LocalLoadOperator) 
+                              ((Expression)
+                               ((ThrowBlock)
+                                ((SequentialBlock)catchBlock.subBlocks[1]).
+                                subBlocks[1])
+                               .instr).getOperator()))
+                    /* Wow that was complicated :-)
+                     * But now we know that the catch block looks
+                     * exactly like we exspected.  
+                     */
+                    type = 1;
+            } catch (ClassCastException ex) {
+                /* don't do transformations */
+            }
+
+            
+            if (type == 2) { 
+                
+                /* This is a synchronized block */
+                throw new AssertError ("Synchronized not implemented yet");
+                
+            } else if (type == 1) {
+                
+                /* Finally block */
+                
+                FlowBlock subRoutine = 
+                    ((JsrBlock)catchBlock.subBlocks[1].getSubBlocks()[0])
+                    .innerBlock.jump.destination;
+                
+                subRoutine.analyzeSubRoutine(addr+length, end);
+                updateInOut(subRoutine, true);
+
+                length += subRoutine.length;
+                Enumeration enum = successors.elements();
+                while (enum.hasMoreElements()) {
+                    Jump jump = (Jump)enum.nextElement();
+                    if (jump != null && jump.destination == subRoutine) {
+                        if (jump.prev instanceof EmptyBlock
+                            && jump.prev.outer instanceof JsrBlock) {
+                            /* XXX
+                             * Could check much more here!
+                             */
+                            StructuredBlock prevBlock = null;
+                            StructuredBlock jsrBlock = jump.prev.outer;
+                            if (jsrBlock.outer instanceof SequentialBlock) {
+
+                                if (jsrBlock.outer.getSubBlocks()[1]
+                                    == jsrBlock) {
+                                    prevBlock = 
+                                        jsrBlock.outer.getSubBlocks()[0];
+                                    prevBlock.replace(jsrBlock.outer, 
+                                                      jsrBlock.outer);
+                                } else if (jsrBlock.outer.outer instanceof
+                                           SequentialBlock) {
+                                    prevBlock = 
+                                        jsrBlock.outer.outer
+                                        .getSubBlocks()[0];
+                                    jsrBlock.outer.getSubBlocks()[1]
+                                        .replace(jsrBlock.outer,
+                                                 jsrBlock.outer);
+                                }
+                            }
+                            if (prevBlock != null) {
+                                if (prevBlock.jump == null)
+                                    prevBlock.moveJump(jsrBlock.jump);
+                                else 
+                                    jsrBlock.removeJump();
+                            } else {
+                                EmptyBlock eb = new EmptyBlock();
+                                eb.moveJump(jsrBlock.jump);
+                                eb.replace(jsrBlock, jump.prev);
+                            }
+                            jump.prev.removeJump();
+                        } else 
+                            throw new AssertError("wrong jsr");
+                    }
+                }
+                
+                CatchFinallyBlock newBlock = new CatchFinallyBlock();
+                newBlock.replace(rawBlock, rawBlock);
+                newBlock.setTryBlock(rawBlock.tryBlock);
+                newBlock.setFinallyBlock(subRoutine.block);
+                lastModified = newBlock;
+                changed = true;
+            }
+        }
+        checkConsistent();
+        if (Decompiler.debugAnalyze)
+            System.err.println("analyzeCatch("+start+", "+end+") "
+                               +(changed?"succeeded":"failed")
+                               +"; "+addr+","+(addr+length));
+        return changed;
+    }
+
+    public void analyzeSubRoutine(int start, int end) {
+        analyze(start, end);
+        /* throws ClassCastException if something isn't as exspected. */
+        SequentialBlock sequBlock = (SequentialBlock) block;
+        LocalStoreOperator store = (LocalStoreOperator)
+            ((Expression)((InstructionBlock)sequBlock.subBlocks[0]).instr)
+            .getOperator();
+
+        while (sequBlock.subBlocks[1] instanceof SequentialBlock)
+            sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
+
+        if (! ((RetBlock)sequBlock.subBlocks[1]).local
+            .equals(store.getLocalInfo()))
+            throw new AssertError("Ret doesn't match");
+
+        if (sequBlock.outer == null) {
+            new EmptyBlock().replace(sequBlock, sequBlock);
+        } else {
+            sequBlock.subBlocks[0].replace(sequBlock, sequBlock);
+            block.getSubBlocks()[1].replace(block, block);
         }
     }
     
@@ -1260,17 +1494,21 @@ public class FlowBlock {
      * Resolves the destinations of all jumps.
      */
     public void resolveJumps(FlowBlock[] instr) {
+        if (block instanceof RawTryCatchBlock) {
+            ((RawTryCatchBlock)block).getTryBlock()
+                .jump.destination.resolveJumps(instr);
+        }
         Enumeration enum = successors.elements();
         while (enum.hasMoreElements()) {
             Jump jump = (Jump) enum.nextElement();
-            if (jump != null) {
+            if (jump != null && jump.destination == null) {
                 if (jump.destAddr == -1) 
                     jump.destination = END_OF_METHOD;
                 else
                     jump.destination = instr[jump.destAddr];
-                if (!jump.destination.predecessors.contains(this))
-                    jump.destination.predecessors.addElement(this);
             }
+            if (!jump.destination.predecessors.contains(this))
+                jump.destination.predecessors.addElement(this);
         }
     }
 
@@ -1346,5 +1584,19 @@ public class FlowBlock {
      */
     public StructuredBlock getBlock() {
         return block;
+    }
+
+    public String toString() {
+        try {
+            java.io.StringWriter strw = new java.io.StringWriter();
+            jode.TabbedPrintWriter writer = 
+                new jode.TabbedPrintWriter(strw, "    ");
+            writer.println(super.toString());
+            writer.tab();
+            dumpSource(writer);
+            return strw.toString();
+        } catch (java.io.IOException ex) {
+            return super.toString();
+        }
     }
 }

@@ -47,7 +47,7 @@ public class RemoveEmpty implements Transformation {
             if (prev.jump != null)
                 return false;
             instr = (Instruction) prev.getInstruction();
-            instr.setType(instr.getType().intersection(prevInstr.getType()));
+            instr.setType(prevInstr.getType());
         } catch (NullPointerException ex) {
             return false;
         } catch (ClassCastException ex) {
