@@ -87,7 +87,6 @@ public class ClassAnalyzer
         this.imports = imports;
 	this.outerValues = outerValues;
 	modifiers = clazz.getModifiers();
-	name = clazz.getName();
 
 	if (parent != null) {
 	    InnerClassInfo[] outerInfos = clazz.getOuterClasses();
@@ -227,16 +226,7 @@ public class ClassAnalyzer
 	return jikesAnonymousInner;
     }
 
-    public void analyze() {
-	if (GlobalOptions.verboseLevel > 0)
-	    GlobalOptions.err.println("Class " + clazz.getName());
-	imports.useClass(clazz);
-        if (clazz.getSuperclass() != null)
-            imports.useClass(clazz.getSuperclass());
-        ClassInfo[] interfaces = clazz.getInterfaces();
-        for (int j=0; j< interfaces.length; j++)
-            imports.useClass(interfaces[j]);
-
+    public void initialize() {
         FieldInfo[] finfos = clazz.getFields();
         MethodInfo[] minfos = clazz.getMethods();
 	InnerClassInfo[] innerInfos = clazz.getInnerClasses();
@@ -250,6 +240,7 @@ public class ClassAnalyzer
 
 	if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
 	    && innerInfos != null) {
+	    /* Create inner classes */
 	    Expression[] outerThis = new Expression[] {
 		new ThisOperator(clazz)
 	    };
@@ -285,11 +276,40 @@ public class ClassAnalyzer
             }
         }
 
+        constructors = new MethodAnalyzer[constrVector.size()];
+	constrVector.copyInto(constructors);
+
+//  	// initialize the methods.
+//          for (int j=0; j < methods.length; j++)
+//  	    methods[j].initialize();
+
+	// initialize the inner classes.
+	for (int j=0; j < inners.length; j++) {
+	    inners[j].initialize();
+	}
+    }
+
+    public void analyze() {
+	if (GlobalOptions.verboseLevel > 0)
+	    GlobalOptions.err.println("Class " + clazz.getName());
+	imports.useClass(clazz);
+        if (clazz.getSuperclass() != null)
+            imports.useClass(clazz.getSuperclass());
+        ClassInfo[] interfaces = clazz.getInterfaces();
+        for (int j=0; j< interfaces.length; j++)
+            imports.useClass(interfaces[j]);
+
+        if (fields == null) {
+            /* This means that the class could not be loaded.
+             * give up.
+             */
+            return;
+        }
+
+
 	// First analyze constructors and synthetic fields:
 	constrAna = null;
-        constructors = new MethodAnalyzer[constrVector.size()];
 	if (constructors.length > 0) {
-            constrVector.copyInto(constructors);
 	    for (int j=0; j< constructors.length; j++)
 		constructors[j].analyze();
 	    constrAna = new TransformConstructors(this, false, constructors);
@@ -490,6 +510,7 @@ public class ClassAnalyzer
     public void dumpJavaFile(TabbedPrintWriter writer) throws IOException {
 	imports.init(clazz.getName());
 	LocalInfo.init();
+	initialize();
 	analyze();
 	analyzeInnerClasses();
 	makeDeclaration();
@@ -558,6 +579,22 @@ public class ClassAnalyzer
 	if (parent == null)
 	    return null;
 	return getParent().getClassAnalyzer(cinfo);
+    }
+
+    /**
+     * Get the class analyzer for the given inner class.
+     * @param name the short name of the inner class
+     * @return the class analyzer, or null if there is no inner
+     * class with the given name.
+     */
+    public ClassAnalyzer getInnerClassAnalyzer(String name) {
+	/** precondition name != null; **/
+	int innerCount = inners.length;
+	for (int i=0; i < innerCount; i++) {
+	    if (inners[i].name.equals(name))
+		return inners[i];
+	}
+	return null;
     }
 
     public void addClassAnalyzer(ClassAnalyzer clazzAna) {
