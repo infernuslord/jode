@@ -1,12 +1,11 @@
 This is a list of features, that would be nice to have:
 
 Decompiler:
- - decompile inner classes correctly.
  - deinline inlined methods.
  - remove string decrypt method.
  - remove synthetic methods if and only if all calls to them are resolved.
- - handle try catch more thouroughly/safely.
- - decompile jode.jvm.Interpreter (hand optimized bytecode)
+ ~ handle try catch more thouroughly/safely.
+ ~ decompile jode.jvm.Interpreter (hand optimized bytecode)
 
 Obfuscator:
  - read options from a script.
