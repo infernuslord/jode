@@ -562,7 +562,7 @@ public class TabbedPrintWriter {
 	println();
     }
 
-    public void println() {
+    public void flushLine() {
 	currentBP.endPos = currentLine.length();
 
 //  	pw.print(indentStr);
@@ -578,11 +578,15 @@ public class TabbedPrintWriter {
 //  	pw.println();
 	pw.print(indentStr);
 	currentBP.printLines(currentIndent, currentLine.toString());
-	pw.println();
 
 	currentLine.setLength(0);
 	currentBP = new BreakPoint(null, 0);
 	currentBP.startOp(DONT_BREAK, 1, 0);
+    }
+
+    public void println() {
+	flushLine();
+	pw.println();
     }
 
     public void print(String str) {
@@ -751,10 +755,12 @@ public class TabbedPrintWriter {
     }
 
     public void flush() {
+	flushLine();
 	pw.flush();
     }
 
     public void close() {
+	flushLine();
 	pw.close();
     }
 }
