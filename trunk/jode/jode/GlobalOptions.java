@@ -22,10 +22,12 @@ import java.io.PrintStream;
 import java.util.StringTokenizer;
 
 public class GlobalOptions {
-    public final static String version = "1.0";
+    public final static String version = "1.0 pre-2";
     public final static String email = "jochen@gnu.org";
     public final static String copyright = 
 	"Jode (c) 1998,1999 Jochen Hoenicke <"+email+">";
+    public final static String URL =
+	"http://www.informatik.uni-oldenburg.de/~delwi/jode/jode.html";
 
     public static PrintStream err = System.err;
     public static int verboseLevel   = 0;
