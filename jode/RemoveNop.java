@@ -5,6 +5,8 @@ public class RemoveNop implements Transformation {
         Instruction pred;
         try {
             NopOperator op = (NopOperator) ih.getInstruction();
+            if (op == null)
+                return null;
             ih = ih.getSimpleUniquePredecessor();
             pred = ih.getInstruction();
             if (pred == null)

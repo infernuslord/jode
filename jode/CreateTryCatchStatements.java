@@ -1,6 +1,7 @@
 package jode;
 
-public class CreateTryCatchStatements implements Transformation {
+public class CreateTryCatchStatements extends FlowTransformation
+implements Transformation {
 
     public InstructionHeader transform(InstructionHeader tryIH) {
         if (tryIH.getFlowType() != tryIH.TRY ||
@@ -46,14 +47,12 @@ public class CreateTryCatchStatements implements Transformation {
         }
         InstructionHeader endBlock;
         if (endIH != catchIH[1]) {
-            if ((endIH.flowType != endIH.RETURN || 
-                 endIH.getInstruction().getType() != MyType.tVoid) && 
-                endIH.flowType != endIH.GOTO)
+            if (endIH.flowType != endIH.GOTO)
                 return null;
 
-            endBlock = endIH.successors[0];
+            endBlock = UnoptimizeWhileLoops(endIH.successors[0]);
         } else
-            endBlock = tryIH.outer.endBlock;
+            endBlock = tryIH.outer.getEndBlock();
         if (Decompiler.isVerbose)
             System.err.print("t");
         return new TryCatchInstructionHeader

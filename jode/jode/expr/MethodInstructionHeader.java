@@ -8,6 +8,7 @@ import sun.tools.java.Type;
  * @author Jochen Hoenicke
  */
 public class MethodInstructionHeader extends InstructionHeader {
+
     /**
      * Create a new InstructionHeader.
      * @param addr   The address of this Instruction.
@@ -20,7 +21,8 @@ public class MethodInstructionHeader extends InstructionHeader {
         super(METHOD, 0, instr.length, new InstructionHeader[1], null);
         successors[0] = instr[0];
         instr[0].predecessors.addElement(this);
-        endBlock  = new InstructionHeader(EMPTY, instr.length, null);
+        nextInstruction  = new InstructionHeader(EMPTY, instr.length, null);
+        nextInstruction.prevInstruction = this;
 
 	for (int addr = 0; addr < instr.length; addr = instr[addr].nextAddr) {
 
@@ -28,9 +30,15 @@ public class MethodInstructionHeader extends InstructionHeader {
 	    instr[addr].resolveSuccessors(instr);
 
 	    if (instr[addr].flowType == RETURN) {
-                InstructionHeader[] retSuccs = { endBlock };
+                InstructionHeader[] retSuccs = { nextInstruction };
                 instr[addr].successors = retSuccs;
-		endBlock.predecessors.addElement(instr[addr]);
+		nextInstruction.predecessors.addElement(instr[addr]);
+                if (instr[addr].instr == null) {
+                    /* if this is a void return, replace it by a
+                     * goto to the nextInstruction.
+                     */
+                    instr[addr].flowType = GOTO;
+                }
             }
 	}
         for (int i=0; i<handlers.length; i++) {
@@ -39,7 +47,9 @@ public class MethodInstructionHeader extends InstructionHeader {
                 instr[handlers[i].startPC] = tryIH = 
                     new TryInstructionHeader(tryIH, this);
 
-            Type type = handlers[i].exceptionClass.getType();
+            Type type = 
+                (handlers[i].exceptionClass != null)? 
+                handlers[i].exceptionClass.getType() : MyType.tVoid;
             instr[handlers[i].handlerPC] = 
                 new CatchInstructionHeader
                 (type, env.getTypeString(type),
@@ -56,7 +66,7 @@ public class MethodInstructionHeader extends InstructionHeader {
     }
 
     public Vector getReturns() {
-        return endBlock.predecessors;
+        return nextInstruction.predecessors;
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -65,6 +75,9 @@ public class MethodInstructionHeader extends InstructionHeader {
 	for (InstructionHeader ih = successors[0]; ih != null; 
              ih = ih.nextInstruction)
 	    ih.dumpSource(writer);
+
+        // dump the last label if it was used.
+        nextInstruction.dumpSource(writer);
     }
 
     public InstructionHeader doTransformations(Transformation[] trafo) {

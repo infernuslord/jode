@@ -18,6 +18,10 @@ public class CreateIfThenElseOperator implements Transformation{
             while (enum.hasMoreElements()) {
                 try {
                     ih = (InstructionHeader) enum.nextElement();
+
+                    if (ih.flowType == ih.GOTO)
+                        ih = ih.getUniquePredecessor();
+
                     Expression zeroExpr = (Expression) ih.getInstruction();
                     ConstOperator zero = 
                         (ConstOperator) zeroExpr.getOperator();
@@ -57,46 +61,54 @@ public class CreateIfThenElseOperator implements Transformation{
         return next;
     }
 
-    public InstructionHeader create(InstructionHeader ih) {
+    public InstructionHeader create(InstructionHeader ih2) {
         InstructionHeader ifHeader;
+        InstructionHeader gotoIH;
         Expression e[] = new Expression[3];
-        InstructionHeader[] succs;
         try {
-            Vector predec = ih.getPredecessors();
+            Vector predec = ih2.getPredecessors();
 
             if (predec.size() != 1)
                 return null;
             ifHeader = (InstructionHeader) predec.elementAt(0);
             if (ifHeader.getFlowType() != ifHeader.IFGOTO)
                 return null;
-            succs = ifHeader.getSuccessors();
-            if (succs[1] != ih ||
-                succs[0].getNextInstruction() != succs[1] ||
-                succs[0].getSuccessors().length != 1 ||
-                succs[1].getSuccessors().length != 1 ||
-                succs[0].getSuccessors()[0] != succs[1].getSuccessors()[0])
+
+            InstructionHeader ih1 = ifHeader.getSuccessors()[0];
+            gotoIH = ih1.getNextInstruction();
+            
+            if (ifHeader.getSuccessors()[1] != ih2 ||
+                ih1.flowType != ifHeader.NORMAL ||
+                gotoIH.flowType != ifHeader.GOTO ||
+                ih2.flowType != ifHeader.NORMAL ||
+                gotoIH.getNextInstruction() != ih2 ||
+                gotoIH.getSuccessors()[0] != ih2.getNextInstruction())
                 return null;
 
-            e[0] = ((Expression) ifHeader.getInstruction()).negate();
-            e[1] = (Expression) succs[0].getInstruction();
+            e[1] = (Expression) ih1.getInstruction();
             if (e[1].isVoid())
                 return null;
-            e[2] = (Expression) succs[1].getInstruction();
+            e[2] = (Expression) ih2.getInstruction();
             if (e[2].isVoid())
                 return null;
+            e[0] = (Expression) ifHeader.getInstruction();
         } catch (ClassCastException ex) {
             return null;
         } catch (NullPointerException ex) {
             return null;
         }
 
+        if (Decompiler.isVerbose)
+            System.err.print("?");
+
+        e[0] = e[0].negate();
         IfThenElseOperator iteo = new IfThenElseOperator
             (MyType.intersection(e[1].getType(),e[2].getType()));
 
-        ih.instr = new Expression(iteo, e);
-        ih.movePredecessors(ifHeader);
-        ih.nextInstruction.predecessors.removeElement(ifHeader.successors[0]);
-        return ih;
+        ih2.instr = new Expression(iteo, e);
+        ih2.movePredecessors(ifHeader);
+        ih2.nextInstruction.predecessors.removeElement(gotoIH);
+        return ih2;
     }
 
     public InstructionHeader transform(InstructionHeader ih) {

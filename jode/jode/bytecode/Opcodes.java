@@ -236,11 +236,10 @@ public abstract class Opcodes implements RuntimeConstants{
 		     (OBJECT_TYPE, opcode - opc_if_acmpeq+Operator.COMPARE_OP));
             case opc_goto:
                 return InstructionHeader.createGoto
-		    (addr, 3, addr+stream.readShort(), new NopOperator());
+		    (addr, 3, addr+stream.readShort());
             case opc_jsr:
                 return InstructionHeader.createGoto //XXX
-		    (addr, 3, addr+stream.readShort(), 
-		     new JsrOperator());
+		    (addr, 3, addr+stream.readShort());
             case opc_ret:
                 return InstructionHeader.createReturn //XXX
 		    (addr, 2, 
@@ -288,11 +287,8 @@ public abstract class Opcodes implements RuntimeConstants{
 		    (addr, 1, new ReturnOperator(retType));
             }
 	    case opc_return: {
-                Type retType = MyType.intersection
-                    (ca.getMethod().mdef.getType().getReturnType(),
-                     VOID_TYPE);
 		return InstructionHeader.createReturn
-		    (addr, 1, new ReturnOperator(retType));
+		    (addr, 1, null);
 	    }
             case opc_getstatic:
             case opc_getfield:
@@ -446,10 +442,10 @@ public abstract class Opcodes implements RuntimeConstants{
 		     (OBJECT_TYPE, opcode - opc_ifnull+Operator.COMPARE_OP));
             case opc_goto_w:
                 return InstructionHeader.createGoto
-		    (addr, 5, addr + stream.readInt(), new NopOperator());
+		    (addr, 5, addr + stream.readInt());
             case opc_jsr_w:
                 return InstructionHeader.createGoto
-		    (addr, 5, addr+stream.readInt(), new JsrOperator());
+		    (addr, 5, addr+stream.readInt()); // XXX
             default:
                 throw new ClassFormatError("Invalid opcode "+opcode);
             }

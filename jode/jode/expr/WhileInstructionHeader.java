@@ -28,31 +28,39 @@ import java.util.Enumeration;
 public class WhileInstructionHeader extends InstructionHeader {
     /**
      * Creates a new while statement.
-     * @param prev     the goto instruction in front of this while loop.
-     * @param ifHeader the instruction header which contains the 
-     *                 if-goto statement.
-     * @param blockStart the start of the inner block.
-     * @param blockEnd   the end of the inner block.
-     * @param next       the instruction header after this if block.
+     * @param gotoHeader  the goto instruction in front of this while loop.
+     * @param ifHeader    the instruction header which contains the 
+     *                    if-goto statement.
      */
-    public WhileInstructionHeader(InstructionHeader prev,
-                                  InstructionHeader ifHeader,
-                                  InstructionHeader block) {
+    public WhileInstructionHeader(InstructionHeader gotoHeader,
+                                  InstructionHeader ifHeader) {
 
         super(WHILESTATEMENT, 
-              ifHeader.successors[1].addr, ifHeader.successors[0].addr, 
+              gotoHeader.addr, ifHeader.nextAddr,
               ifHeader.successors, ifHeader.outer);
 
         this.instr = ifHeader.instr;
 
         this.outer = ifHeader.outer;
-        this.endBlock = this;
 
-        this.movePredecessors(ifHeader);
-        this.addr = successors[1].addr;
-        prev.flowType = NORMAL;
+        this.addPredecessors(ifHeader);
+        for (int i=0; i < successors.length; i++) {
+            successors[i].predecessors.removeElement(ifHeader);
+            successors[i].predecessors.addElement(this);
+        }
+        if (successors[0].flowType == GOTO) {
+            successors[0].predecessors.removeElement(this);
+            successors[0] = successors[0].successors[0];
+            successors[0].predecessors.addElement(this);
+        }
 
-        this.prevInstruction = successors[1].prevInstruction;
+
+        if (gotoHeader != ifHeader) {
+            this.addPredecessors(gotoHeader);
+            gotoHeader.successors[0].predecessors.removeElement(gotoHeader);
+        }
+
+        this.prevInstruction = gotoHeader.prevInstruction;
         if (prevInstruction != null)
             prevInstruction.nextInstruction = this;
 
@@ -60,21 +68,26 @@ public class WhileInstructionHeader extends InstructionHeader {
         if (nextInstruction != null)
             nextInstruction.prevInstruction = this;
 
-        successors[0].predecessors.removeElement(ifHeader);
-        successors[1].predecessors.removeElement(ifHeader);
-        successors[0].predecessors.addElement(this);
-        successors[1].predecessors.addElement(this);
-
         if (successors[1] != this) {
             successors[1].prevInstruction = null;
             for (InstructionHeader ih = successors[1]; ih != null;
                  ih = ih.nextInstruction) {
                 if (ih.outer == outer)
                     ih.outer = this;
-                if (ih.nextInstruction == this)
+                if (ih.nextInstruction == ifHeader)
                     ih.nextInstruction = null;
             }
         }
+    }
+
+    /** 
+     * This should be implemented for those blocks, that is headers
+     * which are outer of other headers.  This gives the instruction
+     * where the control flows after this block.
+     * @return the first instruction after this block.  
+     */
+    InstructionHeader getEndBlock() {
+        return this;
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -91,7 +104,7 @@ public class WhileInstructionHeader extends InstructionHeader {
             writer.tab();
         }
 
-        boolean braces = (successors[1] == this || 
+        boolean braces = (successors[1].flowType != NORMAL || 
                           successors[1].nextInstruction != null);
         writer.println("while (" + instr.toString() + ")" + 
                        (braces ? " {": ""));
