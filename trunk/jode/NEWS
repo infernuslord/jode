@@ -1,6 +1,8 @@
 New in 1.0.93
 * anonymous and inner class decompilation reworked.
 * replaced a bash specific construct in acinclude.m4
+* fixed a funny bug:  string += "1" was decompiled as string++
+* main class of decompiler is now jode.decompiler.Main
 - better memory usage in decompiler
 - fixed a bug in ConstantAnalyzer (produced wrong code)
 - swingui also uses getopt.

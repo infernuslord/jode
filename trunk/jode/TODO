@@ -25,4 +25,8 @@ User Interface:
    - list fields/method of selected class.
    - show decompilation of selected method.
    - show usage of method/fields.
+ - syntax highlighting, hyper links etc.  (look at java.swing.JEditorPane)
  - visual obfuscation/deobfuscation (like klassmaster?, better?)
+
+Internal:
+ - clean up package hierarchy, esp. expr, flow and decompiler.
