@@ -52,89 +52,122 @@ for (@ARGV) {
 }
 
 for (@files) {
-    my $file = $_;
-    my $branch = "none";
+    # Number of nested #if directives.  Initially 0, will be increased
+    # on every #if directive and decreased on every #endif directive.
     my $level = 0;
-    rename "$file", "$file.orig" or do {
+
+    # The number of the outermost level, whose #if directive was
+    # false.  This is 0, if there wasn't an false #if directive, yet.
+    # As long as it is != 0, we comment every line, and ignore
+    # directives except for increasing/decreasing $level.  
+    my $falselevel = 0;
+
+    # Tells if an error occured and the transformation shouldn't
+    # be done.
+    my $error = 0;
+    my $changes = 0;
+
+    my $file = $_;
+    open OLD, "<$file" or do {
 	print STDERR "Can't open file $file\n"; 
 	next;
     };
-    open OLD, "<$file.orig";
-    open NEW, ">$file";
+    open NEW, ">$file.tmp" or do {
+	print STDERR "Can't open tmp file $file.tmp\n"; 
+	next;
+    };
     my $linenr = 0;
+  LINE:
     while (<OLD>) {
 	$linenr++;
-	if (/^\/\/\/\#/) {
+	if (m'^///#') {
 	    # This is a directive.  First we print it out.
 	    print NEW $_;
-	    if (/^\/\/\/\#ifdef (\S*)$/) {
-		my $label=$1;
-		# An ifdef directive, look if -D is defined, but only
-		# if we are not in a false branch. In a false branch
-		# we simply increase level.
-		if ($branch eq "false") {
-		    $level++;
-		} else {
-		    if (defined $defs{$label}) {
-			$branch = "true";
-		    } else {
-			$branch = "false";
-			$level = 0;
-		    }
+	    if (m'^///# *if') {
+		$level++;
+		if (m'^///# *ifdef (\S*)$') {
+		    # If there was an outer false #if directive, we ignore the
+		    # condition.
+		    next LINE if ($falselevel);
+
+		    my $label=$1;
+
+		    # An ifdef directive, look if -D is defined.
+		    $falselevel = $level
+			unless (defined $defs{$label});
+		} elsif (m'^///# *ifndef (\S*)$') {
+		    # If there was an outer false #if directive, we ignore the
+		    # condition.
+		    next LINE if ($falselevel);
+		    
+		    my $label=$1;
+		    # An ifndef directive, look if -D is defined
+		    $falselevel = $level 
+		        if (defined $defs{$label});
 		}
-	    } elsif (/^\/\/\/\#ifndef (\S*)$/) {
-		my $label=$1;
-		# An ifndef directive, look if -D is defined, but only
-		# if we are not in a false branch. In a false branch
-		# we simply increase level.
-		if ($branch eq "false") {
-		    $level++;
-		} else {
-		    if (defined $defs{$label}) {
-			$branch = "false";
-			$level = 0;
-		    } else {
-			$branch = "true";
-		    }
-		}
-	    } elsif (/^\/\/\/\#else/) {
+	    } elsif (m'^///# *else') {
 		# An else directive.  We switch from true to false and 
-		# if level is zero we switch from false to true
-		if ($branch eq "true") {
-		    $branch = "false";
-		    $level = 0;
-		} elsif ($branch eq "false") {
-		    $branch = "true" if ($level == 0);
-		} else {
+		# if level is falselevel we switch from false to true
+		if ($level == 0) {
 		    # An else outside of any directives; warn.
-		    print STDERR "$file: $linenr: ignoring unmatched $_";
+		    print STDERR "$file: $linenr: unmatched $_";
+		    $error = 1;
+		} elsif ($falselevel == $level) {
+		    $falselevel = 0;
+		} elsif ($falselevel == 0) {
+		    $falselevel = $level;
 		}
-	    } elsif (/^\/\/\/\#endif/) {
-		if ($branch eq "none") {
-		    # An endif outside of any directives; warn.
-		    print STDERR "$file: $linenr: ignoring unmatched $_";
-		} elsif ($branch eq "false") {
-		    $branch = "true" if ($level-- == 0);
+	    } elsif (m'^///# *endif') {
+		# set $falselevel to 0, if the false branch is over now.
+		$falselevel = 0 if ($falselevel == $level);
+		# decrease level.
+		if ($level == 0) {
+		    print STDERR "$file: $linenr: unmatched $_";
+		    $error = 1;
+		} else {
+		    $level--;
 		}
 	    } else {
 		print STDERR "$file: $linenr: ignoring unknown directive $_";
+		$error = 1;
 	    }
-	} elsif (/^\/\/\/(.*)/) {
+	} elsif (m'^///(.*)') {
 	    $line = $1;
-	    if ($branch eq "true") {
-		# remove comments in true branch;
+	    if ($falselevel == 0 && $level > 0) {
+		# remove comments in true branch, but not in outermost level.
 		print NEW "$line\n";
+		$changes = 1;
 	    } else {
 		# print out the full line with comments:
 		print NEW $_;
 	    }
 	} else {
-	    if ($branch eq "false") {
+	    if ($falselevel != 0) {
 		# add comments in false branch
 		print NEW "///$_";
+		$changes = 1;
 	    } else {
 		print NEW $_;
 	    }
 	}
+    }
+
+    if ($level != 0 || $falselevel != 0) {
+	# something got wrong
+	print STDERR "$file: unmatched directives: level $level, ".
+	    "falselevel $falselevel\n";
+	$error = 1;
+    }
+
+    if ($error == 0) {
+	if ($changes == 0) {
+	    unlink "$file.tmp";
+	} else {
+	    (rename "$file", "$file.orig" 
+	     and rename "$file.tmp", "$file") 
+		or print STDERR "$file: Couldn't rename files.\n";
+	}
+    } else {
+	print STDERR "$file: errors occured, file not transformed.\n";
     }
 }
