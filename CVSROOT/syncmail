@@ -124,11 +124,11 @@ def calculate_url(dir, filespec):
         # No diff to report
         return '***** Bogus filespec: %s' % filespec
     if oldrev == 'NONE':
-	lines = [ 'http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s?cvsroot=jode&rev=%s' % (dir, file, newrev) ]
+	lines = [ 'http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jode/%s/%s?rev=%s' % (dir, file, newrev) ]
     elif newrev == 'NONE':
-	lines = [ 'DELETED: http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s?cvsroot=jode&rev=%s' % (dir, file, oldrev) ]
+	lines = [ 'DELETED: http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jode/%s/%s?rev=%s' % (dir, file, oldrev) ]
     else:
-	lines = [ 'http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s.diff?cvsroot=jode&r1=%s&r2=%s&f=u' % (dir, file, oldrev, newrev) ]
+	lines = [ 'http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jode/%s/%s.diff?r1=%s&r2=%s&diff_format=u' % (dir, file, oldrev, newrev) ]
     return string.join(lines, '')
 
 
