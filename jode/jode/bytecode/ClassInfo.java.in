@@ -426,7 +426,7 @@ public class ClassInfo extends BinaryInfo {
 	if ((howMuch & HIERARCHY) != 0) {
 	    modifiers = clazz.getModifiers();
 	    if (clazz.getSuperclass() == null)
-		superclass = null;
+		superclass = clazz == Object.class ? null : javaLangObject;
 	    else
 		superclass = ClassInfo.forName
 		    (clazz.getSuperclass().getName());
