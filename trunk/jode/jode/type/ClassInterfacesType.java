@@ -17,7 +17,7 @@
  * $Id$
  */
 
-package jode;
+package jode.type;
 import jode.bytecode.ClassInfo;
 import java.util.Vector;
 import java.util.Stack;
@@ -112,8 +112,7 @@ public class ClassInterfacesType extends ReferenceType {
         if (bottom.clazz != null) {
             /* The searched type must be a class type.
              */
-            if (this.ifaces.length != 0
-                || !bottom.clazz.superClassOf(this.clazz))
+            if (!bottom.clazz.superClassOf(this.clazz))
                 return tError;
             
             /* All interfaces must be implemented by this.clazz
@@ -127,6 +126,8 @@ public class ClassInterfacesType extends ReferenceType {
                 && bottom.ifaces.length == 0)
                 return bottom;
 
+	    if (this.ifaces.length != 0)
+		return tRange(bottom, create(this.clazz, new ClassInfo[0]));
             return tRange(bottom, this);
             
         } else {
@@ -378,16 +379,6 @@ public class ClassInterfacesType extends ReferenceType {
         return create(clazz, ifaceArray);
     }
 
-    /**
-     * Marks this type as used, so that the class is imported.
-     */
-    public void useType() {
-	if (clazz != null)
-	    env.useClass(clazz.getName());
-	else if (ifaces.length > 0)
-	    env.useClass(ifaces[0].getName());
-    }
-
     public String getTypeSignature() {
 	if (clazz != null)
 	    return "L" + clazz.getName().replace('.','/') + ";";
@@ -418,12 +409,12 @@ public class ClassInterfacesType extends ReferenceType {
     public String toString()
     {
 	if (this == tObject)
-	    return env.classString("java.lang.Object");
+	    return "java.lang.Object";
 	
 	if (ifaces.length == 0)
-	    return env.classString(clazz.getName());
+	    return clazz.getName();
 	if (clazz == null && ifaces.length == 1)
-	    return env.classString(ifaces[0].getName());
+	    return ifaces[0].getName();
 
 	StringBuffer sb = new StringBuffer("{");
 	String comma = "";
