@@ -20,9 +20,15 @@
 package jode.expr;
 import jode.type.Type;
 import jode.type.NullType;
+import jode.type.ClassInterfacesType;
+import jode.bytecode.ClassInfo;
 import jode.bytecode.Reference;
 import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.ClassAnalyzer;
+import jode.decompiler.MethodAnalyzer;
+import jode.decompiler.FieldAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
+import jode.decompiler.Scope;
 
 public class GetFieldOperator extends Operator {
     boolean staticFlag;
@@ -63,14 +69,59 @@ public class GetFieldOperator extends Operator {
 	    needCast = types[0].getHint().equals(Type.tNull);
     }
 
+    /**
+     * Checks, whether this is a call of a method from this class or an
+     * outer instance.
+     */
+    public boolean isOuter() {
+	if (classType instanceof ClassInterfacesType) {
+	    ClassInfo clazz = ((ClassInterfacesType) classType).getClassInfo();
+	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
+	    while (true) {
+		if (clazz == ana.getClazz())
+		    return true;
+		if (ana.getParent() instanceof MethodAnalyzer)
+		    ana = ((MethodAnalyzer) ana.getParent())
+			.getClassAnalyzer();
+		else if (ana.getParent() instanceof ClassAnalyzer)
+		    ana = (ClassAnalyzer) ana.getParent();
+		else
+		    return false;
+	    }
+	}
+	return false;
+    }
+
+    public ClassInfo getClassInfo() {
+	if (classType instanceof ClassInterfacesType)
+	    return ((ClassInterfacesType) classType).getClassInfo();
+	return null;
+    }
+
+    public FieldAnalyzer getFieldAnalyzer() {
+	ClassInfo clazz = getClassInfo();
+	if (clazz != null) {
+	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
+	    while (true) {
+		if (clazz == ana.getClazz()) {
+		    return ana.getField(ref.getName(), 
+					Type.tType(ref.getType()));
+		}
+		if (ana.getParent() instanceof MethodAnalyzer)
+		    ana = ((MethodAnalyzer) ana.getParent())
+			.getClassAnalyzer();
+		else if (ana.getParent() instanceof ClassAnalyzer)
+		    ana = (ClassAnalyzer) ana.getParent();
+		else
+		    return null;
+	    }
+	}
+	return null;
+    }
+
     public void dumpExpression(TabbedPrintWriter writer, Expression[] operands)
 	throws java.io.IOException {
-	boolean opIsThis = 
-	    (!staticFlag
-	     && operands[0] instanceof LocalLoadOperator
-	     && (((LocalLoadOperator) operands[0]).getLocalInfo()
-		 .equals(codeAnalyzer.getParamInfo(0)))
-	     && !codeAnalyzer.getMethod().isStatic());
+	boolean opIsThis = !staticFlag && operands[0] instanceof ThisOperator;
 	String fieldName = ref.getName();
 	if (staticFlag) {
 	    if (!classType.equals(Type.tClass(codeAnalyzer.getClazz()))
@@ -87,12 +138,37 @@ public class GetFieldOperator extends Operator {
 	    writer.print(").");
 	    writer.print(fieldName);
 	} else {
-	    if (!opIsThis || codeAnalyzer.findLocal(fieldName) != null) {
+	    if (opIsThis) {
+		ThisOperator thisOp = (ThisOperator) operands[0];
+		Scope scope = writer.getScope(thisOp.getClassInfo(),
+					      Scope.CLASSSCOPE);
+
+		if (scope == null)
+		    writer.println("UNKNOWN ");
+
+		if (scope == null || writer.conflicts(fieldName, scope, 
+						      Scope.FIELDNAME)) {
+		    thisOp.dumpExpression(writer, 950);
+		    writer.print(".");
+		} else if (writer.conflicts(fieldName, scope, 
+					    Scope.AMBIGUOUSNAME)) {
+		    writer.print("this.");
+		}
+	    } else {
 		operands[0].dumpExpression(writer, 950);
 		writer.print(".");
 	    }
 	    writer.print(fieldName);
 	}
+    }
+
+    public Expression simplifyThis(Expression[] subs) {
+	if (!staticFlag && subs[0] instanceof ThisOperator) {
+	    Expression constant = getFieldAnalyzer().getConstant();
+	    if (constant instanceof ThisOperator)
+		return constant;
+	}
+	return null;
     }
 
     public boolean equals(Object o) {
