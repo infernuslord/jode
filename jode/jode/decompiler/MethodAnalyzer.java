@@ -31,7 +31,7 @@ import jode.GlobalOptions;
 import java.lang.reflect.Modifier;
 import java.io.*;
 
-public class MethodAnalyzer implements Analyzer {
+public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     ImportHandler imports;
     ClassAnalyzer classAnalyzer;
     MethodInfo minfo;
@@ -135,15 +135,6 @@ public class MethodAnalyzer implements Analyzer {
 	    offset++;
 	}
 
-//  	if (isConstructor() && !isStatic()
-//  	    && classAnalyzer.outerValues != null) {
-//  	    Expression[] outerValues = classAnalyzer.outerValues;
-//  	    for (int i=0; i< outerValues.length; i++) {
-//  		LocalInfo local = code.getParamInfo(offset+i);
-//  		local.setExpression(outerValues[i]);
-//  	    }
-//  	}
-        
 	Type[] paramTypes = methodType.getParameterTypes();
 	for (int i=0; i< paramTypes.length; i++) {
 	    code.getParamInfo(offset).setType(paramTypes[i]);
@@ -178,6 +169,20 @@ public class MethodAnalyzer implements Analyzer {
 	    return;
 
 	code.analyzeAnonymousClasses();
+    }
+
+    public void makeDeclaration() {
+	if (isConstructor() && !isStatic()
+	    && classAnalyzer.outerValues != null) {
+	    Expression[] outerValues = classAnalyzer.outerValues;
+	    for (int i=0; i< outerValues.length; i++) {
+		LocalInfo local = code.getParamInfo(1+i);
+		local.setExpression(outerValues[i]);
+	    }
+	}
+        
+	if (code != null)
+	    code.makeDeclaration();
     }
 
     public boolean skipWriting() {
@@ -268,11 +273,30 @@ public class MethodAnalyzer implements Analyzer {
 	}
 	if (minfo.isSynthetic())
 	    writer.print("/*synthetic*/ ");
-	String modif = Modifier.toString(minfo.getModifiers());
+	int modifiedModifiers = minfo.getModifiers();
+	/*
+	 * JLS-1.0, section 9.4:
+	 *
+	 * For compatibility with older versions of Java, it is
+	 * permitted but discouraged, as a matter of style, to
+	 * redundantly specify the abstract modifier for methods
+	 * declared in interfaces.
+	 *
+	 * Every method declaration in the body of an interface is
+	 * implicitly public. It is permitted, but strongly
+	 * discouraged as a matter of style, to redundantly specify
+	 * the public modifier for interface methods.
+	 */
+	if (classAnalyzer.getClazz().isInterface())
+	    modifiedModifiers &= ~(Modifier.PUBLIC | Modifier.ABSTRACT);
+	String modif = Modifier.toString(modifiedModifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
-        if (isConstructor && isStatic())
-            writer.print(""); /* static block */
+        if (isConstructor
+	    && (isStatic()
+		|| (classAnalyzer.getName() == null
+		    && skipParams == methodType.getParameterTypes().length)))
+            writer.print(""); /* static block or unnamed constructor */
         else { 
             if (declareAsConstructor)
 		writer.print(classAnalyzer.getName());
@@ -307,8 +331,7 @@ public class MethodAnalyzer implements Analyzer {
             for (int i=start; i<paramTypes.length; i++) {
                 if (i>start)
                     writer.print(", ");
-                writer.printType(param[i].getType());
-		writer.print(" "+param[i].getName());
+		param[i].dumpDeclaration(writer);
             }
             writer.print(")");
         }
