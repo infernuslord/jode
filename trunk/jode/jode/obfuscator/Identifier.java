@@ -121,8 +121,10 @@ public abstract class Identifier {
     }
 
     public final void setAlias(String name) {
-	if (name != null)
+	if (name != null) {
+	    getRepresentative().wasAliased = true;
 	    getRepresentative().alias = name;
+	}
     }
 
     public final String getAlias() {
