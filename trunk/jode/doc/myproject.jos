@@ -14,7 +14,7 @@ preserve = new WildCard { value = "org.myorg.application.main.*" },
 	             new ModifierMatcher { access = "PUBLIC" }
 	   }
 
-renamer = ney KeywordRenamer {
+renamer = new KeywordRenamer {
   backup = new StrongRenamer {
     charsetStart = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
     charsetPart =
