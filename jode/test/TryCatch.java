@@ -35,6 +35,7 @@ class TryCatch {
             foo();
             a = 2;
             simple();
+	    a = (a=4) / (a=0);
             a = 3;
             localsInCatch();
             a = 4;
@@ -129,7 +130,9 @@ class TryCatch {
                 if (simple() < 2)
                     break;
                 else if (simple() < 3)
-                    return;
+                    foo();
+		else
+		    return;
             }
             System.out.println();
         }

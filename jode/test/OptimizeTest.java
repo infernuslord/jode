@@ -43,24 +43,18 @@ public class OptimizeTest {
 	System.err.println("result: "+(g++ + sideInline(g) + g++) + "g: "+g);
 	longInline("Hallo", 3);
 	System.err.println("result:"+ 
-			   (g++ + jode.test.inline.InlineTest
+			   (g++ + jode.test.InlineTest
 			    .difficultSideInline(this, g) 
 			    + g++) + "g: "+g);
-	System.err.println("result:"+ 
-			   (g++ + jode.inline.InlineTest
-			    .difficultSideInline(this, g) 
-			    + g++) + "g: "+g);
-	System.err.println("result:"+ 
-			   (g++ + jode.InlineTest
-			    .difficultSideInline(this, g) 
-			    + g++) + "g: "+g);
+	// This was a check which methods are inlined. The result:
+	// Only methods in the same package or in sub packages.
+// 	System.err.println("result:"+ 
+// 			   (g++ + jode.test.inline.InlineTest
+// 			    .difficultSideInline(this, g) 
+// 			    + g++) + "g: "+g);
+// 	System.err.println("result:"+ 
+// 			   (g++ + jode.InlineTest
+// 			    .difficultSideInline(this, g) 
+// 			    + g++) + "g: "+g);
     }
 }
-
-
-
-
-
-
-
-
