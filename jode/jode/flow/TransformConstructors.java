@@ -102,20 +102,37 @@ public class TransformConstructors implements OuterValueListener {
 	    ovMaxSlots = 1;
     }
 
+    public String dumpOuterValues() {
+	if (outerValues == null)
+	    return "null";
+	StringBuffer sb = new StringBuffer();
+	int slot = 1;
+	for (int i=0; i < outerValues.length; i++) {
+	    if (i>0)
+		sb.append(", ");
+	    if (slot == ovMinSlots)
+		sb.append("[");
+	    sb.append(outerValues[i]);
+	    if (slot == ovMaxSlots)
+		sb.append("]");
+	    slot += outerValues[i].getType().stackSize();
+	}
+	sb.append(" ["+ovMinSlots+","+ovMaxSlots+"]");
+	return sb.toString();
+    }
+
     public void updateOuterValues(int count) {
 	int outerSlots = 1;
 	outerValues = clazzAnalyzer.getOuterValues();
-	if ((GlobalOptions.debuggingFlags
-	     & GlobalOptions.DEBUG_CONSTRS) != 0)
-	    GlobalOptions.err.print("OuterValues: ");
-	for (int i=0; i< count; i++) {
+	for (int i=0; i< count; i++)
 	    outerSlots += outerValues[i].getType().stackSize();
-	    if ((GlobalOptions.debuggingFlags
-		 & GlobalOptions.DEBUG_CONSTRS) != 0)
-		GlobalOptions.err.print(outerValues[i]+", ");
-	}
 	if (outerSlots < ovMaxSlots)
 	    ovMaxSlots = outerSlots;
+
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_CONSTRS) != 0)
+	    GlobalOptions.err.println("OuterValues: " + dumpOuterValues());
+
 	if (ovMaxSlots < ovMinSlots) {
 	    GlobalOptions.err.println
 		("WARNING: something got wrong with scoped class "
@@ -125,9 +142,6 @@ public class TransformConstructors implements OuterValueListener {
 	    Thread.dumpStack();
 	    ovMinSlots = outerSlots;
 	}
-	if ((GlobalOptions.debuggingFlags
-	     & GlobalOptions.DEBUG_CONSTRS) != 0)
-	    GlobalOptions.err.println(" ["+ovMinSlots+","+ovMaxSlots+"]");
     }
     
     public void shrinkingOuterValues(ClassAnalyzer ca, int newCount) {
@@ -285,6 +299,8 @@ public class TransformConstructors implements OuterValueListener {
 	
 	Vector localLoads = null;
 	InstructionBlock superBlock = null;
+	boolean mayBeAnonInner = false;
+	int anonInnerSlot = 1;
 	if (sb instanceof SequentialBlock) {
 
 	    if (!(sb.getSubBlocks()[0] instanceof InstructionBlock)
@@ -317,13 +333,13 @@ public class TransformConstructors implements OuterValueListener {
 		&& superClazz.getOuterClasses() != null
 		&& subExpr[1] instanceof LocalLoadOperator) {
 		Type[] paramTypes = constrType.getParameterTypes();
-		int expectedSlot = 1;
+		anonInnerSlot = 1;
 		for (int i=0; i< paramTypes.length-1; i++) {
-		    expectedSlot += paramTypes[i].stackSize();
+		    anonInnerSlot += paramTypes[i].stackSize();
 		}
 		if (((LocalLoadOperator) 
-		     subExpr[1]).getLocalInfo().getSlot() == expectedSlot)
-		    jikesAnonInner = true;
+		     subExpr[1]).getLocalInfo().getSlot() == anonInnerSlot)
+		    mayBeAnonInner = true;
 	    }
 
 	    localLoads = new Vector();
@@ -358,6 +374,18 @@ public class TransformConstructors implements OuterValueListener {
 	if (!isThis(invoke.getSubExpressions()[0], 
 		    clazzAnalyzer.getClazz()))
 	    return false;
+	
+	/* Now check if this must be of the anonymous extends inner
+         * class form */
+	if (mayBeAnonInner
+	    && constrParams.length > 0
+	    && !(constrParams[constrParams.length-1] 
+		 instanceof LocalLoadOperator
+		 && (((LocalLoadOperator)
+		      constrParams[constrParams.length-1]).getLocalInfo()
+		     .getSlot() == anonInnerSlot)))
+	    jikesAnonInner = true;
+
 
 	int ovLength = constrType.getParameterTypes().length
 	    - methodType.getParameterTypes().length;
@@ -450,7 +478,6 @@ public class TransformConstructors implements OuterValueListener {
 	constr.setJikesConstructor(true);
 	methodAna.setJikesConstructor(true);
 	methodAna.setHasOuterValue(canHaveOuter);
-	methodAna.analyze();
 	if (constr.isAnonymousConstructor()
 	    && methodAna.getMethodHeader().block instanceof EmptyBlock)
 	    methodAna.setAnonymousConstructor(true);
@@ -627,7 +654,9 @@ public class TransformConstructors implements OuterValueListener {
 	    FieldAnalyzer field = clazzAnalyzer.getField(pfo.getFieldName(), 
 							 pfo.getFieldType());
 
-	    if (!field.isFinal() || !field.isSynthetic())
+	    /* Don't check for final.  Jikes sometimes omits this attribute.
+	     */
+	    if (!field.isSynthetic())
 		break big_loop;
 
             Expression expr =  store.getSubExpressions()[1];
@@ -681,6 +710,124 @@ public class TransformConstructors implements OuterValueListener {
 		}
 	    }
 	}
+    }
+
+
+    public void transformBlockInitializer(StructuredBlock block) {
+	StructuredBlock start = block;
+	while (block != null) {
+	init_loop:
+	    do {
+		StructuredBlock ib = 
+		    (block instanceof SequentialBlock) 
+		    ? block.getSubBlocks()[0]
+		    : block;
+		
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.println("fieldInit: "+ib);
+		
+		if (!(ib instanceof InstructionBlock))
+		    break init_loop;
+		
+		Expression instr
+		    = ((InstructionBlock) ib).getInstruction().simplify();
+		
+		if (!(instr instanceof StoreInstruction)
+		    || instr.getFreeOperandCount() != 0)
+		    break init_loop;
+		
+		StoreInstruction store = (StoreInstruction) instr;
+		if (!(store.getLValue() instanceof PutFieldOperator))
+		    break init_loop;
+		
+		PutFieldOperator pfo = (PutFieldOperator) store.getLValue();
+		if (pfo.isStatic() != isStatic || !pfo.isThis())
+		    break init_loop;
+		
+		if (!isStatic) {
+		    if (!isThis(pfo.getSubExpressions()[0], 
+				clazzAnalyzer.getClazz())) {
+			if ((GlobalOptions.debuggingFlags
+			     & GlobalOptions.DEBUG_CONSTRS) != 0)
+			    GlobalOptions.err.println("not this: "+instr);
+			break init_loop;
+		    }
+		}
+		
+		Expression expr =  store.getSubExpressions()[1];
+		expr = transformFieldInitializer(expr);
+		if (expr == null)
+		    break init_loop;
+		
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.println("field " + pfo.getFieldName()
+					      + " = " + expr);
+				
+		FieldAnalyzer field = clazzAnalyzer
+		    .getField(pfo.getFieldName(), pfo.getFieldType());
+
+		if (!(field.setInitializer(expr))) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("setField failed");
+		    break init_loop;
+		}
+
+		block.removeBlock();
+		if (start != block) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("adding block initializer");
+		    
+		    clazzAnalyzer.addBlockInitializer(field, start);
+		}
+
+		if (block instanceof SequentialBlock)
+		    start = block.getSubBlocks()[1];
+		else
+		    start = null;
+	    } while (false);
+	    
+	    if (block instanceof SequentialBlock)
+		block = block.getSubBlocks()[1];
+	    else
+		block = null; 
+	}
+
+	if (start != null) {
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("adding block initializer");
+	    
+	    clazzAnalyzer.addBlockInitializer(null, start);
+	}
+    }
+
+    public boolean checkBlockInitializer(InvokeOperator invoke) {
+	if (!invoke.isThis()
+	    || invoke.getFreeOperandCount() != 0)
+	    return false;
+	MethodAnalyzer methodAna = invoke.getMethodAnalyzer();
+	if (methodAna == null)
+	    return false;
+	FlowBlock flow = methodAna.getMethodHeader();
+	MethodType methodType = methodAna.getType();
+	if (!methodAna.getName().startsWith("block$")
+	    || methodType.getParameterTypes().length != 0
+	    || methodType.getReturnType() != Type.tVoid)
+	    return false;
+	if (flow == null || !flow.hasNoJumps())
+	    return false;
+
+	if (!isThis(invoke.getSubExpressions()[0], 
+		    clazzAnalyzer.getClazz()))
+	    return false;
+	
+	methodAna.setJikesBlockInitializer(true);
+	transformBlockInitializer(flow.block);
+	return true;
     }
 
     /**
@@ -845,6 +992,32 @@ public class TransformConstructors implements OuterValueListener {
 
             Expression instr
 		= ((InstructionBlock) ib).getInstruction().simplify();
+
+
+            for (int i=1; i< constrCount; i++) {
+                ib = (sb[i] instanceof SequentialBlock) 
+                    ? sb[i].getSubBlocks()[0]
+                    : sb[i];
+                if (!(ib instanceof InstructionBlock)
+                    || !(((InstructionBlock)ib).getInstruction().simplify()
+			 .equals(instr))) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("constr "+i+" differs: "+ib);
+                    break big_loop;
+                }
+            }
+
+	    if (instr instanceof InvokeOperator
+		&& checkBlockInitializer((InvokeOperator) instr)) {
+		for (int i=0; i< constrCount; i++) {
+		    if (sb[i] instanceof SequentialBlock)
+			sb[i] = sb[i].getSubBlocks()[1];
+		    else
+			sb[i] = null; 
+		}
+		break big_loop;
+	    }
 		
 	    if (!(instr instanceof StoreInstruction)
 		|| instr.getFreeOperandCount() != 0)
@@ -878,21 +1051,6 @@ public class TransformConstructors implements OuterValueListener {
 		GlobalOptions.err.println("field " + pfo.getFieldName()
 					  + " = " + expr);
 
-            for (int i=1; i< constrCount; i++) {
-                ib = (sb[i] instanceof SequentialBlock) 
-                    ? sb[i].getSubBlocks()[0]
-                    : sb[i];
-                if (!(ib instanceof InstructionBlock)
-                    || !(((InstructionBlock)ib).getInstruction().simplify()
-			 .equals(instr))) {
-		    if ((GlobalOptions.debuggingFlags
-			 & GlobalOptions.DEBUG_CONSTRS) != 0)
-			GlobalOptions.err.println("constr "+i+" differs: "+ib);
-                    break big_loop;
-                }
-            }
-
-
             if (!(clazzAnalyzer
 		  .getField(pfo.getFieldName(), pfo.getFieldType())
 		  .setInitializer(expr))) {
@@ -910,7 +1068,7 @@ public class TransformConstructors implements OuterValueListener {
                     sb[i] = null; 
             }
         }
-	
+
 	for (int i=0; i< constrCount; i++) {
             if (start[i] != null) {
 		if (sb[i] == null)
