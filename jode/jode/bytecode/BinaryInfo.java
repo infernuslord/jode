@@ -34,8 +34,6 @@ public class BinaryInfo {
     public static final int ALL_ATTRIBUTES  = 0x10;
     public static final int FULLINFO        = 0xff;
 
-    private int status = 0;
-
     protected SimpleDictionary unknownAttributes;
 
     protected void skipAttributes(DataInputStream input) throws IOException {
