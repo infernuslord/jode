@@ -1,4 +1,4 @@
-/* TransformExceptionHandlers Copyright (C) 1997-1998 Jochen Hoenicke.
+/* TransformExceptionHandlers Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *
  * $Id$
  */
+
 package jode.flow;
 import jode.AssertError;
 import jode.Decompiler;
@@ -555,10 +556,8 @@ public class TransformExceptionHandlers {
             /* Now remove the jump (after the throw) from the
              * catch block so that we can forget about it.  
              */
-             
-            catchBlock.subBlocks[1]
-                .jump.destination.predecessors.removeElement(catchFlow);
             
+            catchFlow.removeSuccessor(catchBlock.subBlocks[1].jump);
             ComplexExpression monexit = (ComplexExpression)
                 ((InstructionBlock) catchBlock.subBlocks[0]).instr;
             LocalInfo local = 
@@ -682,8 +681,7 @@ public class TransformExceptionHandlers {
                 }
                 /* Remove the jump of the throw instruction.
                  */
-                catchFlow.removeSuccessor
-		    (catchBlock.getSubBlocks()[1].jump);
+                catchFlow.removeSuccessor(catchBlock.getSubBlocks()[1].jump);
 		catchBlock.getSubBlocks()[1].removeJump();
 
                 /* Replace the catchBlock with the finallyBlock.
