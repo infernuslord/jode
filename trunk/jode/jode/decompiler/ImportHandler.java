@@ -20,13 +20,40 @@
 package jode.decompiler;
 import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.InnerClassInfo;
 import jode.type.*;
 
+///#ifdef JDK12
+///import java.util.SortedMap;
+///import java.util.TreeMap;
+///import java.util.List;
+///import java.util.LinkedList;
+///import java.util.Comparator;
+///import java.util.Iterator;
+///#else
+import jode.util.SortedMap;
+import jode.util.TreeMap;
+import jode.util.List;
+import jode.util.LinkedList;
+import jode.util.Comparator;
+import jode.util.Iterator;
+///#endif
+
 import java.io.IOException;
-import java.util.*;
+import java.util.Hashtable;
 
 public class ImportHandler {
-    Hashtable imports;
+    /**
+     * The default package limit.  MAX_VALUE means, do not import
+     * packages at all.
+     */
+    public final static int DEFAULT_PACKAGE_LIMIT = Integer.MAX_VALUE;
+    /**
+     * The default class limit.  1 means, import every class used here.
+     */
+    public final static int DEFAULT_CLASS_LIMIT = 1;
+
+    SortedMap imports;
     /* Classes that doesn't need to be qualified. */
     Hashtable cachedClassNames = null;
     ClassAnalyzer main;
@@ -36,8 +63,26 @@ public class ImportHandler {
     int importPackageLimit;
     int importClassLimit;
 
+    /**
+     * A comparator to sort the imports.  We want java.* and javax.*
+     * imports first.  java.lang.* should precede java.lang.ref.*, but
+     * that is already guaranteed by ascii ordering.  
+     */
+    static Comparator comparator = new Comparator() {
+	public int compare(Object o1, Object o2) {
+	    String s1 = (String) o1;
+	    String s2 = (String) o2;
+	    boolean java1 = s1.startsWith("java");
+	    boolean java2 = s2.startsWith("java");
+
+	    if (java1 != java2)
+		return java1 ? -1 : 1;
+	    return s1.compareTo(s2);
+	}
+    };
+
     public ImportHandler() {
-	this(3,3);
+	this(DEFAULT_PACKAGE_LIMIT, DEFAULT_CLASS_LIMIT);
     }
     
     public ImportHandler(int packageLimit, int classLimit) {
@@ -70,22 +115,32 @@ public class ImportHandler {
             name = name.substring(pkgdelim); 
 
             if (pkg.length() != 0) {
+		/* Does this conflict with a class in this package? */
                 if (ClassInfo.exists(pkg+name))
                     return true;
-            }
+            } else {
+		/* Does this conflict with a class in this unnamed
+                 * package? */
+		if (ClassInfo.exists(name.substring(1)))
+		    return true;
+	    }
 
-            Enumeration enum = imports.keys();
-            while (enum.hasMoreElements()) {
-                String importName = (String) enum.nextElement();
+            Iterator iter = imports.keySet().iterator();
+            while (iter.hasNext()) {
+                String importName = (String) iter.next();
                 if (importName.endsWith(".*")) {
                     /* strip the "*" */
                     importName = importName.substring
                         (0, importName.length()-2);
                     if (!importName.equals(pkgName)) {
-                        if (ClassInfo.exists(importName))
+                        if (ClassInfo.exists(importName+name))
                             return true;
                     }
-                }
+                } else {
+		    /* Is this a class import with same name? */
+		    if (importName.endsWith(name))
+			return true;
+		}
             }
         }
         return false;
@@ -93,26 +148,29 @@ public class ImportHandler {
 
     private void cleanUpImports() {
         Integer dummyVote = new Integer(Integer.MAX_VALUE);
-        Hashtable newImports = new Hashtable();
-        Vector classImports = new Vector();
-        Enumeration enum = imports.keys();
-        while (enum.hasMoreElements()) {
-            String importName = (String) enum.nextElement();
+        SortedMap newImports = new TreeMap(comparator);
+        List classImports = new LinkedList();
+        Iterator iter = imports.keySet().iterator();
+        while (iter.hasNext()) {
+            String importName = (String) iter.next();
             Integer vote = (Integer) imports.get(importName);
             if (!importName.endsWith(".*")) {
                 if (vote.intValue() < importClassLimit)
                     continue;
                 int delim = importName.lastIndexOf(".");
-                Integer pkgvote = (Integer)
-                    imports.get(importName.substring(0, delim)+".*");
-                if (pkgvote.intValue() >= importPackageLimit)
+
+		/* Since the imports are sorted, newImports already
+		 * contains the package if it should be imported.
+		 */
+		if (newImports.containsKey
+		    (importName.substring(0, delim)+".*"))
                     continue;
 
                 /* This is a single Class import, that is not
                  * superseeded by a package import.  Mark it for
                  * importation, but don't put it in newImports, yet.  
                  */
-                classImports.addElement(importName);
+                classImports.add(importName);
             } else {
                 if (vote.intValue() < importPackageLimit)
                     continue;
@@ -125,17 +183,17 @@ public class ImportHandler {
         /* Now check if the class import conflict with any of the
          * package imports.
          */
-        enum = classImports.elements();
-        while (enum.hasMoreElements()) {
+        iter = classImports.iterator();
+        while (iter.hasNext()) {
             /* If there are more than one single class imports with
-             * the same name, exactly the first (in hash order) will
+             * the same name, exactly the first (in sorted order) will
              * be imported. */
-            String className = (String) enum.nextElement();
-            if (!conflictsImport(className)) {
-                imports.put(className, dummyVote);
+            String classFQName = (String) iter.next();
+            if (!conflictsImport(classFQName)) {
+                imports.put(classFQName, dummyVote);
                 String name = 
-                    className.substring(className.lastIndexOf('.')+1);
-                cachedClassNames.put(className, name);
+                    classFQName.substring(classFQName.lastIndexOf('.')+1);
+                cachedClassNames.put(classFQName, name);
             }
         }
     }
@@ -153,11 +211,22 @@ public class ImportHandler {
             writer.println("package "+pkg+";");
 
         cleanUpImports();
-        Enumeration enum = imports.keys();
-        while (enum.hasMoreElements()) {
-            String pkgName = (String)enum.nextElement();
-            if (!pkgName.equals("java.lang.*"))
+        Iterator iter = imports.keySet().iterator();
+	String lastFirstPart = null;
+        while (iter.hasNext()) {
+            String pkgName = (String)iter.next();
+            if (!pkgName.equals("java.lang.*")) {
+		int firstDot = pkgName.indexOf('.');
+		if (firstDot != -1) {
+		    String firstPart = pkgName.substring(0, firstDot);
+		    if (lastFirstPart != null
+			&& !lastFirstPart.equals(firstPart)) {
+			writer.println("");
+		    }
+		    lastFirstPart = firstPart;
+		}
                 writer.println("import "+pkgName+";");
+	    }
         }
         writer.println("");
     }
@@ -167,7 +236,7 @@ public class ImportHandler {
     }
 
     public void init(String className) {
-        imports = new Hashtable();
+        imports = new TreeMap(comparator);
         /* java.lang is always imported */
         imports.put("java.lang.*", new Integer(Integer.MAX_VALUE));
 
@@ -181,6 +250,20 @@ public class ImportHandler {
      * enough.
      */
     public void useClass(ClassInfo clazz) {
+	for (;;) {
+	    /* First handle inner classes:  For class scoped classes 
+	     * import outer class instead;  for method scoped classes
+	     * we don't import anything.
+	     */
+	    InnerClassInfo[] outerInfo = clazz.getOuterClasses();
+	    if (outerInfo == null)
+		break;
+
+	    if (outerInfo[0].name == null || outerInfo[0].outer == null)
+		return;
+	    clazz = ClassInfo.forName(outerInfo[0].outer);
+	}
+		
 	String name = clazz.getName();
         int pkgdelim = name.lastIndexOf('.');
         if (pkgdelim != -1) {
