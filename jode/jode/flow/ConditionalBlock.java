@@ -103,8 +103,10 @@ public class ConditionalBlock extends InstructionContainer {
 	    newStack = stack;
 
 	trueBlock.jump.stackMap = newStack;
-	if (jump != null)
+	if (jump != null) {
 	    jump.stackMap = newStack;
+	    return null;
+	}
 	return newStack;
     }
 
