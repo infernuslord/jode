@@ -41,8 +41,17 @@ public class PopOperator extends Operator {
     public void updateType() {
     }
 
+    public int getBreakPenalty() {
+	if (subExpressions[0] instanceof Operator)
+	    return ((Operator) subExpressions[0]).getBreakPenalty();
+	return 0;
+    }
+    
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	subExpressions[0].dumpExpression(writer, 0);
+	/* Don't give a priority; we can't allow parents around
+	 * a statement.
+	 */
+	subExpressions[0].dumpExpression(writer);
     }
 }

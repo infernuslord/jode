@@ -151,6 +151,10 @@ public class ClassPath  {
 		return false;
 	    }
 	}
+
+	public String toString() {
+	    return "reflection:";
+	}
     }
 
     private class LocalPath extends Path {
@@ -211,6 +215,10 @@ public class ClassPath  {
 		    }
 		}
 	    };
+	}
+
+	public String toString() {
+	    return dir.getName();
 	}
     }
 
@@ -351,6 +359,10 @@ public class ClassPath  {
 		return direntries.elements();
 	    return null;
 	}
+
+	public String toString() {
+	    return file.getName();
+	}
     }
 
     private class URLPath extends Path {
@@ -396,6 +408,10 @@ public class ClassPath  {
 	    clazz.read(input, howMuch);
 	    return true;
 	}
+
+	public String toString() {
+	    return base.toString();
+	}
     }
 
     private Path[] paths;
@@ -435,8 +451,8 @@ public class ClassPath  {
      * @see #ClassPath(String[] paths)
      */
     public ClassPath(String path, ClassPath fallback) {
-	this(path);
 	this.fallback = fallback;
+	initPath(tokenizeClassPath(path));
     }
 
     /**
@@ -449,6 +465,10 @@ public class ClassPath  {
      * @see #ClassPath(String[] paths)
      */
     public ClassPath(String path) {
+	initPath(tokenizeClassPath(path));
+    }
+
+    private String[] tokenizeClassPath(String path) {
 	// Calculate a good approximation (rounded upwards) of the tokens
 	// in this path.
 	int length = 1;
@@ -505,7 +525,7 @@ public class ClassPath  {
 	    tokens[i] = path.substring(ptr, next);
 	    ptr = next;
 	}
-	initPath(tokens);
+	return tokens;
     }
 
     private byte[] readURLZip(URLConnection conn) {
@@ -825,5 +845,15 @@ public class ClassPath  {
 	if (fallback != null)
 	    return fallback.loadClass(clazz, howMuch);
 	return false;
+    }
+
+    public String toString() {
+	StringBuffer sb = new StringBuffer("ClassPath[");
+	for (int i = 0; i < paths.length; i++) {
+	    if (paths[i] != null)
+		sb.append(paths[i]).append(',');
+	}
+	sb.append(fallback).append(']');
+	return sb.toString();
     }
 }

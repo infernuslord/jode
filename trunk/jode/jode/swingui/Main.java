@@ -104,9 +104,11 @@ public class Main
 	classTree.addTreeSelectionListener(this);
         JScrollPane spClassTree = new JScrollPane(classTree);
 	sourcecodeArea = new JTextArea(20, 80);
+	sourcecodeArea.setEditable(false);
 	sourcecodeArea.setFont(monospaced);
 	JScrollPane spText = new JScrollPane(sourcecodeArea);
 	errorArea = new JTextArea(3, 80);
+	errorArea.setEditable(false);
 	errorArea.setFont(monospaced);
 	JScrollPane spError = new JScrollPane(errorArea);
 

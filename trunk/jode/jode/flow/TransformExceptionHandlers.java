@@ -772,9 +772,6 @@ public class TransformExceptionHandlers {
 
 	if (subRoutine != null) {
 	    while (subRoutine.analyze(tryFlow.getNextBlockNr(), end));
-	    System.err.println("Finally: "+subRoutine+
-			       " Try: "+tryFlow+
-			       " preds: "+subRoutine.predecessors);
 
 	    /* Now check if the subroutine is correct and has only the
 	     * catchFlow as predecessor.

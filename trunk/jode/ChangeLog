@@ -1,0 +1,57 @@
+2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
+	Applied patch from Java 1.1 tree:
+
+	* jode/expr/Expression.java.in (updateParentTypes): Call setType,
+	instead of merging the types.  Other childs want to know about the
+	type change as well.
+	* jode/decompiler/LocalInfo.java (combineWith): Reorganized a bit,
+	but no changes.
+	* jode/expr/InvokeOperator.java.in (dumpExpression): Always print
+	the ThisOperator if a field is from a parent class of an outer
+	class is used.  And always qualify the this operator if not
+	innermost.
+
+2001-07-14  Jochen Hoenicke  <jochen@gnu.org>
+	Applied patches from the Java 1.1 tree:	
+
+	* jode/decompiler/TabbedPrintWriter.java: Better gnu style handling:
+	(openBraceClass) (closeBraceClass)
+	(openBraceNoIndent) (closeBraceNoIndent): new functions.
+	(closeBraceNoSpace): Removed.
+	* jode/decompiler/TabbedPrintWriter.java (GNU_SPACING): new constant.
+	(printOptionalSpace): Print space for GNU_SPACING.
+	* jode/decompiler/Options.java (setOptions): changed gnu style
+	to include GNU_SPACING.
+	* jode/decompiler/ClassAnalyzer.java.in (dumpSource): Use
+ 	open/closeBraceClass.
+	* jode/decompiler/MethodAnalyzer.java.in (dumpSource): Use
+ 	open/closeBraceNoIndent.  Call printOptionalSpace.
+	* jode/decompiler/InvokeOperator.java.in (dumpExpression): 
+	Call printOptionalSpace, use open/closeBraceClass for inner
+ 	classes.
+	* jode/decompiler/UnaryOperator.java (dumpExpression): Call
+	printOptionalSpace.
+
+	Added pascal style from Rolf Howarth <rolf@squarebox.co.uk>
+	* jode/decompiler/Decompiler.java (setOption): detect pascal option.
+	* jode/decompiler/TabbedPrintWriter.java (BRACE_FLUSH_LEFT): 
+	new constant.
+	(openBrace, openBraceContinue, closeBrace, closeBraceNoSpace,
+ 	closeBraceContinue): handle flush left.
+	
+	* jode/type/NullType.java (intersection): Removed, since the
+ 	version in ReferenceType is more correct.  Before
+ 	tNull.isOfType(tRange(X,tNull)) returned false, which lead to
+ 	incorrect behaviour in InvokeOperator.needsCast.
+	* jode/decompiler/FieldAnalyzer.java.in (dumpSource): Removed the
+ 	"= null" hack for final fields; it was not correct, since the
+ 	field could be initialized in a constructor.
+	* jode/decompiler/TabbedPrintWriter.java (BreakPoint.endOp):
+	Simplified the code, copy options always from child.
+	* jode/expr/InvokeOperator.java (isGetClass): Allow the method to
+ 	be declared inside an outer class:  We simply check if we can get
+	the method analyzer.
+	(simplify): handle unifyParam.
+	* jode/expr/PopOperator.java (getBreakPenalty): return penalty of
+ 	inner expression. (dumpExpression): Call dumpExpression of
+ 	subexpression immediately without priority.

@@ -833,6 +833,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 		writer.print(" " + methodName);
 	    }
 	    writer.breakOp();
+	    writer.printOptionalSpace();
             writer.print("(");
 	    writer.startOp(writer.EXPL_PAREN, 0);
             int offset = skipParams + (isStatic() ? 0 : 1);
@@ -862,11 +863,11 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
         }
 	writer.endOp();
         if (bb != null) {
-	    writer.openBrace();
+	    writer.openBraceNoIndent();
             writer.tab();
 	    methodHeader.dumpSource(writer);
             writer.untab();
-	    writer.closeBrace();
+	    writer.closeBraceNoIndent();
         } else
             writer.println(";");
 	writer.popScope();
@@ -975,8 +976,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 			    expr).getSubExpressions()[0];
 		if (expr instanceof ThisOperator) {
 		    outerValueArray[j] = 
-			new ThisOperator(((ThisOperator)
-					  expr).getClassInfo());
+			new ThisOperator(((ThisOperator) expr).getClassInfo());
 		    continue;
 		}
 		LocalInfo li = null;

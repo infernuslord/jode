@@ -736,7 +736,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	int version = input.readUnsignedShort();
 	version |= input.readUnsignedShort() << 16;
 	if (version < (45 << 16 | 0)
-	    || version > (46 << 16 | 0))
+	    || version > (47 << 16 | 0))
 	  throw new ClassFormatException("Wrong class version");
 
 	/* constant pool */
