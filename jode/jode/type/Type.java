@@ -397,7 +397,7 @@ public class Type {
         if (result == tError) {
             boolean oldTypeDebugging = Decompiler.isTypeDebugging;
             Decompiler.isTypeDebugging = true;
-            System.err.println("intersecting "+ this +" and "+ type
+            Decompiler.err.println("intersecting "+ this +" and "+ type
                                + " to <" + bottom + "," + top + ">"
                                + " to <error>");
             Decompiler.isTypeDebugging = oldTypeDebugging;
@@ -405,10 +405,10 @@ public class Type {
                 throw new AssertError("type error");
         } else if (Decompiler.isTypeDebugging) {
             if (this.equals(type)) {
-//                 System.err.println("intersecting identical: "+this);
+//                 Decompiler.err.println("intersecting identical: "+this);
 //                 Thread.dumpStack();
             } else
-                System.err.println("intersecting "+ this +" and "+ type + 
+                Decompiler.err.println("intersecting "+ this +" and "+ type + 
                                    " to " + result);
 
 	}	    

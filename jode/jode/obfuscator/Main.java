@@ -20,16 +20,18 @@ package jode;
 import jode.bytecode.ClassInfo;
 import jode.obfuscator.*;
 import java.util.Vector;
+import java.lang.reflect.Modifier;
 
 public class Obfuscator {
     public static boolean isVerbose = false;
     public static boolean isDebugging = false;
 
-    public static final int PRESERVE_PRIVATE   = 0; // does this make sense?
-    public static final int PRESERVE_PACKAGE   = 1;
-    public static final int PRESERVE_PROTECTED = 2;
-    public static final int PRESERVE_PUBLIC    = 3;
-    public static final int PRESERVE_NONE      = 4;
+    public static final int PRESERVE_NONE = 0;
+    public static final int PRESERVE_PUBLIC = Modifier.PUBLIC;
+    public static final int PRESERVE_PROTECTED =
+	PRESERVE_PUBLIC | Modifier.PROTECTED;
+    public static final int PRESERVE_PACKAGE = 
+	PRESERVE_PROTECTED | Modifier.PRIVATE; //XXX
 
     public static final int RENAME_STRONG = 0;
     public static final int RENAME_WEAK   = 1;
@@ -38,42 +40,40 @@ public class Obfuscator {
     public static final int RENAME_TABLE  = 4;
 
     public static void usage() {
-        System.err.println("usage: jode.Obfuscator flags* [class | package]*");
-        System.err.println("\t[-v]               "+"Verbose output");
-        System.err.println("\t[-debug]           "+"Debugging");
-        System.err.println("\t[-nostrip]         "+
+        Decompiler.err.println("usage: jode.Obfuscator flags* [class | package]*");
+        Decompiler.err.println("\t[-v]               "+"Verbose output");
+        Decompiler.err.println("\t[-debug]           "+"Debugging");
+        Decompiler.err.println("\t[-nostrip]         "+
                            "Don't strip not needed methods");
         
         
-        System.err.println("\t[-sourcepath]      "+
+        Decompiler.err.println("\t[-sourcepath]      "+
                            "Colon-separated list of source-file directory");
-        System.err.println("\t[-d <directory>]   "+
+        Decompiler.err.println("\t[-d <directory>]   "+
                            "Destination directory for output classes");
-        System.err.println("Preserve options: ");
-        System.err.println("\t[-private]         "+
-                           "Preserve all private members");
-        System.err.println("\t[-package]         "+
+        Decompiler.err.println("Preserve options: ");
+        Decompiler.err.println("\t[-package]         "+
                            "Preserve all package members");
-        System.err.println("\t[-protected]       "+
+        Decompiler.err.println("\t[-protected]       "+
                            "Preserve all protected members");
-        System.err.println("\t[-public]          "+
+        Decompiler.err.println("\t[-public]          "+
                            "Preserve all public members");
-        System.err.println("\t[-class <name>]    "+
+        Decompiler.err.println("\t[-class <name>]    "+
                            "Preserve only the given class (allowed multiple times");
-        System.err.println("\t[-method <name>]   "+
+        Decompiler.err.println("\t[-method <name>]   "+
                            "Preserve only the given metod (allowed multiple times");
-        System.err.println("Obfuscating options: ");
-        System.err.println("\t[-strong]          "+
+        Decompiler.err.println("Obfuscating options: ");
+        Decompiler.err.println("\t[-strong]          "+
                            "Rename identifiers to random number/letters");
-        System.err.println("\t[-weak]            "+
+        Decompiler.err.println("\t[-weak]            "+
                            "Rename to random, but legal java identifier");
-        System.err.println("\t[-unique]          "+
+        Decompiler.err.println("\t[-unique]          "+
                            "Rename to unique legal java identifier");
-        System.err.println("\t[-none]            "+
+        Decompiler.err.println("\t[-none]            "+
                            "Don't rename any method.");
-        System.err.println("\t[-table <file>]    "+
+        Decompiler.err.println("\t[-table <file>]    "+
                            "Read translation table from file");
-        System.err.println("\t[-revtable <file>] "+
+        Decompiler.err.println("\t[-revtable <file>] "+
                            "Write reversed translation table to file");
     }
 
@@ -107,8 +107,6 @@ public class Obfuscator {
                 destPath   = params[++i];
 
             /* Preserve options */
-            else if (params[i].equals("-private"))
-                preserve = PRESERVE_PRIVATE;
             else if (params[i].equals("-package"))
                 preserve = PRESERVE_PACKAGE;
             else if (params[i].equals("-protected"))
@@ -145,13 +143,13 @@ public class Obfuscator {
                 break;
             } else {
                 if (!params[i].startsWith("-h"))
-                    System.err.println("Unknown option: "+params[i]);
+                    Decompiler.err.println("Unknown option: "+params[i]);
                 usage();
                 return;
             }
         }
         if (i == params.length) {
-            System.err.println("No package or classes specified.");
+            Decompiler.err.println("No package or classes specified.");
             usage();
             return;
         }

@@ -18,6 +18,7 @@
  */
 
 package jode.flow;
+import jode.Decompiler;
 import jode.Type;
 import jode.decompiler.*;
 
@@ -62,8 +63,8 @@ public class CreateIfThenElseOperator {
                 | !createFunnyHelper(trueDest, falseDest, ifBlock.elseBlock))
                 return false;
 
-            if (jode.Decompiler.isVerbose)
-                System.err.print('?');
+            if (Decompiler.isVerbose)
+                Decompiler.err.print('?');
 
             IfThenElseOperator iteo = new IfThenElseOperator(Type.tBoolean);
             ((InstructionBlock)ifBlock.thenBlock).setInstruction
@@ -217,8 +218,8 @@ public class CreateIfThenElseOperator {
             return false;
         e[0] = ifBlock.cond;
         
-        if (jode.Decompiler.isVerbose)
-            System.err.print('?');
+        if (Decompiler.isVerbose)
+            Decompiler.err.print('?');
 
         thenBlock.flowBlock.removeSuccessor(thenBlock.jump);
         thenBlock.removeJump();

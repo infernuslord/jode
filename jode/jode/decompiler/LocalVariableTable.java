@@ -46,7 +46,7 @@ public class LocalVariableTable {
                 int slot   = stream.readUnsignedShort();
                 locals[slot].addLocal(start, end-start, name, type);
                 if (Decompiler.showLVT)
-                    System.err.println(name + ": " + type
+                    Decompiler.err.println(name + ": " + type
                                        +" range "+start+" - "+end
                                        +" slot "+slot);
             }

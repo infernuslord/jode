@@ -18,6 +18,7 @@
  */
 
 package jode.decompiler;
+import jode.Decompiler;
 import jode.Type;
 import jode.LocalInfo;
 
@@ -49,8 +50,8 @@ implements LocalVarOperator {
     }
 
     public void updateType() {
-        if (jode.Decompiler.isTypeDebugging)
-            System.err.println("local "+local.getName()+" changed: "
+        if (Decompiler.isTypeDebugging)
+            Decompiler.err.println("local "+local.getName()+" changed: "
                                +type+" to "+local.getType()
                                +" in "+parent);
         super.setType(local.getType());
@@ -59,12 +60,12 @@ implements LocalVarOperator {
     }
 
     public Type getType() {
-//  	System.err.println("LocalLoad.getType of "+local.getName()+": "+local.getType());
+//  	Decompiler.err.println("LocalLoad.getType of "+local.getName()+": "+local.getType());
 	return local.getType();
     }
 
     public void setType(Type type) {
-// 	System.err.println("LocalLoad.setType of "+local.getName()+": "+local.getType());
+// 	Decompiler.err.println("LocalLoad.setType of "+local.getName()+": "+local.getType());
 	super.setType(local.setType(type));
     }
 

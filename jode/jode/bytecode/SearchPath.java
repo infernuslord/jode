@@ -18,10 +18,12 @@
  */
 package jode.bytecode;
 import java.io.*;
+import java.net.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.StringTokenizer;
 import java.util.Enumeration;
+import jode.Decompiler;
 
 /**
  * This class represents a path of multiple directories and/or zip files,
@@ -31,6 +33,12 @@ import java.util.Enumeration;
  */
 public class SearchPath  {
 
+    /**
+     * Hack to allow URLs that use the same separator as the normal
+     * path separator.  Use a very unusual character for this.
+     */
+    public static final char protocolSeparator = 31;
+    URL[] bases;
     File[] dirs;
     ZipFile[] zips;
     
@@ -45,23 +53,59 @@ public class SearchPath  {
             new StringTokenizer(path, File.pathSeparator);
         int length = tokenizer.countTokens();
         
+	bases = new URL[length];
         dirs = new File[length];
         zips = new ZipFile[length];
         for (int i=0; i< length; i++) {
-            dirs[i] = new File(tokenizer.nextToken());
-            if (!dirs[i].isDirectory()) {
-                try {
-                    zips[i] = new ZipFile(dirs[i]);
-                } catch (java.io.IOException ex) {
-                    /* disable this entry */
-                    dirs[i] = null;
-                }
-            }
-        }
+	    String token = tokenizer.nextToken()
+		.replace(protocolSeparator, ':');
+	    int index = token.indexOf(':');
+	    if (index != -1 && index < token.length()-2
+		&& token.charAt(index+1) == '/'
+		&& token.charAt(index+2) == '/') {
+		// This looks like an URL.
+		try {
+		    bases[i] = new URL(token);
+		} catch (MalformedURLException ex) {
+		    /* disable entry */
+		    bases[i] = null;
+		    dirs[i] = null;
+		}
+	    } else {
+		try {
+		    dirs[i] = new File(token);
+		    if (!dirs[i].isDirectory()) {
+			try {
+			    zips[i] = new ZipFile(dirs[i]);
+			} catch (java.io.IOException ex) {
+			    /* disable this entry */
+			    dirs[i] = null;
+			}
+		    }
+		} catch (SecurityException ex) {
+		    /* disable this entry */
+		    Decompiler.err.println("Warning: SecurityException while"
+					   + " accessing " + token);
+		    dirs[i] = null;
+		}
+	    }
+	}
     }
 
     public boolean exists(String filename) {
         for (int i=0; i<dirs.length; i++) {
+	    if (bases[i] != null) {
+		try {
+		    URL url = new URL(bases[i], filename);
+		    URLConnection conn = url.openConnection();
+		    conn.connect();
+		    conn.getInputStream().close();
+		    return true;
+		} catch (IOException ex) {
+		    /* ignore */
+		}
+		continue;
+	    }
             if (dirs[i] == null)
                 continue;
             if (zips[i] != null) {
@@ -72,9 +116,13 @@ public class SearchPath  {
                 if (java.io.File.separatorChar != '/')
                     filename = filename
                         .replace('/', java.io.File.separatorChar);
-                File f = new File(dirs[i], filename);
-                if (f.exists())
-                    return true;
+		try {
+		    File f = new File(dirs[i], filename);
+		    if (f.exists())
+			return true;
+		} catch (SecurityException ex) {
+		    /* ignore and take next element */
+		}
             }
         }
         return false;
@@ -88,6 +136,21 @@ public class SearchPath  {
      */
     public InputStream getFile(String filename) throws IOException {
         for (int i=0; i<dirs.length; i++) {
+	    if (bases[i] != null) {
+		try {
+		    URL url = new URL(bases[i], filename);
+		    URLConnection conn = url.openConnection();
+		    return conn.getInputStream();
+		} catch (SecurityException ex) {
+		    Decompiler.err.println("Warning: SecurityException"
+					   +" while accessing "
+					   +bases[i]+filename);
+		    /* ignore and take next element */
+		} catch (FileNotFoundException ex) {
+		    /* ignore and take next element */
+		}
+		continue;
+	    }
             if (dirs[i] == null)
                 continue;
             if (zips[i] != null) {
@@ -98,9 +161,16 @@ public class SearchPath  {
                 if (java.io.File.separatorChar != '/')
                     filename = filename
                         .replace('/', java.io.File.separatorChar);
-                File f = new File(dirs[i], filename);
-                if (f.exists())
-                    return new FileInputStream(f);
+		try {
+		    File f = new File(dirs[i], filename);
+		    if (f.exists())
+			return new FileInputStream(f);
+		} catch (SecurityException ex) {
+		    Decompiler.err.println("Warning: SecurityException"
+					   +" while accessing "
+					   +dirs[i]+filename);
+		    /* ignore and take next element */
+		}
             }
         }
         throw new FileNotFoundException(filename);
@@ -133,9 +203,15 @@ public class SearchPath  {
                 if (java.io.File.separatorChar != '/')
                     filename = filename
                         .replace('/', java.io.File.separatorChar);
-                File f = new File(dirs[i], filename);
-                if (f.exists())
-                    return f.isDirectory();
+		try {
+		    File f = new File(dirs[i], filename);
+		    if (f.exists())
+			return f.isDirectory();
+		} catch (SecurityException ex) {
+		    Decompiler.err.println("Warning: SecurityException"
+					   +" while accessing "
+					   +dirs[i]+filename);
+		}
             }
         }
         return false;
@@ -190,9 +266,16 @@ public class SearchPath  {
                             (java.io.File.separatorChar != '/')
                             ? dirName.replace('/', java.io.File.separatorChar)
                             : dirName;
-                        File f = new File(dirs[pathNr], localDirName);
-                        if (f.exists() && f.isDirectory())
-                            files = f.list();
+			try {
+			    File f = new File(dirs[pathNr], localDirName);
+			    if (f.exists() && f.isDirectory())
+				files = f.list();
+			} catch (SecurityException ex) {
+			    Decompiler.err.println("Warning: SecurityException"
+						   +" while accessing "
+						   +dirs[pathNr]+localDirName);
+			    /* ignore and take next element */
+			}
                     }
                     pathNr++;
                 }

@@ -51,7 +51,7 @@ public class LocalVariableRangeList {
             after = after.next;
         }
         if (after != null && li.start + li.length > after.start) 
-            System.err.println("warning: non disjoint locals");
+            Decompiler.err.println("warning: non disjoint locals");
         li.next = after;
         if (before == null)
             list = li;

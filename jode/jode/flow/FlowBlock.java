@@ -519,10 +519,10 @@ public class FlowBlock {
         this.gen.unionExact(successor.gen);
 
         if (Decompiler.debugInOut) {
-            System.err.println("UpdateInOut: gens : "+gens);
-            System.err.println("             kills: "+kills);
-            System.err.println("             s.in : "+successor.in);
-            System.err.println("             in   : "+in);
+            Decompiler.err.println("UpdateInOut: gens : "+gens);
+            Decompiler.err.println("             kills: "+kills);
+            Decompiler.err.println("             s.in : "+successor.in);
+            Decompiler.err.println("             in   : "+in);
         }
     }
     
@@ -643,16 +643,16 @@ public class FlowBlock {
         /* Update the in/out-Vectors now */
         updateInOut(succ, jumps);
         if (Decompiler.isFlowDebugging)
-            System.err.println("before Optimize: "+this);
+            Decompiler.err.println("before Optimize: "+this);
 
         /* Try to eliminate as many jumps as possible.
          */
         jumps = optimizeJumps(jumps, succ);
         if (Decompiler.isFlowDebugging)
-            System.err.println("before Remaining: "+this);
+            Decompiler.err.println("before Remaining: "+this);
         resolveRemaining(jumps);
         if (Decompiler.isFlowDebugging)
-            System.err.println("after Optimize: "+this);
+            Decompiler.err.println("after Optimize: "+this);
 
         /* Now unify the blocks.
          */
@@ -952,7 +952,7 @@ public class FlowBlock {
 
     public void doTransformations() {
         if (Decompiler.isFlowDebugging)
-            System.err.println("before Transformation: "+this);
+            Decompiler.err.println("before Transformation: "+this);
 
         while (lastModified instanceof SequentialBlock) {
             if (!lastModified.getSubBlocks()[0].doTransformations())
@@ -962,7 +962,7 @@ public class FlowBlock {
             /* empty */;
 
         if (Decompiler.isFlowDebugging)
-            System.err.println("after Transformation: "+this);
+            Decompiler.err.println("after Transformation: "+this);
     }
 
     /**
@@ -1007,7 +1007,7 @@ public class FlowBlock {
      */
     public boolean analyze(int start, int end) {
         if (Decompiler.debugAnalyze)
-            System.err.println("analyze("+start+", "+end+")");
+            Decompiler.err.println("analyze("+start+", "+end+")");
 
         boolean changed = false;
 
@@ -1023,10 +1023,10 @@ public class FlowBlock {
             if (doT2(start, end)) {
 
                 if (Decompiler.isFlowDebugging)
-                    System.err.println("after T2: "+this);
+                    Decompiler.err.println("after T2: "+this);
 
                 if (Decompiler.debugAnalyze)
-                    System.err.println("T2("+addr+","+(addr+length)
+                    Decompiler.err.println("T2("+addr+","+(addr+length)
                                        +") succeeded");
                 /* T2 transformation succeeded.  This may
                  * make another T1 analysis in the previous
@@ -1043,7 +1043,7 @@ public class FlowBlock {
                      * Finish this analyzation.
                      */
                     if (Decompiler.debugAnalyze)
-                        System.err.println
+                        Decompiler.err.println
                             ("No more successors applicable: "
                              + start + " - " + end + "; "
                              + addr + " - " + (addr+length));
@@ -1058,7 +1058,7 @@ public class FlowBlock {
                         changed = true;
                             
                         if (Decompiler.isFlowDebugging)
-                            System.err.println("after T1: "+this);
+                            Decompiler.err.println("after T1: "+this);
                         break;
                     } 
 
@@ -1072,7 +1072,7 @@ public class FlowBlock {
                             ((FlowBlock)enum.nextElement()).addr;
                         if (predAddr < start || predAddr >= end) {
                             if (Decompiler.debugAnalyze)
-                                System.err.println
+                                Decompiler.err.println
                                     ("breaking analyze("
                                      + start + ", " + end + "); "
                                      + addr + " - " + (addr+length));

@@ -18,6 +18,7 @@
  */
 package jode.flow;
 import jode.AssertError;
+import jode.Decompiler;
 import jode.Type;
 import jode.LocalInfo;
 import jode.decompiler.*;
@@ -139,10 +140,10 @@ public class TransformExceptionHandlers {
         tryFlow.in.unionExact(catchFlow.in);
         tryFlow.gen.unionExact(catchFlow.gen);
     
-        if (jode.Decompiler.debugInOut) {
-            System.err.println("UpdateInOutCatch: gens : "+gens);
-            System.err.println("                  s.in : "+catchFlow.in);
-            System.err.println("                  in   : "+tryFlow.in);
+        if (Decompiler.debugInOut) {
+            Decompiler.err.println("UpdateInOutCatch: gens : "+gens);
+            Decompiler.err.println("                  s.in : "+catchFlow.in);
+            Decompiler.err.println("                  in   : "+tryFlow.in);
         }
     }
 
@@ -832,8 +833,8 @@ public class TransformExceptionHandlers {
             int endHandler = (i< count-1 && endPCs[i+1] > handlerPCs[i]) 
                 ? endPCs[i+1]
                 : Integer.MAX_VALUE;
-            if (jode.Decompiler.debugAnalyze)
-                System.err.println("analyzeCatch(" + startPCs[i] + ", "
+            if (Decompiler.debugAnalyze)
+                Decompiler.err.println("analyzeCatch(" + startPCs[i] + ", "
                                    + endPCs[i] + ", " +handlerPCs[i] + ")");
             FlowBlock tryFlow = flows[startPCs[i]];
             while (tryFlow.analyze(startPCs[i], handlerPCs[i]));
@@ -873,8 +874,8 @@ public class TransformExceptionHandlers {
                 analyzeCatchBlock(jode.Type.tObject, tryFlow, catchFlow);
 
             tryFlow.checkConsistent();
-            if (jode.Decompiler.debugAnalyze)
-                System.err.println("analyzeCatch(" + tryFlow.addr + ", "
+            if (Decompiler.debugAnalyze)
+                Decompiler.err.println("analyzeCatch(" + tryFlow.addr + ", "
                                    + (tryFlow.addr + tryFlow.length) + 
                                    ") done.");
         }

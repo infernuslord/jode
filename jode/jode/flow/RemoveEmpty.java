@@ -18,6 +18,7 @@
  */
 
 package jode.flow;
+import jode.Decompiler;
 import jode.decompiler.*;
 
 public class RemoveEmpty {
@@ -49,8 +50,8 @@ public class RemoveEmpty {
             /* XXX check if blocks may be swapped 
              * (there mustn't be side effects in one of them).
              */
-            System.err.println("WARNING: this program contains a SWAP "
-                               +"opcode and may not be translated correctly.");
+            Decompiler.err.println("WARNING: this program contains a SWAP "
+			  +"opcode and may not be translated correctly.");
 
             if (block1.getInstruction().isVoid()
                 || block2.getInstruction().isVoid())

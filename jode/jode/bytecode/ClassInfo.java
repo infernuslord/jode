@@ -48,11 +48,20 @@ public class ClassInfo extends BinaryInfo {
     private MethodInfo[] methods;
     private AttributeInfo[] attributes;
 
-    public final static ClassInfo javaLangObject = 
-        ClassInfo.forName("java.lang.Object");
+    public final static ClassInfo javaLangObject = forName("java.lang.Object");
     
     public static void setClassPath(String path) {
         classpath = new SearchPath(path);
+	Enumeration enum = classes.elements();
+	while (enum.hasMoreElements()) {
+	    ClassInfo ci = (ClassInfo) enum.nextElement();
+	    ci.status = 0;
+	    ci.superclass = null;
+	    ci.fields = null;
+	    ci.interfaces = null;
+	    ci.methods = null;
+	    ci.attributes = null;
+	}
     }
 
     public static boolean exists(String name) {
@@ -202,16 +211,15 @@ public class ClassInfo extends BinaryInfo {
         } catch (IOException ex) {
             String message = ex.getLocalizedMessage();
             if ((howMuch & ~(METHODS|HIERARCHY)) == 0)
-                System.err.println("Can't read class " + name 
-                                   + ", types may be incorrect. ("
-                                   + ex.getClass().getName()
-                                   + (message != null ? ": " + message : "")
-                                   + ")");
+                jode.Decompiler.err.println
+		    ("Can't read class " + name + ", types may be incorrect. ("
+		     + ex.getClass().getName()
+		     + (message != null ? ": " + message : "") + ")");
             else
-                System.err.println("Can't read class " + name + "("
-                                   + ex.getClass().getName()
-                                   + (message != null ? ": " + message : "")
-                                   + ")");
+                jode.Decompiler.err.println
+		    ("Can't read class " + name
+		     + "(" + ex.getClass().getName()
+		     + (message != null ? ": " + message : "") + ")");
             
             if (name.equals("java.lang.Object"))
                 superclass = null;
