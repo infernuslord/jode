@@ -3,20 +3,45 @@
 <title>Jode Test Applet</title>
 </head>
 
-<body>
-Press enter in the class name field to decompile this applet.  You may
-change the class path and name to point to an class file of your
-choice.  But note that most browsers doesn't allow loading files from
-a different server.<br>
 
-You can download <a href="jode/jode-applet.html">HTML-file</a> and
-this <a href="jode_cls.zip">archive, if you want to test it yourself.
-You should use the appletviewer in this case.
+<body>
+<a href="index.html">Home</a> <a href="jode.html">Up</a>
+
+<h1>Test Applet</h1>
+Press the start button to decompile this applet.  You may change the
+class name to point to an class file of your choice.  But
+note that most browsers doesn't allow loading files from a different
+server.<br>
+
+Save doesn't work in Netscape because the FileDialog is missing
+there.  But access to local files is most probably forbidden
+anyway. <br>
+
+You may give multiple entries in the class path field separated by a
+comma.  The components may also be local zip or jar files, but that is
+probably forbidden by the browser. <br>
+
+BTW: If you just want to read the source, you may <a
+href="jode/">browse it online</a><br>
 
 <applet code="jode/JodeAppletOneZero.class" codebase="./" width=640 height=400>
 <param name=classpath 
-value="http://nirwana/~jochen/">
+value="http://www.informatik.uni-oldenburg.de/~jochen/">
 <param name=class value="jode.JodeAppletOneZero">
 </applet>
+
+You may run this locally; you need at least a java 1.1 compatible
+virtual machine and the <a href="jode_cls.zip">decompiler classes</a>.
+The entry class is <code>jode.JodeWindow</code>, so you may start it
+under SUN JDK with (the exact commands depend on your operating
+system, java virtual machine, shell etc):
+
+<pre>
+  set CLASSPATH=jode_cls.zip
+  java jode.JodeWindow
+</pre>
+
+<a href="jode.html">Back to the Decompiler Page</a>
+
 </body>
 </html>

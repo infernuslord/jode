@@ -34,9 +34,6 @@ public class JodeEnvironment {
     public JodeEnvironment(String path) {
         ClassInfo.setClassPath(path);
 	Type.setEnvironment(this);
-        imports = new Hashtable();
-        /* java.lang is always imported */
-        imports.put("java.lang.*", new Integer(Integer.MAX_VALUE));
     }
 
     /**
@@ -162,6 +159,9 @@ public class JodeEnvironment {
 	throws IOException
     {
         ClassInfo clazz;
+        imports = new Hashtable();
+        /* java.lang is always imported */
+        imports.put("java.lang.*", new Integer(Integer.MAX_VALUE));
         try {
             clazz = ClassInfo.forName(className);
         } catch (IllegalArgumentException ex) {
