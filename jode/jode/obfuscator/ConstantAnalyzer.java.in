@@ -45,7 +45,6 @@ import @COLLECTIONS@.ListIterator;
  * @author Jochen Hoenicke
  */
 public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
-    Map constInfos;
 
     BytecodeInfo bytecode;
 
@@ -65,18 +64,25 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     private final static int CMP_EQUAL_MASK
 	= (1 << CMP_GE)|(1 << CMP_LE)|(1 << CMP_EQ);
 
-    final static int REACHABLE     = 0x1;
-    final static int CONSTANT      = 0x2;
-    final static int CONSTANTFLOW  = 0x4;
+    final static int CONSTANT      = 0x02;
+    final static int CONSTANTFLOW  = 0x04;
+    final static int RETASTORE     = 0x08;
+    final static int RETURNINGJSR  = 0x10;
 
     private interface ConstantListener {
 	public void constantChanged();
     }
 
-    private static class JSRTargetInfo implements Cloneable {
+    private final static class JSRTargetInfo implements Cloneable {
 	Instruction jsrTarget;
 	BitSet usedLocals;
-	StackLocalInfo retInfo = null;
+
+	/**
+	 * The dependent entries, that want to know if the bit set changed.
+	 * This is either a StackLocalInfo (the ret info) or a single
+	 * JSRTargetInfo or a Collection of JSRTargetInfos.
+	 */
+	Object dependent;
 
 	public JSRTargetInfo(Instruction target) {
 	    jsrTarget = target;
@@ -87,28 +93,65 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    try {
 		JSRTargetInfo result = (JSRTargetInfo) clone();
 		result.usedLocals = (BitSet) usedLocals.clone();
+		addDependent(result);
 		return result;
 	    } catch (CloneNotSupportedException ex) {
 		throw new IncompatibleClassChangeError(ex.getMessage());
 	    }
 	}
 
+	private void addDependent(JSRTargetInfo result) {
+	    if (dependent == null || dependent == result)
+		dependent = result;
+	    else if (dependent instanceof JSRTargetInfo) {
+		Set newDeps = new HashSet();
+		newDeps.add(dependent);
+		newDeps.add(result);
+	    } else if (dependent instanceof Collection) {
+		((Collection) dependent).add(result);
+	    }
+	}
+
+	public void setRetInfo(StackLocalInfo retInfo) {
+	    dependent = retInfo;
+	}
+
+	public boolean uses(int localSlot) {
+	    return usedLocals.get(localSlot);
+	}
+
+	public void addUsed(int localSlot) {
+	    if (usedLocals.get(localSlot))
+		return;
+	    usedLocals.set(localSlot);
+
+	    if (dependent instanceof StackLocalInfo)
+		((StackLocalInfo) dependent).enqueue();
+	    else if (dependent instanceof JSRTargetInfo)
+		((JSRTargetInfo) dependent).addUsed(localSlot);
+	    else if (dependent instanceof Collection) {
+		Iterator iter = ((Collection) dependent).iterator();
+		while (iter.hasNext()) {
+		    JSRTargetInfo dep = (JSRTargetInfo) iter.next();
+		    dep.addUsed(localSlot);
+		}
+	    }
+	}
+
 	public void merge(JSRTargetInfo o) {
-	    BitSet used = (BitSet) usedLocals.clone();
-	    used.or(o.usedLocals);
-	    if (retInfo != null) {
-		if (o.retInfo != null && o.retInfo != retInfo)
-		    throw new AssertError("retInfos differ");
-  		o.retInfo = retInfo;
-		retInfo.enqueue();
+	    o.addDependent(this);
+	    for (int slot = 0; slot < o.usedLocals.size(); slot++) {
+		if (o.usedLocals.get(slot))
+		    addUsed(slot);
 	    }
 	}
 
 	public String toString() {
 	    StringBuffer sb = new StringBuffer(String.valueOf(jsrTarget));
-	    if (retInfo != null)
-		sb.append("->").append(retInfo.instr);
-	    return sb.append(usedLocals).toString();
+	    if (dependent instanceof StackLocalInfo)
+		sb.append("->").append(((StackLocalInfo) dependent).instr);
+	    return sb.append(usedLocals)
+		.append('_').append(hashCode()).toString();
 	}
     }
 
@@ -180,8 +223,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    if (this == other)
 		return;
 
-	    if (value == other.value
-		|| (value != null && value.equals(other.value))) {
+	    if (value == null ? other.value == null
+		: value.equals(other.value)) {
 		if (value != VOLATILE) {
 //  		    other.addConstantListener(this);
 		    this.addConstantListener(other);
@@ -190,11 +233,13 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    }
 
 	    if (value instanceof JSRTargetInfo
-		&& other.value instanceof JSRTargetInfo) {
+		&& other.value instanceof JSRTargetInfo
+		&& (((JSRTargetInfo) value).jsrTarget
+		    == ((JSRTargetInfo) other.value).jsrTarget)) {
 		((JSRTargetInfo) value).merge((JSRTargetInfo) other.value);
 		return;
 	    }
-	    
+
 	    if (value != VOLATILE)
 		fireChanged();
 //  	    if (other.value != VOLATILE)
@@ -214,6 +259,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	ConstValue[] stack;
 	ConstValue[] locals;
 	Instruction instr;
+	ConstantInfo constInfo;
+	StackLocalInfo retInfo;
 
 	StackLocalInfo nextOnQueue;
 
@@ -333,20 +380,65 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    for (int i=0; i< locals.length; i++) {
 		if (locals[i] != null
 		    && locals[i].value instanceof JSRTargetInfo) {
-		    locals[i] = locals[i].copy();
-		    locals[i].value = ((JSRTargetInfo) locals[i].value).copy();
-		    ((JSRTargetInfo)locals[i].value).usedLocals.set(slot);
+		    JSRTargetInfo jsrInfo = (JSRTargetInfo)locals[i].value;
+		    if (!jsrInfo.uses(slot)) {
+			jsrInfo = jsrInfo.copy();
+			locals[i] = locals[i].copy();
+			locals[i].value = jsrInfo;
+			jsrInfo.addUsed(slot);
+		    }
 		}
 	    }
 	    for (int i=0; i< stack.length; i++) {
 		if (stack[i] != null
 		    && stack[i].value instanceof JSRTargetInfo) {
-		    locals[i] = locals[i].copy();
-		    locals[i].value = ((JSRTargetInfo)locals[i].value).copy();
-		    ((JSRTargetInfo)locals[i].value).usedLocals.set(slot);
+		    JSRTargetInfo jsrInfo = (JSRTargetInfo)stack[i].value;
+		    if (!jsrInfo.uses(slot)) {
+			jsrInfo = jsrInfo.copy();
+			stack[i] = stack[i].copy();
+			stack[i].value = jsrInfo;
+			jsrInfo.addUsed(slot);
+		    }
 		}
 	    }
-	    return new StackLocalInfo(stack, locals, notifyQueue);
+	    return this;
+	}
+
+	public StackLocalInfo mergeRetLocals(JSRTargetInfo jsrTargetInfo,
+					     StackLocalInfo retInfo) {
+	    for (int slot = 0; slot < locals.length; slot++) {
+		if (jsrTargetInfo.uses(slot))
+		    locals[slot] = retInfo.locals[slot];
+	    }
+	    locals[retInfo.instr.getLocalSlot()] = null;
+
+	    for (int i=0; i< locals.length; i++) {
+		if (locals[i] != null
+		    && locals[i].value instanceof JSRTargetInfo) {
+		    JSRTargetInfo jsrInfo = (JSRTargetInfo) locals[i].value;
+		    jsrInfo = jsrInfo.copy();
+		    locals[i] = locals[i].copy();
+		    locals[i].value = jsrInfo;
+		    for (int slot = 0; slot < locals.length; slot++) {
+			if (jsrTargetInfo.uses(slot))
+			    jsrInfo.addUsed(slot);
+		    }
+		}
+	    }
+	    for (int i=0; i< stack.length; i++) {
+		if (stack[i] != null
+		    && stack[i].value instanceof JSRTargetInfo) {
+		    JSRTargetInfo jsrInfo = (JSRTargetInfo)stack[i].value;
+		    jsrInfo = jsrInfo.copy();
+		    stack[i] = stack[i].copy();
+		    stack[i].value = jsrInfo;
+		    for (int slot = 0; slot < locals.length; slot++) {
+			if (jsrTargetInfo.uses(slot))
+			    jsrInfo.addUsed(slot);
+		    }
+		}
+	    }
+	    return this;
 	}
 	
 	public void merge(StackLocalInfo other) {
@@ -378,7 +470,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 
     private static class ConstantInfo implements ConstantListener {
 	ConstantInfo() {
-	    this(REACHABLE, null);
+	    this(0, null);
 	}
 
 	ConstantInfo(int flags) {
@@ -488,7 +580,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 
     public void handleOpcode(StackLocalInfo info, Identifier fieldListener) {
 	Instruction instr = info.instr;
-	constInfos.put(instr, unknownConstInfo);
+	info.constInfo = unknownConstInfo;
 	
 	int opcode = instr.getOpcode();
 	Handler[] handlers = bytecode.getExceptionHandlers();
@@ -519,11 +611,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		System.err.println(instr);
 	    }
 	    if (result.value != ConstValue.VOLATILE) {
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = result.value;
-		result.addConstantListener(shortInfo);
+		info.constInfo = new ConstantInfo(CONSTANT, result.value);
+		result.addConstantListener(info.constInfo);
 	    }
 	    mergeInfo(instr.getNextByAddr(), 
 		      info.poppush(0, result)
@@ -573,8 +662,11 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    break;
 	}
         case opc_istore: case opc_fstore: case opc_astore: {
+	    result = info.getStack(1);
+	    if (result.value instanceof JSRTargetInfo)
+		info.constInfo.flags |= RETASTORE;
 	    mergeInfo(instr.getNextByAddr(), 
-		      info.pop(1).setLocal(instr.getLocalSlot(), info.getStack(1)));
+		      info.pop(1).setLocal(instr.getLocalSlot(), result));
 	    break;
 	}
 	case opc_lstore: case opc_dstore: {
@@ -590,8 +682,11 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    mergeInfo(instr.getNextByAddr(), info.pop(2+size));
 	    break;
 	}
-        case opc_pop: case opc_pop2:
-	    mergeInfo(instr.getNextByAddr(), info.pop(opcode - (opc_pop - 1)));
+        case opc_pop: 
+	    mergeInfo(instr.getNextByAddr(), info.pop(1));
+	    break;
+	case opc_pop2:
+	    mergeInfo(instr.getNextByAddr(), info.pop(2));
 	    break;
 
 	case opc_dup: case opc_dup_x1: case opc_dup_x2:
@@ -763,12 +858,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		default:
 		    throw new jode.AssertError("Can't happen.");
 		}
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = newValue;
+		info.constInfo = new ConstantInfo(CONSTANT, newValue);
 		result = new ConstValue(newValue);
-		result.addConstantListener(shortInfo);
+		result.addConstantListener(info.constInfo);
 		value1.addConstantListener(result);
 		value2.addConstantListener(result);
 	    } else 
@@ -801,12 +893,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		default:
 		    throw new jode.AssertError("Can't happen.");
 		}
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = newValue;
+		info.constInfo = new ConstantInfo(CONSTANT, newValue);
 		result = new ConstValue(newValue);
-		result.addConstantListener(shortInfo);
+		result.addConstantListener(info.constInfo);
 		value.addConstantListener(result);
 	    } else 
 		result = unknownValue[size-1];
@@ -857,12 +946,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		default:
 		    throw new jode.AssertError("Can't happen.");
 		}
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = newValue;
+		info.constInfo = new ConstantInfo(CONSTANT, newValue);
 		result = new ConstValue(newValue);
-		result.addConstantListener(shortInfo);
+		result.addConstantListener(info.constInfo);
 		value1.addConstantListener(result);
 		value2.addConstantListener(result);
 	    } else 
@@ -907,12 +993,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		default:
 		    throw new jode.AssertError("Can't happen.");
 		}
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = newVal;
+		info.constInfo = new ConstantInfo(CONSTANT, newVal);
 		result = new ConstValue(newVal);
-		result.addConstantListener(shortInfo);
+		result.addConstantListener(info.constInfo);
 		stack.addConstantListener(result);
 	    } else {
 		switch (opcode) {
@@ -942,12 +1025,10 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    val = (short) val;
 		    break;
 		}
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = new Integer(val);
-		result = new ConstValue(shortInfo.constant);
-		stack.addConstantListener(shortInfo);
+		Integer newVal = new Integer(val);
+		info.constInfo = new ConstantInfo(CONSTANT, newVal);
+		result = new ConstValue(newVal);
+		stack.addConstantListener(info.constInfo);
 		stack.addConstantListener(result);
 	    } else
 		result = unknownValue[0];
@@ -962,13 +1043,11 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		&& val2.value != ConstValue.VOLATILE) {
 		long value1 = ((Long) val1.value).longValue();
 		long value2 = ((Long) val1.value).longValue();
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = new Integer(value1 == value2 ? 0
-						 : value1 < value2 ? -1 : 1);
-		result = new ConstValue(shortInfo.constant);
-		result.addConstantListener(shortInfo);
+		Integer newVal = new Integer(value1 == value2 ? 0
+					     : value1 < value2 ? -1 : 1);
+		info.constInfo = new ConstantInfo(CONSTANT, newVal);
+		result = new ConstValue(newVal);
+		result.addConstantListener(info.constInfo);
 		val1.addConstantListener(result);
 		val2.addConstantListener(result);
 	    } else
@@ -983,16 +1062,14 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		&& val2.value != ConstValue.VOLATILE) {
 		float value1 = ((Float) val1.value).floatValue();
 		float value2 = ((Float) val1.value).floatValue();
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = new Integer
+		Integer newVal = new Integer
 		    (value1 == value2 ? 0
 		     : ( opcode == opc_fcmpg
 			 ? (value1 < value2 ? -1 :  1)
 			 : (value1 > value2 ?  1 : -1)));
-		result = new ConstValue(shortInfo.constant);
-		result.addConstantListener(shortInfo);
+		info.constInfo = new ConstantInfo(CONSTANT, newVal);
+		result = new ConstValue(newVal);
+		result.addConstantListener(info.constInfo);
 		val1.addConstantListener(result);
 		val2.addConstantListener(result);
 	    } else
@@ -1007,16 +1084,14 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		&& val2.value != ConstValue.VOLATILE) {
 		double value1 = ((Double) val1.value).doubleValue();
 		double value2 = ((Double) val1.value).doubleValue();
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = new Integer
+		Integer newVal = new Integer
 		    (value1 == value2 ? 0
 		     : ( opcode == opc_dcmpg
 			 ? (value1 < value2 ? -1 :  1)
 			 : (value1 > value2 ?  1 : -1)));
-		result = new ConstValue(shortInfo.constant);
-		result.addConstantListener(shortInfo);
+		info.constInfo = new ConstantInfo(CONSTANT, newVal);
+		result = new ConstValue(newVal);
+		result.addConstantListener(info.constInfo);
 		val1.addConstantListener(result);
 		val2.addConstantListener(result);
 	    } else
@@ -1077,10 +1152,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		if ((opc_mask & (1<<opcode)) != 0)
 		    pc = instr.getSingleSucc();
 
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANTFLOW;
-		shortInfo.constant = pc;
+		info.constInfo = new ConstantInfo(CONSTANTFLOW, pc);
 		mergeInfo(pc, info.pop(size));
 	    } else {
 		mergeInfo(instr.getNextByAddr(), info.pop(size));
@@ -1090,12 +1162,6 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
         case opc_goto:
 	    mergeInfo(instr.getSingleSucc(), info.copy());
-	    break;
-        case opc_jsr:
-	    mergeInfo(instr.getSingleSucc(), 
-		      info.poppush(0, new ConstValue
-				   (new JSRTargetInfo(instr.getSingleSucc()))
-				   ));
 	    break;
         case opc_lookupswitch: {
 	    ConstValue stacktop = info.getStack(1);
@@ -1111,10 +1177,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			break;
 		    }
 		}
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANTFLOW;
-		shortInfo.constant = pc;
+		info.constInfo = new ConstantInfo(CONSTANTFLOW, pc);
 		mergeInfo(pc, info.pop(1));
 	    } else {
 		for (int i=0; i < instr.getSuccs().length; i++)
@@ -1122,28 +1185,48 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    }
 	    break;
         }
+        case opc_jsr:
+//  	    dumpStackLocalInfo();
+//  	    System.err.println(instr);
+	    if (instr.getSingleSucc().getOpcode() != opc_astore)
+		throw new RuntimeException("Can't handle jsr to non astores");
+	    StackLocalInfo oldJsrInfo =
+		(StackLocalInfo) instr.getSingleSucc().getTmpInfo();
+	    if (oldJsrInfo != null) {
+		result = oldJsrInfo.getStack(1);
+		if (oldJsrInfo.retInfo != null
+		    && result.value instanceof JSRTargetInfo) {
+		    mergeInfo(instr.getNextByAddr(), 
+			      info.copy()
+			      .mergeRetLocals((JSRTargetInfo) result.value, 
+					      oldJsrInfo.retInfo));
+		}
+	    } else {
+		result = new ConstValue
+		    (new JSRTargetInfo(instr.getSingleSucc()));
+	    }
+	    mergeInfo(instr.getSingleSucc(), info.poppush(0, result));
+	    break;
 	case opc_ret: {
 //  	    dumpStackLocalInfo();
 //  	    System.err.println(instr);
 	    result = info.getLocal(instr.getLocalSlot());
 	    JSRTargetInfo jsrInfo = (JSRTargetInfo) result.value;
-	    jsrInfo.retInfo = info;
+	    jsrInfo.setRetInfo(info);
 	    result.addConstantListener(info);
 	    Instruction jsrTarget = jsrInfo.jsrTarget;
-	    for (int i=0; i < jsrTarget.getPreds().length; i++) {
-		Instruction jsr = jsrTarget.getPreds()[i];
-		if (jsr.getTmpInfo() == null)
-		    continue;
-		StackLocalInfo nextInfo
-		    = ((StackLocalInfo) jsr.getTmpInfo()).copy();
-		int maxLocals = bytecode.getMaxLocals();
-		for (int slot = 0; slot < maxLocals; slot++) {
-		    if (slot == instr.getLocalSlot())
-			nextInfo.setLocal(slot, null);
-		    else if (jsrInfo.usedLocals.get(slot))
-			nextInfo.setLocal(slot, info.getLocal(slot));
+	    StackLocalInfo jsrTargetStackInfo = 
+		(StackLocalInfo) jsrTarget.getTmpInfo();
+	    jsrTargetStackInfo.retInfo = info;
+	    jsrTargetStackInfo.constInfo.flags |= RETURNINGJSR;
+	    Instruction[] jsrs = jsrTarget.getPreds();
+	    for (int i=0; i < jsrs.length; i++) {
+		Instruction jsr = jsrs[i];
+		if (jsr.getTmpInfo() != null) {
+		    mergeInfo(jsr.getNextByAddr(), 
+			      ((StackLocalInfo) jsr.getTmpInfo()).copy()
+			      .mergeRetLocals(jsrInfo, info));
 		}
-		mergeInfo(jsr.getNextByAddr(), nextInfo);
 	    }
 	    break;
 	}
@@ -1156,13 +1239,22 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	case opc_putstatic:
 	case opc_putfield: {
 	    FieldIdentifier fi = (FieldIdentifier) canonizeReference(instr);
-	    int size = (opcode == opc_putstatic) ? 0 : 1;
 	    Reference ref = instr.getReference();
-	    size += TypeSignature.getTypeSize(ref.getType());
+	    int size = TypeSignature.getTypeSize(ref.getType());
 	    if (fi != null && !fi.isNotConstant()) {
-		fi.setNotConstant();
-		fieldNotConstant(fi);
+		ConstValue stacktop = info.getStack(size);
+		Object fieldVal = fi.getConstant();
+		if (fieldVal == null)
+		    fieldVal = runtime.getDefaultValue(ref.getType());
+		if (stacktop.value == null ? fieldVal == null
+		    : stacktop.value.equals(fieldVal)) {
+		    stacktop.addConstantListener(info);
+		} else {
+		    fi.setNotConstant();
+		    fieldNotConstant(fi);
+		}
 	    }
+	    size += (opcode == opc_putstatic) ? 0 : 1;
 	    mergeInfo(instr.getNextByAddr(), info.pop(size));
 	    break;
 	}
@@ -1178,32 +1270,11 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    result = unknownValue[typesize - 1];
 		} else {
 		    Object obj = fi.getConstant();
-		    if (obj == null) {
-			switch (ref.getType().charAt(0)) {
-			case 'Z':
-			case 'B':
-			case 'S':
-			case 'C':
-			case 'I':
-			    obj = new Integer(0);
-			    break;
-			case 'J':
-			    obj = new Long(0);
-			    break;
-			case 'F':
-			    obj = new Float(0);
-			    break;
-			case 'D':
-			    obj = new Double(0);
-			    break;
-			}
-		    }
-		    ConstantInfo shortInfo = new ConstantInfo();
-		    constInfos.put(instr, shortInfo);
-		    shortInfo.flags |= CONSTANT;
-		    shortInfo.constant = obj;
+		    if (obj == null)
+			obj = runtime.getDefaultValue(ref.getType());
+		    info.constInfo = new ConstantInfo(CONSTANT, obj);
 		    result = new ConstValue(obj);
-		    result.addConstantListener(shortInfo);
+		    result.addConstantListener(info.constInfo);
 		    fi.addFieldListener(fieldListener);
 		}
 	    } else
@@ -1280,12 +1351,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		int retsize = TypeSignature.getTypeSize(retType);
 		returnVal = unknownValue[retsize - 1];
 	    } else {
-		ConstantInfo shortInfo = new ConstantInfo();
-		constInfos.put(instr, shortInfo);
-		shortInfo.flags |= CONSTANT;
-		shortInfo.constant = methodResult;
+		info.constInfo = new ConstantInfo(CONSTANT, methodResult);
 		returnVal = new ConstValue(methodResult);
-		returnVal.addConstantListener(shortInfo);
+		returnVal.addConstantListener(info.constInfo);
 		if (clsValue != null)
 		    clsValue.addConstantListener(returnVal);
 		for (int i=0; i< argValues.length; i++)
@@ -1304,10 +1372,10 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 //  	    ConstValue array = info.getStack(1);
 //  	    if (array.value != ConstValue.VOLATILE
 //  		&& array.value != null) {
-//  		shortInfo.flags |= CONSTANT;
-//  		shortInfo.constant = new Integer(Array.getLength(array.value));
-//  		result = new ConstValue(shortInfo.constant);
-//  		result.addConstantListener(shortInfo);
+//  		Integer newValue = new Integer(Array.getLength(array.value));
+//  		info.constInfo = new ConstantInfo(CONSTANT, newValue);
+//  		result = new ConstValue(newValue);
+//  		result.addConstantListener(info.constInfo);
 //  		array.addConstantListener(result);
 //  	    } else
 	    result = unknownValue[0];
@@ -1334,9 +1402,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		      info.poppush(instr.getDimensions(), unknownValue[0]));
 	    break;
         default:
-            throw new jode.AssertError("Invalid opcode "+opcode);
+            throw new IllegalArgumentException("Invalid opcode "+opcode);
         }
-			
     }
 
     public void fieldNotConstant(FieldIdentifier fi) {
@@ -1359,8 +1426,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	for (Iterator iter = bytecode.getInstructions().iterator(); 
 	     iter.hasNext(); ) {
 	    Instruction instr = (Instruction) iter.next();
-	    StackLocalInfo info = (StackLocalInfo) instr.getTmpInfo();
-	    System.err.println(""+info);
+	    System.err.println(""+instr.getTmpInfo());
 	    System.err.println(instr.getDescription());
 	}
     }
@@ -1368,10 +1434,15 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     public void analyzeCode(MethodIdentifier methodIdent, 
 			    BytecodeInfo bytecode) {
 	this.bytecode = bytecode;
-	if (constInfos == null)
-	    constInfos = new HashMap();
 	TodoQueue modifiedQueue = new TodoQueue();
 	MethodInfo minfo = bytecode.getMethodInfo();
+
+	for (Iterator iter = bytecode.getInstructions().iterator(); 
+	     iter.hasNext(); ) {
+	    Instruction instr = (Instruction) iter.next();
+	    instr.setTmpInfo(null);
+	}
+
 	StackLocalInfo firstInfo = new StackLocalInfo 
 	    (bytecode.getMaxLocals(), minfo.isStatic(), minfo.getType(), 
 	     modifiedQueue);
@@ -1392,8 +1463,16 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		Main.getClassBundle().reachableClass(handlers[i].type);
 	}
 	for (Iterator iter = bytecode.getInstructions().iterator(); 
-	     iter.hasNext(); )
-	    ((Instruction) iter.next()).setTmpInfo(null);
+	     iter.hasNext(); ) {
+	    Instruction instr = (Instruction) iter.next();
+	    StackLocalInfo info = (StackLocalInfo) instr.getTmpInfo();
+	    if (info != null) {
+		if (info.constInfo.flags == 0)
+		    instr.setTmpInfo(unknownConstInfo);
+		else
+		    instr.setTmpInfo(info.constInfo);
+	    }
+	}
     }
 
     public static void replaceWith(ListIterator iter, Instruction instr,
@@ -1509,9 +1588,13 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	for (ListIterator iter = bytecode.getInstructions().listIterator();
 	     iter.hasNext(); ) {
 	    Instruction instr = (Instruction) iter.next();
-	    ConstantInfo info = (ConstantInfo) constInfos.get(instr);
-	    if (info == null || (info.flags & REACHABLE) == 0) {
-		/* This instruction can't be reached logically */
+	    ConstantInfo info = (ConstantInfo) instr.getTmpInfo();
+	    instr.setTmpInfo(null);
+
+	    if (info == null
+		|| (info.flags & (RETURNINGJSR | RETASTORE)) == RETASTORE) {
+		/* This instruction can't be reached logically, or
+		 * it is a return value astore, that should be removed */
 		iter.remove();
 	    } else if ((info.flags & CONSTANT) != 0) {
 		if (instr.getOpcode() > opc_ldc2_w) {
@@ -1539,9 +1622,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			 + " with goto " + pc.getAddr());
 		while (iter.hasNext()) {
 		    ConstantInfo nextinfo = (ConstantInfo) 
-			constInfos.get((Instruction) iter.next());
-		    if (nextinfo != null
-			&& (nextinfo.flags & REACHABLE) != 0) {
+			((Instruction) iter.next()).getTmpInfo();
+		    if (nextinfo != null) {
 			Instruction nextInstr = (Instruction) iter.previous();
 			if (pc != nextInstr)
 			    appendJump(iter, pc);
@@ -1558,6 +1640,21 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    iter.remove();
 		    break;
 
+		case opc_jsr:
+		    ConstantInfo jsrinfo = (ConstantInfo)
+			instr.getSingleSucc().getTmpInfo();
+		    if ((jsrinfo.flags & RETURNINGJSR) != 0)
+			/* A normal jsr, don't change it */
+			break;
+
+		    /* This means, the jsr will never return.  We
+		     * replace it with a goto,  the jsr will transform
+		     * itself to remove the astore operation.
+		     */
+		    Instruction gotoInstr = new Instruction(opc_goto);
+		    gotoInstr.setSuccs(instr.getSingleSucc());
+		    iter.set(gotoInstr);
+		    /* fall through */
 		case opc_goto:
 		case opc_ifeq: case opc_ifne: 
 		case opc_iflt: case opc_ifge: 
@@ -1570,18 +1667,22 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 
 		    while (iter.hasNext()) {
 			ConstantInfo nextinfo = (ConstantInfo) 
-			    constInfos.get((Instruction) iter.next());
+			    ((Instruction) iter.next()).getTmpInfo();
 			if (nextinfo != null
-			    && (nextinfo.flags & REACHABLE) != 0) {
+			    && ((nextinfo.flags & (RETURNINGJSR | RETASTORE))
+				!= RETASTORE)) {
+
 			    Instruction nextInstr
 				= (Instruction) iter.previous();
 			    if (instr.getSingleSucc() == nextInstr) {
+				/* put iter in sane state */
 				iter.previous();
+				iter.next();
 				replaceWith(iter, instr, null);
 			    }
 			    break;
 			}
-			/* Next instruction can't be reached logically */
+			/* Next instruction can be removed */
 			iter.remove();
 		    }
 		    break;
