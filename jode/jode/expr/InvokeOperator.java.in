@@ -172,7 +172,6 @@ public final class InvokeOperator extends Operator
 	InnerClassInfo outer = getOuterClassInfo(clazz);
 	if (outer != null && (outer.outer == null || outer.name == null)) {
 	    methodAnalyzer.addAnonymousConstructor(this);
-	System.err.println("addAnonymousConstructor: "+this);
 	}
     }
 
