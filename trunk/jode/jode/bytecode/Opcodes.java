@@ -392,19 +392,26 @@ public abstract class Opcodes {
 	    case opc_getfield:
 	    case opc_putstatic:
 	    case opc_putfield:
-	    case opc_invokevirtual:
 	    case opc_invokespecial:
-	    case opc_invokestatic :
+	    case opc_invokestatic:
 	    case opc_new:
 	    case opc_anewarray:
 	    case opc_checkcast:
 	    case opc_instanceof:
-		references.addElement(new Integer(stream.readUnsignedShort()));
+		references.addElement
+		    (new int[] { stream.readUnsignedShort(), 0 });
+		addr += 3;
+		break;
+
+	    case opc_invokevirtual:
+		references.addElement
+		    (new int[] { stream.readUnsignedShort(), 1 });
 		addr += 3;
 		break;
 
 	    case opc_invokeinterface:
-		references.addElement(new Integer(stream.readUnsignedShort()));
+		references.addElement
+		    (new int[] { stream.readUnsignedShort(), 1 });
 		stream.skip(2);
 		addr += 5;
 		break;
@@ -526,7 +533,7 @@ public abstract class Opcodes {
         case opc_putfield:
         case opc_invokevirtual:
         case opc_invokespecial:
-        case opc_invokestatic :
+        case opc_invokestatic:
         case opc_new:
         case opc_anewarray:
         case opc_checkcast:
