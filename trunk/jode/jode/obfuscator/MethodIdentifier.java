@@ -34,6 +34,8 @@ import java.util.Hashtable;
 public class MethodIdentifier extends Identifier implements Opcodes {
     ClassIdentifier clazz;
     MethodInfo info;
+    String name;
+    String type;
 
 ///#ifdef JDK12
 ///    /**
@@ -69,6 +71,8 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 
     public MethodIdentifier(ClassIdentifier clazz, MethodInfo info) {
 	super(info.getName());
+	this.name = info.getName();
+	this.type = info.getType();
 	this.clazz = clazz;
 	this.info  = info;
     }
@@ -130,11 +134,11 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     }
 
     public String getName() {
-	return info.getName();
+	return name;
     }
 
     public String getType() {
-	return info.getType();
+	return type;
     }
 
     public boolean conflicting(String newAlias, boolean strong) {
@@ -165,9 +169,14 @@ public class MethodIdentifier extends Identifier implements Opcodes {
      *     <li>renaming field, method and class references</li>
      * </ul>
      */
+    boolean wasTransformed = false;
     public void doTransformations() {
+	if (wasTransformed)
+	    throw new jode.AssertError
+		("doTransformation called on transformed method");
+	wasTransformed = true;
 	info.setName(getAlias());
-	info.setType(clazz.bundle.getTypeAlias(info.getType()));
+	info.setType(clazz.bundle.getTypeAlias(type));
 	if (getCodeAnalyzer() != null) {
 	    BytecodeInfo strippedBytecode = getCodeAnalyzer().stripCode();
 //  	    strippedBytecode.dumpCode(GlobalOptions.err);
@@ -196,44 +205,25 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		case opc_invokestatic:
 		case opc_invokeinterface:
 		case opc_invokevirtual: {
-		    Reference ref = (Reference) instr.objData;
-		    MethodIdentifier mi = (MethodIdentifier)
-			clazz.bundle.getIdentifier(ref);
-		    String newType = clazz.bundle.getTypeAlias(ref.getType());
-		    if (mi != null)
-			instr.objData = new Reference
-			    ("L"+mi.clazz.getFullAlias().replace('.','/')+';',
-			     mi.getAlias(), newType);
-		    else 
-			instr.objData = new Reference
-			    (ref.getClazz(), ref.getName(), newType);
+		    instr.objData = clazz.bundle.getReferenceAlias
+			((Reference) instr.objData);
 		    break;
+
 		}
 		case opc_putstatic:
 		case opc_putfield:
 		case opc_getstatic:
 		case opc_getfield: {
-		    Reference ref = (Reference) instr.objData;
-		    String newType = clazz.bundle.getTypeAlias(ref.getType());
-		    FieldIdentifier fi = (FieldIdentifier) 
-			clazz.bundle.getIdentifier(ref);
-		    if (fi != null) {
-			instr.objData = new Reference
-			    ("L"+fi.clazz.getFullAlias().replace('.','/')+';',
-			     fi.getAlias(), newType);
-		    } else 
-			instr.objData = new Reference
-			    (ref.getClazz(), ref.getName(), newType);
-
+		    instr.objData = clazz.bundle.getReferenceAlias
+			((Reference) instr.objData);
 		    break;
 		}
 		case opc_new:
 		case opc_checkcast:
 		case opc_instanceof:
 		case opc_multianewarray: {
-		    String clName = (String) instr.objData;
-		    clName = clazz.bundle.getTypeAlias(clName);
-		    instr.objData = clName;
+		    instr.objData = clazz.bundle.getTypeAlias
+			((String) instr.objData);
 		    break;
 		}
 		}
