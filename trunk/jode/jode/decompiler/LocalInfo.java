@@ -249,7 +249,7 @@ public class LocalInfo implements Declarable {
             return shadow.getName();
         }
         if (name == null) {
-	    return "local_" + slot + "_"+ Integer.toHexString(hashCode());
+	    return "local_" + slot + "_" + Integer.toHexString(hashCode());
 	}
         return name;
     }
