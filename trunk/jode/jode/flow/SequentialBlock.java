@@ -25,9 +25,7 @@ import jode.expr.LocalStoreOperator;
 /**
  * A sequential block combines exactly two structured blocks to a new
  * one. The first sub block mustn't be another sequential block,
- * instead the second sub block should be used for this.  This
- * condition is temporarily violated, while the t1 transformation is
- * done.
+ * instead the second sub block should be used for this.
  */
 public class SequentialBlock extends StructuredBlock {
     StructuredBlock[] subBlocks;
