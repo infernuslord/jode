@@ -246,7 +246,6 @@ public class TransformExceptionHandlers {
     public void checkAndRemoveJSR(FlowBlock tryFlow, FlowBlock subRoutine,
 				  int startOutExit, int endOutExit) {
 	boolean foundSub = false;
-	FlowBlock exitBlock = null;
         Iterator iter = tryFlow.getSuccessors().iterator();
     dest_loop:
         while (iter.hasNext()) {
@@ -306,8 +305,7 @@ public class TransformExceptionHandlers {
 		     * directly to a correct jsr instruction, which
 		     * lies outside the try/catch block.  
 		     */
-		    if (exitBlock == null
-			&& jumps.destination.predecessors.size() == 1
+		    if (jumps.destination.predecessors.size() == 1
 			&& jumps.destination.getAddr() >= startOutExit
 			&& jumps.destination.getNextAddr() <= endOutExit) {
 			jumps.destination.analyze(startOutExit, endOutExit);
@@ -320,7 +318,6 @@ public class TransformExceptionHandlers {
 			    && (sb.getSubBlocks()[0].jump.destination
 				== subRoutine)) {
 			    StructuredBlock jsrInner = sb.getSubBlocks()[0];
-			    exitBlock = jumps.destination;
 			    jumps.destination.removeSuccessor(jsrInner.jump);
 			    jsrInner.removeJump();
 			    sb.removeBlock();
@@ -355,16 +352,30 @@ public class TransformExceptionHandlers {
         return false;
     }
 
+    boolean isMonitorExitSubRoutine(FlowBlock subRoutine, LocalInfo local) {
+	if (transformSubRoutine(subRoutine.block)) {
+	    if (subRoutine.block instanceof InstructionBlock) {
+		Expression instr = 
+		    ((InstructionBlock)subRoutine.block)
+		    .getInstruction();
+		if (isMonitorExit(instr, local)) {
+		    return true;
+		}
+	    }
+	}
+	return false;
+    }
+
     public void checkAndRemoveMonitorExit(FlowBlock tryFlow, LocalInfo local, 
 					  int startOutExit, int endOutExit,
                                           int startMonExit, int endMonExit) {
         FlowBlock subRoutine = null;
-	FlowBlock exitBlock = null;
         Iterator succs = tryFlow.getSuccessors().iterator();
     dest_loop:
         while (succs.hasNext()) {
 	    boolean isFirstJump = true;
-            for (Jump jumps = tryFlow.getJumps((FlowBlock) succs.next());
+	    FlowBlock successor = (FlowBlock) succs.next();
+            for (Jump jumps = tryFlow.getJumps(successor);
                  jumps != null; jumps = jumps.next, isFirstJump = false) {
 
                 StructuredBlock prev = jumps.prev;
@@ -435,44 +446,56 @@ public class TransformExceptionHandlers {
 		     * another jsr.  This must be the monitorexit
 		     * subroutine.  
 		     */
-		    if (prev instanceof JsrBlock && subRoutine == null) {
-			
-			subRoutine = jumps.destination;
-			subRoutine.analyze(startMonExit, endMonExit);
-			transformSubRoutine(subRoutine.block);
-			
-			if (subRoutine.block instanceof InstructionBlock) {
-			    Expression instr = 
-				((InstructionBlock)subRoutine.block)
-				.getInstruction();
-			    if (isMonitorExit(instr, local)) {
-				tryFlow.mergeAddr(subRoutine);
-				continue dest_loop;
-			    }
+		    if (prev instanceof JsrBlock) {
+			if (subRoutine == null
+			    && successor.getAddr() >= startMonExit
+			    && successor.getNextAddr() <= endMonExit) {
+			    successor.analyze(startMonExit, endMonExit);
+			    
+			    if (isMonitorExitSubRoutine(successor, local))
+				subRoutine = successor;
 			}
+
+			if (subRoutine == successor)
+			    continue dest_loop;
 		    }
-		    
+
 		    /* Now we have a jump that is not preceded by a
 		     * monitorexit.  There's a last chance: the jump
 		     * jumps directly to the correct monitorexit
 		     * instruction, which lies outside the try/catch
 		     * block.  
 		     */
-		    if (exitBlock == null
-			&& jumps.destination.predecessors.size() != 1
-			&& jumps.destination.getAddr() >= startOutExit
-			&& jumps.destination.getNextAddr() <=  endOutExit) {
-			jumps.destination.analyze(startOutExit, endOutExit);
+		    if (successor.predecessors.size() == 1
+			&& successor.getAddr() >= startOutExit
+			&& successor.getNextAddr() <=  endOutExit) {
+			successor.analyze(startOutExit, endOutExit);
 		    
-			StructuredBlock sb = jumps.destination.block;
+			StructuredBlock sb = successor.block;
 			if (sb instanceof SequentialBlock)
 			    sb = sb.getSubBlocks()[0];
+			if (sb instanceof JsrBlock
+			    && sb.getSubBlocks()[0] instanceof EmptyBlock) {
+			    StructuredBlock jsrInner = sb.getSubBlocks()[0];
+			    FlowBlock dest = jsrInner.jump.destination;
+			    if (subRoutine == null
+				&& dest.getAddr() >= startMonExit
+				&& dest.getNextAddr() <= endMonExit) {
+				dest.analyze(startMonExit, endMonExit);
+				if (isMonitorExitSubRoutine(dest, local))
+				    subRoutine = dest;
+			    }
+
+			    if (subRoutine == dest) {
+				sb.removeBlock();
+				continue dest_loop;
+			    }
+			}
 			if (sb instanceof InstructionBlock) {
 			    Expression instr = ((InstructionBlock)sb)
 				.getInstruction();
 			    if (isMonitorExit(instr, local)) {
 				sb.removeBlock();
-				exitBlock = jumps.destination;
 				continue dest_loop;
 			    }
 			}
@@ -488,8 +511,10 @@ public class TransformExceptionHandlers {
             }  
         }
 
-        if (subRoutine != null)
-            removeJSR(tryFlow, subRoutine);
+	if (subRoutine != null) {
+	    removeJSR(tryFlow, subRoutine);
+	    tryFlow.mergeAddr(subRoutine);
+	}
     }
 
     private boolean analyzeSynchronized(FlowBlock tryFlow, 
@@ -544,6 +569,13 @@ public class TransformExceptionHandlers {
             LocalInfo local = 
                 ((LocalLoadOperator)monexit.getSubExpressions()[0])
 		.getLocalInfo();
+
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_ANALYZE) != 0)
+		GlobalOptions.err.println
+		    ("analyzeSynchronized(" + tryFlow.getAddr()
+		     + "," + tryFlow.getNextAddr() + "," + catchFlow.getAddr()
+		     + "," + catchFlow.getNextAddr() + "," + endHandler + ")");
 
             checkAndRemoveMonitorExit
                 (tryFlow, local, 
@@ -942,7 +974,7 @@ public class TransformExceptionHandlers {
 		if ((GlobalOptions.debuggingFlags
 		     & GlobalOptions.DEBUG_ANALYZE) != 0)
 		    GlobalOptions.err.println
-			("analyzeCatch(" + tryFlow.getAddr() + ", "
+			("analyzeTryCatch(" + tryFlow.getAddr() + ", "
 			 + tryFlow.getNextAddr() + ") done.");
 	    }
 	}
