@@ -267,4 +267,14 @@ public interface Opcodes {
 
 
     public final static String newArrayTypes = "ZCFDBSIJ";
+
+    public final static Object[] constants = {
+	null, 
+	new Integer(-1), new Integer(0), new Integer(1), 
+	new Integer(2), new Integer(3), new Integer(4), new Integer(5),
+	new Long(0), new Long(1), 
+	new Float(0), new Float(1), new Float(2),
+	new Double(0), new Double(1)
+    };
+
 }

@@ -19,6 +19,7 @@
 
 package jode.bytecode;
 import jode.AssertError;
+import jode.util.UnifyHash;
 
 /**
  * This class contains some static methods to handle type signatures.
@@ -143,10 +144,10 @@ public class TypeSignature {
 	return typeSig.substring(1);
     }
 
-    public static ClassInfo getClassInfo(String typeSig) {
+    public static ClassInfo getClassInfo(ClassPath classpath, String typeSig) {
 	if (typeSig.charAt(0) != 'L')
 	    throw new IllegalArgumentException();
-	return ClassInfo.forName
+	return classpath.getClassInfo
 	    (typeSig.substring(1, typeSig.length()-1).replace('/', '.'));
     }
 

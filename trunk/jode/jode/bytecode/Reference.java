@@ -19,7 +19,9 @@
 
 package jode.bytecode;
 import jode.util.UnifyHash;
-import @COLLECTIONS@.Iterator;
+///#def COLLECTIONS java.util
+import java.util.Iterator;
+///#enddef
 
 /**
  * This class represents a field or method reference.
@@ -67,6 +69,10 @@ public class Reference {
     }
 	
     public String toString() {
-	return clazz + " " + name + " " + type;
+	String classStr = clazz;
+	if (clazz.startsWith("L"))
+	    classStr = clazz.substring(1, clazz.length() - 1)
+		.replace('/', '.');
+	return classStr + "." + name + " " + type;
     }
 }

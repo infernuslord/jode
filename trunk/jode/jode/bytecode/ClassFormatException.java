@@ -20,13 +20,23 @@
 package jode.bytecode;
 
 /**
- * This exception is thrown, if the class file has an unknown format.
+ * Thrown when a class file with an unknown or illegal format is loaded.
+ *
  * @author Jochen Hoenicke
  */
 public class ClassFormatException extends java.io.IOException{
+    /**
+     * Constructs a new class format exception with the given detail
+     * message.
+     * @param detail the detail message.
+     */
     public ClassFormatException(String detail) {
 	super(detail);
     }
+
+    /**
+     * Constructs a new class format exception.
+     */
     public ClassFormatException() {
 	super();
     }

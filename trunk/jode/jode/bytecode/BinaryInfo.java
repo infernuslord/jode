@@ -26,31 +26,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import jode.util.SimpleMap;
 
-import @COLLECTIONS@.Map;
-import @COLLECTIONS@.Collections;
-import @COLLECTIONS@.Iterator;
+///#def COLLECTIONS java.util
+import java.util.Map;
+import java.util.Collections;
+import java.util.Iterator;
+///#enddef
 
 
 /**
  *
  * @author Jochen Hoenicke
  */
-public class BinaryInfo {
-    public static final int HIERARCHY       = 0x01;
-    public static final int FIELDS          = 0x02;
-    public static final int METHODS         = 0x04;
-    public static final int CONSTANTS       = 0x08;
-    public static final int KNOWNATTRIBS    = 0x10;
-    public static final int INNERCLASSES    = 0x20;
-    public static final int OUTERCLASSES    = 0x40;
-    public static final int UNKNOWNATTRIBS  = 0x80;
-    public static final int FULLINFO        = 0xff;
-    public static final int MOSTINFO        = 0x7f;
-    public static final int REFLECTINFO     = 0x6f;
-
+class BinaryInfo {
     private Map unknownAttributes = null;
 
-    protected void skipAttributes(DataInputStream input) throws IOException {
+    void skipAttributes(DataInputStream input) throws IOException {
         int count = input.readUnsignedShort();
         for (int i=0; i< count; i++) {
             input.readUnsignedShort();  // the name index
@@ -64,17 +54,17 @@ public class BinaryInfo {
         }
     }
 
-    protected int getKnownAttributeCount() {
+    int getKnownAttributeCount() {
 	return 0;
     }
 
-    protected void readAttribute(String name, int length,
-				 ConstantPool constantPool,
-				 DataInputStream input, 
-				 int howMuch) throws IOException {
+    void readAttribute(String name, int length,
+		       ConstantPool constantPool,
+		       DataInputStream input, 
+		       int howMuch) throws IOException {
 	byte[] data = new byte[length];
 	input.readFully(data);
-	if ((howMuch & UNKNOWNATTRIBS) != 0) {
+	if (howMuch >= ClassInfo.ALL) {
 	    if (unknownAttributes == null)
 		unknownAttributes = new SimpleMap();
 	    unknownAttributes.put(name, data);
@@ -132,9 +122,9 @@ public class BinaryInfo {
 	}
     }
 
-    protected void readAttributes(ConstantPool constantPool,
-                                  DataInputStream input, 
-                                  int howMuch) throws IOException {
+    void readAttributes(ConstantPool constantPool,
+			DataInputStream input, 
+			int howMuch) throws IOException {
 	int count = input.readUnsignedShort();
 	unknownAttributes = null;
 	for (int i=0; i< count; i++) {
@@ -150,12 +140,11 @@ public class BinaryInfo {
 	}
     }
 
-    public void dropInfo(int howMuch) {
-	if ((howMuch & UNKNOWNATTRIBS) != 0)
-	    unknownAttributes = null;
+    public void dropAttributes() {
+	unknownAttributes = null;
     }
 
-    protected void prepareAttributes(GrowableConstantPool gcp) {
+    void prepareAttributes(GrowableConstantPool gcp) {
 	if (unknownAttributes == null)
 	    return;
 	Iterator i = unknownAttributes.keySet().iterator();
@@ -163,12 +152,12 @@ public class BinaryInfo {
 	    gcp.putUTF8((String) i.next());
     }
 
-    protected void writeKnownAttributes
+    void writeKnownAttributes
 	(GrowableConstantPool constantPool, 
 	 DataOutputStream output) throws IOException {
     }
 
-    protected void writeAttributes
+    void writeAttributes
 	(GrowableConstantPool constantPool, 
 	 DataOutputStream output) throws IOException {
 	int count = getKnownAttributeCount();

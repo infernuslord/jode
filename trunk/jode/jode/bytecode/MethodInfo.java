@@ -22,39 +22,35 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
+///#def COLLECTIONEXTRA java.lang
+import java.lang.Comparable;
+///#enddef
 
-public class MethodInfo extends BinaryInfo {
-
-    ClassInfo clazzInfo;
-
+public final class MethodInfo extends BinaryInfo implements Comparable {
     int modifier;
     String name;
     String typeSig;
 
-    BytecodeInfo bytecode;
+    BasicBlocks basicblocks;
     String[] exceptions;
     boolean syntheticFlag;
     boolean deprecatedFlag;
 
-    public MethodInfo(ClassInfo ci) {
-	clazzInfo = ci;
+    public MethodInfo() {
     }
 
-    public MethodInfo(ClassInfo ci, 
-		      String name, String typeSig, int modifier) {
-	this.clazzInfo = ci;
+    public MethodInfo(String name, String typeSig, int modifier) {
 	this.name = name;
 	this.typeSig = typeSig;
 	this.modifier = modifier;
     }
 
-    protected void readAttribute(String name, int length, ConstantPool cp,
-				 DataInputStream input, 
-				 int howMuch) throws IOException {
-	if ((howMuch & KNOWNATTRIBS) != 0 && name.equals("Code")) {
-	    bytecode = new BytecodeInfo(this);
-	    bytecode.read(cp, input);
-	} else if ((howMuch & KNOWNATTRIBS) != 0 
+    void readAttribute(String name, int length, ConstantPool cp,
+		       DataInputStream input, int howMuch) throws IOException {
+	if (howMuch >= ClassInfo.ALMOSTALL && name.equals("Code")) {
+	    basicblocks = new BasicBlocks(this);
+	    basicblocks.read(cp, input, howMuch);
+	} else if (howMuch >= ClassInfo.DECLARATIONS
 		   && name.equals("Exceptions")) {
 	    int count = input.readUnsignedShort();
 	    exceptions = new String[count];
@@ -77,25 +73,25 @@ public class MethodInfo extends BinaryInfo {
 	    super.readAttribute(name, length, cp, input, howMuch);
     }
 
-    public void read(ConstantPool constantPool, 
-                     DataInputStream input, int howMuch) throws IOException {
+    void read(ConstantPool constantPool, 
+	      DataInputStream input, int howMuch) throws IOException {
 	modifier   = input.readUnsignedShort();
 	name = constantPool.getUTF8(input.readUnsignedShort());
         typeSig = constantPool.getUTF8(input.readUnsignedShort());
         readAttributes(constantPool, input, howMuch);
     }
 
-    public void reserveSmallConstants(GrowableConstantPool gcp) {
-	if (bytecode != null)
-	    bytecode.reserveSmallConstants(gcp);
+    void reserveSmallConstants(GrowableConstantPool gcp) {
+	if (basicblocks != null)
+	    basicblocks.reserveSmallConstants(gcp);
     }
 
-    public void prepareWriting(GrowableConstantPool gcp) {
+    void prepareWriting(GrowableConstantPool gcp) {
 	gcp.putUTF8(name);
 	gcp.putUTF8(typeSig);
-	if (bytecode != null) {
+	if (basicblocks != null) {
 	    gcp.putUTF8("Code");
-	    bytecode.prepareWriting(gcp);
+	    basicblocks.prepareWriting(gcp);
 	}
 	if (exceptions != null) {
 	    gcp.putUTF8("Exceptions");
@@ -109,9 +105,9 @@ public class MethodInfo extends BinaryInfo {
 	prepareAttributes(gcp);
     }
 
-    protected int getKnownAttributeCount() {
+    int getKnownAttributeCount() {
 	int count = 0;
-	if (bytecode != null)
+	if (basicblocks != null)
 	    count++;
 	if (exceptions != null)
 	    count++;
@@ -122,13 +118,12 @@ public class MethodInfo extends BinaryInfo {
 	return count;
     }
 
-    public void writeKnownAttributes(GrowableConstantPool gcp,
-				     DataOutputStream output) 
+    void writeKnownAttributes(GrowableConstantPool gcp,
+			      DataOutputStream output) 
 	throws IOException {
-	if (bytecode != null) {
+	if (basicblocks != null) {
 	    output.writeShort(gcp.putUTF8("Code"));
-	    output.writeInt(bytecode.getSize());
-	    bytecode.write(gcp, output);
+	    basicblocks.write(gcp, output);
 	}
 	if (exceptions != null) {
 	    int count = exceptions.length;
@@ -156,18 +151,9 @@ public class MethodInfo extends BinaryInfo {
         writeAttributes(constantPool, output);
     }
 
-    public void dropInfo(int howMuch) {
-	if ((howMuch & KNOWNATTRIBS) != 0) {
-	    bytecode = null;
-	    exceptions = null;
-	}
-	if (bytecode != null) 
-	    bytecode.dropInfo(howMuch);
-	super.dropInfo(howMuch);
-    }
-
-    public ClassInfo getClazzInfo() {
-	return clazzInfo;
+    public void dropBody() {
+	basicblocks = null;
+	super.dropAttributes();
     }
 
     public String getName() {
@@ -182,6 +168,10 @@ public class MethodInfo extends BinaryInfo {
         return modifier;
     }
 
+    public boolean isConstructor() {
+	return name.charAt(0) == '<';
+    }
+    
     public boolean isStatic() {
 	return Modifier.isStatic(modifier);
     }
@@ -194,8 +184,8 @@ public class MethodInfo extends BinaryInfo {
 	return deprecatedFlag;
     }
 
-    public BytecodeInfo getBytecode() {
-	return bytecode;
+    public BasicBlocks getBasicBlocks() {
+	return basicblocks;
     }
 
     public String[] getExceptions() {
@@ -222,18 +212,51 @@ public class MethodInfo extends BinaryInfo {
 	deprecatedFlag = flag;
     }
 
-    public void setBytecode(BytecodeInfo newBytecode) {
-	clazzInfo.loadInfo(KNOWNATTRIBS);
-	bytecode = newBytecode;
+    public void setBasicBlocks(BasicBlocks newBasicblocks) {
+	basicblocks = newBasicblocks;
     }
 
     public void setExceptions(String[] newExceptions) {
-	clazzInfo.loadInfo(KNOWNATTRIBS);
 	exceptions = newExceptions;
+    }
+
+    /** 
+     * Compares two MethodInfo objects for method order.  The method
+     * order is as follows: First the static class intializer followed
+     * by constructor with type signature sorted lexicographic.  Then
+     * all other methods sorted lexicographically by name.  If two
+     * methods have the same name, they are sorted by type signature.
+     *
+     * @return a positive number if this method follows the other in
+     * method order, a negative number if it preceeds the
+     * other, and 0 if they are equal.  
+     * @exception ClassCastException if other is not a ClassInfo.  
+     */
+    public int compareTo(Object other) {
+	MethodInfo mi = (MethodInfo) other;
+	/* Normally constructors should automatically sort themself to
+	 * the beginning, but if method name starts with a digit, the
+	 * order would be destroyed.
+	 *
+	 * The JVM explicitly forbids methods starting with digits,
+	 * nonetheless some obfuscators break this rule.
+	 *
+	 * But note that <clinit> comes lexicographically before <init>.
+	 */
+	if (name.charAt(0) != mi.name.charAt(0)) {
+	    if (name.charAt(0) == '<')
+		return -1;
+	    if (mi.name.charAt(0) == '<')
+		return 1;
+	}
+	int result = name.compareTo(mi.name);
+	if (result == 0)
+	    result = typeSig.compareTo(mi.typeSig);
+	return result;
     }
 
     public String toString() {
         return "Method "+Modifier.toString(modifier)+" "+
-            typeSig + " " + clazzInfo.getName() + "."+ name;
+            typeSig + " " + name;
     }
 }
