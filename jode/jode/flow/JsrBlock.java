@@ -17,6 +17,7 @@
  * $Id$
  */
 package jode.flow;
+import jode.decompiler.LocalInfo;
 
 /** 
  * This block represents a jsr instruction.  A jsr instruction is
@@ -31,7 +32,7 @@ public class JsrBlock extends StructuredBlock {
      */
     StructuredBlock innerBlock;
 
-    public JsrBlock(Jump next, Jump subroutine) {
+    public JsrBlock(Jump subroutine, Jump next) {
 	innerBlock = new EmptyBlock(subroutine);
 	innerBlock.outer = this;
 	setJump(next);
@@ -54,6 +55,27 @@ public class JsrBlock extends StructuredBlock {
         else
             return false;
         return true;
+    }
+
+    /** 
+     * This is called after the analysis is completely done.  It
+     * will remove all PUSH/stack_i expressions, (if the bytecode
+     * is correct). <p>
+     * The default implementation merges the stack after each sub block.
+     * This may not be, what you want. <p>
+     *
+     * @param initialStack the stackmap at begin of the block
+     * @return the stack after the block has executed.
+     * @throw RuntimeException if something did get wrong.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	/* There shouldn't be any JSR blocks remaining, but who knows.
+	 */
+	/* The innerBlock is startet with a new stack entry (return address)
+	 * It should GOTO immediately and never complete.
+	 */
+	innerBlock.mapStackToLocal(stack.push(new LocalInfo()));
+	return stack;
     }
 
     /**
