@@ -22,6 +22,7 @@ import jode.bytecode.ClassInfo;
 import java.util.Vector;
 import java.util.Stack;
 import java.util.Hashtable;
+import java.io.IOException;
 
 /**
  * This class represents a type aproximation, consisting of multiple
@@ -41,32 +42,29 @@ public class ClassInterfacesType extends ReferenceType {
     ClassInfo ifaces[];
 
     public ClassInfo getClazz() {
-        return clazz != null ? clazz : ClassInfo.javaLangObject;
+        return clazz != null ? clazz
+	    : ClassInfo.forName("java.lang.Object");
     }
 
     public ClassInterfacesType(String clazzName) {
-        super(TC_CLASS);
-        ClassInfo clazz = ClassInfo.forName(clazzName);
-        if (clazz.isInterface()) {
-            this.clazz = null;
-            ifaces = new ClassInfo[] {clazz};
-        } else {
-            this.clazz = 
-                (clazz == ClassInfo.javaLangObject) ? null : clazz;
-            ifaces = new ClassInfo[0];
-        }
+        this(ClassInfo.forName(clazzName));
     }
 
     public ClassInterfacesType(ClassInfo clazz) {
         super(TC_CLASS);
-        if (clazz.isInterface()) {
-            this.clazz = null;
-            ifaces = new ClassInfo[] { clazz };
-        } else {
-            this.clazz = 
-                (clazz == ClassInfo.javaLangObject) ? null : clazz;
-            ifaces = new ClassInfo[0];
-        }
+	try {
+	    clazz.load(ClassInfo.HIERARCHY);
+	} catch (IOException ex) {
+	    clazz.guess(ClassInfo.HIERARCHY);
+	}
+	if (clazz.isInterface()) {
+	    this.clazz = null;
+	    ifaces = new ClassInfo[] { clazz };
+	} else {
+	    this.clazz = 
+		(clazz.getName() == "java.lang.Object") ? null : clazz;
+	    ifaces = new ClassInfo[0];
+	}
     }
 
     public ClassInterfacesType(ClassInfo clazz, ClassInfo[] ifaces) {
@@ -103,9 +101,9 @@ public class ClassInterfacesType extends ReferenceType {
 	    || (clazz == null && ifaces.length == 1))
 	    return this;
 	if (clazz != null)
-	    return Type.tClass(clazz.getName());
+	    return Type.tClass(clazz);
 	else 
-	    return Type.tClass(ifaces[0].getName());
+	    return Type.tClass(ifaces[0]);
     }
 
     public Type getCanonic() {
@@ -113,9 +111,9 @@ public class ClassInterfacesType extends ReferenceType {
 	    || (clazz == null && ifaces.length == 1))
 	    return this;
 	if (clazz != null)
-	    return Type.tClass(clazz.getName());
+	    return Type.tClass(clazz);
 	else 
-	    return Type.tClass(ifaces[0].getName());
+	    return Type.tClass(ifaces[0]);
     }
 
     /**
@@ -136,6 +134,7 @@ public class ClassInterfacesType extends ReferenceType {
         if (bottomType == tObject)
             return (this == tObject) ? tObject : tRange(tObject, this);
         
+	try {
         if (bottom.clazz != null) {
             /* The searched type must be a class type.
              */
@@ -207,6 +206,10 @@ public class ClassInterfacesType extends ReferenceType {
                 return tRange(bottom, this);
             return tRange(bottom, create(clazz, ifaces));
         }
+	} catch (IOException ex) {
+	    /*XXX : There is something better than tError*/
+	    return tError;
+	}
     }
     
     /**
@@ -235,6 +238,7 @@ public class ClassInterfacesType extends ReferenceType {
          * class of the other or null.
          */
 
+	try {
         if (this.clazz == null)
             clazz = other.clazz;
         else if (other.clazz == null)
@@ -245,6 +249,10 @@ public class ClassInterfacesType extends ReferenceType {
             clazz = this.clazz;
         else
             return tError;
+	} catch (IOException ex) {
+	    /*XXX : There is something better than tError*/
+	    return tError;
+	}
 
         /* Most times (99.9999999 %) one of the two classes is already
          * more specialized.  Optimize for this case. (I know of one
@@ -258,6 +266,7 @@ public class ClassInterfacesType extends ReferenceType {
 					this.ifaces))
             return other;
 
+	try {
         /* The interfaces are simply the union of both interfaces set. 
          * But we can simplify this, if an interface is implemented by
          * another or by the class, we can omit it.
@@ -302,6 +311,10 @@ public class ClassInterfacesType extends ReferenceType {
         ClassInfo[] ifaceArray = new ClassInfo[ifaces.size()];
         ifaces.copyInto(ifaceArray);
         return create(clazz, ifaceArray);
+	} catch (IOException ex) {
+	    /*XXX : There is something better than tError*/
+	    return tError;
+	}
     }
 
     /**
@@ -311,6 +324,7 @@ public class ClassInterfacesType extends ReferenceType {
      * interfaces, that one class or interface of each type 
      * implements.  */
     public Type getGeneralizedType(Type type) {
+	try{
         int code = type.typecode;
 	if (code == TC_RANGE) {
 	    type = ((RangeType) type).getTop();
@@ -331,13 +345,18 @@ public class ClassInterfacesType extends ReferenceType {
         else {
             clazz = this.clazz;
                 
-            while(clazz != null) {
-                if (clazz.superClassOf(other.clazz))
-                    break;
-                clazz = clazz.getSuperclass();
-            }
-            if (clazz == ClassInfo.javaLangObject)
-                clazz = null;
+	    try {
+		while(clazz != null) {
+		    if (clazz.superClassOf(other.clazz))
+			break;
+		    clazz = clazz.getSuperclass();
+		}
+		if (clazz.getName() == "java.lang.Object")
+		    clazz = null;
+	    } catch (IOException ex) {
+		/*XXX : There is something better than tObject*/
+		clazz = null;
+	    }
         }
 
         if (clazz == this.clazz 
@@ -404,6 +423,10 @@ public class ClassInterfacesType extends ReferenceType {
         ClassInfo[] ifaceArray = new ClassInfo[ifaces.size()];
         ifaces.copyInto(ifaceArray);
         return create(clazz, ifaceArray);
+	} catch (IOException ex) {
+	    /*XXX : There is something better than tError*/
+	    return tError;
+	}
     }
 
     public String getTypeSignature() {
@@ -430,7 +453,7 @@ public class ClassInterfacesType extends ReferenceType {
 	else if (ifaces.length > 0)
 	    return ifaces[0];
 	else
-	    return ClassInfo.javaLangObject;
+	    return ClassInfo.forName("java.lang.Object");
     }
 
     public String toString()
@@ -472,17 +495,22 @@ public class ClassInterfacesType extends ReferenceType {
 	    else
 		return tObject;
 	case TC_CLASS:
-	    ClassInterfacesType hint = (ClassInterfacesType) hintType;
-	    if (hint.clazz == null || clazz == null
-		|| clazz.superClassOf(hint.clazz)
-		|| hint.clazz.superClassOf(clazz))
-		return null;
-	    ClassInfo superClazz = clazz.getSuperclass();
-	    while (superClazz != null
-		   && !superClazz.superClassOf(hint.clazz)) {
-		superClazz = superClazz.getSuperclass();
+	    try {
+		ClassInterfacesType hint = (ClassInterfacesType) hintType;
+		if (hint.clazz == null || clazz == null
+		    || clazz.superClassOf(hint.clazz)
+		    || hint.clazz.superClassOf(clazz))
+		    return null;
+		ClassInfo superClazz = clazz.getSuperclass();
+		while (superClazz != null
+		       && !superClazz.superClassOf(hint.clazz)) {
+		    superClazz = superClazz.getSuperclass();
+		}
+		return tClass(superClazz.getName());
+	    } catch (IOException ex) {
+		/*XXX : There is something better than tObject*/
+		return tObject;
 	    }
-	    return tClass(superClazz.getName());
 	case TC_UNKNOWN:
 	    return null;
 	}
@@ -551,7 +579,7 @@ public class ClassInterfacesType extends ReferenceType {
         else if (ifaces.length > 0)
             type = ifaces[0];
         else
-            type = ClassInfo.javaLangObject;
+            type = ClassInfo.forName("java.lang.Object");
         String name = type.getName();
         int dot = Math.max(name.lastIndexOf('.'), name.lastIndexOf('$'));
         if (dot >= 0)

@@ -32,8 +32,8 @@ import jode.expr.*;
 import jode.type.MethodType;
 import jode.type.Type;
 import jode.bytecode.ClassInfo;
-import jode.bytecode.InnerClassInfo;
 
+import java.io.IOException;
 import java.util.Vector;
 import java.util.Enumeration;
 
@@ -613,7 +613,8 @@ public class TransformConstructors {
 	    || isStatic || type01Count == 0)
 	    return;
 
-	checkAnonymousConstructor();
+	if ((Options.options & Options.OPTION_ANON) != 0)
+	    checkAnonymousConstructor();
 
 	if ((GlobalOptions.debuggingFlags
 	     & GlobalOptions.DEBUG_CONSTRS) != 0)
@@ -854,32 +855,37 @@ public class TransformConstructors {
 	    InvokeOperator superInvoke = (InvokeOperator) 
 		ib.getInstruction().simplify();
 	    ClassInfo superClazz = superInvoke.getClassInfo();
-	    InnerClassInfo[] outers = superClazz.getOuterClasses();
 	    int superParamCount = superInvoke.getSubExpressions().length - 1;
 
-	    if ((Options.options & Options.OPTION_INNER) != 0
-		&& outers != null
-		&& outers[0].outer != null
-		&& outers[0].name != null
-		&& !Modifier.isStatic(outers[0].modifiers)) {
-
-		if (superParamCount != 1
-		    || !(superInvoke.getSubExpressions()[1]
-			 instanceof ThisOperator))
-		    continue;
-	    } else {
-		/* If the super() has no parameters (or only default
-		 * outerValue parameter for inner/anonymous classes), we
-		 * can remove it 
-		 */
-		ClassAnalyzer superClazzAna = superInvoke.getClassAnalyzer();
-		OuterValues superOV = null;
-		if (superClazzAna != null)
-		    superOV = superClazzAna.getOuterValues();
-		if (superParamCount > 0
-		    && (superOV == null 
-			|| superParamCount > superOV.getCount()))
-		    continue;
+	    if (superClazz != null) {
+		try {
+		    superClazz.load(ClassInfo.OUTERCLASS);
+		    if ((Options.options & Options.OPTION_INNER) != 0
+			&& superClazz != null
+			&& superClazz.getOuterClass() != null
+			&& !Modifier.isStatic(superClazz.getModifiers())) {
+			
+			if (superParamCount != 1
+			    || !(superInvoke.getSubExpressions()[1]
+				 instanceof ThisOperator))
+			    continue;
+		    } else {
+			/* If the super() has no parameters (or only
+			 * default outerValue parameter for
+			 * inner/anonymous classes), we can remove it */
+			ClassAnalyzer superClazzAna
+			    = superInvoke.getClassAnalyzer();
+			OuterValues superOV = null;
+			if (superClazzAna != null)
+			    superOV = superClazzAna.getOuterValues();
+			if (superParamCount > 0
+			    && (superOV == null 
+				|| superParamCount > superOV.getCount()))
+			    continue;
+		    }
+		} catch (IOException ex) {
+		    /* Ignore */
+		}
 	    }
 	    ib.removeBlock();
 	    if (i > type0Count) {

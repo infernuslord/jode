@@ -46,11 +46,10 @@ public class SpecialBlock extends StructuredBlock {
      */
     int depth;
 
-    public SpecialBlock(int type, int count, int depth, Jump jump) {
+    public SpecialBlock(int type, int count, int depth) {
         this.type = type;
         this.count = count;
         this.depth = depth;
-	setJump(jump);
     }
 
     /**

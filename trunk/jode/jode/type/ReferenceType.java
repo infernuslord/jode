@@ -20,8 +20,7 @@
 package jode.type;
 import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
-import java.util.Vector;
-import java.util.Stack;
+import java.io.IOException;
 
 /**
  * This is an abstrace super class of all reference types.  Reference
@@ -83,26 +82,37 @@ public abstract class ReferenceType extends Type {
      * 
      * This is a useful function for generalizing/specializing interface
      * types or arrays.
+     *
+     * If it can't find all classes in the hierarchy, it will catch this
+     * error and return false, i.e. it assumes that the class doesn't
+     * implement all interfaces.
+     *
      * @param clazz The clazz, can be null.
      * @param ifaces The ifaces.
      * @param otherifaces The other ifaces, that must be implemented.
-     * @return true, if all otherIfaces are implemented.
+     * @return true, if all otherIfaces are implemented, false if unsure or
+     * if not all otherIfaces are implemented.
      */
     protected static boolean implementsAllIfaces(ClassInfo clazz,
 						 ClassInfo[] ifaces,
 						 ClassInfo[] otherIfaces) {
-    big:
-        for (int i=0; i < otherIfaces.length; i++) {
-            ClassInfo iface = otherIfaces[i];
-            if (clazz != null && iface.implementedBy(clazz))
-                continue big;
-            for (int j=0; j < ifaces.length; j++) {
-                if (iface.implementedBy(ifaces[j]))
+	try {
+	big:
+	    for (int i=0; i < otherIfaces.length; i++) {
+		ClassInfo iface = otherIfaces[i];
+		if (clazz != null && iface.implementedBy(clazz))
+		    continue big;
+		for (int j=0; j < ifaces.length; j++) {
+		    if (iface.implementedBy(ifaces[j]))
                         continue big;
-            }
-            return false;
-        }
-        return true;
+		}
+		return false;
+	    }
+	    return true;
+	} catch (IOException ex) {
+	    /* Class Hierarchy can't be fully gotten. */
+	    return false;
+	}
     }
 
     public Type getSuperType() {
@@ -136,7 +146,7 @@ public abstract class ReferenceType extends Type {
 
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0) {
 	    GlobalOptions.err.println("intersecting "+ this +" and "+ type + 
-                                   " to " + result);
+				      " to " + result);
 	}	    
         return result;
     }

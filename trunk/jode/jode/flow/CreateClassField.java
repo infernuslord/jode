@@ -63,10 +63,11 @@ public class CreateClassField {
 	    return false;
 
 	InvokeOperator invoke = (InvokeOperator) store.getSubExpressions()[1];
-	Expression param = invoke.getSubExpressions()[0];
+	if (!invoke.isGetClass())
+	    return false;
 
-	if (invoke.isGetClass()
-	    && param instanceof ConstOperator
+	Expression param = invoke.getSubExpressions()[0];
+	if (param instanceof ConstOperator
 	    && ((ConstOperator)param).getValue() instanceof String) {
 	    String clazz = (String) ((ConstOperator)param).getValue();
 	    if (put.getField().setClassConstant(clazz)) {

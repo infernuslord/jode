@@ -51,7 +51,7 @@ public class TryBlock extends StructuredBlock {
     StructuredBlock[] subBlocks = new StructuredBlock[1];
 
     public TryBlock(FlowBlock tryFlow) {
-        this.gen = (VariableSet) tryFlow.gen.clone();
+        this.gen = (VariableSet) tryFlow.used.clone();
         this.flowBlock = tryFlow;
 
         StructuredBlock bodyBlock = tryFlow.block;

@@ -19,7 +19,7 @@
 
 package jode.decompiler;
 import jode.bytecode.ClassInfo;
-import jode.bytecode.SearchPath;
+import jode.bytecode.ClassPath;
 import jode.GlobalOptions;
 
 import java.io.BufferedOutputStream;
@@ -144,8 +144,9 @@ public class Main extends Options {
 	    return;
 	}
 
-        String classPath = System.getProperty("java.class.path")
-	    .replace(File.pathSeparatorChar, SearchPath.altPathSeparatorChar);
+	ClassPath classPath;
+        String classPathStr = System.getProperty("java.class.path")
+	    .replace(File.pathSeparatorChar, ClassPath.altPathSeparatorChar);
 	String destDir = null;
 
 	int importPackageLimit = ImportHandler.DEFAULT_PACKAGE_LIMIT;
@@ -168,7 +169,7 @@ public class Main extends Options {
 		GlobalOptions.err.println(GlobalOptions.version);
 		break;
 	    case 'c':
-		classPath = g.getOptarg();
+		classPathStr = g.getOptarg();
 		break;
 	    case 'd':
 		destDir = g.getOptarg();
@@ -246,7 +247,8 @@ public class Main extends Options {
 	}
 	if (errorInParams)
 	    return;
-        ClassInfo.setClassPath(classPath.toString());
+	classPath = new ClassPath(classPathStr);
+        ClassInfo.setClassPath(classPath);
 	ImportHandler imports = new ImportHandler(importPackageLimit,
 						  importClassLimit);
 
@@ -270,7 +272,7 @@ public class Main extends Options {
 	    try {
 		ClassInfo clazz;
 		try {
-		    clazz = ClassInfo.forName(params[i]);
+		    clazz = classPath.getClassInfo(params[i]);
 		} catch (IllegalArgumentException ex) {
 		    GlobalOptions.err.println
 			("`"+params[i]+"' is not a class name");

@@ -20,6 +20,7 @@
 package jode.type;
 import jode.bytecode.ClassInfo;
 import java.util.Vector;
+import java.io.IOException;
 
 /** 
  * This type represents an array type.
@@ -80,6 +81,11 @@ public class ArrayType extends ReferenceType {
 
 	if (bottom.getTypeCode() == TC_CLASS) {
 	    ClassInterfacesType bottomCIT = (ClassInterfacesType)bottom;
+//  	    int len = arrayIfacesStrs.length;
+//  	    ClassInfo[] arrayIfaces = new ClassInfo[len];
+//  	    for (int i=0; i< arrayIfacesStrs.length; i++)
+//  		arrayIfaces[i]
+//  		    = bottomCIT.classPath.getClassInfo(arrayIfacesStrs[i]);
 	    if (bottomCIT.clazz == null
 		&& implementsAllIfaces(null, arrayIfaces, bottomCIT.ifaces))
 		return tRange(bottomCIT, this);
@@ -149,6 +155,7 @@ public class ArrayType extends ReferenceType {
 	     * First get all interfaces of this.clazz and this.ifaces.
 	     */
 	    Vector newIfaces = new Vector();
+	    try {
 	iface_loop:
 	    for (int i=0; i < arrayIfaces.length; i++) {
 		/* Now consider each array interface.  If any clazz or
@@ -169,6 +176,9 @@ public class ArrayType extends ReferenceType {
 	    ClassInfo[] ifaceArray = new ClassInfo[newIfaces.size()];
 	    newIfaces.copyInto(ifaceArray);
 	    return ClassInterfacesType.create(null, ifaceArray);
+	    } catch (IOException ex) {
+		/*XXX : There is something better than tError*/
+	    }
 	}
 	return tError;
     }

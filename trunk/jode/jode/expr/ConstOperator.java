@@ -20,6 +20,7 @@
 package jode.expr;
 import jode.type.Type;
 import jode.type.IntegerType;
+import jode.util.StringQuoter;
 import jode.decompiler.TabbedPrintWriter;
 
 public class ConstOperator extends NoArgOperator {
@@ -113,46 +114,6 @@ public class ConstOperator extends NoArgOperator {
         isInitializer = true;
     }
 
-    private static String quoted(String str) {
-        StringBuffer result = new StringBuffer("\"");
-        for (int i=0; i< str.length(); i++) {
-            char c;
-            switch (c = str.charAt(i)) {
-            case '\0':
-                result.append("\\0");
-                break;
-            case '\t':
-                result.append("\\t");
-                break;
-            case '\n':
-                result.append("\\n");
-                break;
-            case '\r':
-                result.append("\\r");
-                break;
-            case '\\':
-                result.append("\\\\");
-                break;
-            case '\"':
-                result.append("\\\"");
-                break;
-            default:
-                if (c < 32) {
-                    String oct = Integer.toOctalString(c);
-                    result.append("\\000".substring(0, 4-oct.length()))
-                        .append(oct);
-                } else if (c >= 32 && c < 127)
-                    result.append(str.charAt(i));
-                else {
-                    String hex = Integer.toHexString(c);
-                    result.append("\\u0000".substring(0, 6-hex.length()))
-                        .append(hex);
-                }
-            }
-        }
-        return result.append("\"").toString();
-    }
-
     public String toString() {
         String strVal = String.valueOf(value);
         if (type.isOfType(Type.tBoolean)) {
@@ -167,34 +128,9 @@ public class ConstOperator extends NoArgOperator {
         } 
 	if (type.getHint().equals(Type.tChar)) {
             char c = (char) ((Integer) value).intValue();
-            switch (c) {
-            case '\0':
-		return "\'\\0\'";
-            case '\t':
-                return "\'\\t\'";
-            case '\n':
-                return "\'\\n\'";
-            case '\r':
-                return "\'\\r\'";
-            case '\\':
-                return "\'\\\\\'";
-            case '\"':
-                return "\'\\\"\'";
-            case '\'':
-                return "\'\\\'\'";
-            }
-            if (c < 32) {
-                String oct = Integer.toOctalString(c);
-                return "\'\\000".substring(0, 5-oct.length())+oct+"\'";
-            }
-            if (c >= 32 && c < 127)
-                return "\'"+c+"\'";
-            else {
-                String hex = Integer.toHexString(c);
-                return "\'\\u0000".substring(0, 7-hex.length())+hex+"\'";
-            }
+	    return StringQuoter.quote(c);
 	} else if (type.equals(Type.tString)) {
-	    return quoted(strVal);
+	    return StringQuoter.quote(strVal);
         } else if (parent != null) {
             int opindex = parent.getOperatorIndex();
             if (opindex >= OPASSIGN_OP + ADD_OP

@@ -37,19 +37,24 @@ public interface Scope {
     public final int NOSUPERMETHODNAME = 12;
     public final int NOSUPERFIELDNAME  = 13;
 
+    /**
+     * Tells that we want to allow a classanalyzer as scope.
+     */
     public final int CLASSSCOPE    = 1;
+    /**
+     * Tells that we want to allow a methodanalyzer as scope.
+     */
     public final int METHODSCOPE   = 2;
 
     /**
-     * Simplifies the given name.  
-     * @param name the name to simplify.
-     * @param usageType the context of this name.
-     * @return null if the name hasn't a simplification in current
-     * scope, the simplified name otherwise.
-     */
-    /**
-     * Tells if this is the scope of name
+     * Tells if this is the scope of the given object, which is of
+     * scopeType.
+     * @param object the object for which the scope
+     * @param usageType either CLASSCOPE or METHODSCOPE
+     * @return true if the given object is in this scope.
      */
     public boolean isScopeOf(Object object, int scopeType);
     public boolean conflicts(String name, int usageType);
 }
+
+
