@@ -31,7 +31,7 @@ AC_DEFUN(JODE_CHECK_CLASS,
         if test -e $path/$clazz; then
 	  exit 0
         fi
-      elif $UNZIP -v -C `$SUBSTCP $path` $clazz >/dev/null 2>&1 ; then
+      elif CLASS_CHECK $path $clazz ; then
 	exit 0
       fi
     done;
