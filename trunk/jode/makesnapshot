@@ -1,32 +1,40 @@
 #!/bin/sh
 
-if [ ! -e GlobalOptions.java ]; then
-    echo "Please cd to the jode directory first."
-    exit 1
+OLDDIR=`pwd`
+TIME=`date +"%Y%m%d %H:%M"`
+if [ "${1#-D}" != "$1" ] ; then
+    TIME=`date +"%Y%m%d %H:%M" --date="${1#-D}"`
+    shift;
 fi
+DATE=`echo $TIME | cut -c0-8`
+echo $TIME
+echo $DATE
 
-DATE=`date +"%Y%m%d"`
-perl -i -pe's/(snapshot )[0-9]+/${1}'$DATE'/
+TEMP=`mktemp -d $HOME/tmp.XXXXXX`
+
+trap "cd $OLDDIR; rm -rf $TEMP" EXIT
+cd $TEMP
+
+CLASSPATH=$TEMP:/usr/local/swing-1.1/swing.jar
+export CLASSPATH
+
+cvs export -D"$TIME" jode
+cd jode
+perl -i -pe's/(snapshot )[0-9]+/${1}'"$TIME"'/ 
             if /public final static String version/;'  GlobalOptions.java
 
-./ci.all
-echo '#!/bin/sh' > co.all
-echo co -u jcpp make* COPYING *.html *.java */*.java */*.j >> co.all
-chmod a+x co.all
+COMPILER=${1:-jikes}
+if [ -z "$1" ]; then 
+    FLAGS="-g"
+else 
+    shift
+    FLAGS="$*"
+fi
 
-echo '#!/bin/sh' > compile
-echo 'COMPILER=${1:-javac}' >> compile
-echo 'if [ -z "$1" ]; then FLAGS="-g"; else shift; FLAGS="$*"; fi' >>compile
-echo 'rm -f *.class */*.class' >> compile
-echo 'jasmin -d .. jvm/Interpreter.j' >> compile
-echo \$COMPILER \$FLAGS -d .. Decompiler.java obfuscator/Main.java JodeApplet.java swingui/Main.java >> compile
-chmod a+x compile
-./compile jikes -g
+# jasmin -d .. jvm/Interpreter.j
+
+eval $COMPILER $FLAGS -d .. \
+   Decompiler.java obfuscator/Main.java JodeApplet.java swingui/Main.java
 
 cd ..
-tar -cvzf jode/snapshot/jode-RCS-$DATE.tar.gz \
-    jode/co.all jode/compile jode/RCS jode/*/RCS
-
-zip jode/snapshot/jode-$DATE.zip \
-    jode/COPYING jode/*.html jode/jcpp \
-    jode/*.java jode/*/*.java jode/*/*.j jode/*.class jode/*/*.class
+zip $HOME/jode-$DATE.zip jode
