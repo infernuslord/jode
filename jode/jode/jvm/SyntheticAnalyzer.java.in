@@ -43,6 +43,7 @@ public class SyntheticAnalyzer implements Opcodes {
     public final static int ACCESSGETSTATIC = 5;
     public final static int ACCESSPUTSTATIC = 6;
     public final static int ACCESSSTATICMETHOD = 7;
+    public final static int ACCESSCONSTRUCTOR = 8;
     
     int kind = UNKNOWN;
     Reference reference;
@@ -57,6 +58,9 @@ public class SyntheticAnalyzer implements Opcodes {
 		return;
 	if (!checkName || method.getName().startsWith("access$"))
 	    if (checkAccess())
+		return;
+	if (method.getName().equals("<init>"))
+	    if (checkConstructorAccess())
 		return;
     }
 
@@ -151,8 +155,6 @@ public class SyntheticAnalyzer implements Opcodes {
 	    if (instr.getOpcode() < opc_ireturn
 		|| instr.getOpcode() > opc_areturn)
 		return false;
-	    if (iter.hasNext())
-		return false;
 	    /* For valid bytecode the type matches automatically */
 	    reference = ref;
 	    kind = ACCESSGETSTATIC;
@@ -184,8 +186,6 @@ public class SyntheticAnalyzer implements Opcodes {
 	    instr = (Instruction) iter.next();
 	    if (instr.getOpcode() != opc_return)
 		return false;
-	    if (iter.hasNext())
-		return false;
 	    reference = ref;
 	    kind = ACCESSPUTSTATIC;
 	    return true;
@@ -212,8 +212,6 @@ public class SyntheticAnalyzer implements Opcodes {
 		    || instr.getOpcode() > opc_areturn)
 		    return false;
 	    }
-	    if (iter.hasNext())
-		return false;
 
 	    /* For valid bytecode the types matches automatically */
 	    reference = ref;
@@ -255,8 +253,6 @@ public class SyntheticAnalyzer implements Opcodes {
 	    if (instr.getOpcode() < opc_ireturn
 		|| instr.getOpcode() > opc_areturn)
 		return false;
-	    if (iter.hasNext())
-		return false;
 	    /* For valid bytecode the type matches automatically */
 	    reference = ref;
 	    kind = ACCESSGETFIELD;
@@ -287,8 +283,6 @@ public class SyntheticAnalyzer implements Opcodes {
 	    instr = (Instruction) iter.next();
 	    if (instr.getOpcode() != opc_return)
 		return false;
-	    if (iter.hasNext())
-		return false;
 	    reference = ref;
 	    kind = ACCESSPUTFIELD;
 	    return true;
@@ -314,8 +308,6 @@ public class SyntheticAnalyzer implements Opcodes {
 		    || instr.getOpcode() > opc_areturn)
 		    return false;
 	    }
-	    if (iter.hasNext())
-		return false;
 
 	    /* For valid bytecode the types matches automatically */
 	    reference = ref;
@@ -324,4 +316,54 @@ public class SyntheticAnalyzer implements Opcodes {
 	}
 	return false;
     }
+
+    public boolean checkConstructorAccess() {
+	ClassInfo clazzInfo = method.getClazzInfo();
+	BytecodeInfo bytecode = method.getBytecode();
+	Handler[] excHandlers = bytecode.getExceptionHandlers();
+	if (excHandlers != null && excHandlers.length != 0)
+	    return false;
+
+	Iterator iter = bytecode.getInstructions().iterator();
+	Instruction instr = (Instruction) iter.next();
+	if (instr.getOpcode() != opc_aload || instr.getLocalSlot() != 0)
+	    return false;
+	instr = (Instruction) iter.next();
+
+	// slot begins with 2.  Slot 1 contains a dummy value, that
+	// is used so that the constructor has a different type signature.
+	int params = 0, slot = 2;
+	while (instr.getOpcode() >= opc_iload
+	       && instr.getOpcode() <= opc_aload
+	       && instr.getLocalSlot() == slot) {
+	    params++;
+	    slot += (instr.getOpcode() == opc_lload 
+		     || instr.getOpcode() == opc_dload) ? 2 : 1;
+	    instr = (Instruction) iter.next();
+	}
+	if (instr.getOpcode() == opc_invokespecial) {
+	    Reference ref = instr.getReference();
+	    String refClazz = ref.getClazz().substring(1);
+	    if (!(refClazz.substring(0, refClazz.length()-1)
+		  .equals(clazzInfo.getName().replace('.','/'))))
+		return false;
+	    MethodInfo refMethod
+		= clazzInfo.findMethod(ref.getName(), ref.getType());
+	    MethodType refType = Type.tMethod(ref.getType());
+	    if ((refMethod.getModifiers() & modifierMask) != Modifier.PRIVATE
+		|| !refMethod.getName().equals("<init>")
+		|| refType.getParameterTypes().length != params)
+		return false;
+	    instr = (Instruction) iter.next();
+	    if (instr.getOpcode() != opc_return)
+		return false;
+
+	    /* For valid bytecode the types matches automatically */
+	    reference = ref;
+	    kind = ACCESSCONSTRUCTOR;
+	    return true;
+	}
+	return false;
+    }
 }
+
