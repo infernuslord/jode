@@ -22,11 +22,19 @@ import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
 public class CompareBinaryOperator extends Operator {
+    boolean allowsNaN = false;
     Type compareType;
 
     public CompareBinaryOperator(Type type, int op) {
         super(Type.tBoolean, op);
 	compareType = type;
+	initOperands(2);
+    }
+
+    public CompareBinaryOperator(Type type, int op, boolean allowsNaN) {
+        super(Type.tBoolean, op);
+	compareType = type;
+	this.allowsNaN = allowsNaN;
 	initOperands(2);
     }
 
@@ -62,8 +70,7 @@ public class CompareBinaryOperator extends Operator {
     }
 
     public Expression negate() {
-	if ((getType() != Type.tFloat && getType() != Type.tDouble)
-	    || getOperatorIndex() <= NOTEQUALS_OP) {
+	if (!allowsNaN || getOperatorIndex() <= NOTEQUALS_OP) {
             setOperatorIndex(getOperatorIndex() ^ 1);
             return this;
         } 
