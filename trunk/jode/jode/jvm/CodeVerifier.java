@@ -1,9 +1,6 @@
 package jode.jvm;
 import jode.bytecode.*;
-import jode.Type;
-import jode.MethodType;
-import jode.ArrayType;
-import jode.ClassInterfacesType;
+import jode.type.*;
 import jode.AssertError;
 import jode.Decompiler;
 import java.util.BitSet;
@@ -361,7 +358,9 @@ public class CodeVerifier implements Opcodes {
 		    || !isOfType(arrType, Type.tArray(Type.tBoolean))))
 		throw new VerifyException(instr.getDescription());
 	    
-	    result.push(((ArrayType)arrType).getElementType());
+	    Type elemType = (arrType == Type.tUObject ? Type.tUObject
+			     :((ArrayType)arrType).getElementType());
+	    result.push(elemType);
 	    if (((1 << instr.opcode - opc_iaload) & 0xa) != 0)
 		result.push(Type.tVoid);
 	    break;
@@ -408,7 +407,9 @@ public class CodeVerifier implements Opcodes {
 		&& (instr.opcode != opc_bastore 
 		    || !isOfType(arrType, Type.tArray(Type.tBoolean))))
 		throw new VerifyException(instr.getDescription());
-	    if (!isOfType(type, ((ArrayType)arrType).getElementType()))
+	    Type elemType = instr.opcode >= opc_bastore ? Type.tInt
+		: types[instr.opcode - opc_iastore];
+	    if (!isOfType(type, elemType))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
