@@ -23,7 +23,7 @@
 
 for (@ARGV) {
     my $file = $_;
-    $file =~ m=([^/]*)\.java$= or do {
+    $file =~ m=([^/]*)\.java(\.in)?$= or do {
 	print STDERR "$file is not a java file";
 	next;
     };
