@@ -41,7 +41,6 @@ import java.lang.reflect.Modifier;
  * @author Jochen Hoenicke
  */
 public class ClassInfo extends BinaryInfo {
-    private String name;
 
     private static SearchPath classpath;
 ///#ifdef JDK12
@@ -54,6 +53,7 @@ public class ClassInfo extends BinaryInfo {
     private int status = 0;
 
     private int modifiers = -1;
+    private String name;
     private ClassInfo    superclass;
     private ClassInfo[]  interfaces;
     private FieldInfo[]  fields;
@@ -145,89 +145,8 @@ public class ClassInfo extends BinaryInfo {
         return clazz;
     }
 
-    public ClassInfo(String name) {
+    private ClassInfo(String name) {
         this.name = name;
-    }
-
-    private void readHeader(DataInputStream input, int howMuch) 
-	throws IOException {
-	if (input.readInt() != 0xcafebabe)
-	    throw new ClassFormatException("Wrong magic");
-	if (input.readUnsignedShort() > 3) 
-	    throw new ClassFormatException("Wrong minor");
-	if (input.readUnsignedShort() != 45) 
-	    throw new ClassFormatException("Wrong major");
-    }
-
-    private ConstantPool readConstants(DataInputStream input, int howMuch)
-	throws IOException {
-        ConstantPool cpool = new ConstantPool();
-        cpool.read(input);
-        return cpool;
-    }
-
-    private void readNameAndSuper(ConstantPool cpool, 
-                                  DataInputStream input, int howMuch)
-	throws IOException {
-	modifiers = input.readUnsignedShort();
-        String className = cpool.getClassName(input.readUnsignedShort());
-        if (!name.equals(className))
-            throw new ClassFormatException("wrong name " + className);
-	String superName = cpool.getClassName(input.readUnsignedShort());
-        superclass = superName != null ? ClassInfo.forName(superName) : null;
-    }
-
-    private void readInterfaces(ConstantPool cpool,
-                                DataInputStream input, int howMuch)
-	throws IOException {
-	int count = input.readUnsignedShort();
-	interfaces = new ClassInfo[count];
-	for (int i=0; i< count; i++) {
-            interfaces[i] = ClassInfo.forName
-                (cpool.getClassName(input.readUnsignedShort()));
-	}
-    }
-
-    private void readFields(ConstantPool cpool,
-                            DataInputStream input, int howMuch)
-	throws IOException {
-        if ((howMuch & FIELDS) != 0) {
-            int count = input.readUnsignedShort();
-            fields = new FieldInfo[count];
-            for (int i=0; i< count; i++) {
-                fields[i] = new FieldInfo(this); 
-                fields[i].read(cpool, input, howMuch);
-            }
-        } else {
-            int count = input.readUnsignedShort();
-            for (int i=0; i< count; i++) {
-                input.readUnsignedShort();  // modifier
-                input.readUnsignedShort();  // name
-                input.readUnsignedShort();  // type
-                skipAttributes(input);
-            }
-        }
-    }
-
-    private void readMethods(ConstantPool cpool, 
-                             DataInputStream input, int howMuch)
-	throws IOException {
-        if ((howMuch & METHODS) != 0) {
-            int count = input.readUnsignedShort();
-            methods = new MethodInfo[count];
-            for (int i=0; i< count; i++) {
-                methods[i] = new MethodInfo(this); 
-                methods[i].read(cpool, input, howMuch);
-            }
-        } else {
-            int count = input.readUnsignedShort();
-            for (int i=0; i< count; i++) {
-                input.readUnsignedShort();  // modifier
-                input.readUnsignedShort();  // name
-                input.readUnsignedShort();  // type
-                skipAttributes(input);
-            }
-        }
     }
 
     protected void readAttribute(String name, int length,
@@ -595,6 +514,12 @@ public class ClassInfo extends BinaryInfo {
         return fields;
     }
 
+    public InnerClassInfo[] getInnerClasses() {
+        if ((status & ALL_ATTRIBUTES) == 0)
+            loadInfo(FIELDS);
+        return innerClasses;
+    }
+
     public void setName(String newName) {
 	name = newName;
     }
@@ -617,6 +542,10 @@ public class ClassInfo extends BinaryInfo {
 
     public void setFields(FieldInfo[] fi) {
         fields = fi;
+    }
+
+    public void setInnerClasses(InnerClassInfo[] ic) {
+        innerClasses = ic;
     }
 
     public boolean superClassOf(ClassInfo son) {
