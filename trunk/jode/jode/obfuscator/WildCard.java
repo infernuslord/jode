@@ -31,25 +31,21 @@ public class WildCard {
 
     public String getNextComponent(String prefix) {
 	int lastDot = prefix.length();
-	if (lastDot < wildcard.length()
-	    || !wildcard.startsWith(prefix)
-	    || (lastDot > 0 && wildcard.charAt(lastDot) != '.'))
+	if (!wildcard.startsWith(prefix))
 	    return null;
-	if (lastDot > 0)
-	    lastDot++;
-	int nextDot = wildcard.indexOf('.', lastDot);
-	if (firstStar == -1) {
-	    if (nextDot == -1)
-		return wildcard.substring(lastDot);
-	    else
-		return wildcard.substring(lastDot, nextDot);
-	} else {
-	    if (nextDot == -1 || nextDot > firstStar) {
+	if (lastDot > 0) {
+	    if (wildcard.charAt(lastDot++) != '.')
 		return null;
-	    } else {
-		return wildcard.substring(lastDot, nextDot);
-	    }
 	}
+
+	int nextDot = wildcard.indexOf('.', lastDot);
+	if (nextDot > 0 
+	    && (nextDot <= firstStar || firstStar == -1))
+	    return wildcard.substring(lastDot, nextDot);
+	else if (firstStar == -1)
+	    return wildcard.substring(lastDot);
+	else
+	    return null;
     }
 
     public boolean startsWith(String test) {
