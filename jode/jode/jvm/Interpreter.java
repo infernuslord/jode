@@ -18,6 +18,9 @@
  */
 package jode.jvm;
 import jode.bytecode.*;
+import jode.decompiler.ClassAnalyzer;
+import jode.MethodType;
+import jode.Type;
 import java.lang.reflect.*;
 
 /**
@@ -28,14 +31,109 @@ import java.lang.reflect.*;
  * @author Jochen Hoenicke
  */
 public class Interpreter implements Opcodes {
+
+    static int checkType(String typesig, int pos, Class type) {
+	switch (typesig.charAt(pos++)) {
+	case 'Z':
+	    if (type != Boolean.TYPE)
+		return -1;
+	    break;
+	case 'B':
+	    if (type != Byte.TYPE)
+		return -1;
+	    break;
+	case 'C':
+	    if (type != Character.TYPE)
+		return -1;
+	    break;
+	case 'S':
+	    if (type != Short.TYPE)
+		    return -1;
+	    break;
+	case 'I':
+	    if (type != Integer.TYPE)
+		return -1;
+	    break;
+	case 'J':
+	    if (type != Long.TYPE)
+		return -1;
+	    break;
+	case 'F':
+	    if (type != Float.TYPE)
+		return -1;
+	    break;
+	case 'D':
+	    if (type != Double.TYPE)
+		return -1;
+	    break;
+	case 'V':
+	    if (type != Void.TYPE)
+		return -1;
+	    break;
+	case '[':
+	    if (!type.isArray())
+		return -1;
+	    pos = checkType(typesig, pos, type.getComponentType());
+	    break;
+	case 'L': {
+	    int index = typesig.indexOf(';', pos);
+	    if (index == -1)
+		return -1;
+	    if (!type.getName().replace('.','/')
+		.equals(typesig.substring(pos, index)))
+		return -1;
+	    pos = index+1;
+	    break;
+	}
+	default:
+	    return -1;
+	}
+	return pos;
+    }
+
+    static boolean checkMethod(String typesig, 
+			       Class[] paramTypes, Class retType) {
+	if (typesig.charAt(0) != '(')
+	    return false;
+	int pos = 1;
+	int i = 0;
+	while (typesig.charAt(pos) != ')') {
+	    if (i >= paramTypes.length)
+		return false;
+	    pos = checkType(typesig, pos, paramTypes[i++]);
+	    if (pos == -1) {
+		return false;
+	    }
+	}
+	if (i != paramTypes.length)
+	    return false;
+	pos++;
+	pos = checkType(typesig, pos, retType);
+	return pos == typesig.length();
+    }
+
     public static Object interpretMethod
-	(ClassInfo currentClass, byte[] code, Value[] locals, Value[] stack)
+	(ClassAnalyzer ca, byte[] code, Value[] locals, Value[] stack)
 	throws InterpreterException, ClassFormatException {
 	try {
-	ConstantPool cpool = currentClass.getConstantPool();
+	ConstantPool cpool = ca.getClazz().getConstantPool();
 	int pc = 0;
 	int stacktop = 0;
 	for(;;) {
+//  	    System.err.print(pc+": [");
+//  	    for (int i=0; i<stacktop; i++) {
+//  		if (i>0)
+//  		    System.err.print(",");
+//  		System.err.print(stack[i]);
+//  		if (stack[i].objectValue() instanceof char[]) {
+//  		    System.err.print(new String((char[])stack[i].objectValue()));
+//  		}
+//  	    }
+//  	    System.err.println("]");
+//  	    System.err.print("local: [");
+//  	    for (int i=0; i<locals.length; i++)
+//  		System.err.print(locals[i]+",");
+//  	    System.err.println("]");
 	    int opcode = code[pc++] & 0xff;
 	    switch (opcode) {
 	    case opc_nop:
@@ -97,8 +195,10 @@ public class Interpreter implements Opcodes {
 		Object array = stack[--stacktop].objectValue();
 		switch(opcode) {
 		case opc_baload: 
-		    stack[stacktop++].setInt(((byte[])array)[index]);
-		    break;
+		    stack[stacktop++].setInt
+			(array instanceof byte[]
+			 ? ((byte[])array)[index]
+			 : ((boolean[])array)[index] ? 1 : 0);
 		case opc_caload: 
 		    stack[stacktop++].setInt(((char[])array)[index]);
 		    break;
@@ -106,19 +206,11 @@ public class Interpreter implements Opcodes {
 		    stack[stacktop++].setInt(((short[])array)[index]);
 		    break;
 		case opc_iaload: 
-		    stack[stacktop++].setInt(((int[])array)[index]);
-		    break;
 		case opc_laload: 
-		    stack[stacktop++].setLong(((long[])array)[index]);
-		    break;
 		case opc_faload: 
-		    stack[stacktop++].setFloat(((float[])array)[index]);
-		    break;
 		case opc_daload: 
-		    stack[stacktop++].setDouble(((double[])array)[index]);
-		    break;
 		case opc_aaload:
-		    stack[stacktop++].setObject(((Object[])array)[index]);
+		    stack[stacktop++].setObject(Array.get(array, index));
 		    break;
 		}
 		break;
@@ -146,30 +238,24 @@ public class Interpreter implements Opcodes {
 		int index = stack[--stacktop].intValue();
 		Object array = stack[--stacktop].objectValue();
 		switch(opcode) {
-		case opc_baload: 
-		    ((byte[])array)[index] = (byte) value.intValue();
+		case opc_bastore: 
+		    if (array instanceof byte[]) 
+			((byte[])array)[index] = (byte) value.intValue();
+		    else
+			((boolean[])array)[index] = value.intValue() != 0;
 		    break;
-		case opc_caload: 
+		case opc_castore: 
 		    ((char[])array)[index] = (char) value.intValue();
 		    break;
-		case opc_saload:
+		case opc_sastore:
 		    ((short[])array)[index] = (short) value.intValue();
 		    break;
-		case opc_iaload: 
-		    ((int[])array)[index] = value.intValue();
-		    break;
-		case opc_laload: 
-		    ((long[])array)[index] = value.longValue();
-		    break;
-		case opc_faload: 
-		    ((float[])array)[index] = value.floatValue();
-		    break;
-		case opc_daload: 
-		    ((double[])array)[index] = value.doubleValue();
-		    break;
-		case opc_aaload:
-		    ((Object[])array)[index] = value.objectValue();
-		    break;
+		case opc_iastore: 
+		case opc_lastore: 
+		case opc_fastore: 
+		case opc_dastore: 
+		case opc_aastore:
+		    Array.set(array, index, value.objectValue());
 		}
 		break;
 	    }
@@ -177,25 +263,27 @@ public class Interpreter implements Opcodes {
 		stacktop -= opcode - (opc_pop-1);
 		break;
 	    case opc_dup: case opc_dup_x1: case opc_dup_x2: {
-		int depth = (opcode - opc_dup)%3;
+		int depth = opcode - opc_dup;
 		for (int i=0; i < depth+1; i++)
-		    stack[stacktop+1-i].setValue(stack[stacktop-i]);
-		stack[stacktop-depth].setValue(stack[stacktop]);
+		    stack[stacktop-i].setValue(stack[stacktop-i-1]);
+		stack[stacktop-depth-1].setValue(stack[stacktop]);
 		stacktop++;
 		break;
 	    }
 	    case opc_dup2: case opc_dup2_x1: case opc_dup2_x2: {
-		int depth = (opcode - opc_dup)%3;
+		int depth = opcode - opc_dup2;
 		for (int i=0; i < depth+2; i++)
-		    stack[stacktop+2-i] = stack[stacktop-i];
-		stack[stacktop-depth].setValue(stack[stacktop+1]);
-		stack[stacktop-depth-1].setValue(stack[stacktop]);
+		    stack[stacktop+1-i].setValue(stack[stacktop-1-i]);
+		stack[stacktop-depth-1].setValue(stack[stacktop+1]);
+		stack[stacktop-depth-2].setValue(stack[stacktop]);
 		stacktop += 2;
+		break;
 	    }
 	    case opc_swap: {
 		Value tmp = stack[stacktop-1];
 		stack[stacktop-1] = stack[stacktop-2];
 		stack[stacktop-2] = tmp;
+		break;
 	    }
 	    case opc_iadd: 
 		stack[stacktop-2].setInt(stack[stacktop-2].intValue()
@@ -506,7 +594,7 @@ public class Interpreter implements Opcodes {
 		    || value < 0 && (opcode == opc_iflt || opcode == opc_ifle)
 		    || value == 0 && (opcode == opc_ifge || opcode == opc_ifle
 				      || opcode == opc_ifeq))
-		    pc += opcode;
+		    pc += offset;
 		break;
 	    }
 	    case opc_jsr:
@@ -523,12 +611,16 @@ public class Interpreter implements Opcodes {
 		int value = stack[--stacktop].intValue();
 		int start = pc - 1;
 		pc += 3-(start % 4);
-		int dest = ((code[pc++] << 8) | (code[pc++] & 0xff));
-		int low  = ((code[pc++] << 8) | (code[pc++] & 0xff));
-		int high = ((code[pc++] << 8) | (code[pc++] & 0xff));
+		int dest = (code[pc++] << 24 | (code[pc++] & 0xff) << 16
+			    | (code[pc++] & 0xff) << 8 | (code[pc++] & 0xff));
+		int low  = (code[pc++] << 24 | (code[pc++] & 0xff) << 16
+			    | (code[pc++] & 0xff) << 8 | (code[pc++] & 0xff));
+		int high = (code[pc++] << 24 | (code[pc++] & 0xff) << 16
+			    | (code[pc++] & 0xff) << 8 | (code[pc++] & 0xff));
 		if (value >= low && value <= high) {
-		    pc += (value - low) << 1;
-		    dest = ((code[pc] << 8) | (code[pc+1] & 0xff));
+		    pc += (value - low) << 2;
+		    dest = (code[pc++] << 24 | (code[pc++] & 0xff) << 16
+			    | (code[pc++] & 0xff) << 8 | (code[pc++] & 0xff));
 		}
 		pc = start + dest;
 		break;
@@ -537,11 +629,23 @@ public class Interpreter implements Opcodes {
 		int value = stack[--stacktop].intValue();
 		int start = pc - 1;
 		pc += 3-(start % 4);
-		int dest = ((code[pc++] << 8) | (code[pc++] & 0xff));
-		int npairs = ((code[pc++] << 8) | (code[pc++] & 0xff));
+		int dest = (code[pc++] << 24
+			    | (code[pc++] & 0xff) << 16
+			    | (code[pc++] & 0xff) << 8
+			    | (code[pc++] & 0xff));
+		int npairs = (code[pc++] << 24
+			      | (code[pc++] & 0xff) << 16
+			      | (code[pc++] & 0xff) << 8
+			      | (code[pc++] & 0xff));
 		for (int i=0; i < npairs; i++) {
-		    if (value == ((code[pc++] << 8) | (code[pc++] & 0xff))) {
-			dest = ((code[pc++] << 8) | (code[pc++] & 0xff));
+		    if (value == (code[pc++] << 24
+				  | (code[pc++] & 0xff) << 16
+				  | (code[pc++] & 0xff) << 8 
+				  | (code[pc++] & 0xff))) {
+			dest = (code[pc++] << 24
+				| (code[pc++] & 0xff) << 16
+				| (code[pc++] & 0xff) << 8
+				| (code[pc++] & 0xff));
 			break;
 		    }
 		    pc+=2;
@@ -569,84 +673,102 @@ public class Interpreter implements Opcodes {
 		int argcount= (opcode == opc_invokeinterface) 
 		    ? (code[pc++] << 8) | (code[pc++] & 0xff) : -1;
 		
-//  		if (ref[0] == currentClass.getName()) {
-//  		    /* invoke interpreter again */
-//  		} else {
-		Class clazz;
-		try {
-		    clazz = Class.forName
-			(cpool.getClassName((code[pc++] << 8) & 0xff00
-					    | code[pc++] & 0xff)
-			 .replace('/','.'));
-		} catch (ClassNotFoundException ex) {
-		    throw new InterpreterException
-			("Class "+ref[0]+" not found");
-		}
-		try {
-		    if (ref[1].equals("<init>")) {
-			Constructor[] cs = clazz.getConstructors();
-			Constructor c = null;
-			for (int i=0; i< cs.length; i++) {
-			    /* check types XXX */
-			    c = cs[i];
-			    break;
-			}
+		if (ref[0].equals(ca.getClazz().getName().replace('.','/'))) {
+		    boolean isStatic = opcode == opc_invokestatic;
+		    MethodType mt = new MethodType(isStatic, ref[2]);
+		    CodeInfo info = ca.getMethod(ref[1], mt)
+			.getCode().getCodeInfo();
+		    Value[] newLocals = new Value[info.getMaxLocals()];
+		    for (int i=0; i< newLocals.length; i++)
+			newLocals[i] = new Value();
+		    Value[] newStack = new Value[info.getMaxStack()];
+		    for (int i=0; i< newStack.length; i++)
+			newStack[i] = new Value();
+		    for (int i=mt.getParameterTypes().length - 1; i >= 0; i--)
+			newLocals[i].setValue(stack[--stacktop]);
+		    Object result = interpretMethod(ca, info.getCode(), 
+						    newLocals, newStack);
+		    if (mt.getReturnType() != Type.tVoid) {
+			stack[stacktop++].setObject(result);
+		    }
+		} else {
+		    Class clazz;
+		    try {
+			clazz = Class.forName(ref[0].replace('/','.'));
+		    } catch (ClassNotFoundException ex) {
+			throw new InterpreterException
+			    ("Class "+ref[0]+" not found");
+		    }
+		    try {
+			if (ref[1].equals("<init>")) {
+			    Constructor[] cs = clazz.getConstructors();
+			    Constructor c = null;
+			    for (int i=0; i< cs.length; i++) {
+				if (checkMethod(ref[2], cs[i].getParameterTypes(), 
+						Void.TYPE)) {
+				    c = cs[i];
+				    break;
+				}
+			    }
 			if (c == null)
 			    throw new InterpreterException("Constructor "
-						       +ref[0]+"."
-						       +ref[1]+" not found.");
+							   +ref[0]+"."
+							   +ref[1]+" not found.");
 			Object[] args
 			    = new Object[c.getParameterTypes().length];
 			for (int i=args.length - 1; i >= 0; i--)
 			    args[i] = stack[--stacktop].objectValue();
-			NewObject newObj = 
-			    (NewObject) stack[--stacktop].objectValue();
-			if (!newObj.getClass().equals(ref[0]))
+			NewObject newObj = stack[--stacktop].getNewObject();
+			if (!newObj.getType().equals(ref[0]))
 			    throw new InterpreterException("constructor not called"
 							   +" on new instance");
 			newObj.setObject(c.newInstance(args));
-		    } else {
-			Method[] ms = clazz.getMethods();
-			Method m = null;
-			for (int i=0; i< ms.length; i++) {
-			    if (ms[i].getName().equals(ref[1])) {
-				/* check types XXX */
-				m = ms[i];
-				break;
+			} else {
+			    Method[] ms = clazz.getMethods();
+			    Method m = null;
+			    for (int i=0; i< ms.length; i++) {
+				if (ms[i].getName().equals(ref[1])) {
+				    if (checkMethod(ref[2],
+						    ms[i].getParameterTypes(), 
+						    ms[i].getReturnType())) {
+					m = ms[i];
+					break;
+				    }
+				}
 			    }
-			}
-			if (m == null)
-			    throw new InterpreterException("Method "+ref[0]+"."
-						       +ref[1]+" not found.");
-			Object obj = null;
-			Object[] args 
-			    = new Object[m.getParameterTypes().length];
-			for (int i=args.length - 1; i >= 0; i--)
-			    args[i] = stack[--stacktop].objectValue();
-			if (opcode != opc_invokestatic)
-			    obj = stack[--stacktop].objectValue();
-			/* special and constructor? XXX*/
+			    if (m == null)
+				throw new InterpreterException("Method "+ref[0]+"."
+							       +ref[1]+" not found.");
+			    Object obj = null;
+			    Object[] args 
+				= new Object[m.getParameterTypes().length];
+			    for (int i=args.length - 1; i >= 0; i--)
+				args[i] = stack[--stacktop].objectValue();
+			    if (opcode != opc_invokestatic)
+				obj = stack[--stacktop].objectValue();
+			    /* special and constructor? XXX*/
 			Object result = m.invoke(obj, args);
 			if (m.getReturnType() != Void.TYPE)
 			    stack[stacktop++].setObject(result);
+			}
+		    } catch (IllegalAccessException ex) {
+			throw new InterpreterException
+			    ("Method "+ref[0]+"."+ref[1]+" not accessible");
+		    } catch (InstantiationException ex) {
+			throw new InterpreterException
+			    ("InstantiationException in "+ref[0]+"."+ref[1]+".");
+		    } catch (InvocationTargetException ex) {
+			throw new InterpreterException
+			    ("Method "+ref[0]+"."+ref[1]+" throwed an exception");
+			/*XXX exception handler?*/
 		    }
-		} catch (IllegalAccessException ex) {
-		    throw new InterpreterException
-			("Method "+ref[0]+"."+ref[1]+" not accessible");
-		} catch (InstantiationException ex) {
-		    throw new InterpreterException
-			("InstantiationException in "+ref[0]+"."+ref[1]+".");
-		} catch (InvocationTargetException ex) {
-		    throw new InterpreterException
-			("Method "+ref[0]+"."+ref[1]+" throwed an exception");
-		    /*XXX exception handler?*/
 		}
 		break;
 	    }
 	    case opc_new: {
 		String clazz = cpool.getClassName((code[pc++] << 8) & 0xff00
 						  | code[pc++] & 0xff);
-		stack[stacktop++].setObject(new NewObject(clazz));
+		stack[stacktop++].setNewObject(new NewObject(clazz));
 		break;
 	    }
 	    case opc_newarray: {
@@ -805,6 +927,7 @@ public class Interpreter implements Opcodes {
 	    }
 	}
 	} catch(RuntimeException ex) {
+	    ex.printStackTrace();
 	    throw new InterpreterException("Caught RuntimeException: "
 					   + ex.toString());
 	}
