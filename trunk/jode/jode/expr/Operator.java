@@ -30,6 +30,7 @@ import jode.util.SimpleSet;
 ///#endif
 
 public abstract class Operator extends Expression {
+    /* Don't reorder these constants unless you know what you are doing! */
     public final static int ADD_OP     =  1;
     public final static int SUB_OP     =  2;
     public final static int SHIFT_OP   =  6;
