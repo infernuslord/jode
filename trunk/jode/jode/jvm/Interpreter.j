@@ -85,7 +85,7 @@ big_loop:
 ; ========= DEBUGGING OUTPUT ===============================
 	getstatic jode/Decompiler/isDebugging Z
 	ifeq skip_debugging
-	getstatic java/lang/System/err Ljava/io/PrintStream;
+	getstatic jode/Decompiler/err Ljava/io/PrintStream;
 	dup
 	aload 4
 	invokevirtual jode/bytecode/Instruction/getDescription()Ljava/lang/String;
@@ -247,7 +247,6 @@ load_store_instr:
 
 ; ====== LOAD INSTRUCTIONS
 
-	pop			; opcode
 	aload_3			; stack
 	iload 5			; stacktop
 	aaload	
@@ -258,6 +257,11 @@ load_store_instr:
 	getfield jode/bytecode/Instruction/localSlot I
 	aaload
 	invokevirtual jode/jvm/Value/setValue(Ljode/jvm/Value;)V
+
+	iconst_1
+	iand			; opcode & 1
+	ifne big_loop
+	iinc 5 1
 	goto big_loop
 
 array_load_instr:
@@ -336,6 +340,7 @@ store_instr:
 	goto big_loop
 
 array_store_instr:
+
 	istore 7
 	iinc 5 -2
 	aload_3
@@ -374,7 +379,6 @@ array_store_instr:
 ;  store-value
 ;  index
 ;  array
-
 
 	instanceof [Z
 	ifne bool_array_store
@@ -717,8 +721,9 @@ second_op_done:
 first_op_single:
 ;  opcode mask
 ;  opcode
-	bipush 0x05A5
+	sipush 0x05A5
 	iand
+
 	aload_3
 	iload 5
 	aaload
@@ -1551,8 +1556,8 @@ invoke_instr:
 	checkcast jode/bytecode/Reference
 	dup
 	invokevirtual jode/bytecode/Reference/getType()Ljava/lang/String;
-	invokestatic jode/Type/tType(Ljava/lang/String;)Ljode/Type;
-	checkcast jode/MethodType
+	invokestatic jode/type/Type/tType(Ljava/lang/String;)Ljode/type/Type;
+	checkcast jode/type/MethodType
 ; Stack:
 ;   methodType
 ;   ref
@@ -1563,7 +1568,7 @@ invoke_instr:
 ;   ref
 ;   env
 ;   methodType
-	invokevirtual jode/MethodType/getParameterTypes()[Ljode/Type;
+	invokevirtual jode/type/MethodType/getParameterTypes()[Ljode/type/Type;
 	dup
 	arraylength
 	dup
@@ -1594,7 +1599,7 @@ invoke_loop:
 ;   ref
 ;   env
 ;   methodType
-	invokevirtual jode/Type/stackSize()I
+	invokevirtual jode/type/Type/stackSize()I
 	ineg
 	iload 5
 	iadd
@@ -1683,8 +1688,8 @@ invoke_end:
 
 ; Stack:
 ;   methodType
-	invokevirtual jode/MethodType/getReturnType()Ljode/Type;
-	invokevirtual jode/Type/stackSize()I
+	invokevirtual jode/type/MethodType/getReturnType()Ljode/type/Type;
+	invokevirtual jode/type/Type/stackSize()I
 	dup
 	ifeq popI_big_loop
 	aload_3
