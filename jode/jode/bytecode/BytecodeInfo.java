@@ -552,7 +552,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		case opc_anewarray: {
 		    String type = cp.getClassType(input.readUnsignedShort());
 		    instr.opcode = opc_multianewarray;
-		    instr.objData = "["+type;
+		    instr.objData = ("["+type).intern();
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
 			GlobalOptions.err.print(" "+instr.objData);
