@@ -22,20 +22,15 @@ import jode.Type;
 
 public class CheckCastOperator extends SimpleOperator {
     Type castType;
+    /**
+     * There are special cases where a cast isn't allowed.  We must cast
+     * to the common super type before.  This cases always give a runtime
+     * error, but we want to decompile even bad programs.
+     */
+    Type superType = null;
 
     public CheckCastOperator(Type type) {
         super(type, 0, 1);
-        /* The following is wrong.  The operand must not
-         * be a super type of the given type, but any type
-         * especially if type is an interface.
-         *
-         * If operand is of class type, it is probably a
-         * super type, but who knows?
-         *
-         * operandTypes[0] = MyType.tSuperType(type);
-         *
-         * The forgiving solution:
-         */
         castType = type;
         operandTypes[0] = Type.tUnknown;
     }
@@ -48,7 +43,15 @@ public class CheckCastOperator extends SimpleOperator {
         return getPriority();
     }
 
+    public void setOperandType(Type[] type) {
+	super.setOperandType(type);
+	superType = castType.getCastHelper(type[0]);
+    }
+
     public String toString(String[] operands) {
-        return "(" + castType.toString() + ")" + operands[0];
+        StringBuffer sb = new StringBuffer("(").append(castType).append(")");
+	if (superType != null)
+	    sb.append("(").append(superType).append(")");
+	return sb.append(operands[0]).toString();
     }
 }
