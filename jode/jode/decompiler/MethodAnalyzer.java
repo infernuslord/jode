@@ -322,11 +322,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
         if (GlobalOptions.verboseLevel > 0)
             GlobalOptions.err.print('-');
             
-//          try {
-//              TabbedPrintWriter writer = new TabbedPrintWriter(System.err);
-//  	    methodHeader.dumpSource(writer);
-//          } catch (java.io.IOException ex) {
-//          }
         excHandlers.analyze();
         methodHeader.analyze();
 
@@ -772,10 +767,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 
 	if (li1 != null) {
 	    method1 = li1.getMethodAnalyzer();
-	    
-	    System.err.println("unifyLocalInfos: "+method1+"."+li1
-			       +" and "+method2+"."+li2);
-	    
+	    	    
 	    while (!method2.isParent(method1)) {
 		if (!method1.isConstructor() || method1.isStatic()) {
 		    sos.done();
@@ -808,8 +800,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		}
 		li1 = ((OuterLocalOperator) ov1).getLocalInfo();
 		method1 = li1.getMethodAnalyzer();
-		System.err.println("unifyLocalInfos: "+method1+"."+li1
-				   +" and "+method2+"."+li2);
 	    }
 	}
 
@@ -817,8 +807,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	 *   or (ov1 is LocalExpression, li1 is LocalInfo,
 	 *       method1 is parent of method2).
 	 */
-	    
-	System.err.println(method1+" is parent of "+method2);
 	while (method1 != method2) {
 	    if (!method2.isConstructor() || method2.isStatic()) {
 		sos.done();
@@ -839,7 +827,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		slot -= ov[param++].getType().stackSize();
 	    
 	    if (slot != 0) {
-		System.err.println("slot: "+slot+"; param: "+param+"; "+ov[param]);
 		sos.done();
 		return false;
 	    }
@@ -857,8 +844,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 
 	    li2 = ((OuterLocalOperator) ov2).getLocalInfo();
 	    method2 = li2.getMethodAnalyzer();
-	    System.err.println("unifyLocalInfos: "+method1+"."+li1
-			       +" and "+method2+"."+li2);
 	}
 	if (!li1.equals(li2)) {
 	    sos.done();
@@ -940,8 +925,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 					 anonAnalyzer, j))
 			continue;
 		    
-		    System.err.println("shrinkOuterValues: "
-				       +outerValues[j]+" vs. "+expr);
 		}
 		anonAnalyzer.shrinkOuterValues(j);
 		break;
