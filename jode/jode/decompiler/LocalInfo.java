@@ -118,6 +118,13 @@ public class LocalInfo {
     }
 
     /**
+     * Returns true if the local already has a name.
+     */
+    public boolean hasName() {
+	return getLocalInfo().name != null;
+    }
+
+    /**
      * Get the name of this local.
      */
     public String getName() {
@@ -131,7 +138,8 @@ public class LocalInfo {
             if (jode.Decompiler.prettyLocals && type != null) {
                 name = type.getDefaultName();
             } else {
-                name = "local_"+slot+"__"+serialnr+++"_";
+                name = type.getDefaultName() + 
+		    "_" + slot + "_" + serialnr++ + "_";
                 isUnique = true;
             }
         }
@@ -161,7 +169,7 @@ public class LocalInfo {
         LocalInfo li = getLocalInfo();
         String name = li.getName();
         if (!li.isUnique) {
-            li.name = name + "__"+serialnr+++"_";
+            li.name = name + "_" + serialnr++ + "_";
             li.isUnique = true;
         }
     }
