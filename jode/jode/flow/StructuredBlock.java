@@ -91,7 +91,7 @@ public abstract class StructuredBlock {
 
     /**
      * Returns the block where the control will normally flow to, when
-     * this block is finished (not ignoring the jump after this block).
+     * this block is finished.
      */
     public StructuredBlock getNextBlock() {
         if (jump != null)
@@ -108,8 +108,7 @@ public abstract class StructuredBlock {
 
     /**
      * Returns the flow block where the control will normally flow to,
-     * when this block is finished (not ignoring the jump after this
-     * block).  
+     * when this block is finished.
      * @return null, if the control flows into a non empty structured
      * block or if this is the outermost block.
      */
@@ -122,25 +121,10 @@ public abstract class StructuredBlock {
     }
 
     /**
-     * Checks if the jump to the outside has correct monitorexit and
-     * jsr instructions attached.
-     * @return null, if everything is okay, and a diagnostic message that
-     * should be put in a comment otherwise.
-     */
-    public String checkJump(Jump jump) {
-        if (outer != null)
-            return outer.checkJump(jump);
-        if (jump.hasAttachments())
-            return "Unknown attachments: "+jump.describeAttachments();
-        return null;
-    }
-
-    /**
      * Returns the block where the control will normally flow to, when
-     * the given sub block is finished (<em>not</em> ignoring the jump
-     * after this block). (This is overwritten by SequentialBlock and
-     * SwitchBlock).  If this isn't called with a direct sub block,
-     * the behaviour is undefined, so take care.  
+     * the given sub block is finished. (This is overwritten by
+     * SequentialBlock and SwitchBlock).  If this isn't called with a
+     * direct sub block, the behaviour is undefined, so take care.
      * @return null, if the control flows to another FlowBlock.  */
     public StructuredBlock getNextBlock(StructuredBlock subBlock) {
         return getNextBlock();
