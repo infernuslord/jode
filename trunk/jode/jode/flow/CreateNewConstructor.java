@@ -81,7 +81,7 @@ public class CreateNewConstructor {
 	    return false;
 
 	/* Okay everything checked. */
-	MethodAnalyzer methodAna = constr.getMethodAnalyzer();
+	MethodAnalyzer methodAna = ib.flowBlock.method;
 	Expression expr = ib.getInstruction();
 	Type appendType = appendCall.getMethodType().getParameterTypes()[0];
 	if (!appendType.equals(Type.tString)) {
