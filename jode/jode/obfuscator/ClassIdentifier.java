@@ -106,8 +106,18 @@ public class ClassIdentifier extends Identifier {
      * a compatible class.
      */
     public void preserveSerializable() {
-	/*XXX*/
-	/* add a field serializableVersionUID if not existent */
+	preserveIdentifier("writeObject", "(Ljava.io.ObjectOutputStream)V");
+	preserveIdentifier("readObject", "(Ljava.io.ObjectOutputStream)V");
+	if (Obfuscator.preserveSerial) {
+	    /* XXX - add a field serializableVersionUID if not existent */
+	    preserveIdentifier("serializableVersionUID", "I");
+	    for (int i=0; i < fieldCount; i++) {
+		FieldIdentifier ident = (FieldIdentifier) identifiers[i];
+		if ((ident.info.getModifiers() 
+		     & (Modifier.TRANSIENT | Modifier.STATIC)) == 0)
+		    identifiers[i].setPreserved();
+	    }
+	}
     }
 
     public void initSuperClasses(ClassInfo superclass) {
@@ -174,9 +184,11 @@ public class ClassIdentifier extends Identifier {
 	MethodInfo[] minfos  = info.getMethods();
 	if (Obfuscator.swapOrder) {
 	    Random rand = new Random();
+	    // XXX replace the following for JDK12 with:
+	    // Collections.shuffle(Arrays.asList(finfos), rand);
+	    // Collections.shuffle(Arrays.asList(minfos), rand);
 	    for (int i=1; i < finfos.length; i++) {
 		int j = (Math.abs(rand.nextInt()) % (i+1)); 
-		// XXX replace with nextInt(i+1) for JDK12.
 		if (j != i) {
 		    FieldInfo tmp = finfos[i];
 		    finfos[i] = finfos[j];
@@ -185,7 +197,6 @@ public class ClassIdentifier extends Identifier {
 	    }
 	    for (int i=1; i < minfos.length; i++) {
 		int j = (Math.abs(rand.nextInt()) % (i+1)); 
-		// XXX replace with nextInt(i+1) for JDK12.
 		if (j != i) {
 		    MethodInfo tmp = minfos[i];
 		    minfos[i] = minfos[j];

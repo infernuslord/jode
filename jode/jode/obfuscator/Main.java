@@ -29,6 +29,7 @@ public class Obfuscator {
 
     public static boolean shouldStrip = true;
     public static boolean swapOrder   = false;
+    public static boolean preserveSerial = true;
 
     public static PrintStream err = System.err;
     public static final int PRESERVE_NONE = 0;
@@ -49,36 +50,38 @@ public class Obfuscator {
         err.println("\t[-v]               "+"Verbose output");
         err.println("\t[-debug]           "+"Debugging");
         err.println("\t[-nostrip]         "+
-                           "Don't strip not needed methods");
+		    "Don't strip not needed methods");
         
         err.println("\t[-cp <classpath>]  "+
                            "The class path; should contain classes.zip");
         err.println("\t[-d <directory>]   "+
-                           "Destination directory for output classes");
+		    "Destination directory for output classes");
         err.println("Preserve options: ");
         err.println("\t[-package]         "+
-                           "Preserve all package members");
+		    "Preserve all package members");
         err.println("\t[-protected]       "+
-                           "Preserve all protected members");
+		    "Preserve all protected members");
         err.println("\t[-public]          "+
-                           "Preserve all public members");
+		    "Preserve all public members");
         err.println("\t[-preserve <name>] "+
-                           "Preserve only the given name (allowed multiple times)");
+		    "Preserve only the given name (allowed multiple times)");
+	err.println("\t[-breakserial]     "+
+		    "Allow the serialized form to change");
         err.println("Obfuscating options: ");
         err.println("\t[-strong]          "+
-                           "Rename identifiers to random unicode identifier");
+		    "Rename identifiers to random unicode identifier");
         err.println("\t[-weak]            "+
-                           "Rename to random, but legal java identifier");
+		    "Rename to random, but legal java identifier");
         err.println("\t[-unique]          "+
-                           "Rename to unique legal java identifier");
+		    "Rename to unique legal java identifier");
         err.println("\t[-none]            "+
-                           "Don't rename any method.");
+		    "Don't rename any method.");
         err.println("\t[-table <file>]    "+
-                           "Read translation table from file");
+		    "Read translation table from file");
         err.println("\t[-revtable <file>] "+
-                           "Write reversed translation table to file");
+		    "Write reversed translation table to file");
         err.println("\t[-swaporder]       "+
-                           "Swap the order of fields and methods.");
+		    "Swap the order of fields and methods.");
     }
 
     public static void main(String[] params) {
@@ -119,6 +122,8 @@ public class Obfuscator {
                 String ident = params[++i];
                 preservedIdents.addElement(ident);
             }
+            else if (params[i].equals("-breakserial"))
+		preserveSerial = false;
 
             /* Obfuscate options */
             else if (params[i].equals("-strong"))
