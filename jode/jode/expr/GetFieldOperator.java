@@ -23,7 +23,7 @@ import jode.type.NullType;
 import jode.type.ClassInterfacesType;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.Reference;
-import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.FieldAnalyzer;
@@ -32,19 +32,19 @@ import jode.decompiler.Scope;
 
 public class GetFieldOperator extends Operator {
     boolean staticFlag;
-    CodeAnalyzer codeAnalyzer;
+    MethodAnalyzer methodAnalyzer;
     Reference ref;
     Type classType;
 
-    public GetFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag,
+    public GetFieldOperator(MethodAnalyzer methodAnalyzer, boolean staticFlag,
 			    Reference ref) {
         super(Type.tType(ref.getType()), 0);
-        this.codeAnalyzer = codeAnalyzer;
+        this.methodAnalyzer = methodAnalyzer;
         this.staticFlag = staticFlag;
         this.classType = Type.tType(ref.getClazz());
 	this.ref = ref;
         if (staticFlag)
-            codeAnalyzer.useType(classType);
+            methodAnalyzer.useType(classType);
 	initOperands(staticFlag ? 0 : 1);
     }
 
@@ -66,7 +66,7 @@ public class GetFieldOperator extends Operator {
     public boolean isOuter() {
 	if (classType instanceof ClassInterfacesType) {
 	    ClassInfo clazz = ((ClassInterfacesType) classType).getClassInfo();
-	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
+	    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
 	    while (true) {
 		if (clazz == ana.getClazz())
 		    return true;
@@ -91,7 +91,7 @@ public class GetFieldOperator extends Operator {
     public FieldAnalyzer getField() {
 	ClassInfo clazz = getClassInfo();
 	if (clazz != null) {
-	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
+	    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
 	    while (true) {
 		if (clazz == ana.getClazz()) {
 		    return ana.getField(ref.getName(), 
@@ -99,8 +99,8 @@ public class GetFieldOperator extends Operator {
 		}
 		if (ana.getParent() == null)
 		    return null;
-		if (ana.getParent() instanceof CodeAnalyzer)
-		    ana = ((CodeAnalyzer) ana.getParent())
+		if (ana.getParent() instanceof MethodAnalyzer)
+		    ana = ((MethodAnalyzer) ana.getParent())
 			.getClassAnalyzer();
 		else if (ana.getParent() instanceof ClassAnalyzer)
 		    ana = (ClassAnalyzer) ana.getParent();
@@ -117,16 +117,17 @@ public class GetFieldOperator extends Operator {
 	    && subExpressions[0] instanceof ThisOperator;
 	String fieldName = ref.getName();
 	if (staticFlag) {
-	    if (!classType.equals(Type.tClass(codeAnalyzer.getClazz()))
-		|| codeAnalyzer.findLocal(fieldName) != null) {
+	    if (!classType.equals(Type.tClass(methodAnalyzer.getClazz()))
+		|| methodAnalyzer.findLocal(fieldName) != null) {
 		writer.printType(classType);
 		writer.print(".");
 	    }
 	    writer.print(fieldName);
-	} else if (subExpressions[0].getType() instanceof NullType) {
+	} else if (subExpressions[0].getType().getCanonic() 
+		   instanceof NullType) {
 	    writer.print("((");
 	    writer.printType(classType);
-	    writer.print(")");
+	    writer.print(") ");
 	    subExpressions[0].dumpExpression(writer, 700);
 	    writer.print(").");
 	    writer.print(fieldName);
