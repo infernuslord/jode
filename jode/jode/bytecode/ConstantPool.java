@@ -45,6 +45,52 @@ public class ConstantPool {
 
     Object[] constants;
 
+    void checkTypeSig(String typesig, boolean isMethod) 
+	throws ClassFormatException {
+	if (typesig.indexOf('.') != -1)
+	    throw new ClassFormatException
+		("Type sig error: "+typesig);
+	int i = 0;
+	if (isMethod) {
+	    if (typesig.charAt(i++) != '(')
+		throw new ClassFormatException
+		    ("Type sig doesn't match tag: "+typesig);
+	    for (; i< typesig.length(); i++) {
+		if (typesig.charAt(i) == ')')
+		    break;
+		while (typesig.charAt(i) == '[')
+		    i++;
+		if (typesig.charAt(i) == 'L') {
+		    i = typesig.indexOf(';', i);
+		    if (i == -1)
+			throw new ClassFormatException
+			    ("Type sig error: "+typesig);
+		} else {
+		    if ("ZBSCIJFD".indexOf(typesig.charAt(i)) == -1)
+			throw new ClassFormatException
+			    ("Type sig error: "+typesig);
+		}
+	    }
+	    i++;
+	}   
+	while (typesig.charAt(i) == '[')
+	    i++;
+	if (typesig.charAt(i) == 'L') {
+	    i = typesig.indexOf(';', i);
+	    if (i == -1)
+		throw new ClassFormatException
+		    ("Type sig error: "+typesig);
+	} else {
+	    if ("ZBSCIJFD".indexOf(typesig.charAt(i)) == -1)
+		if (!isMethod || typesig.charAt(i) != 'V')
+		    throw new ClassFormatException
+			("Type sig error: "+typesig);
+	}
+	if (i+1 != typesig.length())
+	    throw new ClassFormatException
+		("Type sig error: "+typesig);
+    }
+
     public ConstantPool () {
     }
 
@@ -124,10 +170,11 @@ public class ConstantPool {
 	    int nameTypeIndex = indices2[i];
 	    if (tags[nameTypeIndex] != NAMEANDTYPE)
 		throw new ClassFormatException("Tag mismatch");
+	    String type = getUTF8(indices2[nameTypeIndex]);
+	    checkTypeSig(type, tags[i] != FIELDREF);
 	    constants[i] = new Reference
 		(getClassName(classIndex), 
-		 getUTF8(indices1[nameTypeIndex]), 
-		 getUTF8(indices2[nameTypeIndex]));
+		 getUTF8(indices1[nameTypeIndex]), type);
 	}
 	return (Reference) constants[i];
     }
@@ -144,7 +191,7 @@ public class ConstantPool {
         case ConstantPool.STRING: 
             return getUTF8(indices1[i]);
         }
-        throw new ClassFormatException("unknown constant tag: "+tags[i]);
+        throw new ClassFormatException("Tag mismatch: "+tags[i]);
     }
 
     public String getClassName(int i) throws ClassFormatException {
