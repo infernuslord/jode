@@ -33,6 +33,7 @@ public class Value {
     }
 
     public void setObject(Object obj) {
+	newObj = null;
 	value = obj;
     }
 
@@ -43,6 +44,7 @@ public class Value {
     }
 
     public void setInt(int i) {
+	newObj = null;
 	value = new Integer(i);
     }
 
@@ -51,6 +53,7 @@ public class Value {
     }
 
     public void setLong(long i) {
+	newObj = null;
 	value = new Long(i);
     }
 
@@ -59,6 +62,7 @@ public class Value {
     }
 
     public void setFloat(float i) {
+	newObj = null;
 	value = new Float(i);
     }
 
@@ -67,6 +71,7 @@ public class Value {
     }
 
     public void setDouble(double i) {
+	newObj = null;
 	value = new Double(i);
     }
 
@@ -91,4 +96,3 @@ public class Value {
 	return newObj != null ? newObj.toString() : ""+value;
     }
 }
-
