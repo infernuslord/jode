@@ -889,9 +889,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    /* Create a new outerValues array corresponding to the
 	     * first constructor invocation.
 	     */
-	    if (GlobalOptions.verboseLevel > 0)
-		GlobalOptions.err.println("Analyzing method scope class: "
-					  +clazz);
 	    Expression[] subExprs = cop.getSubExpressions();
 	    outerValues = new Expression[subExprs.length];
 	    
