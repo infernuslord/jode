@@ -454,13 +454,36 @@ public class ClassInfo extends BinaryInfo {
 		    ("Could only get public methods of class "
 		     + name + ".");
 	    }
-	    innerClasses = new InnerClassInfo[is.length];
-	    for (int i = is.length; --i >= 0; ) {
-		String inner = is[i].getName();
-		int dollar = inner.lastIndexOf('$');
-		String name = inner.substring(dollar+1);
-		innerClasses[i] = new InnerClassInfo
-		    (inner, getName(), name, is[i].getModifiers());
+	    if (is.length > 0) {
+		innerClasses = new InnerClassInfo[is.length];
+		for (int i = is.length; --i >= 0; ) {
+		    String inner = is[i].getName();
+		    int dollar = inner.lastIndexOf('$');
+		    String name = inner.substring(dollar+1);
+		    innerClasses[i] = new InnerClassInfo
+			(inner, getName(), name, is[i].getModifiers());
+		}
+	    }
+	}
+	if ((howMuch & INNERCLASSES) != 0 && outerClasses == null) {
+	    int count = 0;
+	    Class declarer = clazz.getDeclaringClass();
+	    while (declarer != null) {
+		count++;
+		declarer = declarer.getDeclaringClass();
+	    }
+	    if (count > 0) {
+		outerClasses = new InnerClassInfo[count];
+		Class current = clazz;
+		for (int i = 0; i < count; i++) {
+		    declarer = current.getDeclaringClass();
+		    String name = current.getName();
+		    int dollar = name.lastIndexOf('$');
+		    outerClasses[i] = new InnerClassInfo
+			(name, declarer.getName(), 
+			 name.substring(dollar+1), current.getModifiers());
+		    current = declarer;
+		}
 	    }
 	}
 	status |= howMuch;
@@ -476,7 +499,8 @@ public class ClassInfo extends BinaryInfo {
 
         } catch (IOException ex) {
 	    String message = ex.getMessage();
-            if ((howMuch & ~(FIELDS|METHODS|HIERARCHY|INNERCLASSES)) != 0) {
+            if ((howMuch & ~(FIELDS|METHODS|HIERARCHY
+			     |INNERCLASSES|OUTERCLASSES)) != 0) {
 		GlobalOptions.err.println
 		    ("Can't read class " + name + ".");
 		ex.printStackTrace(GlobalOptions.err);
