@@ -305,8 +305,8 @@ public class Type {
     /**
      * Create a new type with the given type code.
      */
-    protected Type(int typecode) {
-        this.typecode = typecode;
+    protected Type(int tc) {
+        typecode = tc;
     }
 
     public Type getSubType() {
