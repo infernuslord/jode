@@ -21,26 +21,26 @@ package jode.expr;
 import jode.type.Type;
 import jode.type.NullType;
 import jode.bytecode.Reference;
-import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.FieldAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.Scope;
 
 public class PutFieldOperator extends LValueExpression {
-    CodeAnalyzer codeAnalyzer;
+    MethodAnalyzer methodAnalyzer;
     boolean staticFlag;
     Reference ref;
     Type classType;
 
-    public PutFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag, 
+    public PutFieldOperator(MethodAnalyzer methodAnalyzer, boolean staticFlag, 
                             Reference ref) {
         super(Type.tType(ref.getType()));
-        this.codeAnalyzer = codeAnalyzer;
+        this.methodAnalyzer = methodAnalyzer;
         this.staticFlag = staticFlag;
 	this.ref = ref;
         this.classType = Type.tType(ref.getClazz());
         if (staticFlag)
-            codeAnalyzer.useType(classType);
+            methodAnalyzer.useType(classType);
 	initOperands(staticFlag ? 0 : 1);
     }
 
@@ -54,13 +54,13 @@ public class PutFieldOperator extends LValueExpression {
      * allow super class
      */
     public boolean isThis() {
-        return (classType.equals(Type.tClass(codeAnalyzer.getClazz())));
+        return (classType.equals(Type.tClass(methodAnalyzer.getClazz())));
     }
 
     public FieldAnalyzer getField() {
 	if (!isThis())
 	    return null;
-	return codeAnalyzer.getClassAnalyzer()
+	return methodAnalyzer.getClassAnalyzer()
 	    .getField(ref.getName(), Type.tType(ref.getType()));
     }
 
@@ -96,16 +96,17 @@ public class PutFieldOperator extends LValueExpression {
 	    && subExpressions[0] instanceof ThisOperator;
 	String fieldName = ref.getName();
 	if (staticFlag) {
-	    if (!classType.equals(Type.tClass(codeAnalyzer.getClazz()))
-		|| codeAnalyzer.findLocal(fieldName) != null) {
+	    if (!classType.equals(Type.tClass(methodAnalyzer.getClazz()))
+		|| methodAnalyzer.findLocal(fieldName) != null) {
 		writer.printType(classType);
 		writer.print(".");
 	    }
 	    writer.print(fieldName);
-	} else if (subExpressions[0].getType() instanceof NullType) {
+	} else if (subExpressions[0].getType().getCanonic() 
+		   instanceof NullType) {
 	    writer.print("((");
 	    writer.printType(classType);
-	    writer.print(")");
+	    writer.print(") ");
 	    subExpressions[0].dumpExpression(writer, 700);
 	    writer.print(").");
 	    writer.print(fieldName);
