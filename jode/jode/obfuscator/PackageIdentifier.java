@@ -80,6 +80,8 @@ public class PackageIdentifier extends Identifier {
 			(bundle, this, subclazz, ClassInfo.forName(fullname));
 		    loadedClasses.put(subclazz, ident);
 		    ((ClassIdentifier) ident).initClass();
+		    if (bundle.preserveRule != -1)
+			ident.applyPreserveRule(bundle.preserveRule);
 		}
 	    }		
 	}
@@ -88,8 +90,7 @@ public class PackageIdentifier extends Identifier {
     public Identifier getIdentifier(String name) {
 	if (loadOnDemand) {
 	    Identifier ident = loadClass(name);
-	    if (ident != null && bundle.preserveRule != -1)
-		ident.applyPreserveRule(bundle.preserveRule);
+	    return ident;
 	}
 
 	int index = name.indexOf('.');
@@ -121,6 +122,8 @@ public class PackageIdentifier extends Identifier {
 						ClassInfo.forName(fullname));
 		    loadedClasses.put(name, ident);
 		    ((ClassIdentifier) ident).initClass();
+		    if (bundle.preserveRule != -1)
+			ident.applyPreserveRule(bundle.preserveRule);
 		}
 	    }
 	    return ident;
