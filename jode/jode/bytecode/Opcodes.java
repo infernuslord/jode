@@ -543,7 +543,7 @@ public abstract class Opcodes {
         }
 
         if (opcode == opc_athrow
-            && opcode >= opc_ireturn && opcode <= opc_return)
+            || opcode >= opc_ireturn && opcode <= opc_return)
             return new int[] { 1 };
         if (opcode >= opc_ifeq && opcode <= opc_if_acmpne)
             return new int[] { 3, addr + 3, addr + stream.readShort() };
@@ -572,7 +572,8 @@ public abstract class Opcodes {
         int opcode = stream.readUnsignedByte();
         switch (opcode) {
         case opc_nop:
-            return createNormal(ca, addr, 1, new NopOperator());
+            return createBlock
+                (ca, addr, 1, new EmptyBlock(new Jump(addr+1)));
         case opc_aconst_null:
             return createNormal
                 (ca, addr, 1, new ConstOperator(OBJECT_TYPE, "null"));
@@ -678,8 +679,8 @@ public abstract class Opcodes {
                 (ca, addr, 1, new ArrayStoreOperator
                  (types[1][opcode - opc_iastore]));
         case opc_pop: case opc_pop2:
-            return createNormal
-                (ca, addr, 1, new PopOperator(opcode - opc_pop + 1));
+            return createSpecial
+                (ca, addr, 1, SpecialBlock.POP, opcode - opc_pop + 1, 0);
         case opc_dup: case opc_dup_x1: case opc_dup_x2:
         case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
             return createSpecial
@@ -829,8 +830,7 @@ public abstract class Opcodes {
             /* Address -1 is interpreted as end of method */
             Type retType = Type.tSubType(ca.getMethod().getReturnType());
             return createBlock
-                (ca, addr, 1, new ReturnBlock(new NopOperator(retType),
-                                              new Jump(-1)));
+                (ca, addr, 1, new ReturnBlock(new NopOperator(retType)));
         }
         case opc_return:
             return createBlock
@@ -904,8 +904,7 @@ public abstract class Opcodes {
         case opc_athrow:
             return createBlock
                 (ca, addr, 1, 
-                 new ThrowBlock(new NopOperator(Type.tUObject),
-                                new Jump(-1)));
+                 new ThrowBlock(new NopOperator(Type.tUObject)));
         case opc_checkcast: {
             Type type = Type.tClassOrArray
                 (cpool.getClassName(stream.readUnsignedShort()));
