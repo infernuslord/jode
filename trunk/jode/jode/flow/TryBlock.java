@@ -111,6 +111,10 @@ public class TryBlock extends StructuredBlock {
 	    after = VariableStack.merge
 		(after, subBlocks[i].mapStackToLocal(VariableStack.EMPTY));
 	}
+	if (jump != null) {
+	    jump.stackMap = after;
+	    return null;
+	}
 	return after;
     }
 
