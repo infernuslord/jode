@@ -33,4 +33,11 @@ public interface BreakableBlock {
      * Is called by BreakBlock, to tell us that this block is breaked.
      */
     public void setBreaked();
+
+    /**
+     * Is called by BreakBlock, to tell us what the stack can be after a
+     * break.
+     * @param stack the stack at the break.
+     */
+    public void mergeBreakedStack(VariableStack stack);
 }
