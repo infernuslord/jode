@@ -9,9 +9,6 @@ public class CreateWhileStatements implements Transformation {
             return null;
 
         InstructionHeader block  = gotoIH.nextInstruction;
-        if (block == null)
-            block = gotoIH.outer.endBlock;
-
         InstructionHeader ifgoto = gotoIH.successors[0];
 
         if (ifgoto.getFlowType() != ifgoto.IFGOTO ||

@@ -64,16 +64,32 @@ public class TryCatchInstructionHeader extends InstructionHeader {
             tryHeader.prevInstruction = null;
             tryHeader.successors = remaining;
         } else {
-            successors[0] = tryHeader.nextInstruction;
-            if (successors[0] != null) {
-                successors[0].prevInstruction = null;
-                successors[0].predecessors.addElement(this);
-            }
+            successors[0] = tryHeader.successors[0];
+            successors[0].predecessors.removeElement(tryHeader);
+            successors[0].predecessors.addElement(this);
+            if (tryHeader.nextInstruction != null)
+                tryHeader.nextInstruction.prevInstruction = null;
         }
         this.endBlock = endBlock;
-        this.nextInstruction = (endBlock.outer == outer) ? endBlock : null;
-        if (nextInstruction != null)
+
+        if (endBlock.outer == outer) {
+            nextInstruction = endBlock;
             endBlock.prevInstruction = this;
+        } else {
+            if (endBlock != outer.endBlock) {
+                /* Create a goto after this block, that
+                 * jumps to endBlock
+                 */
+                nextInstruction = new InstructionHeader
+                    (GOTO, endBlock.addr, endBlock.addr,
+                     new InstructionHeader[1], this);
+                nextInstruction.instr = new NopOperator(MyType.tVoid);
+                nextInstruction.prevInstruction = this;
+                nextInstruction.successors[0] = endBlock;
+                endBlock.predecessors.addElement(nextInstruction);
+            } else
+                nextInstruction = null;
+        }
 
         if (endHeader != successors[1])
             endHeader.successors[0].predecessors.removeElement(endHeader);
@@ -129,8 +145,8 @@ public class TryCatchInstructionHeader extends InstructionHeader {
 
         writer.println("try {");
         writer.tab();
-        if (successors[0] == null)
-            writer.print("/* empty */");
+        if (successors[0] == endBlock)
+            writer.print("/* empty?? */");
         else {
             for (InstructionHeader ih = successors[0]; ih != null; 
                  ih = ih.nextInstruction)

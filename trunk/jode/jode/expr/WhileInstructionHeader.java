@@ -60,18 +60,21 @@ public class WhileInstructionHeader extends InstructionHeader {
         if (nextInstruction != null)
             nextInstruction.prevInstruction = this;
 
-        successors[1].prevInstruction = null;
-        ifHeader.prevInstruction.nextInstruction = null;
-
         successors[0].predecessors.removeElement(ifHeader);
         successors[1].predecessors.removeElement(ifHeader);
         successors[0].predecessors.addElement(this);
         successors[1].predecessors.addElement(this);
 
-        for (InstructionHeader ih = successors[1]; ih != null;
-             ih = ih.nextInstruction)
-            if (ih.outer == outer)
-                ih.outer = this;
+        if (successors[1] != this) {
+            successors[1].prevInstruction = null;
+            for (InstructionHeader ih = successors[1]; ih != null;
+                 ih = ih.nextInstruction) {
+                if (ih.outer == outer)
+                    ih.outer = this;
+                if (ih.nextInstruction == this)
+                    ih.nextInstruction = null;
+            }
+        }
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -88,14 +91,18 @@ public class WhileInstructionHeader extends InstructionHeader {
             writer.tab();
         }
 
-        boolean braces = successors[1].nextInstruction != null;
+        boolean braces = (successors[1] == this || 
+                          successors[1].nextInstruction != null);
         writer.println("while (" + instr.toString() + ")" + 
                        (braces ? " {": ""));
 
-        writer.tab();        
-	for (InstructionHeader ih = successors[1]; ih != null; 
-             ih = ih.nextInstruction)
-	    ih.dumpSource(writer);
+        writer.tab();     
+        if (successors[1] != this) {
+            for (InstructionHeader ih = successors[1]; ih != null; 
+                 ih = ih.nextInstruction)
+                ih.dumpSource(writer);
+        } else
+            writer.println("/* empty */");
         writer.untab();
 
         if (braces)
@@ -124,10 +131,12 @@ public class WhileInstructionHeader extends InstructionHeader {
 
     public InstructionHeader doTransformations(Transformation[] trafo) {
         InstructionHeader next;
-        for (InstructionHeader ih = successors[1]; ih != null; ih = next) {
-            if ((next = ih.doTransformations(trafo)) == null)
-                next = ih.getNextInstruction();
-        }
+        if (successors[1] != this)
+            for (InstructionHeader ih = successors[1]; ih != null; ih = next) {
+                if ((next = ih.doTransformations(trafo)) == null)
+                    next = ih.getNextInstruction();
+            }
         return super.doTransformations(trafo);
     }
 }
+

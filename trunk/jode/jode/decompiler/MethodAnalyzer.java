@@ -35,21 +35,26 @@ public class MethodAnalyzer implements Analyzer, Constants {
     {
 	if (code == null)
 	    return;
-	if (Decompiler.isVerbose)
-	    System.err.print(mdef.getName().toString()+": locals ");
-        lva.createLocalInfo(code);
-	if (Decompiler.isVerbose) {
-	    System.err.println("");
-	    System.err.print("code ");
-	}
-        code.analyze();
-	if (Decompiler.isVerbose)
-	    System.err.println("");
+// 	if (Decompiler.isVerbose)
+// 	    System.err.print(mdef.getName().toString()+": ");
+//         lva.createLocalInfo(code);
+//         code.analyze();
+// 	if (Decompiler.isVerbose)
+// 	    System.err.println("");
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
+	if (code != null) {
+            if (Decompiler.isVerbose)
+                System.err.print(mdef.getName().toString()+": ");
+            lva.createLocalInfo(code);
+            code.analyze();
+            if (Decompiler.isVerbose)
+                System.err.println("");
+        }
+
         writer.println("");
 	String modif = Modifier.toString(mdef.getModifiers());
 	if (modif.length() > 0)

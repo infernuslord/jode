@@ -44,24 +44,19 @@ public class CreateTryCatchStatements implements Transformation {
                 remaining[index2++] = tryIH.successors[i+1];
             }
         }
-        InstructionHeader endBlock = tryIH.outer.endBlock;
+        InstructionHeader endBlock;
         if (endIH != catchIH[1]) {
             if ((endIH.flowType != endIH.RETURN || 
                  endIH.getInstruction().getType() != MyType.tVoid) && 
                 endIH.flowType != endIH.GOTO)
                 return null;
 
-            if (endIH.successors[0].outer == tryIH.outer)
-                endBlock = endIH.successors[0];
-            else if (endIH.successors[0] != endBlock)
-                return null;
-        }
+            endBlock = endIH.successors[0];
+        } else
+            endBlock = tryIH.outer.endBlock;
         if (Decompiler.isVerbose)
             System.err.print("t");
         return new TryCatchInstructionHeader
             (catchIH, endIH, remaining, endBlock);
     }
 }
-
-
-

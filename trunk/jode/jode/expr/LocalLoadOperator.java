@@ -29,7 +29,7 @@ implements LocalVarOperator {
     }
 
     public Type getType() {
-// 	System.err.println("LocalLoad.getType of "+local.getName()+": "+local.getType());
+//  	System.err.println("LocalLoad.getType of "+local.getName()+": "+local.getType());
 	return local.getType();
     }
 
