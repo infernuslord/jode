@@ -32,6 +32,8 @@ public class MethodAnalyzer implements Analyzer {
     ClassAnalyzer classAnalyzer;
     boolean isConstructor;
     boolean isSynthetic;
+    boolean isDeprecated;
+    SyntheticAnalyzer synth;
     int modifiers;
     String methodName;
     MethodType methodType;
@@ -47,6 +49,7 @@ public class MethodAnalyzer implements Analyzer {
         this.isConstructor = 
             methodName.equals("<init>") || methodName.equals("<clinit>");
 	this.isSynthetic = (minfo.findAttribute("Synthetic") != null);
+	this.isDeprecated = (minfo.findAttribute("Deprecated") != null);
         
         AttributeInfo codeattr = minfo.findAttribute("Code");
         if (codeattr != null) {
@@ -82,6 +85,14 @@ public class MethodAnalyzer implements Analyzer {
         }
     }
 
+    public String getName() {
+	return methodName;
+    }
+
+    public MethodType getType() {
+	return methodType;
+    }
+
     public jode.flow.FlowBlock getMethodHeader() {
         return code != null ? code.getMethodHeader() : null;
     }
@@ -96,6 +107,10 @@ public class MethodAnalyzer implements Analyzer {
 
     public boolean isSynthetic() {
 	return isSynthetic;
+    }
+
+    public boolean isGetClass() {
+	return synth.type == SyntheticAnalyzer.GETCLASS;
     }
 
     public int getParamCount() {
@@ -141,6 +156,8 @@ public class MethodAnalyzer implements Analyzer {
 	    if (Decompiler.isVerbose)
 		Decompiler.err.print(methodName+": ");
 	    code.analyze();
+	    if (isSynthetic)
+		synth = new SyntheticAnalyzer(this);
 	    if (Decompiler.isVerbose)
 		Decompiler.err.println("");
 	}
@@ -149,6 +166,19 @@ public class MethodAnalyzer implements Analyzer {
     public void dumpSource(TabbedPrintWriter writer) 
          throws IOException
     {
+	if (synth != null && synth.type == synth.GETCLASS)
+	    // We don't need this class anymore (hopefully?)
+	    return;
+	
+	if (isConstructor && classAnalyzer.constructors.length == 1
+	    && methodType.getParameterTypes().length == 0
+	    && getMethodHeader() != null
+	    && getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock
+	    && getMethodHeader().hasNoJumps())
+	    // If this is the only constructor and it is empty and
+	    // takes no parameters, this is the default constructor.
+	    return;
+
 	if (Decompiler.immediateOutput && code != null) {
             // We do the code.analyze() here, to get 
             // immediate output.
@@ -164,7 +194,13 @@ public class MethodAnalyzer implements Analyzer {
             && getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock)
             return;
 
-        writer.println("");
+        writer.println();
+
+	if (isDeprecated) {
+	    writer.println("/**");
+	    writer.println(" * @deprecated");
+	    writer.println(" */");
+	}
 	String modif = Modifier.toString(modifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
