@@ -64,23 +64,29 @@ public class LocalTypes {
 
     public void arithTest() {
         int a=1,b=2;
-        boolean x = true,y = false;
+        boolean xb = true,yb = false;
+	int     xi =    1,yi =     0;
         int c=0;
         arithTest();
-        if (x & y) {
+        if ((xb & yb) || (xi & yi) != 0) {
             c = 5;
             arithTest();
-            x &= y;
+            xb &= yb;
+            xi &= yi;
             arithTest();
-            x = x | y;
+            xb = xb | yb;
+            xi = xi | yi;
             arithTest();
-            x ^= y;
+            xb ^= yb;
+            xi ^= yi;
             arithTest();
-            x = x && y;
+            xb = xb && yb;
+            xi = (xi != 0) && (yi != 0) ? 1 : 0;
             arithTest();
             b <<= a;
             b <<= c;
         }
+	xi++;
         a&=b;
     }
     
