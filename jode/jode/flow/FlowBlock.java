@@ -122,8 +122,14 @@ public class FlowBlock {
      * @param jumps The jumps that jump to successor.  All jumps that
      * can be optimized are removed from this stack.
      */
-    public void optimizeJumps(Stack jumps) {
+    public void optimizeJumps(Stack jumps, FlowBlock succ) {
         Stack remainingJumps = new Stack();
+
+        if (lastModified.jump == null) {
+            Jump jump = new Jump(succ);
+            lastModified.setJump(jump);
+            remainingJumps.push(jump);
+        }
 
     next_jump:
         while (!jumps.isEmpty()) {
@@ -206,7 +212,7 @@ public class FlowBlock {
                         (loopBlock.jumpMayBeChanged()
                          || loopBlock.getNextFlowBlock() == successor)) {
                         
-                        if (loopBlock.jumpMayBeChanged()) {
+                        if (loopBlock.jump == null) {
                             loopBlock.moveJump(jump);
                             jumps.push(jump);
                         } else
@@ -240,7 +246,7 @@ public class FlowBlock {
                             (loopBlock.jumpMayBeChanged()
                              || loopBlock.getNextFlowBlock() == successor)) {
                             
-                            if (loopBlock.jumpMayBeChanged()) {
+                            if (loopBlock.jump == null) {
                                 loopBlock.moveJump(jump);
                                 jumps.push(jump);
                             } else
@@ -274,8 +280,7 @@ public class FlowBlock {
                     newIfBlock.setThenBlock(thenBlock);
 
                     if (thenBlock.contains(lastModified)) {
-                        if (lastModified.jump != null
-                            && lastModified.jump.destination == successor) {
+                        if (lastModified.jump.destination == successor) {
                             newIfBlock.moveJump(lastModified.jump);
                             lastModified = newIfBlock;
                             jump.prev.removeJump();
@@ -327,8 +332,7 @@ public class FlowBlock {
                         ifBlock.setElseBlock(elseBlock);
 
                         if (elseBlock.contains(lastModified)) {
-                            if (lastModified.jump != null
-                                && lastModified.jump.destination == successor) {
+                            if (lastModified.jump.destination == successor) {
                                 ifBlock.moveJump(lastModified.jump);
                                 lastModified = ifBlock;
                                 jump.prev.removeJump();
@@ -617,7 +621,7 @@ public class FlowBlock {
 
         /* Try to eliminate as many jumps as possible.
          */
-        optimizeJumps(jumps);
+        optimizeJumps(jumps, succ);
         resolveRemaining(jumps);
 
         /* Now unify the blocks.
@@ -737,7 +741,7 @@ public class FlowBlock {
             
             /* Try to eliminate as many jumps as possible.
              */
-            optimizeJumps(jumps);
+            optimizeJumps(jumps, this);
             
             LoopBlock whileBlock = 
                 new LoopBlock(LoopBlock.WHILE, LoopBlock.TRUE);
@@ -751,7 +755,7 @@ public class FlowBlock {
             while (!jumps.isEmpty()) {
                 Jump jump = (Jump) jumps.pop();
                 
-                if (jump.prev == bodyBlock)
+                if (jump.prev == lastModified)
                     /* handled later */
                     continue;
                 
@@ -780,11 +784,10 @@ public class FlowBlock {
                         (new BreakBlock(breakToBlock, breaklevel > 1));
             }
             
-            /* Now remove the jump of bodyBlock if it points to this.
+            /* Now remove the jump of lastModified if it points to this.
              */
-            if (bodyBlock.jump != null 
-                && bodyBlock.jump.destination == this)
-                bodyBlock.removeJump();
+            if (lastModified.jump.destination == this)
+                lastModified.removeJump();
         }
 
         /* remove ourself from the predecessor list.
@@ -805,11 +808,13 @@ public class FlowBlock {
     public void mergeEndBlock() {
         checkConsistent();
 
-        /* First find the innermost block that contains all jumps to the
-         * END_OF_METHOD block.
+        Stack allJumps = (Stack) successors.remove(END_OF_METHOD);
+        if (allJumps == null)
+            return;
+
+        /* First remove all implicit jumps to the END_OF_METHOD block.
          */
         Stack jumps = new Stack();
-        Stack allJumps = (Stack) successors.remove(END_OF_METHOD);
         Enumeration enum = allJumps.elements();
         while (enum.hasMoreElements()) {
             Jump jump = (Jump) enum.nextElement();
@@ -824,7 +829,7 @@ public class FlowBlock {
             
         /* Try to eliminate as many jumps as possible.
          */
-        optimizeJumps(jumps);
+        optimizeJumps(jumps, END_OF_METHOD);
             
     next_jump:
         while (!jumps.isEmpty()) {
@@ -863,8 +868,7 @@ public class FlowBlock {
         /* Now remove the jump of the lastModified if it points to
          * END_OF_METHOD.  
          */
-        if (lastModified.jump != null
-            && lastModified.jump.destination == END_OF_METHOD)
+        if (lastModified.jump.destination == END_OF_METHOD)
             lastModified.removeJump();
 
         /* transformation succeeded */
@@ -1327,9 +1331,11 @@ public class FlowBlock {
         if (tryFlow == catchFlow)
             throw new AssertError("try == catch");
 
+        checkConsistent();
         boolean changed = false;
         while(tryFlow.analyze(addr, catchFlow.addr));
         while(catchFlow.analyze(catchFlow.addr, end));
+        checkConsistent();
 
         updateInOut(tryFlow, true, (Stack) successors.remove(tryFlow));
         updateInOut(catchFlow, true, (Stack) successors.remove(catchFlow));
@@ -1410,7 +1416,9 @@ public class FlowBlock {
                     ((LocalLoadOperator)monexit.getSubExpressions()[0])
                     .getLocalInfo();
         
-                checkAndRemoveMonitorExit(local, end);
+                length -= tryFlow.length;
+                tryFlow.checkAndRemoveMonitorExit(local, end);
+                length += tryFlow.length;
 
                 SynchronizedBlock syncBlock = new SynchronizedBlock(local);
                 syncBlock.replace(rawBlock, rawBlock);
@@ -1475,7 +1483,7 @@ public class FlowBlock {
                 if (subRoutine.successors.size() != 0)
                     throw new AssertError("Jump inside subroutine");
                 length += subRoutine.length;
-                checkAndRemoveJSR(subRoutine);
+                tryFlow.checkAndRemoveJSR(subRoutine);
                 
                 CatchFinallyBlock newBlock = new CatchFinallyBlock();
                 newBlock.replace(rawBlock, rawBlock);
@@ -1491,50 +1499,53 @@ public class FlowBlock {
                    && ((InstructionBlock) catchFlow.block).getInstruction()
                    instanceof PopOperator
                    && ((PopOperator) ((InstructionBlock) catchFlow.block)
-                        .getInstruction()).getCount() == 1
-                   && successors.size() == 1) {
+                       .getInstruction()).getCount() == 1) {
 
             /* This is a special try/finally-block, where
              * the finally block ends with a break, return or
              * similar.
              */
             FlowBlock succ = catchFlow.block.jump.destination;
-            Stack jumps = (Stack) successors.remove(succ);
-            updateInOut(succ, true, jumps);
-
-            Stack stack = new Stack();
-            stack.push(catchFlow.block.jump);
-            successors.put(succ, stack);
-
-            jumps.removeElement(catchFlow.block.jump);
-            if (rawBlock.tryBlock.jump == null) {
-                Jump jump = new Jump(succ);
-                rawBlock.tryBlock.setJump(jump);
-                jumps.push(jump);
-            }
-
-            lastModified = tryFlow.lastModified;
-            optimizeJumps(jumps);
-            resolveRemaining(jumps);
-            
-            CatchFinallyBlock newBlock = new CatchFinallyBlock();
-            newBlock.replace(rawBlock, rawBlock);
-            newBlock.setTryBlock(rawBlock.tryBlock);
-            if (succ.predecessors.size() == 1) {
-                while (succ.analyze(addr+length, end));
-                length += succ.length;
-                successors.remove(succ);
-                newBlock.setFinallyBlock(succ.block);
-                mergeSuccessors(succ);
-            } else {
-                /* The finally block is empty, put the jump back 
-                 * into the finally block.
+            Stack jumps = (Stack) tryFlow.successors.remove(succ);
+            if (tryFlow.successors.size() > 0) {
+                /* Only do the rest if tryFlow has no other exit point,
+                 * undo the previous remove.
                  */
-                newBlock.setFinallyBlock(new EmptyBlock());
-                newBlock.finallyBlock.moveJump(catchFlow.block.jump);
+                tryFlow.successors.put(succ,jumps);
+
+            } else {
+
+                succ.predecessors.removeElement(tryFlow);
+
+                /* Handle the jumps in the tryFlow.  Note that
+                 * we call updateInOut on ourself, don't change it.
+                 */
+                updateInOut(succ, true, jumps);
+                tryFlow.optimizeJumps(jumps, succ);
+                tryFlow.resolveRemaining(jumps);
+                
+                CatchFinallyBlock newBlock = new CatchFinallyBlock();
+                newBlock.replace(rawBlock, rawBlock);
+                newBlock.setTryBlock(tryFlow.block);
+                /* try block has no successors */
+                
+                if (succ.predecessors.size() == 1) {
+                    while (succ.analyze(addr+length, end));
+                    length += succ.length;
+                    successors.remove(succ);
+                    newBlock.setFinallyBlock(succ.block);
+                    mergeSuccessors(succ);
+                } else {
+                    /* The finally block is empty, put the jump back 
+                     * into the finally block.
+                     */
+                    newBlock.setFinallyBlock
+                        (new EmptyBlock(catchFlow.block.jump));
+                    mergeSuccessors(catchFlow);
+                }
+                lastModified = newBlock;
+                changed = true;
             }
-            lastModified = newBlock;
-            changed = true;
         }
         checkConsistent();
         if (Decompiler.debugAnalyze)
@@ -1628,7 +1639,7 @@ public class FlowBlock {
                         updateInOut(nextFlow, true, lastJumps);
                         lastJumps.pop();
 
-                        lastFlow.optimizeJumps(lastJumps);
+                        lastFlow.optimizeJumps(lastJumps, nextFlow);
                         lastFlow.resolveRemaining(lastJumps);
                     } else
                         updateInOut(nextFlow, true, jumps);
@@ -1709,7 +1720,7 @@ public class FlowBlock {
             destJumps = new Stack();
             successors.put(jump.destination, destJumps);
         }
-        destJumps.addElement(jump);
+        destJumps.push(jump);
     }
 
     public void makeDeclaration(VariableSet param) {
