@@ -1479,7 +1479,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		} else {
 		    Object obj = fi.getConstant();
 		    if (obj == null)
-			obj = runtime.getDefaultValue(ref.getType());
+			obj = TypeSignature.getDefaultValue(ref.getType());
 		    ConstantInfo constInfo = new ConstantInfo(CONSTANT, obj);
 		    constantInfos.put(instr, constInfo);
 		    result = new ConstValue(obj);
