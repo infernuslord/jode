@@ -111,7 +111,8 @@ public class TabbedPrintWriter {
 	    else
 		println(" {");
 	else {
-	    println();
+	    if (!atbol)
+		println();
 	    if (currentIndent > 0)
 		tab();
 	    println("{");
