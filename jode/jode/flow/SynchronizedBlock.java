@@ -85,7 +85,7 @@ public class SynchronizedBlock extends StructuredBlock {
             writer.println("MISSING MONITORENTER");
         writer.print("synchronized ("
 		     + (object != null 
-			? object.simplify().toString()
+			? object.toString()
 			: local.getName()) + ")");
 	writer.openBrace();
         writer.tab();
@@ -93,6 +93,13 @@ public class SynchronizedBlock extends StructuredBlock {
         writer.untab();
 	writer.closeBrace();
     }
+
+    public void simplify() {
+	if (object != null)
+	    object = object.simplify();
+	super.simplify();
+    }
+    
 
     public boolean doTransformations() {
         StructuredBlock last = flowBlock.lastModified;

@@ -246,7 +246,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
                 /* special syntax for endless loops: */
                 writer.print("for (;;)");
             else
-                writer.print("while ("+cond.simplify().toString()+")");
+                writer.print("while ("+cond.toString()+")");
             break;
         case DOWHILE:
             writer.print("do");
@@ -259,11 +259,11 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
                                   init.getInstruction().getOperator())
                                  .getLocalInfo().getType().getHint()
                                  + " ");
-                writer.print(init.getInstruction().simplify().toString());
+                writer.print(init.getInstruction().toString());
             } else
                 writer.print("/**/");
-            writer.print("; "+cond.simplify().toString()+"; "
-                         +incr.getInstruction().simplify().toString()+")");
+            writer.print("; "+cond.toString()+"; "
+                         +incr.getInstruction().toString()+")");
             break;
         }
 	if (needBrace)
@@ -439,8 +439,19 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         return mayChangeJump;
     }
 
+    public void simplify() {
+	cond = cond.simplify();
+	if (type == FOR) {
+	    incr.simplify();
+	    if (init != null)
+		init.simplify();
+	}
+	super.simplify();
+    }
+
     public boolean doTransformations() {
         return init == null && (type == FOR || type == POSSFOR)
             && CreateForInitializer.transform(this, flowBlock.lastModified);
     }
 }
+

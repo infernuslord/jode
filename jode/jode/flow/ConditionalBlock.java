@@ -122,7 +122,7 @@ public class ConditionalBlock extends InstructionContainer {
     public void dumpInstruction(TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        writer.println("IF ("+instr.simplify().toString()+")");
+        writer.println("IF ("+instr.toString()+")");
         writer.tab();
         trueBlock.dumpSource(writer);
         writer.untab();
@@ -135,3 +135,4 @@ public class ConditionalBlock extends InstructionContainer {
             || CreateIfThenElseOperator.createFunny(this, last);
     }
 }
+

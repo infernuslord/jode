@@ -99,6 +99,12 @@ public abstract class InstructionContainer extends StructuredBlock {
         return instr;
     }
 
+    public void simplify() {
+	if (instr != null)
+	    instr = instr.simplify();
+	super.simplify();
+    }
+
     /**
      * Set the contained instruction.
      * @param instr the new instruction.
