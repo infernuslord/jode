@@ -458,7 +458,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	 * Some other InnerClass records, the extra classes.  This is
 	 * optional, but we don't want to loose this information if we
 	 * just transform classes, so we memorize for which classes we
-	 * have to keep the inforamtion anyway.
+	 * have to keep the information anyway.
 	 *
 	 * Currently we don't use all informations, since we don't
 	 * update the information for inner/outer/extra classes or
@@ -493,6 +493,18 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    int access = input.readUnsignedShort();
 	    if (innername != null && innername.length() == 0)
 		innername = null;
+
+	    /* Some compilers give method scope classes a valid
+	     * outer field, but we mustn't handle them as inner
+	     * classes.  The best way to distinguish this case 
+	     * is by the class name.
+	     */
+	    if (outer != null && innername != null
+		&& inner.length() > outer.length() + 2 + innername.length()
+		&& inner.startsWith(outer+"$") 
+		&& inner.endsWith("$"+innername)
+		&& Character.isDigit(inner.charAt(outer.length() + 1)))
+		outer = null;
 
 	    ClassInfo innerCI = classpath.getClassInfo(inner);
 	    ClassInfo outerCI = null;
