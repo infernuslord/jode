@@ -80,7 +80,7 @@ public class Reference {
     }
 	
     public String toString() {
-	return className + "." + memberName + "." + memberType;
+	return className + " " + memberName + " " + memberType;
     }
 
     public boolean equals(Object o) {
