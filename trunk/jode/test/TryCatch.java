@@ -142,7 +142,7 @@ class TryCatch {
     }
 
     void finallyMayBreak() {
-        while(true) {
+        while(simple() > 3) {
             try {
                 System.err.println();
             } finally {
