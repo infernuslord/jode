@@ -85,7 +85,7 @@ public class LocalVariableRangeList {
         return li;
     }
 
-    public void addLocal(int start, int length, 
+    public void addLocal(int start, int length,
                          String name, Type type) {
         MyLocalInfo li = new MyLocalInfo(slot,start,length,name,type);
         add (li);
