@@ -73,31 +73,26 @@ public class Expression extends Instruction {
     public Expression tryToCombine(Expression e) {
 	if (e.operator instanceof StoreInstruction) {
 	    StoreInstruction store = (StoreInstruction) e.operator;
-	    Expression search = this;
-            while (true) {
-		if (store.matches(search.operator)) {
-		    int i;
-		    for (i=0; i < e.subExpressions.length-1; i++) {
-			if (!e.subExpressions[i].equals
-			    (search.subExpressions[i]))
-			    break;
-		    }
-		    if (i == e.subExpressions.length-1) {
-			search.operator =
-                            new AssignOperator(store.getOperator(), store);
-			search.subExpressions = e.subExpressions;
-			return this;
-		    }
+	    if (store.matches(operator)) {
+		int i;
+		for (i=0; i < e.subExpressions.length-1; i++) {
+		    if (!e.subExpressions[i].equals
+			(subExpressions[i]))
+			break;
 		}
-                if (search.subExpressions.length == 0)
-                    break;
-                if (search.getOperator() instanceof AssignOperator)
-                    search = search.subExpressions[subExpressions.length-1];
-                else if (search.getOperator() instanceof StringAddOperator &&
-                         search.subExpressions[1] == emptyString)
-                    search = search.subExpressions[1];
-                else
-                    search = search.subExpressions[0];
+		if (i == e.subExpressions.length-1) {
+		    operator =
+			new AssignOperator(store.getOperator(), store);
+		    subExpressions = e.subExpressions;
+		    return this;
+		}
+	    }
+	    for (int i=0; i < subExpressions.length; i++) {
+		Expression combined = subExpressions[i].tryToCombine(e);
+		if (combined != null) {
+		    subExpressions[i] = combined;
+		    return this;
+		}
 	    }
 	}
 	return null;

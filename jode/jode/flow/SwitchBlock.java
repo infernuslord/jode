@@ -23,27 +23,82 @@ import jode.TabbedPrintWriter;
 /**
  * This is the structured block for an empty block.
  */
-public class SwitchBlock extends BreakableBlock {
-    int[] cases;
-    StructuredBlock[] caseBlocks;
+public class SwitchBlock extends InstructionContainer 
+implements BreakableBlock {
+    CaseBlock[] caseBlocks;
 
-    public SwitchBlock(int[] cases, int[] dests) {
-        this.cases = cases;
-        this.caseBlocks = new StructuredBlock[dests.length];
-        for (int i=0; i<dests.length; i++) {
-            /* XXX sort the destinations, multi-cases? */
-            caseBlocks[i] = new EmptyBlock(new Jump(dests[i]));
+    public SwitchBlock(jode.Instruction instr,
+		       int[] cases, int[] dests) {
+	super(instr);
+        this.caseBlocks = new CaseBlock[dests.length];
+	int lastDest = -1;
+	boolean lastBlock = true;
+        for (int i=dests.length-1; i>=0; i--) {
+	    /**
+	     * Sort the destinations by finding the greatest destAddr
+	     */
+	    int index = 0;
+	    for (int j=1; j<dests.length; j++) {
+		if (dests[j] >= dests[index])
+		    index = j;
+	    }
+
+	    int value;
+	    if (index == cases.length)
+		value = -1;
+	    else
+		value = cases[index];
+
+	    if (dests[index] == lastDest)
+		this.caseBlocks[i] = new CaseBlock(value);
+	    else
+		this.caseBlocks[i] = new CaseBlock(value, 
+						   new Jump(dests[index]));
+	    this.caseBlocks[i].outer = this;
+	    this.caseBlocks[i].isLastBlock = lastBlock;
+	    lastBlock = false;
+	    lastDest = dests[index];
+	    dests[index] = -1;
+	    if (index == cases.length)
+		this.caseBlocks[i].isDefault = true;
         }
         this.jump = null;
         mayChangeJump = true;
     }
 
-    public void dumpInstruction(TabbedPrintWriter writer) 
-	throws java.io.IOException
-    {
-        writer.println("switch (/* XXX implement */)");
+    /**
+     * Find the case that jumps directly to destination.
+     * @return The sub block of the case block, which jumps to destination.
+     */
+    public StructuredBlock findCase(FlowBlock destination) {
+	for (int i=0; i < caseBlocks.length; i++) {
+	    if (caseBlocks[i].subBlock != null
+		&& caseBlocks[i].subBlock instanceof EmptyBlock
+		&& caseBlocks[i].subBlock.jump != null
+		&& caseBlocks[i].subBlock.jump.destination == destination)
+		
+		return caseBlocks[i].subBlock;
+	}
+	return null;
     }
 
+    /**
+     * Find the case that precedes the given case.
+     * @param block The sub block of the case, whose predecessor should
+     * be returned.
+     * @return The sub block of the case precedes the given case.
+     */
+    public StructuredBlock prevCase(StructuredBlock block) {
+	for (int i=caseBlocks.length-1; i>=0; i--) {
+	    if (caseBlocks[i].subBlock == block) {
+		for (i--; i>=0; i--) {
+		    if (caseBlocks[i].subBlock != null)
+			return caseBlocks[i].subBlock;
+		}
+	    }
+	}
+	return null;
+    }
 
     /**
      * Returns the block where the control will normally flow to, when
@@ -53,13 +108,39 @@ public class SwitchBlock extends BreakableBlock {
      * the behaviour is undefined, so take care.  
      * @return null, if the control flows to another FlowBlock.  */
     public StructuredBlock getNextBlock(StructuredBlock subBlock) {
-        /*XXX*/
+	for (int i=0; i< caseBlocks.length-1; i++) {
+	    if (subBlock == caseBlocks[i]) {
+		return caseBlocks[i+1];
+	    }
+	}
         return getNextBlock();
     }
 
     public FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
-        /*XXX*/
+	for (int i=0; i< caseBlocks.length-1; i++) {
+	    if (subBlock == caseBlocks[i]) {
+		return null;
+	    }
+	}
         return getNextFlowBlock();
+    }
+
+    public void dumpInstruction(TabbedPrintWriter writer) 
+	throws java.io.IOException
+    {
+        writer.println("switch ("+instr+") {");
+	for (int i=0; i < caseBlocks.length; i++)
+	    caseBlocks[i].dumpSource(writer);
+	writer.println("}");
+    }
+
+    public void setInstruction(jode.Instruction instr) {
+	super.setInstruction(instr);
+	sun.tools.java.Type type = instr.getType();
+	if (type != caseBlocks[0].type) {
+	    for (int i=0; i < caseBlocks.length; i++)
+		caseBlocks[i].type = type;
+	}
     }
 
     /**
@@ -68,5 +149,42 @@ public class SwitchBlock extends BreakableBlock {
     public StructuredBlock[] getSubBlocks() {
         return caseBlocks;
     }
-}
 
+    boolean mayChangeJump = true;
+
+    /**
+     * The serial number for labels.
+     */
+    static int serialno = 0;
+
+    /**
+     * The label of this instruction, or null if it needs no label.
+     */
+    String label = null;
+
+    /**
+     * Returns the label of this block and creates a new label, if
+     * there wasn't a label previously.
+     */
+    public String getLabel() {
+        if (label == null)
+            label = "switch_"+(serialno++)+"_";
+        return label;
+    }
+
+    /**
+     * Is called by BreakBlock, to tell us that this block is breaked.
+     */
+    public void setBreaked() {
+	mayChangeJump = false;
+    }
+
+    /**
+     * Determines if there is a sub block, that flows through to the end
+     * of this block.  If this returns true, you know that jump is null.
+     * @return true, if the jump may be safely changed.
+     */
+    public boolean jumpMayBeChanged() {
+        return mayChangeJump;
+    }
+}

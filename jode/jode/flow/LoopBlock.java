@@ -23,7 +23,7 @@ import jode.*;
 /**
  * This is the structured block for an Loop block.
  */
-public class LoopBlock extends BreakableBlock {
+public class LoopBlock extends StructuredBlock implements BreakableBlock {
 
     public static final int WHILE = 0;
     public static final int DOWHILE = 1;
@@ -130,6 +130,11 @@ public class LoopBlock extends BreakableBlock {
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
+        if (label != null) {
+            writer.untab();
+            writer.println(label+":");
+            writer.tab();
+        }
         boolean needBrace = ! (bodyBlock instanceof InstructionBlock);
         switch (type) {
         case WHILE:
@@ -152,5 +157,44 @@ public class LoopBlock extends BreakableBlock {
                            "while ("+cond.toString()+")");
         else if (needBrace)
             writer.println("}");
+    }
+
+
+    boolean mayChangeJump = true;
+
+    /**
+     * The serial number for labels.
+     */
+    static int serialno = 0;
+
+    /**
+     * The label of this instruction, or null if it needs no label.
+     */
+    String label = null;
+
+    /**
+     * Returns the label of this block and creates a new label, if
+     * there wasn't a label previously.
+     */
+    public String getLabel() {
+        if (label == null)
+            label = "while_"+(serialno++)+"_";
+        return label;
+    }
+
+    /**
+     * Is called by BreakBlock, to tell us that this block is breaked.
+     */
+    public void setBreaked() {
+	mayChangeJump = false;
+    }
+
+    /**
+     * Determines if there is a sub block, that flows through to the end
+     * of this block.  If this returns true, you know that jump is null.
+     * @return true, if the jump may be safely changed.
+     */
+    public boolean jumpMayBeChanged() {
+        return mayChangeJump;
     }
 }

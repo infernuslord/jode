@@ -24,6 +24,8 @@ import java.lang.reflect.Modifier;
 public class Decompiler {
     public static boolean isVerbose = false;
     public static boolean isDebugging = false;
+    public static boolean isTypeDebugging = false;
+    public static boolean showLVT = false;
 
     public static void main(String[] params) {
         JodeEnvironment env = new JodeEnvironment();
@@ -32,6 +34,10 @@ public class Decompiler {
                 isVerbose = true;
             else if (params[i].equals("-debug"))
                 isDebugging = true;
+            else if (params[i].equals("-type"))
+                isTypeDebugging = true;
+            else if (params[i].equals("-lvt"))
+                showLVT = true;
             else
                 env.doClass(params[i]);
         }

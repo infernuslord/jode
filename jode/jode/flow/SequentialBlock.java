@@ -63,6 +63,22 @@ public class SequentialBlock extends StructuredBlock {
         return getNextFlowBlock();
     }
     
+    /**
+     * Make the declarations, i.e. initialize the declare variable
+     * to correct values.  This will declare every variable that
+     * is marked as used, but not done.
+     * @param done The set of the already declare variables.
+     */
+    public void makeDeclaration(VariableSet done) {
+	/* A sequential block is special, since it doesn't declare
+	 * any local Variable, but let the first sub block do this.
+	 */
+	declare = new VariableSet();
+	subBlocks[0].makeDeclaration(done);
+	done.addExact(used);
+	subBlocks[1].makeDeclaration(done);
+    }
+
     public void dumpInstruction(TabbedPrintWriter writer)
         throws java.io.IOException
     {

@@ -70,7 +70,7 @@ public abstract class StructuredBlock {
      * The variable set containing all variables we must declare.
      * The analyzation is done in makeDeclaration
      */
-    VariableSet declare = new VariableSet();
+    VariableSet declare;
 
     /**
      * The surrounding structured block.  If this is the outermost
@@ -285,15 +285,10 @@ public abstract class StructuredBlock {
         }
         if (subs.length == 2) {
             /* All variables used in both sub blocks, are used in
-             * this block, too.  But a sequential block is a notable
-             * exception, since it is enough if the first sub block
-             * declares the Variable
-             */
+             * this block, too.  
+	     */
             VariableSet newUse = childUse[0].intersectExact(childUse[1]);
-            if (this instanceof SequentialBlock)
-                subs[0].used.addExact(newUse);
-            else
-                used.addExact(newUse);
+	    used.addExact(newUse);
         }
         return allUse;
     }
@@ -305,8 +300,13 @@ public abstract class StructuredBlock {
      * @param done The set of the already declare variables.
      */
     public void makeDeclaration(VariableSet done) {
-        propagateUsage();
-	declare.addExact(used);
+	declare = new VariableSet();
+	java.util.Enumeration enum = used.elements();
+	while (enum.hasMoreElements()) {
+	    LocalInfo local = ((LocalInfo) enum.nextElement()).getLocalInfo();
+	    if (!declare.contains(local))
+		declare.addElement(local);
+	}
 	declare.subtractExact(done);
 	done.addExact(declare);
 

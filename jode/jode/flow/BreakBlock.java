@@ -26,8 +26,8 @@ public class BreakBlock extends StructuredBlock {
     String label;
 
     public BreakBlock(BreakableBlock breaksBlock, boolean needsLabel) {
-        this.breaksBlock = breaksBlock;
-        breaksBlock.mayChangeJump = false;
+        this.breaksBlock = (StructuredBlock) breaksBlock;
+        breaksBlock.setBreaked();
         if (needsLabel) 
             label = breaksBlock.getLabel();
         else

@@ -21,6 +21,7 @@ package jode.flow;
 import java.util.*;
 import jode.TabbedPrintWriter;
 import jode.Expression;
+import jode.CodeAnalyzer;
 
 /**
  * A flow block is the structure of which the flow graph consists.  A
@@ -34,11 +35,17 @@ import jode.Expression;
 public class FlowBlock {
 
     static FlowBlock END_OF_METHOD = 
-        new FlowBlock(Integer.MAX_VALUE, 0, new EmptyBlock());
+        new FlowBlock(null, Integer.MAX_VALUE, 0, new EmptyBlock());
 
     static {
         END_OF_METHOD.label = "END_OF_METHOD";
     }
+
+    /**
+     * The code analyzer.  This is used to pretty printing the
+     * Types and to get information about all locals in this code.
+     */
+    CodeAnalyzer code;
 
     /**
      * The in locals.  This are the locals, which are used in this
@@ -89,7 +96,9 @@ public class FlowBlock {
      * The default constructor.  Creates a new flowblock containing
      * only the given structured block.
      */
-    public FlowBlock(int addr, int length, StructuredBlock block) {
+    public FlowBlock(CodeAnalyzer code, int addr, int length, 
+		     StructuredBlock block) {
+	this.code = code;
         this.addr = addr;
         this.length = length;
         this.block = block;
@@ -657,15 +666,32 @@ public class FlowBlock {
          */
         StructuredBlock precedingcase = null;
         StructuredBlock nextcase = null;
-        /*XXX*/
+	if (appendBlock instanceof SwitchBlock) {
+	    nextcase = ((SwitchBlock) appendBlock).findCase(succ);
+	    precedingcase = 
+		((SwitchBlock) appendBlock).prevCase(precedingcase);
+	    
+	    enum = successors.elements();
+	    while (nextcase != null && enum.hasMoreElements()) {
+		Jump jump = (Jump) enum.nextElement();
+		if (jump == null
+		    || jump.destination != succ 
+		    || jump.prev == nextcase
+		    || (precedingcase != null 
+			&& precedingcase.contains(jump.prev)))
+		    continue;
+		
+		nextcase = null;
+	    }
+	}
         if (succ == END_OF_METHOD) {
         } else if (nextcase != null) {
             SwitchBlock switchBlock = (SwitchBlock) appendBlock;
 
             /* Now put the succ.block into the next case.
              */
-            switchBlock.replaceSubBlock(nextcase,succ.block);
-            succ.block.outer = switchBlock;
+	    nextcase.removeJump();
+            succ.block.replace(nextcase, succ.block);
             /* nextcase is not referenced any more */
 
             /* Do the following modifications on the struct block. */
@@ -750,56 +776,63 @@ public class FlowBlock {
             }
         }
 
-        /* Now remove the jump of the appendBlock if it points to successor.
-         */
-        if (appendBlock.jump != null &&
-            appendBlock.jump.destination == succ)
-            appendBlock.removeJump();
-
-        /* If there are further jumps, put a do/while(0) block around
-         * appendBlock and replace every remaining jump with a break
-         * to the do/while block.
-         */
-        LoopBlock doWhileFalse = null;
-        enum = successors.elements();
-        while (enum.hasMoreElements()) {
-            Jump jump = (Jump) enum.nextElement();
-
-            if (jump == null || jump.destination != succ)
-                continue;
-
-            if (doWhileFalse == null)
-                doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
-                                             LoopBlock.FALSE);
-
-            int breaklevel = 1;
-            for (StructuredBlock surrounder = jump.prev.outer;
-                 surrounder != appendBlock.outer; 
-                 surrounder = surrounder.outer) {
-                if (surrounder instanceof BreakableBlock) {
-                    breaklevel++;
-                }
-            }
-
-            SequentialBlock sequBlock = new SequentialBlock();
-            StructuredBlock prevBlock = jump.prev;
-            prevBlock.removeJump();
-            
-            sequBlock.replace(prevBlock, prevBlock);
-            sequBlock.setFirst(prevBlock);
-            sequBlock.setSecond(new BreakBlock(doWhileFalse, breaklevel > 1));
-        }
-
-        if (doWhileFalse != null) {
-            doWhileFalse.replace(appendBlock, appendBlock);
-            doWhileFalse.setBody(appendBlock);
-        }
-        
-        /* Believe it or not: Now the rule, that the first part of a
-         * SequentialBlock shouldn't be another SequentialBlock is
-         * fulfilled. <p>
-         *
-         * This isn't easy to prove, it has a lot to do with the
+	/* appendBlock may be zero, if this is the switchcase with
+	 * precedingcase = null.  But in this case, there can't be
+	 * any jumps.
+	 */
+	if (appendBlock != null) {
+	    /* Now remove the jump of the appendBlock if it points to
+	     * successor.  
+	     */
+	    if (appendBlock.jump != null
+		&& appendBlock.jump.destination == succ)
+		appendBlock.removeJump();
+	    
+	    /* If there are further jumps, put a do/while(0) block around
+	     * appendBlock and replace every remaining jump with a break
+	     * to the do/while block.
+	     */
+	    LoopBlock doWhileFalse = null;
+	    enum = successors.elements();
+	    while (enum.hasMoreElements()) {
+		Jump jump = (Jump) enum.nextElement();
+	    
+		if (jump == null || jump.destination != succ)
+		    continue;
+		
+		if (doWhileFalse == null)
+		    doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
+						 LoopBlock.FALSE);
+		
+		int breaklevel = 1;
+		for (StructuredBlock surrounder = jump.prev.outer;
+		     surrounder != appendBlock.outer; 
+		     surrounder = surrounder.outer) {
+		    if (surrounder instanceof BreakableBlock) {
+			breaklevel++;
+		    }
+		}
+		
+		SequentialBlock sequBlock = new SequentialBlock();
+		StructuredBlock prevBlock = jump.prev;
+		prevBlock.removeJump();
+		
+		sequBlock.replace(prevBlock, prevBlock);
+		sequBlock.setFirst(prevBlock);
+		sequBlock.setSecond(new BreakBlock(doWhileFalse, breaklevel > 1));
+	    }
+	    
+	    if (doWhileFalse != null) {
+		doWhileFalse.replace(appendBlock, appendBlock);
+		doWhileFalse.setBody(appendBlock);
+	    }
+	}
+	    
+	/* Believe it or not: Now the rule, that the first part of a
+	 * SequentialBlock shouldn't be another SequentialBlock is
+	 * fulfilled. <p>
+	 *
+	 * This isn't easy to prove, it has a lot to do with the
          * transformation in optimizeJump and the fact that
          * appendBlock was the innermost Block containing all jumps
          * and lastModified.
@@ -867,6 +900,21 @@ public class FlowBlock {
 
         /* Update the in/out-Vectors now */
         VariableSet defineHere = updateInOut(this, false);
+
+	
+	while (lastModified != block) {
+	    lastModified = lastModified.outer;
+	    if (lastModified instanceof SequentialBlock
+		&& lastModified.getSubBlocks()[0] 
+		instanceof RawTryCatchBlock) {
+		
+		/* We leave the catch block of a raw-try-catch-block.
+		 * We shall now create the Catch- resp. FinallyBlock.
+		 */
+		lastModified = 
+		    createCatchBlock((SequentialBlock)lastModified);
+	    }
+	}
 
         /* If there is only one jump to the beginning and it is the
          * last jump and (there is a do/while(0) block surrounding
@@ -1000,6 +1048,7 @@ public class FlowBlock {
     public void makeDeclaration(VariableSet param) {
 	in.merge(param);
 	in.subtract(param);
+	block.propagateUsage();
 	block.makeDeclaration(param);
     }
 

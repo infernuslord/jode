@@ -238,6 +238,8 @@ public class ClassRangeType extends MyType {
     /**
      * Returns the generalized type of t1 and t2, e.g
      *  tObject, tString -> tObject
+     *  object , interface -> object
+     *       since a sub class of object may implement interface
      *  int    , short   -> int
      *  tArray(tObject), tArray(tUnknown) -> tArray(tUnknown)
      *  tArray(tUnknown), tObject -> tObject
@@ -308,14 +310,14 @@ public class ClassRangeType extends MyType {
 	ClassDeclaration c2 = new ClassDeclaration(t2.getClassName());
 	
 	try {
-	    /* if one of the two types is an interface which
-	     * is implemented by the other type the interface
-	     * is the result.
+	    /* if one of the two types is an interface, return
+	     * the other type, since at least a subtype of the
+	     * other type may implement the interface.
 	     */
-	    if (c1.getClassDefinition(env).implementedBy(env, c2))	
-		return t1;
-	    if (c2.getClassDefinition(env).implementedBy(env, c1))
+	    if (c1.getClassDefinition(env).isInterface())
 		return t2;
+	    if (c2.getClassDefinition(env).isInterface())
+		return t1;
 
 	    ClassDefinition c = c1.getClassDefinition(env);
 	    while(c != null && !c.superClassOf(env, c2)) {
@@ -339,7 +341,11 @@ public class ClassRangeType extends MyType {
                                " to <" + bottom + "-" + top + 
                                "> to <error>");
             Thread.dumpStack();
-        }
+        } else if (Decompiler.isTypeDebugging) {
+            System.err.println("intersecting "+ this +" and "+ type + 
+                               " to <" + bottom + "-" + top + 
+                               "> to " + newType);
+	}	    
         return newType;
     }
 
@@ -350,7 +356,7 @@ public class ClassRangeType extends MyType {
 
     public String typeString(String string, boolean flag1, boolean flag2)
     {
-	if (Decompiler.isDebugging)
+	if (Decompiler.isTypeDebugging)
 	    return "<"+bottomType+"-"+topType+">" + string;
 	else if (bottomType != null)
 	    return bottomType.typeString(string, flag1, flag2);

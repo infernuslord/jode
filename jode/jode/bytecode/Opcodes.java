@@ -48,40 +48,65 @@ public abstract class Opcodes implements RuntimeConstants {
     };
 
 
-    public static FlowBlock createNormal(int addr, int length, 
+    public static FlowBlock createNormal(CodeAnalyzer ca, 
+					 int addr, int length, 
                                          Instruction instr)
     {
-        return new FlowBlock(addr, length,
+        return new FlowBlock(ca, addr, length,
                              new InstructionBlock(instr, 
                                                   new Jump(addr+length)));
     }
 
-    public static FlowBlock createGoto(int addr, int length, 
+    public static FlowBlock createGoto(CodeAnalyzer ca,
+				       int addr, int length, 
                                        int destAddr)
     {
-        return new FlowBlock(addr, length, new EmptyBlock(new Jump(destAddr)));
+        return new FlowBlock(ca, addr, length, 
+			     new EmptyBlock(new Jump(destAddr)));
     }
 
-    public static FlowBlock createIfGoto(int addr, int length, 
+    public static FlowBlock createJsr(CodeAnalyzer ca,
+				      int addr, int length, 
+				      int destAddr)
+    {
+        return new FlowBlock(ca, addr, length, 
+			     new JsrBlock(new Jump(addr+length),
+					  new Jump(destAddr)));
+    }
+
+    public static FlowBlock createIfGoto(CodeAnalyzer ca, 
+					 int addr, int length, 
                                          int destAddr, Instruction instr)
     {
         ConditionalBlock ifBlock = 
             new ConditionalBlock(instr, 
                                  new Jump(destAddr),
                                  new Jump(addr+length));
-        return new FlowBlock(addr, length, ifBlock);
+        return new FlowBlock(ca, addr, length, ifBlock);
     }
 
-    public static FlowBlock createSwitch(int addr, int length, 
+    public static FlowBlock createSwitch(CodeAnalyzer ca,
+					 int addr, int length, 
                                          int[] cases, int[] dests)
     {
-        return new FlowBlock(addr, length, new SwitchBlock(cases, dests));
+        return new FlowBlock(ca, addr, length, 
+			     new SwitchBlock(new NopOperator(MyType.tInt), 
+					     cases, dests));
     }
 
-    public static FlowBlock createBlock(int addr, int length, 
+    public static FlowBlock createBlock(CodeAnalyzer ca,
+					int addr, int length, 
                                         StructuredBlock block)
     {
-        return new FlowBlock(addr, length, block);
+        return new FlowBlock(ca, addr, length, block);
+    }
+
+    public static FlowBlock createRet(CodeAnalyzer ca,
+				      int addr, int length, 
+				      LocalInfo local)
+    {
+        return new FlowBlock(ca, addr, length, 
+			     new RetBlock(local));
     }
 
     /**
@@ -103,43 +128,43 @@ public abstract class Opcodes implements RuntimeConstants {
             int opcode = stream.readUnsignedByte();
             switch (opcode) {
             case opc_nop:
-                return createNormal(addr, 1, new NopOperator());
+                return createNormal(ca, addr, 1, new NopOperator());
             case opc_aconst_null:
                 return createNormal
-		    (addr, 1, new ConstOperator(OBJECT_TYPE, "null"));
+		    (ca, addr, 1, new ConstOperator(OBJECT_TYPE, "null"));
 	    case opc_iconst_m1: 
             case opc_iconst_0: case opc_iconst_1: case opc_iconst_2:
             case opc_iconst_3: case opc_iconst_4: case opc_iconst_5:
                 return createNormal
-                    (addr, 1, new ConstOperator
+                    (ca, addr, 1, new ConstOperator
 		     (ALL_INT_TYPE, Integer.toString(opcode - opc_iconst_0)));
             case opc_lconst_0: case opc_lconst_1:
 		return createNormal
-		    (addr, 1, new ConstOperator
+		    (ca, addr, 1, new ConstOperator
 		     (LONG_TYPE, 
 		      Integer.toString(opcode - opc_lconst_0) + "L"));
 	    case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
 		return createNormal
-		    (addr, 1, new ConstOperator
+		    (ca, addr, 1, new ConstOperator
 		     (FLOAT_TYPE, 
 		      Integer.toString(opcode - opc_fconst_0) + ".0F"));
             case opc_dconst_0: case opc_dconst_1:
 		return createNormal
-		    (addr, 1, new ConstOperator
+		    (ca, addr, 1, new ConstOperator
 		     (DOUBLE_TYPE, 
 		      Integer.toString(opcode - opc_dconst_0) + ".0"));
             case opc_bipush:
 		return createNormal
-		    (addr, 2, new ConstOperator
+		    (ca, addr, 2, new ConstOperator
 		     (ALL_INT_TYPE, Integer.toString(stream.readByte())));
             case opc_sipush:
 		return createNormal
-                    (addr, 3, new ConstOperator
+                    (ca, addr, 3, new ConstOperator
 		     (ALL_INT_TYPE, Integer.toString(stream.readShort())));
             case opc_ldc: {
                 int index = stream.readUnsignedByte();
 		return createNormal
-                    (addr, 2, new ConstOperator
+                    (ca, addr, 2, new ConstOperator
 		     (ca.env.getConstantType(index),
 		      ca.env.getConstant(index).toString()));
             }
@@ -147,14 +172,14 @@ public abstract class Opcodes implements RuntimeConstants {
             case opc_ldc2_w: {
                 int index = stream.readUnsignedShort();
 		return createNormal
-                    (addr, 3, new ConstOperator
+                    (ca, addr, 3, new ConstOperator
 		     (ca.env.getConstantType(index),
 		      ca.env.getConstant(index).toString()));
 	    }
             case opc_iload: case opc_lload: 
             case opc_fload: case opc_dload: case opc_aload:
 		return createNormal
-                    (addr, 2, new LocalLoadOperator
+                    (ca, addr, 2, new LocalLoadOperator
 		     (types[0][opcode-opc_iload],
 		      ca.getLocalInfo(addr, stream.readUnsignedByte())));
             case opc_iload_0: case opc_iload_1: case opc_iload_2: case opc_iload_3:
@@ -163,19 +188,19 @@ public abstract class Opcodes implements RuntimeConstants {
             case opc_dload_0: case opc_dload_1: case opc_dload_2: case opc_dload_3:
             case opc_aload_0: case opc_aload_1: case opc_aload_2: case opc_aload_3:
 		return createNormal
-                    (addr, 1, new LocalLoadOperator
+                    (ca, addr, 1, new LocalLoadOperator
 		     (types[0][(opcode-opc_iload_0)/4],
 		      ca.getLocalInfo(addr, (opcode-opc_iload_0) & 3)));
             case opc_iaload: case opc_laload: 
             case opc_faload: case opc_daload: case opc_aaload:
             case opc_baload: case opc_caload: case opc_saload:
 		return createNormal
-		    (addr, 1, new ArrayLoadOperator
+		    (ca, addr, 1, new ArrayLoadOperator
 		     (types[1][opcode - opc_iaload]));
             case opc_istore: case opc_lstore: 
             case opc_fstore: case opc_dstore: case opc_astore:
 		return createNormal
-                    (addr, 2, new LocalStoreOperator
+                    (ca, addr, 2, new LocalStoreOperator
 		     (types[0][opcode-opc_istore],
 		      ca.getLocalInfo(addr, stream.readUnsignedByte()),
 		      Operator.ASSIGN_OP));
@@ -190,7 +215,7 @@ public abstract class Opcodes implements RuntimeConstants {
             case opc_astore_0: case opc_astore_1:
             case opc_astore_2: case opc_astore_3:
 		return createNormal
-                    (addr, 1, new LocalStoreOperator
+                    (ca, addr, 1, new LocalStoreOperator
 		     (types[0][(opcode-opc_istore_0)/4],
 		      ca.getLocalInfo(addr, (opcode-opc_istore_0) & 3),
 		      Operator.ASSIGN_OP));
@@ -198,43 +223,43 @@ public abstract class Opcodes implements RuntimeConstants {
             case opc_fastore: case opc_dastore: case opc_aastore:
             case opc_bastore: case opc_castore: case opc_sastore:
 		return createNormal
-                    (addr, 1, new ArrayStoreOperator
+                    (ca, addr, 1, new ArrayStoreOperator
 		     (types[1][opcode - opc_iastore]));
             case opc_pop: case opc_pop2:
 		return createNormal
-		    (addr, 1, new PopOperator(opcode - opc_pop + 1));
+		    (ca, addr, 1, new PopOperator(opcode - opc_pop + 1));
             case opc_dup: case opc_dup_x1: case opc_dup_x2:
             case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
 		return createNormal
-                    (addr, 1, new DupOperator
+                    (ca, addr, 1, new DupOperator
 		     ((opcode - opc_dup)%3, (opcode - opc_dup)/3+1));
             case opc_swap:
-                return createNormal(addr, 1, new SwapOperator());
+                return createNormal(ca, addr, 1, new SwapOperator());
             case opc_iadd: case opc_ladd: case opc_fadd: case opc_dadd:
             case opc_isub: case opc_lsub: case opc_fsub: case opc_dsub:
             case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
             case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
             case opc_irem: case opc_lrem: case opc_frem: case opc_drem:
 		return createNormal
-                    (addr, 1, new BinaryOperator
+                    (ca, addr, 1, new BinaryOperator
 		     (types[0][(opcode - opc_iadd)%4],
 		      (opcode - opc_iadd)/4+Operator.ADD_OP));
             case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg:
 		return createNormal
-                    (addr, 1, new UnaryOperator
+                    (ca, addr, 1, new UnaryOperator
 		     (types[0][opcode - opc_ineg], Operator.NEG_OP));
             case opc_ishl: case opc_lshl:
             case opc_ishr: case opc_lshr:
             case opc_iushr: case opc_lushr:
                 return createNormal
-		    (addr, 1, new ShiftOperator
+		    (ca, addr, 1, new ShiftOperator
 		     (types[0][(opcode - opc_ishl)%2],
 		      (opcode - opc_ishl)/2 + Operator.SHIFT_OP));
             case opc_iand: case opc_land:
             case opc_ior : case opc_lor :
             case opc_ixor: case opc_lxor:
                 return createNormal
-		    (addr, 1, new BinaryOperator
+		    (ca, addr, 1, new BinaryOperator
 		     (types[0][(opcode - opc_iand)%2],
 		      (opcode - opc_iand)/2 + Operator.AND_OP));
             case opc_iinc: {
@@ -247,7 +272,7 @@ public abstract class Opcodes implements RuntimeConstants {
                 }
                 LocalInfo li = ca.getLocalInfo(addr, local);
                 return createNormal
-		    (addr, 3, new IIncOperator
+		    (ca, addr, 3, new IIncOperator
 		     (li, Integer.toString(value),
 		      operation + Operator.OPASSIGN_OP));
             }
@@ -260,48 +285,46 @@ public abstract class Opcodes implements RuntimeConstants {
                 if (to >= from)
                     to++;
                 return createNormal
-		    (addr, 1, new ConvertOperator(types[0][from], 
+		    (ca, addr, 1, new ConvertOperator(types[0][from], 
 						  types[0][to]));
             }
             case opc_i2b: case opc_i2c: case opc_i2s:
                 return createNormal
-		    (addr, 1, new ConvertOperator
+		    (ca, addr, 1, new ConvertOperator
 		     (ALL_INT_TYPE, types[1][(opcode-opc_i2b)+5]));
 	    case opc_lcmp:
             case opc_fcmpl: case opc_fcmpg:
             case opc_dcmpl: case opc_dcmpg:
                 return createNormal
-		    (addr, 1, new CompareToIntOperator
+		    (ca, addr, 1, new CompareToIntOperator
 		     (types[0][(opcode-opc_lcmp+3)/2], (opcode-opc_lcmp+3)%2));
             case opc_ifeq: case opc_ifne: 
             case opc_iflt: case opc_ifge: case opc_ifgt: case opc_ifle:
                 return createIfGoto
-		    (addr, 3, addr+stream.readShort(),
+		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareUnaryOperator
 		     (ALL_INT_TYPE, opcode - opc_ifeq+Operator.COMPARE_OP));
             case opc_if_icmpeq: case opc_if_icmpne: case opc_if_icmplt: 
             case opc_if_icmpge: case opc_if_icmpgt: case opc_if_icmple:
                 return createIfGoto
-		    (addr, 3, addr+stream.readShort(),
+		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareBinaryOperator
 		     (ALL_INT_TYPE, opcode - opc_if_icmpeq+Operator.COMPARE_OP));
             case opc_if_acmpeq: case opc_if_acmpne:
                 return createIfGoto
-		    (addr, 3, addr+stream.readShort(),
+		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareBinaryOperator
 		     (OBJECT_TYPE, opcode - opc_if_acmpeq+Operator.COMPARE_OP));
             case opc_goto:
                 return createGoto
-		    (addr, 3, addr+stream.readShort());
-//             case opc_jsr:
-//                 return createGoto //XXX
-// 		    (addr, 3, addr+stream.readShort());
-//             case opc_ret:
-//                 return createReturn //XXX
-// 		    (addr, 2, 
-//                      new LocalLoadOperator
-// 		     (OBJECT_TYPE, 
-//                    ca.getLocalInfo(addr, stream.readUnsignedByte())));
+		    (ca, addr, 3, addr+stream.readShort());
+            case opc_jsr:
+                return createJsr
+		    (ca, addr, 3, addr+stream.readShort());
+            case opc_ret:
+                return createRet
+		    (ca, addr, 2, 
+		     ca.getLocalInfo(addr, stream.readUnsignedByte()));
             case opc_tableswitch: {
                 int length = 3-(addr % 4);
                 stream.skip(length);
@@ -317,7 +340,7 @@ public abstract class Opcodes implements RuntimeConstants {
                 dests[cases.length] = def;
                 length += 13 + 4 * cases.length;
                 return createSwitch
-		    (addr, length, cases, dests);
+		    (ca, addr, length, cases, dests);
             }
             case opc_lookupswitch: {
                 int length = 3-(addr % 4);
@@ -333,7 +356,7 @@ public abstract class Opcodes implements RuntimeConstants {
                 dests[npairs] = def;
                 length += 9 + 8 * npairs;
                 return createSwitch
-		    (addr, length, cases, dests);
+		    (ca, addr, length, cases, dests);
             }
             case opc_ireturn: case opc_lreturn: 
             case opc_freturn: case opc_dreturn: case opc_areturn: {
@@ -341,23 +364,23 @@ public abstract class Opcodes implements RuntimeConstants {
                     (ca.getMethod().mdef.getType().getReturnType(),
                      types[0][opcode-opc_ireturn]);
 		return createBlock
-		    (addr, 1, new ReturnBlock(new NopOperator(retType)));
+		    (ca, addr, 1, new ReturnBlock(new NopOperator(retType)));
             }
 	    case opc_return:
                 /* Address -1 is interpreted as end of method */
 		return createBlock
-		    (addr, 1, new EmptyBlock(new Jump(-1)));
+		    (ca, addr, 1, new EmptyBlock(new Jump(-1)));
             case opc_getstatic:
             case opc_getfield:
                 return createNormal
-		    (addr, 3, new GetFieldOperator
+		    (ca, addr, 3, new GetFieldOperator
 		     (ca, opcode == opc_getstatic,
 		      (FieldDefinition)ca.env.getConstant
 		      (stream.readUnsignedShort())));
             case opc_putstatic:
             case opc_putfield:
 		return createNormal
-                    (addr, 3, new PutFieldOperator
+                    (ca, addr, 3, new PutFieldOperator
 		     (ca, opcode == opc_putstatic,
 		      (FieldDefinition)ca.env.getConstant
 		      (stream.readUnsignedShort())));
@@ -365,14 +388,14 @@ public abstract class Opcodes implements RuntimeConstants {
             case opc_invokespecial:
             case opc_invokestatic :
                 return createNormal
-		    (addr, 3, new InvokeOperator
+		    (ca, addr, 3, new InvokeOperator
 		     (ca, 
                       opcode == opc_invokestatic, opcode == opc_invokespecial, 
 		      (FieldDefinition)ca.env.getConstant
 		      (stream.readUnsignedShort())));
             case opc_invokeinterface: {
                 FlowBlock fb = createNormal
-		    (addr, 5, new InvokeOperator
+		    (ca, addr, 5, new InvokeOperator
 		     (ca, false, false,
 		      (FieldDefinition)ca.env.getConstant
 		      (stream.readUnsignedShort())));
@@ -384,7 +407,7 @@ public abstract class Opcodes implements RuntimeConstants {
                     ca.env.getConstant(stream.readUnsignedShort());
                 Type type = MyType.tClassOrArray(cldec.getName());
                 return createNormal
-		    (addr, 3, new NewOperator(type, ca.env.getTypeString(type)));
+		    (ca, addr, 3, new NewOperator(type, ca.env.getTypeString(type)));
             }
             case opc_newarray: {
                 Type type;
@@ -401,7 +424,7 @@ public abstract class Opcodes implements RuntimeConstants {
                     throw new ClassFormatError("Invalid newarray operand");
                 }
                 return createNormal
-                    (addr, 2,
+                    (ca, addr, 2,
                      new NewArrayOperator(MyType.tArray(type),
                                           type.toString(), 1));
             }
@@ -411,22 +434,22 @@ public abstract class Opcodes implements RuntimeConstants {
                 Identifier ident = cldec.getName();
                 Type type = MyType.tClassOrArray(cldec.getName());
                 return createNormal
-		    (addr, 3, new NewArrayOperator
+		    (ca, addr, 3, new NewArrayOperator
                      (MyType.tArray(type), ca.env.getTypeString(type),1));
             }
             case opc_arraylength:
                 return createNormal
-		    (addr, 1, new ArrayLengthOperator());
+		    (ca, addr, 1, new ArrayLengthOperator());
             case opc_athrow:
                 return createBlock
-		    (addr, 1, 
+		    (ca, addr, 1, 
                      new ThrowBlock(new NopOperator(MyType.tUObject)));
             case opc_checkcast: {
                 ClassDeclaration cldec = (ClassDeclaration) ca.env.getConstant
                     (stream.readUnsignedShort());
                 Type type = MyType.tClassOrArray(cldec.getName());
                 return createNormal
-		    (addr, 3, new CheckCastOperator
+		    (ca, addr, 3, new CheckCastOperator
 		     (type, ca.env.getTypeString(type)));
             }
             case opc_instanceof: {
@@ -434,28 +457,28 @@ public abstract class Opcodes implements RuntimeConstants {
                     (stream.readUnsignedShort());
                 Type type = MyType.tClassOrArray(cldec.getName());
                 return createNormal
-		    (addr, 3,
+		    (ca, addr, 3,
 		     new InstanceOfOperator(type, ca.env.getTypeString(type)));
             }
             case opc_monitorenter:
-                return createNormal(addr, 1,
+                return createNormal(ca, addr, 1,
 					     new MonitorEnterOperator());
             case opc_monitorexit:
-                return createNormal(addr, 1,
+                return createNormal(ca, addr, 1,
 					     new MonitorExitOperator());
             case opc_wide: {
                 switch (opcode=stream.readUnsignedByte()) {
                 case opc_iload: case opc_lload: 
                 case opc_fload: case opc_dload: case opc_aload:
                     return createNormal
-			(addr, 4,
-			 new LocalLoadOperator(types[0][opcode-opc_iload],
-					       new LocalInfo
-                                               (stream.readUnsignedShort())));
+			(ca, addr, 4,
+			 new LocalLoadOperator
+			 (types[0][opcode-opc_iload],
+			  ca.getLocalInfo(addr, stream.readUnsignedShort())));
                 case opc_istore: case opc_lstore: 
                 case opc_fstore: case opc_dstore: case opc_astore:
                     return createNormal
-		    (addr, 4,
+		    (ca, addr, 4,
 		     new LocalStoreOperator
                      (types[0][opcode-opc_istore],
                       ca.getLocalInfo(addr, stream.readUnsignedShort()),
@@ -470,16 +493,14 @@ public abstract class Opcodes implements RuntimeConstants {
 		    }
                     LocalInfo li = ca.getLocalInfo(addr, local);
 		    return createNormal
-			(addr, 6, new IIncOperator
+			(ca, addr, 6, new IIncOperator
 			  (li, Integer.toString(value),
 			   operation + Operator.OPASSIGN_OP));
 		}
-//                 case opc_ret:
-// 		    return new RetInstructionHeader
-// 			(addr, 4, 
-// 			 new LocalLoadOperator
-// 			 (INT_TYPE, 
-//                        ca.getLocalInfo(addr, stream.readUnsignedShort())));
+                case opc_ret:
+		  return createRet
+		    (ca, addr, 4, 
+		     ca.getLocalInfo(addr, stream.readUnsignedShort()));
                 default:
                     throw new ClassFormatError("Invalid wide opcode "+opcode);
                 }
@@ -493,23 +514,23 @@ public abstract class Opcodes implements RuntimeConstants {
                 for (int i=0; i<dimension; i++)
                     baseType = baseType.getElementType();
                 return createNormal
-		    (addr, 4,
+		    (ca, addr, 4,
 		     new NewArrayOperator
                      (type, ca.env.getTypeString(baseType), dimension));
             }
             case opc_ifnull: case opc_ifnonnull:
                 return createIfGoto
-		    (addr, 3, addr+stream.readShort(),
+		    (ca, addr, 3, addr+stream.readShort(),
 		     new CompareUnaryOperator
 		     (OBJECT_TYPE, opcode - opc_ifnull+Operator.COMPARE_OP));
             case opc_goto_w:
                 return createGoto
-		    (addr, 5, addr + stream.readInt());
-//             case opc_jsr_w:
-//                 return createGoto
-// 		    (addr, 5, addr+stream.readInt()); // XXX
+		    (ca, addr, 5, addr + stream.readInt());
+            case opc_jsr_w:
+		return createJsr
+		    (ca, addr, 5, addr+stream.readInt());
             default:
-                throw new ClassFormatError("Invalid opcode "+opcode);
+		throw new ClassFormatError("Invalid opcode "+opcode);
             }
 	} catch (ClassCastException ex) {
             ex.printStackTrace();

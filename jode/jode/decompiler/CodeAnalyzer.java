@@ -139,14 +139,13 @@ public class CodeAnalyzer implements Analyzer, Constants {
 
     static jode.flow.Transformation[] exprTrafos = {
         new jode.flow.RemoveEmpty(),
-//         new CombineCatchLocal(),
         new jode.flow.CreateExpression(),
         new jode.flow.CreatePostIncExpression(),
         new jode.flow.CreateAssignExpression(),
         new jode.flow.CreateNewConstructor(),
         new jode.flow.CombineIfGotoExpressions(),
         new jode.flow.CreateIfThenElseOperator(),
-//         new CreateConstantArray(),
+        new jode.flow.CreateConstantArray(),
         new jode.flow.SimplifyExpression()
     };
 
