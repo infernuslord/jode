@@ -42,11 +42,17 @@ public class Reference {
      * The member type.
      */
     String memberType;
+    /**
+     * The cached hash code
+     */
+    int cachedHashCode;
 
     public Reference(String className, String name, String type) {
-	this.className = className;
-	this.memberName = name;
-	this.memberType = type;
+	this.className = className.intern();
+	this.memberName = name.intern();
+	this.memberType = type.intern();
+	cachedHashCode = 
+	    className.hashCode() ^ name.hashCode() ^ type.hashCode();
     }
 
     public String getClazz() {
@@ -85,5 +91,9 @@ public class Reference {
 		&& other.memberType.equals(memberType);
 	}
 	return false;
+    }
+
+    public int hashCode() {
+	return cachedHashCode;
     }
 }
