@@ -100,22 +100,18 @@ public class SequentialBlock extends StructuredBlock {
 	 * any local Variable, but lets the first sub block do this.
 	 */
 	declare = new VariableSet();
-        /* First we can forget any variable that is already declared.
-         */
-        used.subtractExact(done);
         /* Second, tell the first sub block that he must declare all
-         * variables _we_ use.  */
+         * variables _we_ use.  
+	 */
         subBlocks[0].used.unionExact(used);
 	subBlocks[0].makeDeclaration(done);
-        /* Now add the variables to the done set, since the first
-         * sub block has declared them.
-         */
-	done.unionExact(used);
-	subBlocks[1].makeDeclaration(done);
-        /* Now undo the change to done.  Note that the second instruction
-         * made done and used disjunct.
-         */
-        done.subtractExact(used);
+
+        /* Now add the variables used in the first block to the done
+         * set of the second block, since the first sub block has
+         * declared them.  */
+	VariableSet doneFirst = (VariableSet) done.clone();
+	doneFirst.unionExact(subBlocks[0].used);
+	subBlocks[1].makeDeclaration(doneFirst);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer)
