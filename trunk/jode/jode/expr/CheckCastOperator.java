@@ -56,6 +56,7 @@ public class CheckCastOperator extends Operator {
 	writer.print("(");
 	writer.printType(castType);
 	writer.print(") ");
+	writer.breakOp();
 
 	/* There are special cases where a cast isn't allowed.  We must cast
 	 * to the common super type before.  This cases always give a runtime
@@ -66,6 +67,7 @@ public class CheckCastOperator extends Operator {
 	    writer.print("(");
 	    writer.printType(superType);
 	    writer.print(") ");
+	    writer.breakOp();
 	}
 	subExpressions[0].dumpExpression(writer, 700);
     }

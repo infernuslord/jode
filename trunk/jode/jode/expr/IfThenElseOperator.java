@@ -103,15 +103,22 @@ public class IfThenElseOperator extends Operator {
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	subExpressions[0].dumpExpression(writer, 201);
+	writer.breakOp();
 	writer.print(" ? ");
+	int subPriority = 0;
 	if (!subExpressions[1].getType().getHint().isOfType
 	    (subExpressions[2].getType())) {
+	    writer.startOp(writer.IMPL_PAREN, 2);
 	    /* We need a cast here */
 	    writer.print("(");
 	    writer.printType(getType().getHint());
 	    writer.print(") ");
+	    subPriority = 700;
 	}
-	subExpressions[1].dumpExpression(writer, 0);
+	subExpressions[1].dumpExpression(writer, subPriority);
+	if (subPriority == 700)
+	    writer.endOp();
+	writer.breakOp();
 	writer.print(" : ");
 	subExpressions[2].dumpExpression(writer, 200);
     }

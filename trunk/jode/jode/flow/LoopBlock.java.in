@@ -313,7 +313,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
                 writer.print("for (;;)");
             else {
                 writer.print("while (");
-		cond.dumpExpression(writer);
+		cond.dumpExpression(writer.EXPL_PAREN, writer);
 		writer.print(")");
 	    }
             break;
@@ -322,21 +322,30 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
             break;
         case FOR:
             writer.print("for (");
+	    writer.startOp(writer.EXPL_PAREN, 0);
             if (initInstr != null) {
                 if (isDeclaration) {
-                    writer.printType(((LocalStoreOperator)
-				      ((CombineableOperator) initInstr)
-				      .getLValue())
-				     .getLocalInfo().getType().getHint());
-		    writer.print(" ");
-		}
-                initInstr.dumpExpression(writer);
-            } else
+		    StoreInstruction store = (StoreInstruction) initInstr;
+		    LocalInfo local = ((LocalStoreOperator) store
+				       .getLValue()).getLocalInfo();
+		    writer.startOp(writer.NO_PAREN, 1);
+		    local.dumpDeclaration(writer);
+		    writer.breakOp();
+		    writer.print(" = ");
+		    store.getSubExpressions()[1].dumpExpression(writer, 100);
+		    writer.endOp();
+		} else
+		    initInstr.dumpExpression(writer.NO_PAREN, writer);
+            } else {
                 writer.print("/**/");
+	    }
             writer.print("; ");
-	    cond.dumpExpression(writer);
+	    writer.breakOp();
+	    cond.dumpExpression(writer.IMPL_PAREN, writer);
 	    writer.print("; ");
-	    incrInstr.dumpExpression(writer);
+	    writer.breakOp();
+	    incrInstr.dumpExpression(writer.NO_PAREN, writer);
+	    writer.endOp();
 	    writer.print(")");
             break;
         }
@@ -351,12 +360,11 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 	    if (needBrace)
 		writer.closeBraceContinue();
             writer.print("while (");
-	    cond.dumpExpression(writer);
+	    cond.dumpExpression(writer.EXPL_PAREN, writer);
 	    writer.println(");");
         } else if (needBrace)
             writer.closeBrace();
     }
-
 
     boolean mayChangeJump = true;
 

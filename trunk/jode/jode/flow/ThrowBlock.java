@@ -33,7 +33,7 @@ public class ThrowBlock extends ReturnBlock {
 	throws java.io.IOException
     {
         writer.print("throw ");
-	instr.dumpExpression(writer);
+	instr.dumpExpression(writer.NO_PAREN, writer);
 	writer.println(";");
     }
 }

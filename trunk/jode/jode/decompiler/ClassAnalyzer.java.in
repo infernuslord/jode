@@ -177,11 +177,11 @@ public class ClassAnalyzer
 	return outerValues;
     }
 
-    public void addBlockInitializer(int index,
-				    StructuredBlock initializer) {
+    public void addBlockInitializer(int index, StructuredBlock initializer) {
 	if (blockInitializers[index] == null)
 	    blockInitializers[index] = initializer;
-	blockInitializers[index].appendBlock(initializer);
+	else
+	    blockInitializers[index].appendBlock(initializer);
     }
 
     public void initialize() {
@@ -423,7 +423,7 @@ public class ClassAnalyzer
 	for (int i=0; i< fields.length; i++) {
 	    if (blockInitializers[i] != null) {
 		if (needNewLine)
-		    writer.println("");
+		    writer.println();
 		writer.openBrace();
 		writer.tab();
 		blockInitializers[i].dumpSource(writer);
@@ -439,13 +439,13 @@ public class ClassAnalyzer
 	    if (fields[i].skipWriting())
 		continue;
 	    if (needFieldNewLine)
-		writer.println("");
+		writer.println();
 	    fields[i].dumpSource(writer);
 	    needNewLine = true;
 	}
 	if (blockInitializers[fields.length] != null) {
 	    if (needNewLine)
-		writer.println("");
+		writer.println();
 	    writer.openBrace();
 	    writer.tab();
 	    blockInitializers[fields.length].dumpSource(writer);
@@ -455,7 +455,7 @@ public class ClassAnalyzer
 	}
 	for (int i=0; i< inners.length; i++) {
 	    if (needNewLine)
-		writer.println("");
+		writer.println();
 
 	    if ((Options.options & Options.OPTION_IMMEDIATE) != 0) {
 		// We now do the analyzation we skipped before.
@@ -489,7 +489,7 @@ public class ClassAnalyzer
 	    if (methods[i].skipWriting())
 		continue;
 	    if (needNewLine)
-		writer.println("");
+		writer.println();
 
 	    if (pl != null) {
 		double methodCompl = methods[i].getComplexity() * subScale;
@@ -520,6 +520,7 @@ public class ClassAnalyzer
             return;
         }
 
+	writer.startOp(writer.NO_PAREN, 0);
 	/* Clear the SUPER bit, which is also used as SYNCHRONIZED bit. */
 	int modifiedModifiers = modifiers & ~Modifier.SYNCHRONIZED;
 	if (clazz.isInterface())
@@ -538,26 +539,30 @@ public class ClassAnalyzer
 	/* interface is in modif */
 	if (!clazz.isInterface())
 	    writer.print("class ");
-	writer.println(name);
-	writer.tab();
+	writer.print(name);
 	ClassInfo superClazz = clazz.getSuperclass();
 	if (superClazz != null && 
 	    superClazz != ClassInfo.javaLangObject) {
-	    writer.println("extends " + (writer.getClassString
-					 (superClazz, Scope.CLASSNAME)));
+	    writer.breakOp();
+	    writer.print(" extends " + (writer.getClassString
+				       (superClazz, Scope.CLASSNAME)));
 	}
 	ClassInfo[] interfaces = clazz.getInterfaces();
 	if (interfaces.length > 0) {
-	    writer.print(clazz.isInterface() ? "extends " : "implements ");
+	    writer.breakOp();
+	    writer.print(clazz.isInterface() ? " extends " : " implements ");
+	    writer.startOp(writer.EXPL_PAREN, 1);
 	    for (int i=0; i < interfaces.length; i++) {
-		if (i > 0)
+		if (i > 0) {
 		    writer.print(", ");
+		    writer.breakOp();
+		}
 		writer.print(writer.getClassString
 			     (interfaces[i], Scope.CLASSNAME));
 	    }
-	    writer.println("");
+	    writer.endOp();
 	}
-	writer.untab();
+	writer.println();
 
 	writer.openBrace();
 	writer.tab();

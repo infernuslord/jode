@@ -799,6 +799,10 @@ public final class InvokeOperator extends Operator
 	    }
 	}
     }
+
+    public int getBreakPenalty() {
+	return 5;
+    }
     
     /* Invokes never equals: they may return different values even if
      * they have the same parameters.
@@ -816,6 +820,7 @@ public final class InvokeOperator extends Operator
 	for (int i=0; i< subExpressions.length; i++)
 	    paramTypes[i] = subExpressions[i].getType().getCanonic();
 
+	writer.startOp(writer.NO_PAREN, 0);
 	switch (methodFlag) {
 	case CONSTRUCTOR: {
 
@@ -903,19 +908,25 @@ public final class InvokeOperator extends Operator
 		    if (writer.conflicts(outer.name, scope, Scope.CLASSNAME)) {
 			qualifiedNew = true;
 			outerExpr.dumpExpression(writer, 950);
+			writer.breakOp();
 			writer.print(".");
 		    }
 		} else {
 		    qualifiedNew = true;
 		    if (outerExpr.getType() instanceof NullType) {
-			writer.print("((");
+			writer.print("(");
+			writer.startOp(writer.EXPL_PAREN, 1);
+			writer.print("(");
 			writer.printType(Type.tClass
 					 (ClassInfo.forName(outer.outer)));
 			writer.print(") ");
+			writer.breakOp();
 			outerExpr.dumpExpression(writer, 700);
+			writer.endOp();
 			writer.print(")");
 		    } else 
 			outerExpr.dumpExpression(writer, 950);
+		    writer.breakOp();
 		    writer.print(".");
 		}
 	    }
@@ -939,10 +950,16 @@ public final class InvokeOperator extends Operator
 		    writer.print("super");
 		break;
 	    }
-	    
-	    writer.print("((UNCONSTRUCTED)");
-	    subExpressions[0].dumpExpression(writer, 950);
-	    writer.print(").");
+
+	    writer.print("(");
+	    writer.startOp(writer.EXPL_PAREN, 0);
+	    writer.print("(UNCONSTRUCTED)");
+	    writer.breakOp();
+	    subExpressions[0].dumpExpression(writer, 700);
+	    writer.endOp();
+	    writer.print(")");
+	    writer.breakOp();
+	    writer.print(".");
 	    writer.printType(Type.tClass(clazz));
 	    break;
 	}
@@ -956,17 +973,23 @@ public final class InvokeOperator extends Operator
 		    ClassInfo superClazz = getClassInfo().getSuperclass();
 		    paramTypes[0] = superClazz == null
 			? Type.tObject : Type.tClass(superClazz);
+		    writer.breakOp();
 		    writer.print(".");
 		} else {
 		    /* XXX check if this is a private method. */
 		}
 	    } else {
-		writer.print("((NON VIRTUAL ");
+		writer.print("(");
+		writer.startOp(writer.EXPL_PAREN, 0);
+		writer.print("(NON VIRTUAL ");
 		writer.printType(classType);
-		writer.print(")");
-		paramTypes[0] = classType;
+		writer.print(") ");
+		writer.breakOp();
 		subExpressions[0].dumpExpression(writer, 700);
-		writer.print(").");
+		writer.endOp();
+		writer.print(")");
+		writer.breakOp();
+		writer.print(".");
 	    }
 	    writer.print(methodName);
 	    break;
@@ -978,13 +1001,18 @@ public final class InvokeOperator extends Operator
 	    if (paramTypes[0].equals(classType))
 		subExpressions[0].dumpExpression(writer, 950);
 	    else {
-		writer.print("((");
+		writer.print("(");
+		writer.startOp(writer.EXPL_PAREN, 0);
+		writer.print("(");
 		writer.printType(classType);
-		writer.print(")");
+		writer.print(") ");
+		writer.breakOp();
 		paramTypes[0] = classType;
 		subExpressions[0].dumpExpression(writer, 700);
+		writer.endOp();
 		writer.print(")");
 	    }
+	    writer.breakOp();
 	    writer.print(".");
 	    writer.print(methodName);
 	    break;
@@ -996,6 +1024,7 @@ public final class InvokeOperator extends Operator
 	    if (scope == null
 		||writer.conflicts(methodName, scope, Scope.METHODNAME)) {
 		writer.printType(classType);
+		writer.breakOp();
 		writer.print(".");
 	    }
 	    writer.print(methodName);
@@ -1009,6 +1038,7 @@ public final class InvokeOperator extends Operator
 					      Scope.CLASSSCOPE);
 		if (writer.conflicts(methodName, scope, Scope.METHODNAME)) {
 		    thisOp.dumpExpression(writer, 950);
+		    writer.breakOp();
 		    writer.print(".");
 		} else if (/* This is a inherited field conflicting
 			    * with a field name in some outer class.
@@ -1020,61 +1050,78 @@ public final class InvokeOperator extends Operator
 		    while (ana.getParent() instanceof ClassAnalyzer
 			   && ana != scope)
 			ana = (ClassAnalyzer) ana.getParent();
-		    if (ana == scope)
+		    if (ana == scope) {
 			// For a simple outer class we can say this
-			writer.print("this.");
-		    else {
+			writer.print("this");
+		    } else {
 			// For a class that owns a method that owns
 			// us, we have to give the full class name
 			thisOp.dumpExpression(writer, 950);
-			writer.print(".");
 		    }
+		    writer.breakOp();
+		    writer.print(".");
 		}
 	    } else {
 		if (needsCast(0, paramTypes)){
-		    writer.print("((");
+		    writer.print("(");
+		    writer.startOp(writer.EXPL_PAREN, 1);
+		    writer.print("(");
 		    writer.printType(classType);
 		    writer.print(") ");
+		    writer.breakOp();
 		    subExpressions[0].dumpExpression(writer, 700);
+		    writer.endOp();
 		    writer.print(")");
 		    paramTypes[0] = classType;
 		} else 
 		    subExpressions[0].dumpExpression(writer, 950);
+		writer.breakOp();
 		writer.print(".");
 	    }
 	    writer.print(methodName);
 	}
 
+	writer.endOp();
+	writer.breakOp();
 	writer.print("(");
+	writer.startOp(writer.EXPL_PAREN, 0);
 	boolean first = true;
 	int offset = skippedArgs;
 	while (arg < length) {
-            if (!first)
+            if (!first) {
 		writer.print(", ");
-	    else
+		writer.breakOp();
+	    } else
 		first = false;
 	    int priority = 0;
 	    if (needsCast(arg, paramTypes)) {
 		Type castType = methodType.getParameterTypes()[arg-offset];
+		writer.startOp(writer.IMPL_PAREN, 1);
 		writer.print("(");
 		writer.printType(castType);
 		writer.print(") ");
+		writer.breakOp();
 		paramTypes[arg] = castType;
 		priority = 700;
 	    }
             subExpressions[arg++].dumpExpression(writer, priority);
+	    if (priority == 700)
+		writer.endOp();
         }
+	writer.endOp();
         writer.print(")");
 
 	if (anonymousNew) {
 	    /* If this was an anonymous constructor call, we must now
 	     * dump the source code of the anonymous class.  
 	     */
+	    Object state = writer.saveOps();
 	    writer.openBrace();
 	    writer.tab();
 	    clazzAna.dumpBlock(writer);
 	    writer.untab();
 	    writer.closeBraceNoSpace();
+	    writer.restoreOps(state);
 	}
     }
 

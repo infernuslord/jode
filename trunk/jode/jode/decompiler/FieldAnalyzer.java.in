@@ -176,6 +176,7 @@ public class FieldAnalyzer implements Analyzer {
  				   | Modifier.STATIC
  				   | Modifier.FINAL);
 	 */
+	writer.startOp(writer.NO_PAREN, 0);
 	String modif = Modifier.toString(modifiedModifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
@@ -183,9 +184,11 @@ public class FieldAnalyzer implements Analyzer {
 	writer.printType(type);
         writer.print(" " + fieldName);
         if (constant != null) {
-            writer.print(" = ");
-	    constant.dumpExpression(writer);
+	    writer.breakOp();
+	    writer.print(" = ");
+	    constant.dumpExpression(writer.IMPL_PAREN, writer);
         }
+	writer.endOp();
         writer.println(";");
     }
 

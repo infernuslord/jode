@@ -112,6 +112,7 @@ public class StoreInstruction extends Operator
 	throws java.io.IOException
     {
 	subExpressions[0].dumpExpression(writer, 950);
+	writer.breakOp();
 	writer.print(getOperatorString());
 	subExpressions[1].dumpExpression(writer, 100);
     }

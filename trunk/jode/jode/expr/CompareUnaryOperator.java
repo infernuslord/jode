@@ -108,7 +108,8 @@ public class CompareUnaryOperator extends Operator {
 
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	subExpressions[0].dumpExpression(writer, getPriority());
+	subExpressions[0].dumpExpression(writer, getPriority()+1);
+	writer.breakOp();
 	writer.print(getOperatorString());
 	writer.print(objectType?"null":"0");
     }

@@ -123,7 +123,7 @@ public class ConditionalBlock extends InstructionContainer {
         throws java.io.IOException
     {
         writer.print("IF (");
-	instr.dumpExpression(writer);
+	instr.dumpExpression(writer.EXPL_PAREN, writer);
 	writer.println(")");
         writer.tab();
         trueBlock.dumpSource(writer);

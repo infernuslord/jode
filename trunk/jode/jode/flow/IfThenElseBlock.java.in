@@ -165,7 +165,7 @@ public class IfThenElseBlock extends StructuredBlock {
     {
         boolean needBrace = thenBlock.needsBraces();
         writer.print("if (");
-	cond.dumpExpression(writer);
+	cond.dumpExpression(writer.EXPL_PAREN, writer);
 	writer.print(")");
 	if (needBrace)
 	    writer.openBrace();
