@@ -134,6 +134,7 @@ public final class VariableSet extends AbstractSet implements Cloneable {
         for (int i=0; i<count;i++) {
             if (locals[i].getLocalInfo() == li) {
                 locals[i] = locals[--count];
+		locals[count] = null;
 		return true;
 	    }
 	}
@@ -162,6 +163,7 @@ public final class VariableSet extends AbstractSet implements Cloneable {
 				     locals, pos-1, count - pos);
 		count--;
 		pos--;
+		locals[count] = null;
 	    }
 	};
     }
@@ -222,3 +224,4 @@ public final class VariableSet extends AbstractSet implements Cloneable {
         }
     }
 }
+
