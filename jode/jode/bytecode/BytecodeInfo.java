@@ -64,7 +64,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
     protected void readAttribute(String name, int length, ConstantPool cp,
 				 DataInputStream input, 
 				 int howMuch) throws IOException {
-	if (name.equals("LocalVariableTable")) {
+	if ((howMuch & ALL_ATTRIBUTES) != 0 
+	    && name.equals("LocalVariableTable")) {
 	    if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_LVT) != 0) 
 		GlobalOptions.err.println("LocalVariableTable of "+methodInfo.clazzInfo.getName() + "." + methodInfo.getName());
             int count = input.readUnsignedShort();
@@ -120,7 +121,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 					   +" range "+start+" - "+end
 					   +" slot "+slot);
             }
-	} else if (name.equals("LineNumberTable")) {
+	} else if ((howMuch & ALL_ATTRIBUTES) != 0 
+		   && name.equals("LineNumberTable")) {
 	    int count = input.readUnsignedShort();
 	    if (length != 2 + count * 4) {
 		GlobalOptions.err.println
