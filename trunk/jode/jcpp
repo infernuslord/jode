@@ -63,6 +63,21 @@ for (@files) {
 			$level = 0;
 		    }
 		}
+	    } elsif (/^\/\/\/\#ifndef (\S*)$/) {
+		my $label=$1;
+		# An ifndef directive, look if -D is defined, but only
+		# if we are not in a false branch. In a false branch
+		# we simply increase level.
+		if ($branch eq "false") {
+		    $level++;
+		} else {
+		    if (defined $defs{$label}) {
+			$branch = "false";
+			$level = 0;
+		    } else {
+			$branch = "true";
+		    }
+		}
 	    } elsif (/^\/\/\/\#else/) {
 		# An else directive.  We switch from true to false and 
 		# if level is zero we switch from false to true
