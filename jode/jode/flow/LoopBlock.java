@@ -198,7 +198,6 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 	throws java.io.IOException
     {
         if (type == FOR && init != null
-            && (outer == null || !outer.used.contains(local))
             && (init.getInstruction().getOperator() 
                 instanceof LocalStoreOperator)
             && (((LocalStoreOperator) 
