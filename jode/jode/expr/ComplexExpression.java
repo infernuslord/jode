@@ -19,6 +19,7 @@
 
 package jode.expr;
 import jode.GlobalOptions;
+import jode.Decompiler;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
@@ -440,7 +441,7 @@ public class ComplexExpression extends Expression {
                 return new ComplexExpression
                     (new StringAddOperator(), new Expression[] 
 		     { left, right });
-            } else if (jode.Decompiler.stringDecrypting) {
+            } else if ((Decompiler.options & Decompiler.OPTION_DECRYPT) != 0) {
 		Expression expr = subExpressions[0].simplifyString();
 		if (expr instanceof ConstOperator) {
 		    expr = invoke.deobfuscateString((ConstOperator)expr);
@@ -453,7 +454,9 @@ public class ComplexExpression extends Expression {
     }
 
     public Expression simplify() {
-        if (operator instanceof IfThenElseOperator &&
+        for (int i=0; i< subExpressions.length; i++)
+	    subExpressions[i] = subExpressions[i].simplify(); 
+	if (operator instanceof IfThenElseOperator &&
             operator.getType().isOfType(Type.tBoolean)) {
             if (subExpressions[1].getOperator() instanceof ConstOperator
 		&& subExpressions[2].getOperator() instanceof ConstOperator) {
@@ -566,13 +569,34 @@ public class ComplexExpression extends Expression {
 		    }
 		}
 	    }
-        } else {
+	} else if (operator instanceof ConstructorOperator) {
+	    ConstructorOperator cop = (ConstructorOperator) operator;
+	    if (cop.getOuterClassInfo() != null) {
+		if (subExpressions[0] instanceof ComplexExpression
+		    && (subExpressions[0].getOperator() 
+			instanceof CheckNullOperator)) {
+		    ((CheckNullOperator) subExpressions[0].getOperator())
+			.removeLocal();
+		    subExpressions[0] = ((ComplexExpression) subExpressions[0])
+			.subExpressions[0];
+		    cop.removedCheckNull = true;
+		}
+	    }
+	} else if (operator instanceof GetFieldOperator) {
+	    Expression thisExpr = 
+		((GetFieldOperator)operator).simplifyThis(subExpressions);
+	    if (thisExpr != null)
+		return thisExpr.simplify();
+	} else if (operator instanceof InvokeOperator) {
+	    Expression accessExpr = 
+		((InvokeOperator)operator).simplifyAccess(subExpressions);
+	    if (accessExpr != null)
+		return accessExpr.simplify();
             Expression stringExpr = simplifyString();
             if (stringExpr != this)
                 return stringExpr.simplify();
         }
         for (int i=0; i< subExpressions.length; i++) {
-	    subExpressions[i] = subExpressions[i].simplify();
 	    subExpressions[i].parent = this;
         }
         return this;
