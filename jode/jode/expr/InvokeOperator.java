@@ -89,52 +89,40 @@ public final class InvokeOperator extends Operator {
         return methodName.equals("<init>");
     }
 
+    /**
+     * Checks, whether this is a call of a method from this class.
+     * @XXX check, if this class implements the method and if not
+     * allow super class
+     */
     public boolean isThis() {
-        return (classType.equals(Type.tClass(codeAnalyzer.method.
-                                             classAnalyzer.getClazz().
+        return (classType.equals(Type.tClass(codeAnalyzer.getClazz().
                                              getName())));
     }
 
+    /**
+     * Checks, whether this is a call of a method from the super class.
+     * @XXX check, if its the first super class that implements the method.
+     */
     public boolean isSuperOrThis() {
         return ((ClassInterfacesType)classType).getClazz().superClassOf
-            (codeAnalyzer.method.classAnalyzer.getClazz());
+            (codeAnalyzer.getClazz());
     }
 
     public String toString(String[] operands) {
-        String object = null;
-        if (specialFlag) {
-            ClassHierarchy clazz = codeAnalyzer.getClazz();
-            if (operands[0].equals("this")) {
-                object = "";
-                while (clazz != null 
-                       && !classType.equals(Type.tClass(clazz.getName()))) {
-                    object = "super";
-                    clazz = clazz.getSuperclass();
-                }
-                
-                if (clazz == null)
-                    object = "NON VIRTUAL this";
-            } else if (classType.equals(Type.tClass(clazz.getName())))
-                object = operands[0];
-            else
-                object = "NON VIRTUAL "+operands[0];
-        }
-            
-        object = (object != null) ? object
-            : methodType.isStatic()
-            ? (classType.equals(Type.tClass(codeAnalyzer.getClazz().getName()))
-               ? ""
-               : classType.toString())
-            : (operands[0].equals("this") 
-               ? (specialFlag && isSuperOrThis()
-                  ? "super"
-                  : "")
-               : operands[0]);
+        String object = specialFlag 
+            ? (operands[0].equals("this") 
+               ? (/* XXX check if this is a private or final method. */
+                  isThis() ? "" : "super")
+               : (/* XXX check if this is a private or final method. */
+                  isThis() ? operands[0] : "NON VIRTUAL " + operands[0]))
+            : (methodType.isStatic()
+               ? (isThis() ? "" : classType.toString())
+               : (operands[0].equals("this") ? "" : operands[0]));
 
         int arg = methodType.isStatic() ? 0 : 1;
         String method = isConstructor() 
             ? (object.length() == 0 ? "this" : object)
-            : (object.length() == 0 ? "" : object + ".") + methodName;
+            : (object.length() == 0 ? methodName : object + "." + methodName);
 
         StringBuffer params = new StringBuffer();
         for (int i=0; i < methodType.getParameterTypes().length; i++) {
