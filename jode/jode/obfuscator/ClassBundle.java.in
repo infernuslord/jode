@@ -30,13 +30,12 @@ import @COLLECTIONS@.Iterator;
 import @COLLECTIONS@.Set;
 import @COLLECTIONS@.HashSet;
 import @COLLECTIONS@.Map;
+import @COLLECTIONS@.HashMap;
 import @COLLECTIONS@.TreeMap;
 import @COLLECTIONEXTRA@.UnsupportedOperationException;
 
 ///#ifdef JDK12
 ///import @COLLECTIONS@.WeakHashMap;
-///#else
-import @COLLECTIONS@.HashMap;
 ///#endif
 
 public class ClassBundle implements OptionHandler {
