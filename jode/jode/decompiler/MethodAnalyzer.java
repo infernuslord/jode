@@ -19,7 +19,6 @@
 
 package jode.decompiler;
 import jode.bytecode.MethodInfo;
-import jode.bytecode.AttributeInfo;
 import jode.type.Type;
 import jode.type.*;
 import jode.AssertError;
@@ -47,36 +46,23 @@ public class MethodAnalyzer implements Analyzer {
         this.classAnalyzer = cla;
         this.imports = imports;
         this.modifiers = minfo.getModifiers();
-        this.methodType = minfo.getType();
+        this.methodType = Type.tMethod(minfo.getType());
         this.methodName = minfo.getName();
         this.isStatic = minfo.isStatic();
         this.isConstructor = 
             methodName.equals("<init>") || methodName.equals("<clinit>");
-	this.isSynthetic = (minfo.findAttribute("Synthetic") != null);
-	this.isDeprecated = (minfo.findAttribute("Deprecated") != null);
+	this.isSynthetic = minfo.isSynthetic();
+	this.isDeprecated = minfo.isDeprecated();
         
-        AttributeInfo codeattr = minfo.findAttribute("Code");
-        if (codeattr != null) {
-	    code = new CodeAnalyzer(this, minfo, codeattr, imports);
-        }
-        
-        AttributeInfo excattr = minfo.findAttribute("Exceptions");
+	code = new CodeAnalyzer(this, minfo, imports);
+        String[] excattr = minfo.getExceptions();
         if (excattr == null) {
             exceptions = new Type[0];
         } else {
-            DataInputStream stream = new DataInputStream
-                (new ByteArrayInputStream(excattr.getContents()));
-            try {
-                int throwCount = stream.readUnsignedShort();
-                this.exceptions = new Type[throwCount];
-                for (int t=0; t< throwCount; t++) {
-                    int idx = stream.readUnsignedShort();
-                    exceptions[t] = Type.tClass(classAnalyzer.getConstantPool()
-                                                .getClassName(idx));
-                }
-            } catch (IOException ex) {
-                throw new AssertError("exception attribute too long?");
-            }
+	    int excCount = excattr.length;
+	    this.exceptions = new Type[excCount];
+	    for (int i=0; i< excCount; i++)
+		exceptions[i] = Type.tClass(excattr[i]);
         }
     }
 
