@@ -89,15 +89,18 @@ JODE_CHECK_CLASS(java.lang.Object, $CLASSLIB,
 
 AC_MSG_CHECKING(for collection classes)
 JODE_CHECK_CLASS(java.util.Set, $CLASSPATH:$CLASSLIB,
- [ COLLECTIONS="java.util" ],
+ [ COLLECTIONS="java.util"
+   COLLECTIONEXTRA="java.lang" ],
  [ JODE_CHECK_CLASS(com.sun.java.util.collections.Set, $CLASSPATH:$CLASSLIB,
-     [ COLLECTIONS="com.sun.java.util.collections" ], 
+     [ COLLECTIONS="com.sun.java.util.collections"
+       COLLECTIONEXTRA="com.sun.java.util.collections" ], 
      [ AC_MSG_RESULT(no)
        AC_MSG_ERROR(You need the Java 1.2 collection classes in your classpath)
      ])
  ] )
 AC_MSG_RESULT($COLLECTIONS)
 AC_SUBST(COLLECTIONS)
+AC_SUBST(COLLECTIONEXTRA)
 
 AC_MSG_CHECKING(for gnu.getopt)
 JODE_CHECK_CLASS(gnu.getopt.Getopt, $CLASSPATH:$CLASSLIB,
@@ -136,9 +139,44 @@ jode/obfuscator/Makefile
 jode/swingui/Makefile
 jode/type/Makefile
 jode/util/Makefile
-jode/GlobalOptions.java
+jode/bytecode/BinaryInfo.java
+jode/bytecode/BytecodeInfo.java
+jode/bytecode/ClassInfo.java
+jode/decompiler/ImportHandler.java
+jode/decompiler/MethodAnalyzer.java
+jode/expr/Expression.java
+jode/expr/InvokeOperator.java
+jode/expr/Operator.java
+jode/expr/CheckNullOperator.java
+jode/flow/RetBlock.java
+jode/flow/InstructionContainer.java
+jode/flow/LoopBlock.java
+jode/flow/SequentialBlock.java
+jode/flow/SlotSet.java
+jode/flow/StructuredBlock.java
+jode/flow/SynchronizedBlock.java
+jode/flow/VariableSet.java
+jode/flow/CatchBlock.java
+jode/flow/IfThenElseBlock.java
+jode/flow/InstructionBlock.java
+jode/flow/FlowBlock.java
+jode/flow/TransformExceptionHandlers.java
+jode/obfuscator/TranslationTable.java
+jode/obfuscator/Main.java
+jode/obfuscator/FieldIdentifier.java
+jode/obfuscator/Identifier.java
+jode/obfuscator/NameSwapper.java
+jode/obfuscator/PackageIdentifier.java
+jode/obfuscator/ClassBundle.java
+jode/obfuscator/ConstantAnalyzer.java
+jode/obfuscator/LocalIdentifier.java
+jode/obfuscator/MethodIdentifier.java
+jode/obfuscator/ClassIdentifier.java
 jode/swingui/Main.java
 jode/swingui/PackagesTreeModel.java
+jode/util/SimpleSet.java
+jode/util/SimpleMap.java
+jode/GlobalOptions.java
 bin/Makefile
 bin/jode
 doc/Makefile

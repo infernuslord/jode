@@ -29,7 +29,6 @@ import jode.bytecode.InnerClassInfo;
 import jode.bytecode.ConstantPool;
 import jode.expr.Expression;
 import jode.expr.ThisOperator;
-import jode.expr.ConstructorOperator;
 import jode.flow.TransformConstructors;
 import jode.flow.StructuredBlock;
 

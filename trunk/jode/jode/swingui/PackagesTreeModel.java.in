@@ -26,22 +26,13 @@ import @JAVAX_SWING@.tree.TreePath;
 import @JAVAX_SWING@.event.TreeModelListener;
 import @JAVAX_SWING@.event.TreeModelEvent;
 
-///#ifndef JDK12
-///import java.util.Arrays;
-///import java.util.TreeSet;
-///import java.util.HashSet;
-///import java.util.Set;
-///import java.util.HashMap;
-///import java.util.Map;
-///#else
-import jode.util.Comparable;
-import jode.util.Arrays;
-import jode.util.TreeSet;
-import jode.util.HashSet;
-import jode.util.Set;
-import jode.util.HashMap;
-import jode.util.Map;
-///#endif
+import @COLLECTIONEXTRA@.Comparable;
+import @COLLECTIONS@.Arrays;
+import @COLLECTIONS@.TreeSet;
+import @COLLECTIONS@.HashSet;
+import @COLLECTIONS@.Set;
+import @COLLECTIONS@.HashMap;
+import @COLLECTIONS@.Map;
 
 
 import java.util.Enumeration;
