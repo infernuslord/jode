@@ -56,6 +56,22 @@ public class ClassAnalyzer
     MethodAnalyzer staticConstructor;
     MethodAnalyzer[] constructors;
 
+    /**
+     * outerValues are used in method scoped classes: If a method
+     * scoped class uses a local of the surrounding method, the java
+     * compiler adds the locals to the param list of each constructor
+     * of the method scoped class.  Each invocation of the constructor
+     * must give the correct values for these locals.
+     *
+     * These extra parameters are the outerValues.
+     *
+     * The main problem here is, that we don't know immediately if a
+     * parameter is a standard parameter or a local of the outer
+     * method.  We may shrink this array if we notice a problem later.
+     *
+     * @see #shrinkOuterValues
+     * @see #addOuterValueListener
+     */
     Expression[] outerValues;
     boolean jikesAnonymousInner = false;
 
