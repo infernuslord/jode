@@ -22,15 +22,15 @@ import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
 public class CompareToIntOperator extends Operator {
-    boolean allowsNAN;
-    boolean greaterOnNAN;
+    boolean allowsNaN;
+    boolean greaterOnNaN;
     Type compareType;
 
-    public CompareToIntOperator(Type type, boolean greaterOnNAN) {
+    public CompareToIntOperator(Type type, boolean greaterOnNaN) {
         super(Type.tInt, 0);
         compareType = type;
-	this.allowsNAN = (type == Type.tFloat || type == Type.tDouble);
-	this.greaterOnNAN = greaterOnNAN;
+	this.allowsNaN = (type == Type.tFloat || type == Type.tDouble);
+	this.greaterOnNaN = greaterOnNaN;
 	initOperands(2);
     }
 
@@ -55,8 +55,8 @@ public class CompareToIntOperator extends Operator {
     {
         subExpressions[0].dumpExpression(writer, 550);
 	writer.print(" <=>");
-	if (allowsNAN)
-	    writer.print(greaterOnNAN ? "g" : "l");
+	if (allowsNaN)
+	    writer.print(greaterOnNaN ? "g" : "l");
 	writer.print(" ");
         subExpressions[1].dumpExpression(writer, 551);
     }
