@@ -22,6 +22,8 @@ import jode.*;
 import jode.bytecode.*;
 import jode.flow.FlowBlock;
 import jode.flow.TransformExceptionHandlers;
+import jode.jvm.CodeVerifier;
+import jode.jvm.VerifyException;
 
 import java.util.BitSet;
 import java.util.Stack;
@@ -48,7 +50,7 @@ public class CodeAnalyzer implements Analyzer {
      */
     public MethodAnalyzer getMethod() {return method;}
     
-    public CodeAnalyzer(MethodAnalyzer ma, 
+    public CodeAnalyzer(MethodAnalyzer ma, MethodInfo minfo,
 			AttributeInfo codeattr, JodeEnvironment e)
     {
         method = ma;
@@ -65,6 +67,14 @@ public class CodeAnalyzer implements Analyzer {
 	    code = null;
 	    return;
 	}
+	CodeVerifier verifier
+	    = new CodeVerifier(getClazz(), minfo, code);
+	try {
+	    verifier.verify();
+	} catch (VerifyException ex) {
+	    ex.printStackTrace();
+	    throw new jode.AssertError("Verification error");
+	}
 	
 	if (Decompiler.useLVT) {
 	    AttributeInfo attr = code.findAttribute("LocalVariableTable");
@@ -74,11 +84,22 @@ public class CodeAnalyzer implements Analyzer {
 		lvt = new LocalVariableTable(code.getMaxLocals(), cpool, attr);
 	    }
 	}
+	initParams();
+    }
 
-	int paramCount = method.getParamCount();
+    public void initParams() {
+        Type[] paramTypes = method.getType().getParameterTypes();
+	int paramCount = (method.isStatic() ? 0 : 1) + paramTypes.length;
 	param = new LocalInfo[paramCount];
-	for (int i=0; i<paramCount; i++)
-	    param[i] = getLocalInfo(0, i);
+	int offset = 0;
+	int slot = 0;
+	if (!method.isStatic())
+	    param[offset++] = getLocalInfo(0, slot++);
+	for (int i=0; i < paramTypes.length; i++) {
+	    param[offset++] = getLocalInfo(0, slot);
+	    slot += paramTypes[i].stackSize();
+	}
+	
     }
 
     public BytecodeInfo getBytecodeInfo() {
@@ -93,7 +114,6 @@ public class CodeAnalyzer implements Analyzer {
 	/* The adjacent analyzation relies on this */
 	DeadCodeAnalysis.removeDeadCode(code);
 	Handler[] handlers = code.getExceptionHandlers();
-
 	int returnCount;
         TransformExceptionHandlers excHandlers; 
 	{
@@ -104,7 +124,7 @@ public class CodeAnalyzer implements Analyzer {
 		 instr != null; instr = instr.nextByAddr) {
 		if (instr.prevByAddr == null
 		    || instr.prevByAddr.alwaysJumps
-		    || instr.preds.size() != 1)
+		    || instr.preds != null)
 		    instr.tmpInfo = new FlowBlock
 			(this, instr.addr, instr.length);
 	    }
@@ -186,6 +206,11 @@ public class CodeAnalyzer implements Analyzer {
         if (Decompiler.isVerbose)
             Decompiler.err.print('-');
             
+//          try {
+//              TabbedPrintWriter writer = new TabbedPrintWriter(System.err);
+//  	    methodHeader.dumpSource(writer);
+//          } catch (java.io.IOException ex) {
+//          }
         excHandlers.analyze();
         methodHeader.analyze();
     } 
@@ -249,8 +274,8 @@ public class CodeAnalyzer implements Analyzer {
         return null;
     }
 
-    public LocalInfo getParamInfo(int slot) {
-	return param[slot];
+    public LocalInfo getParamInfo(int nr) {
+	return param[nr];
     }
 
     public void useClass(String clazz) 
