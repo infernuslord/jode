@@ -136,7 +136,7 @@ public class SearchPath  {
 	    zis.close();
 	} catch (IOException ex) {
 	    GlobalOptions.err.println("Remote zip file "+bases[nr]
-				   +" is corrupted.");
+				      +" is corrupted.");
 	    // disable entry
 	    bases[nr] = null;
 	    urlzips[nr] = null;
