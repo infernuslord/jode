@@ -98,7 +98,7 @@ public class ConstantArrayOperator extends Operator {
 	throws java.io.IOException {
 	if (!isInitializer) {
 	    writer.print("new ");
-	    writer.printType(type);
+	    writer.printType(type.getHint());
 	    writer.print(" ");
 	}
 	writer.openBraceNoSpace();
@@ -120,4 +120,3 @@ public class ConstantArrayOperator extends Operator {
 	writer.closeBraceNoSpace();
     }
 }
-
