@@ -30,6 +30,8 @@ public class CodeVerifier implements Opcodes {
     MethodInfo mi;
     BytecodeInfo bi;
 
+    MethodType mt;
+
     class UninitializedClassType extends Type {
 	ClassInfo classType;
 	boolean maySuper;
@@ -155,11 +157,12 @@ public class CodeVerifier implements Opcodes {
 	this.ci = ci;
 	this.mi = mi;
 	this.bi = bi;
+	this.mt = Type.tMethod(mi.getType());
     }
 
     public VerifyInfo initInfo() {
 	VerifyInfo info = new VerifyInfo();
-	Type[] paramTypes = mi.getType().getParameterTypes();
+	Type[] paramTypes = mt.getParameterTypes();
 	int slot = 0;
 	if (!mi.isStatic()) {
 	    if (mi.getName().equals("<init>"))
@@ -296,6 +299,41 @@ public class CodeVerifier implements Opcodes {
 	    if (!newType.equals(oldInfo.locals[i])) {
 		changed = true;
 		oldInfo.locals[i] = newType;
+	    }
+	}
+	if (oldInfo.jsrTargets != null) {
+	    int jsrDepth;
+	    if (info.jsrTargets == null)
+		jsrDepth = 0;
+	    else {
+		jsrDepth = info.jsrTargets.length;
+		int infoPtr = 0;
+	    oldInfo_loop:
+		for (int oldInfoPtr=0; 
+		     oldInfoPtr < oldInfo.jsrTargets.length; oldInfoPtr++) {
+		    for (int i=infoPtr; i< jsrDepth; i++) {
+			if (oldInfo.jsrTargets[oldInfoPtr]
+			    == info.jsrTargets[i]) {
+			    System.arraycopy(info.jsrTargets, i,
+					     info.jsrTargets, infoPtr,
+					     jsrDepth - i);
+			    jsrDepth -= (i - infoPtr);
+			    infoPtr++;
+			    continue oldInfo_loop;
+			}
+		    }
+		}
+		jsrDepth = infoPtr;
+	    }
+	    if (jsrDepth != oldInfo.jsrTargets.length) {
+		if (jsrDepth == 0)
+		    oldInfo.jsrTargets = null;
+		else {
+		    oldInfo.jsrTargets = new Instruction[jsrDepth];
+		    System.arraycopy(info.jsrTargets, 0, 
+				     oldInfo.jsrTargets, 0, jsrDepth);
+		}
+		changed = true;
 	    }
 	}
 	return changed;
@@ -657,7 +695,7 @@ public class CodeVerifier implements Opcodes {
 		throw new VerifyException(instr.getDescription());
 	    Type type = result.pop();
 	    if (!isOfType(type, types[instr.opcode - opc_ireturn])
-		|| !isOfType(type, mi.getType().getReturnType()))
+		|| !isOfType(type, mt.getReturnType()))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
@@ -681,7 +719,7 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_return:
-	    if (mi.getType().getReturnType() != Type.tVoid)
+	    if (mt.getReturnType() != Type.tVoid)
 		throw new VerifyException(instr.getDescription());
 	    break;
 
@@ -732,8 +770,8 @@ public class CodeVerifier implements Opcodes {
 	case opc_invokestatic :
 	case opc_invokeinterface: {
 	    Reference ref = (Reference) instr.objData;
-	    MethodType mt = (MethodType) Type.tType(ref.getType());
-	    Type[] paramTypes = mt.getParameterTypes();
+	    MethodType refmt = (MethodType) Type.tType(ref.getType());
+	    Type[] paramTypes = refmt.getParameterTypes();
 	    for (int i=paramTypes.length - 1; i >= 0; i--) {
 		if (paramTypes[i].stackSize() == 2
 		    && result.pop() != Type.tVoid)
@@ -768,7 +806,7 @@ public class CodeVerifier implements Opcodes {
 		if (!isOfType(result.pop(), classType))
 		    throw new VerifyException(instr.getDescription());
 	    }
-	    Type type = mt.getReturnType();
+	    Type type = refmt.getReturnType();
 	    if (type != Type.tVoid) {
 		result.push(type);
 		if (type.stackSize() == 2)
@@ -851,8 +889,9 @@ public class CodeVerifier implements Opcodes {
 		Instruction jsrTarget = 
 		    ((ReturnAddressType) 
 		     prevInfo.locals[instr.localSlot]).jsrTarget;
-		if (jsrTarget != prevInfo.jsrTargets[jsrLength])
-		    throw new VerifyException(instr.getDescription());
+		while (jsrTarget != prevInfo.jsrTargets[jsrLength])
+		    if (--jsrLength < 0) 
+			throw new VerifyException(instr.getDescription());
 		VerifyInfo jsrTargetInfo = (VerifyInfo) jsrTarget.tmpInfo;
 		if (jsrTargetInfo.retInstr == null)
 		    jsrTargetInfo.retInstr = instr;
@@ -873,19 +912,10 @@ public class CodeVerifier implements Opcodes {
 		    nextTargets = null;
 		    nextLocals = null;
 		}
-		BitSet usedLocals = prevInfo.jsrLocals[jsrLength];
 		for (int i=0; i < jsrTarget.preds.length; i++) {
 		    Instruction jsrInstr = jsrTarget.preds[i];
-		    VerifyInfo jsrInfo = (VerifyInfo) jsrInstr.tmpInfo;
-		    if (jsrInfo == null)
-			continue;
-		    VerifyInfo afterJsrInfo = (VerifyInfo) jsrInfo.clone();
-		    for (int j = 0; j < bi.getMaxLocals(); j++) {
-			if (usedLocals.get(j))
-			    afterJsrInfo.locals[j] = prevInfo.locals[j];
-		    }
-		    if (mergeInfo(jsrInstr.nextByAddr, afterJsrInfo))
-			instrStack.push(jsrInstr.nextByAddr);
+		    if (jsrInstr.tmpInfo != null)
+			instrStack.push(jsrInstr);
 		}
 	    } else {
 		VerifyInfo info = modelEffect(instr, prevInfo);
@@ -955,6 +985,17 @@ public class CodeVerifier implements Opcodes {
 	    }
 	}
 
+	if (false /* debugVerify */) {
+	    for (Instruction instr = bi.getFirstInstr(); instr != null;
+		 instr = instr.nextByAddr) {
+
+		VerifyInfo info = (VerifyInfo) instr.tmpInfo;
+		if (info != null)
+		    System.err.println(info.toString());
+		System.err.println(instr.getDescription());
+
+	    }
+	}
 	for (Instruction instr = bi.getFirstInstr(); instr != null;
 	     instr = instr.nextByAddr)
 	    instr.tmpInfo = null;
