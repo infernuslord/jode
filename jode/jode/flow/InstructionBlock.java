@@ -96,13 +96,13 @@ public class InstructionBlock extends InstructionContainer {
         return declare != null && !declare.isEmpty();
     }
 
+
     /**
-     * Make the declarations, i.e. initialize the declare variable
-     * to correct values.  This will declare every variable that
-     * is marked as used, but not done.
-     * @param done The set of the already declare variables.
+     * Check if this is an local store instruction to a not yet declared
+     * variable.  In that case mark this as declaration and return the 
+     * variable.
      */
-    public void makeDeclaration(VariableSet done) {
+    public LocalInfo checkDeclaration(VariableSet done) {
         if (instr.getOperator() instanceof LocalStoreOperator) {
 	    LocalInfo local = 
 		((LocalStoreOperator) instr.getOperator()).getLocalInfo();
@@ -115,13 +115,26 @@ public class InstructionBlock extends InstructionContainer {
 		if (instr instanceof ComplexExpression)
 		    ((ComplexExpression) instr)
 			.getSubExpressions()[0].makeInitializer();
-		done.addElement(local);
-		super.makeDeclaration(done);
-		done.removeElement(local);
-		return;
+		return local;
 	    }
 	}
-	super.makeDeclaration(done);
+	return null;
+    }
+
+    /**
+     * Make the declarations, i.e. initialize the declare variable
+     * to correct values.  This will declare every variable that
+     * is marked as used, but not done.
+     * @param done The set of the already declare variables.
+     */
+    public void makeDeclaration(VariableSet done) {
+	LocalInfo local = checkDeclaration(done);
+	if (local != null) {
+	    done.addElement(local);
+	    super.makeDeclaration(done);
+	    done.removeElement(local);
+	} else 
+	    super.makeDeclaration(done);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 
