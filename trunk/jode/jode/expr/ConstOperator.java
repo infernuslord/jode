@@ -85,13 +85,13 @@ public class ConstOperator extends NoArgOperator {
 		    && ((Integer)value).intValue() == 1);
 	} else if (type == Type.tLong) {
 	    return (value instanceof Long
-		    && ((Integer)value).longValue() == 1L);
+		    && ((Long)value).longValue() == 1L);
 	} else if (type == Type.tFloat) {
 	    return (value instanceof Float
-		    && ((Integer)value).floatValue() == 1.0f);
+		    && ((Float)value).floatValue() == 1.0f);
 	} else if (type == Type.tDouble) {
 	    return (value instanceof Double
-		    && ((Integer)value).doubleValue() == 1.0);
+		    && ((Double)value).doubleValue() == 1.0);
 	}
 	return false;
     }

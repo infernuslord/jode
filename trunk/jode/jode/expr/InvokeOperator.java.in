@@ -447,14 +447,20 @@ public final class InvokeOperator extends Operator
 	    result = (String) interpreter.interpretMethod
 		(ma.getBytecodeInfo(), null, new Object[] { op.getValue() });
 	} catch (InterpreterException ex) {
-	    GlobalOptions.err.println("Warning: Can't interpret method "
-				      +methodName);
-	    ex.printStackTrace(GlobalOptions.err);
+	    if ((GlobalOptions.debuggingFlags & 
+		 GlobalOptions.DEBUG_INTERPRT) != 0) {
+		GlobalOptions.err.println("Warning: Can't interpret method "
+					  +methodName);
+		ex.printStackTrace(GlobalOptions.err);
+	    }
 	    return null;
 	} catch (InvocationTargetException ex) {
-	    GlobalOptions.err.println("Warning: Interpreted method throws"
-				      +" an uncaught exception: ");
-	    ex.getTargetException().printStackTrace(GlobalOptions.err);
+	    if ((GlobalOptions.debuggingFlags & 
+		 GlobalOptions.DEBUG_INTERPRT) != 0) {
+		GlobalOptions.err.println("Warning: Interpreted method throws"
+					  +" an uncaught exception: ");
+		ex.getTargetException().printStackTrace(GlobalOptions.err);
+	    }
 	    return null;
 	}
 	return new ConstOperator(result);
