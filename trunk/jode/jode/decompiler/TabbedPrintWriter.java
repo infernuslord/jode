@@ -213,7 +213,7 @@ public class TabbedPrintWriter {
 	    return null;
 	for (int i=0; i< outers.length; i++) {
 	    if (outers[i].name == null)
-		return "ANONYMOUS CLASS";
+		return "ANONYMOUS CLASS "+info.getName();
 	    Scope scope = getScope(info, Scope.METHODSCOPE);
 	    if (scope != null && 
 		!conflicts(outers[i].name, scope, scopeType)) {
