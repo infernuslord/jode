@@ -157,11 +157,13 @@ jode/bytecode/ClassInfo.java
 jode/bytecode/Reference.java
 jode/decompiler/ImportHandler.java
 jode/decompiler/ClassAnalyzer.java
+jode/decompiler/FieldAnalyzer.java
 jode/decompiler/MethodAnalyzer.java
 jode/decompiler/DeadCodeAnalysis.java
 jode/expr/Expression.java
 jode/expr/FieldOperator.java
 jode/expr/InvokeOperator.java
+jode/expr/LocalVarOperator.java
 jode/expr/Operator.java
 jode/expr/CheckNullOperator.java
 jode/flow/RetBlock.java
@@ -216,8 +218,8 @@ jode/util/UnifyHash.java
 jode/GlobalOptions.java
 bin/Makefile
 bin/jode
+bin/jode.bat
 doc/Makefile
 doc/download.html
-doc/applet.html
 test/Makefile,
 [chmod 755 javaDependencies.pl bin/jode])
