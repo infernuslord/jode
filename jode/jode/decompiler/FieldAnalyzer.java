@@ -99,6 +99,17 @@ public class FieldAnalyzer implements Analyzer {
 	return true;
     }
 
+    public boolean setClassConstant(String clazzName) {
+	if (constant != null)
+	    return false;
+	if (fieldName.equals("class$" + clazzName.replace('.', '$'))
+	    || fieldName.equals("class$L" + clazzName.replace('.', '$'))) {
+	    analyzedSynthetic();
+	    return true;
+	}
+	return false;
+    }
+
     public void analyze() {
         imports.useType(type);
 	if (constant != null)
