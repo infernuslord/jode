@@ -15,16 +15,33 @@ This chapter contains information, how the decompiler works.
 @section Type checking and guessing
 @cindex Types, Conversions
 
-The type class has the following operators:
+The class jode.Type is the base class of all types (except MethodType).
+A type under jode is really a set of types, since it sometimes cannot
+know the exact type.  A special type is Type.tError which represents the
+empty set.
 
-getSubType
-getSuperType
-intersection
+A type has the following operators:
+
+@table @asis
+@item getSubType
+Get the set of types, that are implicitly (in bytecode) castable to one
+of the types in this type set.
+
+@item getSuperType
+Get the set of types, to which the types in this type set can be casted
+without a bytecode cast.
+
+@item intersection
+Get the intersection of the type sets.
+
 (getCastHelper?)
 (getImplicitCast?)
+@end table
 
-reference types (classes, interfaces, arrays and null type) often appear
-in ranges. They have the methods:
+There are simple types, that can only casted to themself (like long,
+float, double, void), 32 bit integer types (boolean, byte, char, short,
+int) and reference types (classes, interfaces, arrays and null type).
+There is also a type range to represent sets of reference types.
 
 createRangeType
 getSpecializedType
@@ -41,7 +58,7 @@ ref1.intersection(ref2) =
 <Object - tUnknown[]>
 {IBCS}[]  intersect {CSZ}[] = {CS}[]
 <Object - {ICSB}[]> intersect <Serializable - {CSZ}[]>
-   --> <Serializable - {
+   --> <Serializable - {CS}[]>
 
 The byte code distinguishes five different types:
 
