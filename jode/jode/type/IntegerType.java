@@ -110,69 +110,6 @@ public class IntegerType extends Type {
 	return new IntegerType(getSuperTypes());
     }
 
-//      /**
-//       * Returns the common sub type of this and type.
-//       * @param type the other type.
-//       * @return the common sub type.
-//       */
-//      public Type getSpecializedType(Type type) {
-//          /*  tError  , x        -> tError
-//           *  x       , tUnknown -> x
-//           *  Integer , Integer  -> possTypes1 & possTypes2 == 0 ? tError
-//           */
-//  	if (type == tUnknown)
-//  	    return this;
-//  	if (type.typecode != TC_INTEGER)
-//  	    return tError;
-//  	IntegerType other = (IntegerType) type;
-//  	int mergeTypes = possTypes & other.possTypes;
-//  	/* HINTING XXX */
-//  	if (mergeTypes == possTypes)
-//  	    return this;
-//  	if (mergeTypes == other.possTypes)
-//  	    return other;
-//  	if (mergeTypes == 0)
-//  	    return tError;
-//  	return new IntegerType(mergeTypes);
-//      }
-
-//      /**
-//       * Returns the common super type of this and type.
-//       * @param type the other type.
-//       * @return the common super type.
-//       */
-//      public Type getGeneralizedType(Type type) {
-//  	return getSpecializedType(type);
-//      }
-
-//      /**
-//       * Create the type corresponding to the range from bottomType to this.
-//       * @param bottomType the start point of the range
-//       * @return the range type, or tError if not possible.
-//       */
-//      public Type intersection(Type bottomType) {
-//          /* Note that this can't be tBoolByte or tBoolInt */
-//          /*  x       , tError   -> tError
-//           *  object  , tUnknown -> <object, tUnknown>
-//           *  boolean , tUnknown -> boolean
-//           *  int     , tUnknown -> <int, byte>
-//           *  boolint , tUnknown -> boolint
-//           *  tUnknown, x        -> getSuperTypes(x)
-//           *  tUnknown, short    -> <int, short>
-//           *  short   , byte     -> <short, byte>
-//           *  byte    , short    -> tError
-//           *  tUnknown, float    -> float
-//           */
-//  	if (bottomType == tUnknown)
-//  	    return this;
-//  	else if (bottomType.typecode != TC_INTEGER)
-//  	    return tError;
-//  	/*XXX HINTING*/
-
-//  	int result = ((IntegerType)bottomType).possTypes & possTypes;
-//  	return new IntegerType(result);
-//      }
-
     /**
      * Checks if this type represents a valid type instead of a list
      * of minimum types.
@@ -271,7 +208,7 @@ public class IntegerType extends Type {
 		return other;
 	}
 	Type result = mergeTypes == 0 ? tError : new IntegerType(mergeTypes);
-	if (Decompiler.isTypeDebugging || result == tError) {
+	if (Decompiler.isTypeDebugging) {
 	    Decompiler.err.println("intersecting "+ this +" and "+ type + 
                                    " to " + result);
 	}	    
