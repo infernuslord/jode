@@ -37,7 +37,7 @@ public class AttributeInfo {
         if ((howMuch & ClassInfo.ALL_ATTRIBUTES) != 0) {
             name = attrName;
             data = new byte[length];
-            input.read(data);
+            input.readFully(data);
         } else 
             input.skip(length);
     }
