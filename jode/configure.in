@@ -15,6 +15,7 @@ dnl AC_PROG_RANLIB
 dnl AC_PATH_PROG(ZIP, zip)
 AC_PATH_PROG(UNZIP, unzip)
 AC_PATH_PROG(PERL, perl)
+AC_PATH_PROG(CYGPATH, cygpath)
 
 dnl Checks for libraries.
 
@@ -29,6 +30,16 @@ QUOTE=""
 AC_SUBST(QUOTE)
 
 AC_SUBST(SHELL)
+
+if test -n "$CYGPATH"; then
+  # Extra check if java take windows path?
+  CLASSPATH=`$CYGPATH --unix --path $CLASSPATH`
+  SUBSTCP="$CYGPATH --windows --path"
+else
+  SUBSTCP="echo"
+fi
+
+AC_SUBST(SUBSTCP)
 
 AC_ARG_WITH(java,
   [  --with-java		  specify path to a java-like program ],
