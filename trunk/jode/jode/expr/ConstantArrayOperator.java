@@ -102,7 +102,7 @@ public class ConstantArrayOperator extends NoArgOperator {
 	    writer.printType(type);
 	    writer.print(" ");
 	}
-	writer.println("{");
+	writer.openBraceNoSpace();
 	writer.tab();
         for (int i=0; i< values.length; i++) {
             if (i>0) {
@@ -118,7 +118,7 @@ public class ConstantArrayOperator extends NoArgOperator {
         }
 	writer.println();
 	writer.untab();
-	writer.print("}");
+	writer.closeBraceNoSpace();
     }
 }
 
