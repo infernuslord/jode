@@ -71,7 +71,9 @@ public class CreateClassField {
 	    String clazz = ((ConstOperator)param).getValue();
 	    if (put.getField().setClassConstant(clazz)) {
 		cmp.setSubExpressions
-		    (0, new ClassFieldOperator(Type.tClass(clazz)));
+		    (0, new ClassFieldOperator(clazz.charAt(0) == '[' 
+					       ? Type.tType(clazz)
+					       : Type.tClass(clazz)));
 		EmptyBlock empty = new EmptyBlock();
 		empty.moveJump(ifBlock.thenBlock.jump);
 		ifBlock.setThenBlock(empty);
