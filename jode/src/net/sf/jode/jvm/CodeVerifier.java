@@ -596,7 +596,6 @@ public class CodeVerifier implements Opcodes {
 
     private VerifyInfo initInfo() throws VerifyException {
 	VerifyInfo info = new VerifyInfo();
-	int pos = 1;
 	int slot = 0;
 	if (!mi.isStatic()) {
 	    if (slot >= bb.getMaxLocals())
@@ -606,14 +605,13 @@ public class CodeVerifier implements Opcodes {
 	    else
 		info.locals[slot++] = tType("L", ci);
 	}
-	while (methodType.charAt(pos) != ')') {
-	    int start = pos;
-	    pos = TypeSignature.skipType(methodType, pos);
-	    String paramType = methodType.substring(start, pos);
+
+	String[] paramTypes = TypeSignature.getParameterTypes(methodType);
+	for (int i = 0; i < paramTypes.length; i++) {
 	    if (slot >= bb.getMaxLocals())
 		throw new VerifyException("Too few local slots");
-	    info.locals[slot++] = tType(paramType);
-	    if (TypeSignature.getTypeSize(paramType) == 2) {
+	    info.locals[slot++] = tType(paramTypes[i]);
+	    if (TypeSignature.getTypeSize(paramTypes[i]) == 2) {
 		if (slot >= bb.getMaxLocals())
 		    throw new VerifyException("Too few local slots");
 		info.locals[slot++] = tSecondPart;

@@ -19,7 +19,7 @@
 -->
 
 <!DOCTYPE project PUBLIC "-//ANT//DTD project//EN" "project.dtd">
-<project name="jode" default="all" basedir=".">
+<project name="jode" default="test" basedir=".">
   <!-- set global properties for this build -->
   <property name="version" value="1.90-CVS"/>
 
@@ -32,7 +32,7 @@
   <property name="distdir" value="${release}/jode-${version}"/>
   <property name="scripts" value="${basedir}/scripts"/>
 
-  <property name="api.doc" value="doc/api"/>
+  <property name="api.doc" value="${doc}/api"/>
 
   <property name="test" value="${basedir}/test"/>
   <property name="test.src" value="${test}/src"/>
@@ -164,7 +164,7 @@
   
   <!-- ********* Create Release files ******* -->
 
-  <target name="release" depends="release-bin,release-bin11,release-src"/>
+  <target name="release" depends="release-bin,release-bin11,release-src,release-javadoc"/>
 
   <target name="release-bindist" depends="build">
     <jar jarfile="${distdir}/jode.jar">
@@ -221,7 +221,9 @@
         <include name="doc/**"/>
         <include name="scripts/**"/>
         <include name="src/**"/>
-        <include name="test/**"/>
+        <include name="test/*.java"/>
+        <include name="test/*.j"/>
+        <include name="test/src/**"/>
         <include name="props/**"/>
         <include name="lib/**"/>
       </fileset>
@@ -229,6 +231,14 @@
     <jar jarfile="${release}/jode-${version}-src.jar"
 	 basedir="${release}" includes="jode-${version}/**"/>
     <delete dir="${distdir}"/>
+  </target>
+
+  <target name="release-javadoc">
+    <antcall target="doc-javadoc"/>
+    <mkdir dir="${release}"/>
+    <jar jarfile="${release}/jode-${version}-API.jar"
+	 basedir="${doc}" includes="api/**"/>
+    <antcall target="clean-doc"/>
   </target>
 
   <target name="clean-release">
@@ -254,8 +264,15 @@
     </execon>
   </target>
   <target name="doc-javadoc">
+    <tstamp>
+      <format property="date" pattern="MMM d, yyyy"/>
+    </tstamp>
     <mkdir dir="${api.doc}"/>
     <javadoc packagenames="net.sf.jode.*"
+	     windowtitle="Jode ${version} API Specification"
+	     header='&lt;b&gt;&lt;a href="http://jode.sourceforge.net/"&gt;Jode&lt;/a&gt; ${version}&lt;/b&gt;&lt;br&gt;&lt;font size="-2"&gt;Build ${date}&lt;/font&gt;'
+	     overview="${src}/net/sf/jode/overview.html"
+	     bottom='Copyright &amp;copy; 1998-2001 by Jochen Hoenicke.'
 	     sourcepath="${src}"
 	     destdir="${api.doc}"
 	     use="yes">

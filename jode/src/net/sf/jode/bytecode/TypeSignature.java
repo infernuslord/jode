@@ -21,7 +21,37 @@ package net.sf.jode.bytecode;
 import net.sf.jode.util.UnifyHash;
 
 /**
- * This class contains some static methods to handle type signatures.
+ * This class contains some static methods to handle type signatures. <br>
+ *
+ * A type signature is a compact textual representation of a java
+ * types.  It is described in the Java Virtual Machine Specification.
+ * Primitive types have a one letter type signature.  Type signature
+ * of classes contains the class name. Type signatures for arrays and
+ * methods are recursively build from the type signatures of their
+ * elements.  <br>
+ *
+ * Here are a few examples:
+ * <table><tr><th>type signature</th><th>Java type</th></tr>
+ * <tr><td><code>Z</code></td><td><code>boolean</code></td></tr>
+ * <tr><td><code>B</code></td><td><code>byte</code></td></tr>
+ * <tr><td><code>S</code></td><td><code>short</code></td></tr>
+ * <tr><td><code>C</code></td><td><code>char</code></td></tr>
+ * <tr><td><code>I</code></td><td><code>int</code></td></tr>
+ * <tr><td><code>F</code></td><td><code>float</code></td></tr>
+ * <tr><td><code>J</code></td><td><code>long</code></td></tr>
+ * <tr><td><code>D</code></td><td><code>double</code></td></tr>
+ * <tr><td><code>Ljava/lang/Object;</code></td>
+ *     <td><code>java.lang.Object</code></td></tr>
+ * <tr><td><code>[[I</code></td><td><code>int[][]</code></td></tr>
+ * <tr><td><code>(Ljava/lang/Object;I)V</code></td>
+ *     <td>method with argument types <code>Object</code> and
+ *         <code>int</code> and <code>void</code> return type.</td></tr>
+ * <tr><td><code>()I</code></td>
+ *     <td> method without arguments 
+ *          and <code>int</code> return type.</td></tr>
+ * </table>
+ *
+ * @author Jochen Hoenicke
  */
 public class TypeSignature {
     /**
@@ -61,22 +91,20 @@ public class TypeSignature {
     }
 
     /**
-     * Generate the signature for the given Class.
+     * Generates the type signature of the given Class.
      * @param clazz a java.lang.Class, this may also be a primitive or
      * array type.
-     * @return the type signature (see section 4.3.2 Field Descriptors
-     * of the JVM specification)
+     * @return the type signature.
      */
     public static String getSignature(Class clazz) {
 	return appendSignature(new StringBuffer(), clazz).toString();
     }
  
     /**
-     * Generate a method signature.
+     * Generates a method signature.
      * @param paramT the java.lang.Class of the parameter types of the method.
      * @param returnT the java.lang.Class of the return type of the method.
-     * @return the method signature (see section 4.3.3 Method Descriptors
-     * of the JVM specification)
+     * @return the method type signature
      */
     public static String getSignature(Class paramT[], Class returnT) {
 	StringBuffer sig = new StringBuffer("(");
@@ -86,8 +114,8 @@ public class TypeSignature {
     }
 
     /**
-     * Generate a Class for a type signature.  This is the pendant to
-     * getSignature.
+     * Generates a Class object for a type signature.  This is the
+     * inverse function of getSignature.
      * @param typeSig a single type signature
      * @return the Class object representing that type.
      */
@@ -124,25 +152,43 @@ public class TypeSignature {
     }
 
     /**
-     * Check if the given type is a two slot type.  */
+     * Check if the given type is a two slot type.  The only two slot 
+     * types are long and double.
+     */
     private static boolean usingTwoSlots(char type) {
 	return "JD".indexOf(type) >= 0;
     }
 
     /**
      * Returns the number of words, an object of the given simple type
-     * signature takes.  
+     * signature takes.  For long and double this is two, for all other
+     * types it is one.
      */
     public static int getTypeSize(String typeSig) {
 	return usingTwoSlots(typeSig.charAt(0)) ? 2 : 1;
     }
 
+    /**
+     * Gets the element type of an array.  
+     * @param typeSig type signature of the array.
+     * @return type signature for the element type.
+     * @exception IllegalArgumentException if typeSig is not an array
+     * type signature.
+     */
     public static String getElementType(String typeSig) {
 	if (typeSig.charAt(0) != '[')
 	    throw new IllegalArgumentException();
 	return typeSig.substring(1);
     }
 
+    /**
+     * Gets the ClassInfo for a class type.
+     * @param classpath the classpath in which the ClassInfo is searched.
+     * @param typeSig type signature of the class.
+     * @return the ClassInfo object for the class.
+     * @exception IllegalArgumentException if typeSig is not an class
+     * type signature.
+     */
     public static ClassInfo getClassInfo(ClassPath classpath, String typeSig) {
 	if (typeSig.charAt(0) != 'L')
 	    throw new IllegalArgumentException();
@@ -150,7 +196,13 @@ public class TypeSignature {
 	    (typeSig.substring(1, typeSig.length()-1).replace('/', '.'));
     }
 
-    public static int skipType(String methodTypeSig, int position) {
+    /**
+     * Skips the next entry of a method type signature
+     * @param methodTypeSig type signature of the method.
+     * @param position the index to the last entry.
+     * @return the index to the next entry.
+     */
+    static int skipType(String methodTypeSig, int position) {
 	char c = methodTypeSig.charAt(position++);
 	while (c == '[')
 	    c = methodTypeSig.charAt(position++);
@@ -160,10 +212,13 @@ public class TypeSignature {
     }
     
     /**
-     * Returns the number of words, the arguments for the given method
-     * type signature takes.  
+     * Gets the number of words the parameters for the given method
+     * type signature takes.  This is the sum of getTypeSize() for
+     * each parameter type.
+     * @param methodTypeSig the method type signature.
+     * @return the number of words the parameters take.
      */
-    public static int getArgumentSize(String methodTypeSig) {
+    public static int getParameterSize(String methodTypeSig) {
 	int nargs = 0;
 	int i = 1;
 	for (;;) {
@@ -179,8 +234,11 @@ public class TypeSignature {
     }
 
     /**
-     * Returns the number of words, an object of the given simple type
-     * signature takes.  
+     * Gets the size of the return type of the given method in words.
+     * This is zero for void return type, two for double or long return
+     * type and one otherwise.
+     * @param methodTypeSig the method type signature.
+     * @return the size of the return type in words.
      */
     public static int getReturnSize(String methodTypeSig) {
 	int length = methodTypeSig.length();
@@ -195,8 +253,9 @@ public class TypeSignature {
     }
 
     /**
-     * Returns the number of words, an object of the given simple type
-     * signature takes.  
+     * Gets the parameter type signatures of the given method signature.
+     * @param methodTypeSig the method type signature.
+     * @return an array containing all parameter types in correct order.
      */
     public static String[] getParameterTypes(String methodTypeSig) {
 	int pos = 1;
@@ -215,6 +274,26 @@ public class TypeSignature {
 	return params;
     }
 
+    /**
+     * Gets the return type for a method signature
+     * @param methodTypeSig the method signature.
+     * @return the return type for a method signature, `V' for void methods.
+     */
+    public static String getReturnType(String methodTypeSig) {
+	return methodTypeSig.substring(methodTypeSig.lastIndexOf(')')+1);
+    }
+
+    /**
+     * Gets the default value an object of the given type has.  It is
+     * null for objects and arrays, Integer(0) for boolean and short
+     * integer types or Long(0L), Double(0.0), Float(0.0F) for long,
+     * double and float.  This seems strange, but this way the type
+     * returned is the same as for FieldInfo.getConstant().
+     *
+     * @param typeSig the type signature.
+     * @return the default value.
+     * @exception IllegalArgumentException if this is a method type signature.
+     */
     public static Object getDefaultValue(String typeSig) {
 	switch(typeSig.charAt(0)) {
 	case 'Z':
@@ -238,15 +317,7 @@ public class TypeSignature {
     }
 
     /**
-     * Returns the number of words, an object of the given simple type
-     * signature takes.  
-     */
-    public static String getReturnType(String methodTypeSig) {
-	return methodTypeSig.substring(methodTypeSig.lastIndexOf(')')+1);
-    }
-
-    /**
-     * Check if there is a valid class name starting at index
+     * Checks if there is a valid class name starting at index
      * in string typesig and ending with a semicolon.
      * @return the index at which the class name ends.
      * @exception IllegalArgumentException if there was an illegal character.
@@ -266,7 +337,7 @@ public class TypeSignature {
     }
 
     /**
-     * Check if there is a valid simple type signature starting at index
+     * Checks if there is a valid simple type signature starting at index
      * in string typesig.
      * @return the index at which the type signature ends.
      * @exception IllegalArgumentException if there was an illegal character.
@@ -285,6 +356,14 @@ public class TypeSignature {
 	return index;
     }
 
+    /**
+     * Checks whether a given type signature is a valid (not method)
+     * type signature.  Throws an exception otherwise.
+     * @param typeSig the type signature.
+     * @exception NullPointerException if typeSig is null.
+     * @exception IllegalArgumentException if typeSig is not a valid
+     * type signature or if it's a method type signature.
+     */
     public static void checkTypeSig(String typesig) 
 	throws IllegalArgumentException
     {
@@ -298,6 +377,14 @@ public class TypeSignature {
 	}
     }
 
+    /**
+     * Checks whether a given type signature is a valid method
+     * type signature.  Throws an exception otherwise.
+     * @param typeSig the type signature.
+     * @exception NullPointerException if typeSig is null.
+     * @exception IllegalArgumentException if typeSig is not a valid
+     * method type signature.
+     */
     public static void checkMethodTypeSig(String typesig) 
 	throws IllegalArgumentException
     {

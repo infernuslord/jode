@@ -61,7 +61,7 @@ class ReferenceInstruction extends Instruction {
 	case opc_invokestatic:
 	case opc_invokeinterface:
 	    poppush[0] = opcode != opc_invokestatic ? 1 : 0;
-	    poppush[0] += TypeSignature.getArgumentSize(typeSig);
+	    poppush[0] += TypeSignature.getParameterSize(typeSig);
 	    poppush[1] = TypeSignature.getReturnSize(typeSig);
 	    break;
 	

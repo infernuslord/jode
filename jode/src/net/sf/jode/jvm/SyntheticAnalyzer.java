@@ -98,16 +98,6 @@ public class SyntheticAnalyzer implements Opcodes {
 	opc_astore, opc_new, opc_dup, opc_aload, 
 	opc_invokevirtual, opc_invokespecial, opc_athrow
     };
-    private static final Reference[] getClassRefs = {
-	null, Reference.getReference("Ljava/lang/Class;", "forName",
-				     "(Ljava/lang/String;)Ljava/lang/Class;"),
-	null, null, null, null, null,
-	Reference.getReference("Ljava/lang/Throwable;", "getMessage",
-			       "()Ljava/lang/String;"),
-	Reference.getReference("Ljava/lang/NoClassDefFoundError;", "<init>",
-			       "(Ljava/lang/String;)V"), null
-    };
-
 
     boolean checkGetClass() {
 	if (!method.isStatic()
@@ -133,9 +123,12 @@ public class SyntheticAnalyzer implements Opcodes {
 	    Instruction instr = startBlock.getInstructions()[i];
 	    if (instr.getOpcode() != getClassOpcodes[i])
 		return false;
-	    if (getClassRefs[i] != null
-		&& !getClassRefs[i].equals(instr.getReference()))
-		return false;
+	    if (i == 1) {
+		Reference ref = instr.getReference();
+		if (!ref.getClazz().equals("Ljava/lang/Class;")
+		    || !ref.getName().equals("forName"))
+		    return false;
+	    }
 	    if (i == 0 && instr.getLocalSlot() != 0)
 		return false;
 	}
@@ -148,15 +141,18 @@ public class SyntheticAnalyzer implements Opcodes {
 	    Instruction instr = catchBlock.getInstructions()[i];
 	    if (instr.getOpcode() != getClassOpcodes[3+i])
 		return false;
-	    if (getClassRefs[3+i] != null
-		&& !getClassRefs[3+i].equals(instr.getReference()))
-		return false;
 	    if (i == 0)
 		excSlot = instr.getLocalSlot();
 	    if (i == 1 && !instr.getClazzType().equals
 		("Ljava/lang/NoClassDefFoundError;"))
 		return false;
 	    if (i == 3 && instr.getLocalSlot() != excSlot)
+		return false;
+	    if (i == 4
+		&& !instr.getReference().getName().equals("getMessage"))
+		return false;
+	    if (i == 5
+		&& !instr.getReference().getName().equals("<init>"))
 		return false;
 	}
 	this.kind = GETCLASS;

@@ -1,4 +1,4 @@
-/* FlowBlock Copyright (C) 1998-1999 Jochen Hoenicke.
+/* FlowBlock Copyright (C) 1998-2001 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -211,6 +211,9 @@ public class FlowBlock {
      * @return The remaining jumps, that couldn't be resolved.
      */
     public Jump resolveSomeJumps(Jump jumps, FlowBlock succ) {
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
+            GlobalOptions.err.println("before Resolve: "+this);
+
 	/* We will put all jumps that we can not resolve into this
 	 * linked list.
 	 */
@@ -721,7 +724,7 @@ public class FlowBlock {
      * begin of successor.  
      * @param kills The slots that are always overwritten on the way to
      * successor.
-     * @return The variables that must be defined * in this block.  
+     * @return The variables that must be defined in this block.  
      */
     void updateInOut(FlowBlock successor, VariableSet gens, SlotSet kills) {
 	successor.updateGenKill(gens, kills);
@@ -805,7 +808,9 @@ public class FlowBlock {
 
 	try {
         if (block.outer != null || block.flowBlock != this) {
-            throw new InternalError("Inconsistency: outer:"+block.outer+" block.flow"+block.flowBlock +"  this: "+this);
+            throw new InternalError("Inconsistency: outer:" + block.outer
+				    + " block.flow"+block.flowBlock
+				    + "  this: "+this);
         }
         block.checkConsistent();
 
@@ -820,7 +825,8 @@ public class FlowBlock {
 
         StructuredBlock last = lastModified;
         while (last.outer instanceof SequentialBlock
-               || last.outer instanceof TryBlock)
+               || last.outer instanceof TryBlock
+               || last.outer instanceof FinallyBlock)
             last = last.outer;
         if (last.outer != null)
             throw new InternalError("Inconsistency");
@@ -999,8 +1005,6 @@ public class FlowBlock {
 
         /* Update the in/out-Vectors now */
         updateInOut(succ, succInfo.gen, succInfo.kill);
-        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
-            GlobalOptions.err.println("before Resolve: "+this);
 
         /* Try to eliminate as many jumps as possible.
          */
@@ -1055,9 +1059,6 @@ public class FlowBlock {
             jumps = jump;
         }
             
-        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
-            GlobalOptions.err.println("before resolve: "+this);
-
         /* Try to eliminate as many jumps as possible.
          */
         jumps = resolveSomeJumps(jumps, END_OF_METHOD);

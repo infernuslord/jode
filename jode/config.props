@@ -1,10 +1,11 @@
 # Do you have online access for generating javadoc?
 # If not, where are your local files.
 javadoc.offline=false
-#javadoc.href=http://java.sun.com/products/jdk/1.2/docs/api/
 javadoc.packagelistLoc=
+javadoc.href=http://java.sun.com/products/jdk/1.2/docs/api/
+#javadoc.href=file:/usr/doc/inet/java/jdk1.2/docs/api
+
 #javadoc.offline=true
-javadoc.href=file:/usr/doc/inet/java/jdk1.2/docs/api
 #javadoc.packagelistLoc=/usr/doc/inet/java/jdk1.2/docs/api
 
 # Is Perl installed on your system?

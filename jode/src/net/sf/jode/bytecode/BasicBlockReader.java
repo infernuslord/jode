@@ -693,7 +693,7 @@ class BasicBlockReader implements Opcodes {
 			throw new ClassFormatException
 			    ("Illegal call of special method "+ref);
 		    int nargs = input.readUnsignedByte();
-		    if (TypeSignature.getArgumentSize(ref.getType())
+		    if (TypeSignature.getParameterSize(ref.getType())
 			!= nargs - 1)
 			throw new ClassFormatException
 			    ("Interface nargs mismatch: "+ref+" vs. "+nargs);
@@ -890,7 +890,7 @@ class BasicBlockReader implements Opcodes {
 		GlobalOptions.err.println("Illegal LVT length, ignoring it");
 	    return;
 	}
-	Vector[] lvt = new Vector[bb.maxLocals];
+	Vector[] lvt = new Vector[maxLocals];
 	for (int i=0; i < count; i++) {
 	    LVTEntry lve = new LVTEntry();
 	    lve.start  = input.readUnsignedShort();
@@ -899,7 +899,8 @@ class BasicBlockReader implements Opcodes {
 	    int typeIndex = input.readUnsignedShort();
 	    int slot = input.readUnsignedShort();
 	    if (nameIndex == 0 || cp.getTag(nameIndex) != cp.UTF8
-		|| typeIndex == 0 || cp.getTag(typeIndex) != cp.UTF8) {
+		|| typeIndex == 0 || cp.getTag(typeIndex) != cp.UTF8
+		|| slot >= maxLocals) {
 		
 		// This is probably an evil lvt as created by HashJava
 		// simply ignore it.

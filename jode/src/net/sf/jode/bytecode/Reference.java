@@ -24,7 +24,8 @@ import java.util.Iterator;
 ///#enddef
 
 /**
- * This class represents a field or method reference.
+ * This class represents a field or method reference.  It consists of
+ * the class name the method/field name and the type signature.
  */
 public class Reference {
     /**

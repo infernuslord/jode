@@ -894,7 +894,8 @@ class BasicBlockWriter implements Opcodes {
 			output.writeShort
 			    (gcp.putRef(gcp.INTERFACEMETHODREF, ref));
 			output.writeByte
-			    (TypeSignature.getArgumentSize(ref.getType()) + 1);
+			    (TypeSignature
+			     .getParameterSize(ref.getType()) + 1);
 			output.writeByte(0);
 		    } else 
 			output.writeShort(gcp.putRef(gcp.METHODREF, ref));
