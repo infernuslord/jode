@@ -339,7 +339,8 @@ public class Main
 
     public static void main(String[] params) {
 	String cp = System.getProperty("java.class.path", "");
-	cp = cp.replace(File.pathSeparatorChar, SearchPath.pathSeparatorChar);
+	cp = cp.replace(File.pathSeparatorChar, 
+			SearchPath.altPathSeparatorChar);
 	for (int i=0; i<params.length; i++) {
 	    if (params[i].equals("--classpath"))
 		cp = params[++i];
