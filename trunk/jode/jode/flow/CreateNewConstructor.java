@@ -131,15 +131,16 @@ public class CreateNewConstructor {
             optDupX2.depth = 0;
 
 	Expression newExpr = new ConstructorOperator
-	    (constrCall.getClassType(), constrCall.getMethodType(), 
-	     dup == null);
+	    (constrCall, dup == null);
 
 	if (constrExpr instanceof ComplexExpression) {
 	    Expression[] subs = 
 		((ComplexExpression)constrExpr).getSubExpressions();
-	    for (int i=subs.length - 1; i>=1; i--)
-		if (!(subs[i] instanceof NopOperator))
-		    newExpr = newExpr.addOperand(subs[i]);
+	    for (int i=subs.length - 1; i>=1; i--) {
+		if (subs[i] instanceof NopOperator)
+		    break;
+		newExpr = newExpr.addOperand(subs[i]);
+	    }
 	}
 	ic.setInstruction(newExpr);
         return true;
