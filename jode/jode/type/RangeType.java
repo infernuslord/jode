@@ -77,6 +77,14 @@ public class RangeType extends Type {
         throw new AssertError("getGeneralizedType called on RangeType");
     }
 	    
+    /**
+     * Marks this type as used, so that the class is imported.
+     */
+    public void useType() {
+        /* The topType will be printed */
+        topType.useType();
+    }
+
     public String toString()
     {
         if (jode.Decompiler.isTypeDebugging)

@@ -101,6 +101,13 @@ public class ArrayType extends Type {
             :      tError;
     }
 
+    /**
+     * Marks this type as used, so that the class is imported.
+     */
+    public void useType() {
+        elementType.useType();
+    }
+
     public String toString() {
         return elementType.toString()+"[]";
     }
