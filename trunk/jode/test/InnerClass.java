@@ -19,49 +19,52 @@
 
 package jode.test;
 
-public class InnerClass {
-
+public class InnerClass 
+{
     private int x;
 
-    class Inner {
+    class Inner 
+    {
         int a = 4;
-        private int b;
-        Inner() {
-            b = x;
-        }
+        private int b = x;
 
-        class InnerInner {
-            public InnerInner(int c) {
-                x = c;
-                a = b;
-            }
+        class InnerInner 
+	{
 
             public int getB() {
                 return Inner.this.getB();
             }
 
             public int getStaticB(InnerInner innerinner) {
+		createInner(InnerClass.this);
                 return innerinner.getB();
+            }
+
+            public InnerInner(int c) {
+                x = c;
+                a = b;
             }
         }
 
-        int getB() {
+        private int getB() {
             return b;
         }
         
-
         public InnerInner createInnerInner(int a) {
             return new InnerInner(a);
         }
     }
 
-    class Extended extends Inner.InnerInner{
+    class Extended 
+	extends Inner.InnerInner
+    {
+
         Extended(Inner inner) {
             inner.super(3);
         }
     }
 
-    static Inner createInner(InnerClass outer) {
+    private static Inner createInner(InnerClass outer) {
 	return outer.new Inner();
     }
 
