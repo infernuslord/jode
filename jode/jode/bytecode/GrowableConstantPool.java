@@ -29,6 +29,7 @@ import java.util.Hashtable;
  */
 public class GrowableConstantPool extends ConstantPool {
     Hashtable entryToIndex = new Hashtable(); 
+    boolean written;
 
     public GrowableConstantPool () {
 	count = 1;
@@ -36,9 +37,12 @@ public class GrowableConstantPool extends ConstantPool {
 	indices1 = new int[128];
 	indices2 = new int[128];  
 	constants = new Object[128];
+	written = false;
     }
 
     public final void grow(int wantedSize) {
+	if (written)
+	    throw new IllegalStateException("adding to written ConstantPool");
 	if (tags.length < wantedSize) {
 	    int newSize = Math.max(tags.length*2, wantedSize);
 	    int[] tmpints = new int[newSize];
@@ -102,21 +106,21 @@ public class GrowableConstantPool extends ConstantPool {
 	return count++;
     }
 
-    public final int putUTF(String utf) {
+    public final int putUTF8(String utf) {
 	return putConstant(UTF8, utf);
     }    
 
     public int putClassName(String name) {
 	name = name.replace('.','/');
 	return putIndexed(""+(char) CLASS + name,
-			  CLASS, putUTF(name), 0);
+			  CLASS, putUTF8(name), 0);
     }
 
     public int putClassType(String name) {
 	if (name.charAt(0) == 'L')
 	    name = name.substring(1, name.length()-1);
 	return putIndexed(""+(char) CLASS + name,
-			  CLASS, putUTF(name), 0);
+			  CLASS, putUTF8(name), 0);
     }
 
     public int putRef(int tag, Reference ref) {
@@ -125,8 +129,8 @@ public class GrowableConstantPool extends ConstantPool {
 	String nameAndType = ref.getName() + "/" + typeSig;
 
 	int classIndex = putClassType(className);
-	int nameIndex  = putUTF(ref.getName());
-	int typeIndex  = putUTF(typeSig);
+	int nameIndex  = putUTF8(ref.getName());
+	int typeIndex  = putUTF8(typeSig);
 	int nameTypeIndex = putIndexed("" + (char) NAMEANDTYPE + nameAndType,
 				       NAMEANDTYPE, nameIndex, typeIndex);
 	return putIndexed("" + (char)tag + className + "/" + nameAndType,
@@ -142,7 +146,7 @@ public class GrowableConstantPool extends ConstantPool {
     public int putConstant(Object c) {
 	if (c instanceof String) {
 	    return putIndexed("" + (char) STRING + c,
-			      STRING, putUTF((String) c), 0);
+			      STRING, putUTF8((String) c), 0);
 	} else {
 	    int tag;
 	    if (c instanceof Integer)
@@ -206,6 +210,7 @@ public class GrowableConstantPool extends ConstantPool {
 
     public void write(DataOutputStream stream) 
 	throws IOException {
+	written = true;
 	stream.writeShort(count);
 	for (int i=1; i< count; i++) {
 	    int tag = tags[i];
