@@ -51,13 +51,22 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      */
     VariableStack condStack;
     /**
-     * The init instruction, only valid if type == FOR or POSSFOR
+     * The init instruction block, only valid if type == POSSFOR
      */
-    InstructionBlock init;
+    InstructionBlock initBlock;
     /**
-     * The increase instruction, only valid if type == FOR or POSSFOR.
+     * The increase instruction block, only valid if type == POSSFOR.
      */
-    InstructionBlock incr;
+    InstructionBlock incrBlock;
+
+    /**
+     * The init instruction, only valid if type == FOR.
+     */
+    Expression initInstr;
+    /**
+     * The increase instruction, only valid if type == FOR.
+     */
+    Expression incrInstr;
     
     /**
      * True, if the initializer is a declaration.
@@ -84,17 +93,22 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      */
     VariableStack continueStack;
 
-    /*{ invariant { type == POSSFOR || type == FOR || incr == null
+    /*{ invariant { type == POSSFOR || (incrBlock == null && initBlock == null)
 		    :: "(while/do while) with incr";
-		    type == FOR || init == null
+		    type == FOR || (incrInstr == null && initInstr == null)
 		    :: "(while/do while/poss for) with init";
-		    (type != FOR && type != POSSFOR) || incr != null
-		    :: "(possible) for without incr";
+		    type != POSSFOR || incrBlock != null
+		    :: "possible for without incr";
+		    type != FOR || incrInstr != null
+		    :: "for without incr";
 		    type != POSSFOR ||
-                    (incr.getInstruction() instanceof CombineableOperator) 
+                    incrBlock.getInstruction() instanceof CombineableOperator
 		    :: "possible for with invalid incr";
-		    init == null || 
-		    (init.getInstruction() instanceof CombinableOperator)
+		    initBlock == null || 
+		    (initBlock.getInstruction() instanceof CombinableOperator)
+		    :: "Initializer is not combinableOperator";
+		    initInstr == null || 
+		    (initInstr instanceof CombinableOperator)
 		    :: "Initializer is not combinableOperator";
 		    cond != null && cond.getType() == Type.tBoolean
 		    :: "invalid condition type";
@@ -128,10 +142,13 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         body.setFlowBlock(flowBlock);
     }
 
-    public void setInit(InstructionBlock init) {
-        this.init = init;
-        if (type == FOR)
-            init.removeBlock();
+    public void setInit(InstructionBlock initBlock) {
+	if (type == POSSFOR) {
+	    this.initBlock = initBlock;
+        } else if (type == FOR) {
+	    this.initInstr = initBlock.getInstruction();
+            initBlock.removeBlock();
+	}
     }
 
     public boolean conditionMatches(CombineableOperator combinable) {
@@ -149,23 +166,24 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
             /* We can now say, if this is a for block or not.
              */
             if (cond.containsMatchingLoad((CombineableOperator)
-					  incr.getInstruction())) {
+					  incrBlock.getInstruction())) {
                 type = FOR;
-                incr.removeBlock();
-                if (init != null) {
-                    if (cond.containsMatchingLoad((CombineableOperator)
-						  init.getInstruction()))
-                        init.removeBlock();
-                    else
-                        init = null;
+		incrInstr = incrBlock.getInstruction();
+                incrBlock.removeBlock();
+                if (initBlock != null) {
+                    if (cond.containsMatchingLoad
+			((CombineableOperator) initBlock.getInstruction())) {
+			initInstr = initBlock.getInstruction();
+                        initBlock.removeBlock();
+                    }
                 }
             } else {
                 /* This is not a for block, as it seems first.  Make
                  * it a while block again, and forget about init and
                  * incr.  */
                 type = WHILE;
-                init = incr = null;
             }
+	    initBlock = incrBlock = null;
         }
         mayChangeJump = false;
     }
@@ -183,10 +201,8 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * loop-block.  This is the initializer for for-blocks.
      */
     public void removeLocallyDeclareable(VariableSet set) {
-	if (type == FOR && init != null
-	    && init.getInstruction() instanceof StoreInstruction) {
-	    StoreInstruction storeOp = 
-		(StoreInstruction) init.getInstruction();
+	if (type == FOR && initInstr instanceof StoreInstruction) {
+	    StoreInstruction storeOp = (StoreInstruction) initInstr;
 	    if (storeOp.getLValue() instanceof LocalStoreOperator) {
 		LocalInfo local = 
 		    ((LocalStoreOperator) storeOp.getLValue()).getLocalInfo();
@@ -196,12 +212,14 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     }
 
     public VariableSet propagateUsage() {
+	if (used == null)
+	    used = new VariableSet(); /*XXX*/
         if (type == FOR) {
-	    if (init != null)
-		used.unionExact(init.used);
-	    if (incr != null)
-		used.unionExact(incr.used);
+	    incrInstr.fillInGenSet(null, used);
+	    if (initInstr != null)
+		initInstr.fillInGenSet(null, used);
 	}
+	cond.fillInGenSet(null, used);
         VariableSet allUse = (VariableSet) used.clone();
         allUse.unionExact(bodyBlock.propagateUsage());
         return allUse;
@@ -230,6 +248,30 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     }
 
     /**
+     * Check if this is an local store instruction to a not yet declared
+     * variable.  In that case mark this as declaration and return the 
+     * variable.
+     */
+    public void checkDeclaration(VariableSet declareSet) {
+        if (initInstr instanceof StoreInstruction
+	    && (((StoreInstruction)initInstr).getLValue() 
+		instanceof LocalStoreOperator)) {
+	    StoreInstruction storeOp = (StoreInstruction) initInstr;
+	    LocalInfo local = 
+		((LocalStoreOperator) storeOp.getLValue()).getLocalInfo();
+            if (declareSet.contains(local)) {
+		/* Special case: This is a variable assignment, and
+		 * the variable has not been declared before.  We can
+		 * change this to a initializing variable declaration.  
+		 */
+		isDeclaration = true;
+		storeOp.getSubExpressions()[1].makeInitializer();
+		declareSet.removeElement(local);
+	    }
+	}
+    }
+
+    /**
      * Make the declarations, i.e. initialize the declare variable
      * to correct values.  This will declare every variable that
      * is marked as used, but not done.
@@ -237,8 +279,8 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      */
     public void makeDeclaration(VariableSet done) {
 	super.makeDeclaration(done);
-        if (type == FOR && init != null)
-	    init.checkDeclaration(declare);
+        if (type == FOR && initInstr != null)
+	    checkDeclaration(declare);
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -274,21 +316,21 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
             break;
         case FOR:
             writer.print("for (");
-            if (init != null) {
-                if (init.isDeclaration) {
+            if (initInstr != null) {
+                if (isDeclaration) {
                     writer.printType(((LocalStoreOperator)
-				      ((CombineableOperator) 
-				       init.getInstruction()).getLValue())
+				      ((CombineableOperator) initInstr)
+				      .getLValue())
 				     .getLocalInfo().getType().getHint());
 		    writer.print(" ");
 		}
-                init.getInstruction().dumpExpression(writer);
+                initInstr.dumpExpression(writer);
             } else
                 writer.print("/**/");
             writer.print("; ");
 	    cond.dumpExpression(writer);
 	    writer.print("; ");
-	    incr.getInstruction().dumpExpression(writer);
+	    incrInstr.dumpExpression(writer);
 	    writer.print(")");
             break;
         }
@@ -411,7 +453,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 
     public void removePush() {
 	if (condStack != null)
-	    cond = condStack.mergeIntoExpression(cond, used);
+	    cond = condStack.mergeIntoExpression(cond);
 	bodyBlock.removePush();
     }
 
@@ -427,9 +469,9 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public void removeOnetimeLocals() {
 	cond = cond.removeOnetimeLocals();
 	if (type == FOR) {
-	    if (init != null)
-		init.removeOnetimeLocals();
-	    incr.removeOnetimeLocals();
+	    if (initInstr != null)
+		initInstr.removeOnetimeLocals();
+	    incrInstr.removeOnetimeLocals();
 	}
 	super.removeOnetimeLocals();
     }
@@ -470,15 +512,16 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public void simplify() {
 	cond = cond.simplify();
 	if (type == FOR) {
-	    incr.simplify();
-	    if (init != null)
-		init.simplify();
+	    incrInstr.simplify();
+	    if (initInstr != null)
+		initInstr.simplify();
 	}
 	super.simplify();
     }
 
     public boolean doTransformations() {
-        return init == null && (type == FOR || type == POSSFOR)
+        return ((initBlock == null && type == POSSFOR)
+		|| (initInstr == null && type == FOR))
             && CreateForInitializer.transform(this, flowBlock.lastModified);
     }
 }
