@@ -26,7 +26,7 @@ public class CompareUnaryOperator extends SimpleOperator {
     public CompareUnaryOperator(Type type, int op) {
         super(Type.tBoolean, op, 1);
         operandTypes[0] = type;
-        objectType = (type == Type.tUObject);
+        objectType = (type.isOfType(Type.tUObject));
     }
 
     public int getPriority() {
