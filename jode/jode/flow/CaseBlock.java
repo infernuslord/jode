@@ -43,19 +43,14 @@ public class CaseBlock extends StructuredBlock {
     boolean isDefault = false;
 
     /**
-     * True, if this is the last case in a switch
+     * True, if the previous case falls through to this case
      */
-    boolean isLastBlock;
+    boolean isFallThrough = false;
 
     /**
-     * All variables used somewhere inside this block.
+     * True, if this is the last case in a switch
      */
-    VariableSet allUsed;
-    /**
-     * Do we want braces around the case block (if a sub block
-     * declares a variable).  
-     */
-    boolean wantBraces;
+    boolean isLastBlock = false;
 
     public CaseBlock(int value) {
 	this.value = value;
@@ -89,29 +84,40 @@ public class CaseBlock extends StructuredBlock {
         return true;
     }
 
-    public VariableSet propagateUsage() {
-        /* We remember if this sub block uses some variables, to introduce
-         * braces around this block in that case.
-         */
-        return (allUsed = super.propagateUsage());
-    }
-
     /**
-     * Make the declarations, i.e. initialize the declare variable
-     * to correct values.  This will declare every variable that
-     * is marked as used, but not done.
-     * @param done The set of the already declare variables.
+     * Tells if we want braces around this case.  We only need braces
+     * if there is a declaration on the first level (list of
+     * sequential blocks).
      */
-    public void makeDeclaration(VariableSet done) {
-        java.util.Enumeration enum = allUsed.elements();
-        while (enum.hasMoreElements()) {
-            jode.decompiler.LocalInfo li = (jode.decompiler.LocalInfo) enum.nextElement();
-            if (!done.contains(li)) {
-                wantBraces = true;
-                break;
-            }
-        }
-        super.makeDeclaration(done);
+    protected boolean wantBraces() {
+	StructuredBlock block = subBlock;
+	if (block == null)
+	    return false;
+	for (;;) {
+	    if (!block.declare.isEmpty()) {
+		/* A declaration; we need braces. */
+		return true;
+	    }
+
+	    if (!(block instanceof SequentialBlock)) {
+		/* This was the last block on the first level. 
+		 * If we get here, we need no braces.
+		 */
+		return false;
+	    }
+
+	    StructuredBlock[] subBlocks = block.getSubBlocks();
+	    if (subBlocks[0] instanceof InstructionBlock
+		&& !subBlocks[0].declare.isEmpty()) {
+		/* An instruction block declares on the same level as
+		 * the surrounding SequentialBlock.
+		 */
+		return true;
+	    }
+
+	    /* continue with the second sub block. */
+	    block = subBlocks[1];
+	}
     }
 
     /**
@@ -127,29 +133,58 @@ public class CaseBlock extends StructuredBlock {
         throws java.io.IOException 
     {
 	if (isDefault) {
+	    /* If this is the default case and does nothing, we can
+	     * skip this.  
+	     * We have to make sure, that nothing flows into the default
+	     * block though. XXX remove if sure.
+	     */
 	    if (isLastBlock
 		&& subBlock instanceof EmptyBlock
 		&& subBlock.jump == null)
 		return;
+	    if (subBlock instanceof BreakBlock
+		&& ((BreakBlock) subBlock).breaksBlock == this) {
+		/* make sure that the previous block is correctly breaked */
+		if (isFallThrough) {
+		    writer.tab();
+		    subBlock.dumpSource(writer);
+		    writer.untab();
+		}
+		return;
+	    }
+	    if (isFallThrough) {
+		writer.tab();
+		writer.print("/* fall through */");
+		writer.untab();
+	    }
 	    writer.print("default:");
 	} else {
+	    if (isFallThrough) {
+		writer.tab();
+		writer.print("/* fall through */");
+		writer.untab();
+	    }
             ConstOperator constOp = new ConstOperator
                 (((SwitchBlock)outer).getInstruction().getType(), 
                  Integer.toString(value));
             constOp.makeInitializer();
 	    writer.print("case " + constOp.toString() + ":");
         }
-	if (wantBraces)
-	    writer.openBrace();
-	else
-	    writer.println();
 	if (subBlock != null) {
-	    writer.tab();
-	    subBlock.dumpSource(writer);
-	    writer.untab();
-	}
-        if (wantBraces)
-            writer.closeBrace();
+	    boolean needBraces = wantBraces();
+	    if (needBraces)
+		writer.openBrace();
+	    else
+		writer.println();
+	    if (subBlock != null) {
+		writer.tab();
+		subBlock.dumpSource(writer);
+		writer.untab();
+	    }
+	    if (needBraces)
+		writer.closeBrace();
+	} else
+	    writer.println();
     }
 
     /**
