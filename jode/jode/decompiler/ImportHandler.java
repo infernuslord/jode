@@ -20,6 +20,7 @@
 package jode;
 import java.util.*;
 import jode.bytecode.ClassInfo;
+import java.io.IOException;
 
 public class JodeEnvironment {
     Hashtable imports;
@@ -136,7 +137,10 @@ public class JodeEnvironment {
     private void dumpHeader(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
-        writer.println("/* "+ className + " - Decompiled by JoDe (Jochen's Decompiler)\n * Send comments or bug reports to Jochen Hoenicke <jochenh@bigfoot.com>\n */");
+        writer.println("/* "+ className 
+		       + " - Decompiled by JoDe (Jochen's Decompiler)\n"
+		       + " * Send comments or bug reports to "
+		       + Decompiler.email + "\n */");
         if (pkg.length() != 0)
             writer.println("package "+pkg+";");
 
@@ -154,7 +158,8 @@ public class JodeEnvironment {
         System.err.println(message);
     }
 
-    public void doClass(String className) 
+    public void doClass(String className, TabbedPrintWriter writer)
+	throws IOException
     {
         ClassInfo clazz;
         try {
@@ -174,14 +179,8 @@ public class JodeEnvironment {
         main = new ClassAnalyzer(null, clazz, this);
         main.analyze();
 
-        TabbedPrintWriter writer = 
-            new TabbedPrintWriter(System.out, "    ");
-        try {
-            dumpHeader(writer);
-            main.dumpSource(writer);
-        } catch (java.io.IOException e) {
-            e.printStackTrace();
-        }
+	dumpHeader(writer);
+	main.dumpSource(writer);
     }
 
     /* Marks the clazz as used, so that it will be imported if used often
