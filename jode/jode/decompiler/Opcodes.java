@@ -134,7 +134,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_fload: case opc_dload: case opc_aload:
             return createNormal
                 (ca, instr, new LocalLoadOperator
-                 (types[0][opcode-opc_iload],
+                 (types[0][opcode-opc_iload], ca,
                   ca.getLocalInfo(instr.addr, instr.localSlot)));
         case opc_iaload: case opc_laload: 
         case opc_faload: case opc_daload: case opc_aaload:
