@@ -171,10 +171,15 @@ public abstract class Identifier {
     static int serialnr = 0;
 
     public void buildTable(Renamer renameRule) {
+	if (!isReachable()
+	    && (Main.stripping & Main.STRIP_UNREACH) != 0) 
+	    return;
+
 	if (isPreserved()) {
 	    if (GlobalOptions.verboseLevel > 4)
 		GlobalOptions.err.println(toString() + " is preserved");
 	} else {
+
 	    Identifier rep = getRepresentative();
 	    if (rep.wasAliased)
 		return;
@@ -196,10 +201,18 @@ public abstract class Identifier {
 		return;
 	    }
 	}
+	for (Iterator i = getChilds(); i.hasNext(); )
+	    ((Identifier)i.next()).buildTable(renameRule);
     }
 
     public void writeTable(Map table) {
+	if (!isReachable() 
+	    && (Main.stripping & Main.STRIP_UNREACH) != 0) 
+	    return;
+
 	table.put(getFullAlias(), getName());
+	for (Iterator i = getChilds(); i.hasNext(); )
+	    ((Identifier)i.next()).writeTable(table);
     }
 
     public void readTable(Map table) {
@@ -211,6 +224,8 @@ public abstract class Identifier {
 		rep.setAlias(newAlias);
 	    }
 	}
+	for (Iterator i = getChilds(); i.hasNext(); )
+	    ((Identifier)i.next()).readTable(table);
     }
 
     public void applyPreserveRule(IdentifierMatcher preserveRule) {
