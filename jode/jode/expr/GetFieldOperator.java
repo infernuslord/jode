@@ -148,8 +148,21 @@ public class GetFieldOperator extends Operator {
 				*/
 			       getField() == null 
 			       && writer.conflicts(fieldName, null,
-						   Scope.FIELDNAME))) {
-		    writer.print("this.");
+						   Scope.NOSUPERFIELDNAME))) {
+
+		    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
+		    while (ana.getParent() instanceof ClassAnalyzer
+			   && ana != scope)
+			ana = (ClassAnalyzer) ana.getParent();
+		    if (ana == scope)
+			// For a simple outer class we can say this
+			writer.print("this.");
+		    else {
+			// For a class that owns a method that owns
+			// us, we have to give the full class name
+			thisOp.dumpExpression(writer, 950);
+			writer.print(".");
+		    }
 		}
 	    } else {
 		subExpressions[0].dumpExpression(writer, 950);
@@ -165,8 +178,12 @@ public class GetFieldOperator extends Operator {
 	    subExpressions[0].parent = this;
 	    if (subExpressions[0] instanceof ThisOperator) {
 		FieldAnalyzer field = getField();
-		if (field != null 
-		    && field.isSynthetic() && field.isFinal()) {
+		/* This should check for isFinal(), but sadly,
+		 * sometimes jikes doesn't make a val$ field final.  I
+		 * don't know when, or why, so I currently ignore
+		 * isFinal.  
+		 */
+		if (field != null && field.isSynthetic()) {
 		    Expression constant = field.getConstant();
 		    if (constant instanceof ThisOperator
 			|| constant instanceof OuterLocalOperator)
