@@ -186,13 +186,13 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 		(Instruction.forOpcode(opc_pop));     //DCABD<
 	    newInstructions.addFirst
 		(Instruction.forOpcode(opc_dup2_x2)); //DCABDC<
-	    swappedBeforeDup = !swappedBeforeDup      //ABDC<
+	    swappedBeforeDup = !swappedBeforeDup;     //ABDC<
 	}
 
 	if (swapBeforeDup)
 	    newInstructions.addFirst
 		(Instruction.forOpcode(opc_swap));
-	return newPopped
+	return newPopped;
     }
 
     /**
@@ -369,7 +369,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 	blocks[i].setCode((Instruction[]) newInstructions
 			  .toArray(new Instruction[newInstructions.size()]),
 			  blocks[i].getSuccs());
-	return poppedEntries
+	return poppedEntries;
     }
 
     /**
@@ -399,143 +399,7 @@ public class RemovePopAnalyzer implements CodeTransformer, Opcodes {
 
 	    Instruction instr = oldInstrs[--instrNr];
 	    instr.getStackPopPush(poppush);
-	    for (stackDepth 
-
-	    /* Check if this instr pushes a popped Entry. */
-	    boolean pops_a_popped = false;
-	    boolean pops_all_popped = true;
-	    for (int j=0; j < poppush[1]; j++) {
-		if (poppedEntries.get(j))
-		    push_a_popped = true;
-		else
-		    push_all_popped = false;
-	    }
-
-	    if (!push_a_popped) {
-		// Normal case:
-		// add the instruction and adjust stack depth.
-		newInstructions.addFirst(instr);
-		stackDepth += poppush[0] - poppush[1];
-		continue;
-	    }
-
-	    /* We push an entry, that gets popped later */
-	    int opcode = instr.getOpcode();
-	    switch (opcode) {
-	    case opc_dup:
-	    case opc_dup_x1:
-	    case opc_dup_x2:
-	    case opc_dup2: 
-	    case opc_dup2_x1:
-	    case opc_dup2_x2: {
-		int popped = 0;
-		for (int j = poppush[1] ; j > 0; j--) {
-		    popped <<= 1;
-		    if (poppedEntries.get(--stackDepth)) {
-			popped |= 1;
-			poppedEntries.clear(stackDepth);
-		    }
-		}
-		popped = movePopsThroughDup(opcode, newInstructions, 
-					    popped);
-		for (int j=0; j < poppush[1]; j++) {
-		    if ((popped & 1) != 0)
-			poppedEntries.set(stackDepth);
-		    stackDepth++;
-		    popped >>=1;
-		}
-		break;
-	    }
-		
-	    case opc_swap:
-		if (!push_all_popped) {
-		    // swap the popped status
-		    if (poppedEntries.get(stackDepth - 1)) {
-			poppedEntries.clear(stackDepth - 1);
-			poppedEntries.set(stackDepth - 2);
-		    } else {
-			poppedEntries.set(stackDepth - 1);
-			poppedEntries.clear(stackDepth - 2);
-		    }
-		}
-		
-	    case opc_ldc2_w:
-	    case opc_lload: case opc_dload:
-	    case opc_i2l: case opc_i2d:
-	    case opc_f2l: case opc_f2d:
-	    case opc_ldc:
-	    case opc_iload: case opc_fload: case opc_aload:
-	    case opc_new:
-	    case opc_lneg: case opc_dneg:
-	    case opc_l2d: case opc_d2l:
-	    case opc_laload: case opc_daload:
-	    case opc_ineg: case opc_fneg: 
-	    case opc_i2f:  case opc_f2i:
-	    case opc_i2b: case opc_i2c: case opc_i2s:
-	    case opc_newarray: case opc_anewarray:
-	    case opc_arraylength:
-	    case opc_instanceof:
-	    case opc_lshl: case opc_lshr: case opc_lushr:
-	    case opc_iaload: case opc_faload: case opc_aaload:
-	    case opc_baload: case opc_caload: case opc_saload:
-	    case opc_iadd: case opc_fadd:
-	    case opc_isub: case opc_fsub:
-	    case opc_imul: case opc_fmul:
-	    case opc_idiv: case opc_fdiv:
-	    case opc_irem: case opc_frem:
-	    case opc_iand: case opc_ior : case opc_ixor: 
-	    case opc_ishl: case opc_ishr: case opc_iushr:
-	    case opc_fcmpl: case opc_fcmpg:
-	    case opc_l2i: case opc_l2f:
-	    case opc_d2i: case opc_d2f:
-	    case opc_ladd: case opc_dadd:
-	    case opc_lsub: case opc_dsub:
-	    case opc_lmul: case opc_dmul:
-	    case opc_ldiv: case opc_ddiv:
-	    case opc_lrem: case opc_drem:
-	    case opc_land: case opc_lor : case opc_lxor:
-	    case opc_lcmp:
-	    case opc_dcmpl: case opc_dcmpg:
-	    case opc_getstatic:
-	    case opc_getfield:
-	    case opc_multianewarray:
-
-		/* The simple instructions, that can be removed. */
-		if (!push_all_popped)
-		    throw new InternalError("pop half of a long");
-		if (poppush[0] < poppush[1]) {
-		    for (int j=0; j < poppush[0] - poppush[1]; j++)
-			poppedEntries.set(stackDepth++);
-		} else if (poppush[0] < poppush[1]) {
-		    for (int j=0; j < poppush[0] - poppush[1]; j++)
-			poppedEntries.clear(--stackDepth);
-		}
-		
-	    case opc_invokevirtual:
-	    case opc_invokespecial:
-	    case opc_invokestatic:
-	    case opc_invokeinterface:
-	    case opc_checkcast:
-		
-		/* These instructions can't be removed, since
-		 * they have side effects.
-		 */
-		if (!push_all_popped)
-		    throw new InternalError("pop half of a long");
-		if (poppush[1] == 1) {
-		    poppedEntries.clear(--stackDepth);
-		    newInstructions
-			.addFirst(Instruction.forOpcode(opc_pop));
-		} else {
-		    poppedEntries.clear(--stackDepth);
-		    poppedEntries.clear(--stackDepth);
-		    newInstructions
-			.addFirst(Instruction.forOpcode(opc_pop2));
-		}
-		newInstructions.addFirst(instr);
-	    default:
-		throw new InternalError("Unexpected opcode!");
-	    }
+	    /* XXX handle pops inside a opc_dup */
 	}
 	block.setCode((Instruction[]) newInstructions
 		      .toArray(new Instruction[newInstructions.size()]),
