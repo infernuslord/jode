@@ -92,7 +92,7 @@ public class IIncOperator extends NoArgOperator
                 ? INC_OP : DEC_OP;
 
             return new LocalPrePostFixOperator
-                (local.getType(), op, this, isVoid()).simplify();
+                (getType(), op, this, isVoid()).simplify();
         }
         return super.simplify();
     }
