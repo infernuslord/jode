@@ -14,9 +14,9 @@ chmod a+x compile
 
 cd ..
 DATE=`date +"%Y%m%d"`
-tar -cvzf jode/jode-RCS-$DATE.tar.gz \
+tar -cvzf jode/snapshot/jode-RCS-$DATE.tar.gz \
     jode/co.all jode/compile jode/RCS jode/*/RCS
 
-zip jode/jode-$DATE.zip \
+zip jode/snapshot/jode-$DATE.zip \
     jode/COPYING jode/*.html jode/jcpp \
     jode/*.java jode/*/*.java jode/*/*.j jode/*.class jode/*/*.class
