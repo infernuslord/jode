@@ -23,8 +23,10 @@ import jode.GlobalOptions;
 import jode.Decompiler;
 import jode.decompiler.Analyzer;
 import jode.decompiler.ClassAnalyzer;
-import jode.decompiler.CodeAnalyzer;
 import jode.decompiler.MethodAnalyzer;
+import jode.decompiler.FieldAnalyzer;
+import jode.decompiler.MethodAnalyzer;
+import jode.decompiler.OuterValueListener;
 import jode.expr.*;
 import jode.type.MethodType;
 import jode.type.Type;
@@ -60,8 +62,9 @@ import java.util.Enumeration;
  * 
  * @author Jochen Hoenicke 
  * @see jode.decompiler.FieldAnalyzer#setInitializer
- * @see jode.decompiler.ClassAnalyzer#getOuterValues */
-public class TransformConstructors {
+ * @see jode.decompiler.ClassAnalyzer#getOuterValues 
+ */
+public class TransformConstructors implements OuterValueListener {
     /* What is sometimes confusing is the distinction between slot and
      * parameter.  Most times parameter nr = slot nr, but double and
      * long parameters take two slots, so the remaining parameters
@@ -89,25 +92,46 @@ public class TransformConstructors {
 	this.clazzAnalyzer = clazzAnalyzer;
 	this.isStatic = isStatic;
 	this.cons = cons;
-	this.outerValues = clazzAnalyzer.getOuterValues();
 	this.ovMinSlots = 1;
-	ovMaxSlots = 1;
+	ovMaxSlots = Integer.MAX_VALUE;
+	this.outerValues = clazzAnalyzer.getOuterValues();
+	if (outerValues != null) {
+	    clazzAnalyzer.addOuterValueListener(this);
+	    updateOuterValues(outerValues.length);
+	}
+    }
+
+    public void updateOuterValues(int count) {
+	int outerSlots = 1;
 	if ((GlobalOptions.debuggingFlags
 	     & GlobalOptions.DEBUG_CONSTRS) != 0)
 	    GlobalOptions.err.print("OuterValues: ");
-	if (outerValues != null) {
-	    for (int i=0; i< outerValues.length; i++) {
-		ovMaxSlots += outerValues[i].getType().stackSize();
-		if ((GlobalOptions.debuggingFlags
-		     & GlobalOptions.DEBUG_CONSTRS) != 0)
-		    GlobalOptions.err.print(outerValues[i]+", ");
-	    }
+	for (int i=0; i< count; i++) {
+	    outerSlots += outerValues[i].getType().stackSize();
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.print(outerValues[i]+", ");
+	}
+	if (outerSlots < ovMaxSlots)
+	    ovMaxSlots = outerSlots;
+	if (outerSlots < ovMinSlots) {
+	    GlobalOptions.err.println
+		("WARNING: something got wrong with scoped class "
+		 +clazzAnalyzer.getClazz()+": "+ovMinSlots+","+ovMaxSlots);
+	    GlobalOptions.err.println
+		("CAN'T REPAIR.  PRODUCED CODE IS PROBABLY WRONG.");
+	    Thread.dumpStack();
+	    ovMinSlots = outerSlots;
 	}
 	if ((GlobalOptions.debuggingFlags
 	     & GlobalOptions.DEBUG_CONSTRS) != 0)
 	    GlobalOptions.err.println(" ["+ovMinSlots+","+ovMaxSlots+"]");
     }
     
+    public void shrinkingOuterValues(ClassAnalyzer ca, int newCount) {
+	updateOuterValues(newCount);
+    }
+
     public static boolean isThis(Expression thisExpr, ClassInfo clazz) {
 	return ((thisExpr instanceof ThisOperator)
 		&& (((ThisOperator)thisExpr).getClassInfo() == clazz));
@@ -141,12 +165,12 @@ public class TransformConstructors {
 	 *
 	 * Mark constructor as anonymous constructor.
 	 */
+	Expression expr = superBlock.getInstruction().simplify();
 
-	if (!(superBlock.getInstruction() instanceof InvokeOperator))
+	if (!(expr instanceof InvokeOperator))
 	    return false;
 	
-	InvokeOperator superCall 
-	    = (InvokeOperator) superBlock.getInstruction().simplify();
+	InvokeOperator superCall = (InvokeOperator) expr;
 	superBlock.setInstruction(superCall);
 	
 	if (superCall.getFreeOperandCount() != 0
@@ -229,6 +253,8 @@ public class TransformConstructors {
     }
 
     public boolean checkJikesContinuation(MethodAnalyzer constr) {
+	if (outerValues == null)
+	    return false;
 
 	MethodType constrType = constr.getType();
 
@@ -263,23 +289,24 @@ public class TransformConstructors {
 	    superBlock = (InstructionBlock) sb.getSubBlocks()[0];
 	    sb = sb.getSubBlocks()[1];
 
-	    if (!(superBlock.getInstruction() instanceof InvokeOperator))
+	    Expression superExpr = superBlock.getInstruction().simplify();
+	    if (!(superExpr instanceof InvokeOperator))
 		return false;
 
-	    InvokeOperator superCall 
-		= (InvokeOperator) superBlock.getInstruction().simplify();
-	    superBlock.setInstruction(superCall);
+	    InvokeOperator superInvoke = (InvokeOperator) superExpr;
+	    superBlock.setInstruction(superInvoke);
 	    
-	    if (superCall.getFreeOperandCount() != 0
-		|| !superCall.isConstructor() || !superCall.isSuperOrThis())
+	    if (superInvoke.getFreeOperandCount() != 0
+		|| !superInvoke.isConstructor() 
+		|| !superInvoke.isSuperOrThis())
 		return false;
 	    
-	    Expression[] subExpr = superCall.getSubExpressions();
+	    Expression[] subExpr = superInvoke.getSubExpressions();
 	    Expression thisExpr = subExpr[0];
 	    if (!isThis(thisExpr, clazzAnalyzer.getClazz()))
 		return false;
 
-	    ClassInfo superClazz = superCall.getClassInfo();
+	    ClassInfo superClazz = superInvoke.getClassInfo();
 	    if ((Decompiler.options & 
 		 (Decompiler.OPTION_ANON | Decompiler.OPTION_INNER)) != 0
 		&& clazzAnalyzer.getName() == null
@@ -305,7 +332,8 @@ public class TransformConstructors {
 	    return false;
 
 	/* Now check the constructor$? invocation */
-	Expression lastExpr = ((InstructionBlock)sb).getInstruction();
+	Expression lastExpr
+	    = ((InstructionBlock)sb).getInstruction().simplify();
 	if (!(lastExpr instanceof InvokeOperator))
 	    return false;
 
@@ -315,9 +343,6 @@ public class TransformConstructors {
 	    return false;
 	MethodAnalyzer methodAna = invoke.getMethodAnalyzer();
 	if (methodAna == null)
-	    return false;
-	CodeAnalyzer codeAna = methodAna.getCode();
-	if (codeAna == null)
 	    return false;
 	MethodType methodType = methodAna.getType();
 
@@ -349,8 +374,8 @@ public class TransformConstructors {
 	if (clazzAnalyzer.getParent() instanceof ClassAnalyzer)
 	    parent = ((ClassAnalyzer) clazzAnalyzer.getParent())
 		.getClazz();
-	else if (clazzAnalyzer.getParent() instanceof CodeAnalyzer)
-	    parent = ((CodeAnalyzer) clazzAnalyzer.getParent())
+	else if (clazzAnalyzer.getParent() instanceof MethodAnalyzer)
+	    parent = ((MethodAnalyzer) clazzAnalyzer.getParent())
 		.getClazz();
 	else
 	    return false;
@@ -399,15 +424,15 @@ public class TransformConstructors {
 		int newSlot = (slot == 1 
 			       ? 1 /* outerValues[0] */
 			       : slot - ovSlots + 2);
-		llop.setCodeAnalyzer(codeAna);
-		llop.setLocalInfo(codeAna.getLocalInfo(0, newSlot));
+		llop.setMethodAnalyzer(methodAna);
+		llop.setLocalInfo(methodAna.getLocalInfo(0, newSlot));
 	    }
-	    codeAna.insertStructuredBlock(superBlock);
+	    methodAna.insertStructuredBlock(superBlock);
 	}
 	clazzAnalyzer.setJikesAnonymousInner(jikesAnonInner);
 	constr.setJikesConstructor(true);
 	methodAna.setJikesConstructor(true);
-	codeAna.getParamInfo(1).setExpression(outerValues[0]);
+	methodAna.getParamInfo(1).setExpression(outerValues[0]);
 	methodAna.analyze();
 	if (constr.isAnonymousConstructor()
 	    && methodAna.getMethodHeader().block instanceof EmptyBlock)
@@ -415,6 +440,236 @@ public class TransformConstructors {
 	return true;
     }
 
+    /**
+     * This methods checks if expr is a valid field initializer.  It
+     * will also merge outerValues, that occur in expr.
+     * @param expr the initializer to check
+     * @return the transformed initializer or null if expr is not valid.
+     */
+    public Expression transformFieldInitializer(Expression expr) {
+	if (expr instanceof LocalVarOperator) {
+	    if (!(expr instanceof LocalLoadOperator)) {
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.println("illegal local op: "+expr);
+		return null;
+	    }
+	    if (outerValues != null
+		&& (Decompiler.options & Decompiler.OPTION_CONTRAFO) != 0) {
+		int slot = ((LocalLoadOperator)expr).getLocalInfo().getSlot();
+		int pos = getOuterValueIndex(slot);
+		if (pos >= 0 && slot < ovMaxSlots) {
+		    expr = outerValues[pos];
+		    if (slot >= ovMinSlots)
+			ovMinSlots = slot + expr.getType().stackSize();
+		    return expr;
+		}
+            }
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("not outerValue: "+expr
+					  +" ["+ovMinSlots
+					  +","+ovMaxSlots+"]");
+	    return null;
+	}
+	if (expr instanceof Operator) {
+	    Operator op = (Operator) expr;
+	    Expression[] subExpr = op.getSubExpressions();
+	    for (int i=0; i< subExpr.length; i++) {
+		Expression transformed = transformFieldInitializer(subExpr[i]);
+		if (transformed == null)
+		    return null;
+		if (transformed != subExpr[i])
+		    op.setSubExpressions(i, transformed);
+	    }
+	}
+	return expr;
+    }
+
+    public void initSyntheticFields() {
+	if (isStatic)
+	    return;
+
+        if (cons.length == 0)
+            return;
+
+        int constrCount = cons.length;
+        StructuredBlock[] sb = new StructuredBlock[constrCount];
+        for (int i=0; i< constrCount; ) {
+	    FlowBlock header = cons[i].getMethodHeader();
+	    /* Check that code block is fully analyzed */
+	    if (header == null || !header.hasNoJumps())
+		return;
+
+	    /* sb[i] will iterate the instructions of the constructor. */
+            sb[i] = cons[i].getMethodHeader().block;
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("constr "+i+": "+sb[i]);
+
+	    /* A non static constructor must begin with a call to
+	     * another constructor.  Either to a constructor of the
+	     * same class or to the super class
+	     */
+	    InstructionBlock ib;
+	    if (sb[i] instanceof InstructionBlock)
+		ib = (InstructionBlock)sb[i];
+	    else if (sb[i] instanceof SequentialBlock
+		     && (sb[i].getSubBlocks()[0] 
+			 instanceof InstructionBlock))
+		ib = (InstructionBlock) sb[i].getSubBlocks()[0];
+	    else
+		return;
+	    
+	    Expression superExpr = ib.getInstruction().simplify();
+	    if (!(superExpr instanceof InvokeOperator)
+		|| superExpr.getFreeOperandCount() != 0)
+		return;
+	    InvokeOperator superInvoke = (InvokeOperator) superExpr;
+	    if (!superInvoke.isConstructor()
+		|| !superInvoke.isSuperOrThis())
+		return;
+	    Expression thisExpr = superInvoke.getSubExpressions()[0];
+	    if (!isThis(thisExpr, clazzAnalyzer.getClazz()))
+		return;
+	    
+	    if (superInvoke.isThis()) {
+		/* This constructor calls another constructor of this
+		 * class, which will do the initialization.  We can skip
+		 * this constructor.
+		 */
+		/* Move constructor to the end of cons array, and
+		 * decrease constrCount.  It will not be transformed
+		 * any further.
+		 */
+		MethodAnalyzer temp = cons[i];
+		cons[i] = cons[--constrCount];
+		cons[constrCount] = temp;
+		continue;
+	    }
+	    
+	    /* This constructor begins with a super call, as 
+	     * expected. 
+	     */
+	    
+	    if (sb[i] instanceof SequentialBlock)
+		sb[i] = sb[i].getSubBlocks()[1];
+	    else
+		sb[i] = null;
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("normal constructor");
+	    i++;
+	}
+	StructuredBlock[] start = new StructuredBlock[constrCount];
+	for (int i=0; i< constrCount; i++)
+	    start[i] = sb[i];
+	
+    big_loop:
+        for (;;) {
+            for (int i=0; i< constrCount; i++) {
+                if (sb[i] == null) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("constr "+i+" is over");
+                    break big_loop;
+                }
+	    }
+
+            StructuredBlock ib = 
+                (sb[0] instanceof SequentialBlock) 
+                ? sb[0].getSubBlocks()[0]
+                : sb[0];
+
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("fieldInit: "+ib);
+
+            if (!(ib instanceof InstructionBlock))
+                break big_loop;
+
+            Expression instr
+		= ((InstructionBlock) ib).getInstruction().simplify();
+		
+	    if (!(instr instanceof StoreInstruction)
+		|| instr.getFreeOperandCount() != 0)
+		break big_loop;
+	    
+	    StoreInstruction store = (StoreInstruction) instr;
+	    if (!(store.getLValue() instanceof PutFieldOperator))
+		break big_loop;
+	    
+	    PutFieldOperator pfo = (PutFieldOperator) store.getLValue();
+	    if (pfo.isStatic() != isStatic || !pfo.isThis())
+		break big_loop;
+
+	    if (!isThis(pfo.getSubExpressions()[0], 
+			clazzAnalyzer.getClazz()))
+		break big_loop;
+
+	    FieldAnalyzer field = clazzAnalyzer.getField(pfo.getFieldName(), 
+							 pfo.getFieldType());
+
+	    if (!field.isFinal() || !field.isSynthetic())
+		break big_loop;
+
+            Expression expr =  store.getSubExpressions()[1];
+	    expr = transformFieldInitializer(expr);
+	    if (expr == null)
+		break big_loop;
+
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("field " + pfo.getFieldName()
+					  + " = " + expr);
+
+            for (int i=1; i< constrCount; i++) {
+                ib = (sb[i] instanceof SequentialBlock) 
+                    ? sb[i].getSubBlocks()[0]
+                    : sb[i];
+                if (!(ib instanceof InstructionBlock)
+                    || !(((InstructionBlock)ib).getInstruction().simplify()
+			 .equals(instr))) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("constr "+i+" differs: "+ib);
+                    break big_loop;
+                }
+            }
+
+
+            if (!(field.setInitializer(expr))) {
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.println("setField failed");
+                break big_loop;
+            }
+	    
+            
+            for (int i=0; i< constrCount; i++) {
+                if (sb[i] instanceof SequentialBlock)
+                    sb[i] = sb[i].getSubBlocks()[1];
+                else
+                    sb[i] = null; 
+            }
+        }
+	
+	for (int i=0; i< constrCount; i++) {
+            if (start[i] != null) {
+		if (sb[i] == null)
+		    start[i].removeBlock();
+		else {
+		    sb[i].replace(start[i]);
+		    sb[i].simplify();
+		}
+	    }
+	}
+    }
+
+    /**
+     * This does the transformations.  It will set the field initializers
+     * and removing the initializers from all constructors.
+     */
     public void transform() {
         if (cons.length == 0)
             return;
@@ -423,13 +678,21 @@ public class TransformConstructors {
         StructuredBlock[] sb = new StructuredBlock[constrCount];
         for (int i=0; i< constrCount; ) {
 	    FlowBlock header = cons[i].getMethodHeader();
+	    /* Check that code block is fully analyzed */
 	    if (header == null || !header.hasNoJumps())
 		return;
+
+	    /* sb[i] will iterate the instructions of the constructor. */
             sb[i] = cons[i].getMethodHeader().block;
 	    if ((GlobalOptions.debuggingFlags
 		 & GlobalOptions.DEBUG_CONSTRS) != 0)
 		GlobalOptions.err.println("constr "+i+": "+sb[i]);
+
             if (!isStatic) {
+		/* A non static constructor must begin with a call to
+		 * another constructor.  Either to a constructor of the
+		 * same class or to the super class
+		 */
                 InstructionBlock ib;
                 if (sb[i] instanceof InstructionBlock)
                     ib = (InstructionBlock)sb[i];
@@ -440,49 +703,90 @@ public class TransformConstructors {
                 else
                     return;
 
-                Expression instr = ib.getInstruction();
-                
-                if (!(instr instanceof InvokeOperator)
-		    || instr.getFreeOperandCount() != 0)
+                Expression superExpr = ib.getInstruction().simplify();
+                if (!(superExpr instanceof InvokeOperator)
+		    || superExpr.getFreeOperandCount() != 0)
 		    return;
-
-                InvokeOperator invoke = (InvokeOperator) instr;
-		if (!invoke.isConstructor() || !invoke.isSuperOrThis())
+                InvokeOperator superInvoke = (InvokeOperator) superExpr;
+		if (!superInvoke.isConstructor()
+		    || !superInvoke.isSuperOrThis())
                     return;
-
-		Expression thisExpr = invoke.getSubExpressions()[0];
+		Expression thisExpr = superInvoke.getSubExpressions()[0];
 		if (!isThis(thisExpr, clazzAnalyzer.getClazz()))
 		    return;
 
-                if (invoke.isThis()) {
-                    /* This constructor calls another constructor, so we
-                     * can skip it.
+                if (superInvoke.isThis()) {
+                    /* This constructor calls another constructor of this
+		     * class, which will do the initialization.  We can skip
+		     * this constructor.
                      */
+		    /* But first check that outerValues are correctly promoted
+		     * XXX: Note that I couldn't check this code, yet,
+		     * since I couldn't find a compiler that can handle
+		     * this() calls in method scoped classes :-(
+		     */
+		    for (int slot = 1, j=0; slot < ovMaxSlots; j++) {
+			Expression param
+			    = superInvoke.getSubExpressions()[j+1];
+			if (!(param instanceof LocalLoadOperator)
+			    || ((LocalLoadOperator) 
+				param).getLocalInfo().getSlot() != slot) {
+			    ovMaxSlots = slot;
+			    break;
+			}
+			slot += param.getType().stackSize();
+		    }
+
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_CONSTRS) != 0)
 			GlobalOptions.err.println("skipping this()");
+		    /* Move constructor to the end of cons array, and
+		     * decrease constrCount.  It will not be transformed
+		     * any further.
+		     */
 		    MethodAnalyzer temp = cons[i];
                     cons[i] = cons[--constrCount];
 		    cons[constrCount] = temp;
                     continue;
                 }
+
                 /* This constructor begins with a super call, as 
                  * expected. 
 		 */
-		InnerClassInfo outer = invoke.getOuterClassInfo();
-		/* If the super() has no parameters, we can remove it
+		ClassInfo superClazz = superInvoke.getClassInfo();
+		InnerClassInfo[] outers = superClazz.getOuterClasses();
+		/* If the super() has no parameters (or only default
+		 * outerValue parameter for inner/anonymous classes), we
+		 * can remove it 
 		 */
-		if (outer != null && outer.outer != null
-			 && outer.name != null
-			 && !Modifier.isStatic(outer.modifiers)) {
-		    if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
-			&& (invoke.getMethodType().getParameterTypes()
+		if ((Decompiler.options & Decompiler.OPTION_ANON) != 0
+		    && outers != null
+		    && (outers[0].outer == null || outers[0].name == null)) {
+		    ClassAnalyzer superAnalyzer = null;
+		    Object parent = clazzAnalyzer.getParent();
+		    while (parent != null) {
+			if (parent instanceof MethodAnalyzer) {
+			    MethodAnalyzer methodAna = (MethodAnalyzer)parent;
+			    parent = methodAna.getClassAnalyzer().getParent();
+			} else
+			    parent = ((ClassAnalyzer) parent).getParent();
+		    }
+		    if (superAnalyzer != null) {
+			/* XXX check outer values.
+			 */
+		    }
+		} else if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
+			   && outers != null
+			   && outers[0].outer != null
+			   && outers[0].name != null) {
+		    if (!Modifier.isStatic(outers[0].modifiers)
+			&& (superInvoke.getMethodType().getParameterTypes()
 			    .length == 1)
-			&& (invoke.getSubExpressions()[1]
+			&& (superInvoke.getSubExpressions()[1]
 			    instanceof ThisOperator))
 			ib.removeBlock();
-		} else if (invoke.getMethodType().getParameterTypes()
-			   .length == 0)
+		} else if (superInvoke.getMethodType().getParameterTypes()
+			 .length == 0)
                     ib.removeBlock();
 
                 if (sb[i] instanceof SequentialBlock)
@@ -548,28 +852,9 @@ public class TransformConstructors {
             }
 
             Expression expr =  store.getSubExpressions()[1];
-	    if (expr instanceof LocalLoadOperator
-		&& outerValues != null
-		&& (Decompiler.options & Decompiler.OPTION_CONTRAFO) != 0) {
-		int slot = ((LocalLoadOperator)expr).getLocalInfo().getSlot();
-		int pos = getOuterValueIndex(slot);
-		if (pos < 0 || slot >= ovMaxSlots) {
-		    if ((GlobalOptions.debuggingFlags
-			 & GlobalOptions.DEBUG_CONSTRS) != 0)
-			GlobalOptions.err.println("not outerValue: "+expr
-						  +" ["+ovMinSlots
-						  +","+ovMaxSlots+"]");
-		    break big_loop;
-		}
-		expr = outerValues[pos];
-		if (slot >= ovMinSlots)
-		    ovMinSlots = slot + expr.getType().stackSize();
-            } else if (!expr.isConstant()) {
-		if ((GlobalOptions.debuggingFlags
-		     & GlobalOptions.DEBUG_CONSTRS) != 0)
-		    GlobalOptions.err.println("not constant: "+expr);
-                break big_loop;
-            }
+	    expr = transformFieldInitializer(expr);
+	    if (expr == null)
+		break big_loop;
 
 	    if ((GlobalOptions.debuggingFlags
 		 & GlobalOptions.DEBUG_CONSTRS) != 0)
@@ -585,8 +870,7 @@ public class TransformConstructors {
 			 .equals(instr))) {
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_CONSTRS) != 0)
-			GlobalOptions.err.println("constr "+i+" differs: "+ib
-						  +((InstructionBlock)ib).getInstruction().simplify()+" <!=> "+instr);
+			GlobalOptions.err.println("constr "+i+" differs: "+ib);
                     break big_loop;
                 }
             }
@@ -630,7 +914,7 @@ public class TransformConstructors {
 					  cons[i].getMethodHeader().block);
 	    }
 	}
-	ovMaxSlots = ovMinSlots;
+	ovMinSlots = ovMaxSlots;
 	int ovLength = 0;
 	if (outerValues != null) {
 	    for (int slot=1; slot < ovMinSlots; ) {
@@ -643,9 +927,7 @@ public class TransformConstructors {
 					  + " to " + ovLength);
 
 	    if (ovLength < outerValues.length) {
-		Expression[] newOuterValues = new Expression[ovLength];
-		System.arraycopy(outerValues, 0, newOuterValues, 0, ovLength);
-		clazzAnalyzer.setOuterValues(newOuterValues);
+		clazzAnalyzer.shrinkOuterValues(ovLength);
 	    }
 	}
 
@@ -653,12 +935,9 @@ public class TransformConstructors {
 	 * and simplify them again.
 	 */
 	for (int i=0; i< cons.length; i++) {
-	    CodeAnalyzer codeAna = cons[i].getCode();
-	    if (codeAna == null)
-		continue;
 	    for (int j=0; j< ovLength; j++)
-		codeAna.getParamInfo(j+1).setExpression(outerValues[j]);
-	    codeAna.getMethodHeader().simplify();
+		cons[i].getParamInfo(j+1).setExpression(outerValues[j]);
+	    cons[i].getMethodHeader().simplify();
 	}	
     }
 }
