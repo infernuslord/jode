@@ -70,6 +70,10 @@ public class CodeAnalyzer implements Analyzer {
 	    param[i] = getLocalInfo(0, i);
     }
 
+    public CodeInfo getCodeInfo() {
+	return code;
+    }
+
     public FlowBlock getMethodHeader() {
         return methodHeader;
     }
