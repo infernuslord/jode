@@ -46,185 +46,6 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 	Instruction nextInstr;
     }
 
-    Instruction findMatchingPush(Instruction instr) {
-	int count = 0;
-	while (true) {
-	    if (instr.preds != null)
-		return null;
-	    instr = instr.prevByAddr;
-	    switch (instr.opcode) {
-	    case opc_ldc2_w:
-	    case opc_lload: case opc_dload:
-		if (count < 2)
-		    return count == 0 ? instr : null;
-		count -= 2;
-		break;
-	    case opc_ldc: 
-	    case opc_iload: case opc_fload: case opc_aload:
-	    case opc_new:
-		if (count == 0)
-		    return instr;
-		count --;
-		break;
-
-	    case opc_iaload: case opc_faload: case opc_aaload:
-	    case opc_baload: case opc_caload: case opc_saload:
-		if (count == 0)
-		    return instr;
-		count++;
-		break;
-
-	    case opc_dup: case opc_dup_x1: case opc_dup_x2: {
-		/* XXX This is a very special case, if we pop a value
-		 * that is dupped we can omit the dup;  it doesn't matter
-		 * if we pop the dupped value or the original value. 
-		 */
-		int depth = (instr.opcode - opc_dup);
-		if (count < 2 + depth)
-		    return (count == 0 || count == depth+1) ? instr : null;
-		count --;
-		break;
-	    }
-	    case opc_dup2: case opc_dup2_x1: case opc_dup2_x2: {
-		int depth = (instr.opcode - opc_dup2);
-		if (count < 4 + depth)
-		    return count == 0 ? instr : null;
-		count -= 2;
-		break;
-	    }
-	    case opc_swap:
-	    case opc_lneg: case opc_dneg:
-	    case opc_l2d: case opc_d2l:
-	    case opc_laload: case opc_daload:
-		if (count < 2)
-		    return count == 0 ? instr : null;
-		break;
-	    case opc_ineg: case opc_fneg: 
-	    case opc_i2f:  case opc_f2i:
-	    case opc_i2b: case opc_i2c: case opc_i2s:
-	    case opc_newarray: case opc_anewarray:
-	    case opc_arraylength:
-	    case opc_checkcast:
-	    case opc_instanceof:
-		if (count == 0)
-		    return instr;
-		break;
-	    case opc_iadd: case opc_fadd:
-	    case opc_isub: case opc_fsub:
-	    case opc_imul: case opc_fmul:
-	    case opc_idiv: case opc_fdiv:
-	    case opc_irem: case opc_frem:
-	    case opc_iand: case opc_ior : case opc_ixor: 
-	    case opc_ishl: case opc_ishr: case opc_iushr:
-	    case opc_fcmpl: case opc_fcmpg:
-	    case opc_l2i: case opc_l2f:
-	    case opc_d2i: case opc_d2f:
-		if (count == 0)
-		    return instr;
-		count++;
-		break;
-	    case opc_ladd: case opc_dadd:
-	    case opc_lsub: case opc_dsub:
-	    case opc_lmul: case opc_dmul:
-	    case opc_ldiv: case opc_ddiv:
-	    case opc_lrem: case opc_drem:
-	    case opc_land: case opc_lor : case opc_lxor:
-		if (count < 2)
-		    return count == 0 ? instr : null;
-		count += 2;
-		break;
-	    case opc_lshl: case opc_lshr: case opc_lushr:
-		if (count < 2)
-		    return count == 0 ? instr : null;
-		count++;
-		break;
-	    case opc_i2l: case opc_i2d:
-	    case opc_f2l: case opc_f2d:
-		if (count < 2)
-		    return count == 0 ? instr : null;
-		count--;
-		break;
-		    
-	    case opc_lcmp:
-	    case opc_dcmpl: case opc_dcmpg:
-		if (count == 0)
-		    return instr;
-		count += 3;
-		break;
-
-	    case opc_invokevirtual:
-	    case opc_invokespecial:
-	    case opc_invokestatic:
-	    case opc_invokeinterface: {
-		Reference ref = (Reference) instr.objData;
-		MethodType mt = (MethodType) Type.tType(ref.getType());
-		if (count < mt.getReturnType().stackSize())
-		    return (count == 0) ? instr : null;
-		count -= mt.getReturnType().stackSize();
-		if (instr.opcode != opc_invokestatic) 
-		    count++;
-		for (int i = mt.getParameterTypes().length-1; i >= 0; i--)
-		    count += mt.getParameterTypes()[i].stackSize();
-		break;
-	    }
-
-	    case opc_getstatic:
-	    case opc_getfield: {
-		Reference ref = (Reference) instr.objData;
-		int size = Type.tType(ref.getType()).stackSize();
-		if (count < size)
-		    return count == 0 ? instr : null;
-		count -= size;
-		if (instr.opcode == opc_getfield)
-		    count++;
-		break;
-	    }
-
-	    case opc_multianewarray: {
-		if (count == 0)
-		    return instr;
-		int dims = instr.prevByAddr.intData;
-		count += dims - 1;
-		break;
-	    }
-
-	    case opc_nop:
-	    case opc_iinc:
-		break;
-	    case opc_putfield:
-		count++;
-		/* fall through */
-	    case opc_putstatic:
-		count += instr.objData instanceof Long 
-		    || instr.objData instanceof Double ? 2 : 1;
-		break;
-	    case opc_monitorenter:
-	    case opc_monitorexit:
-	    case opc_istore:
-	    case opc_fstore: case opc_astore:
-	    case opc_pop:
-		count++;
-		break;
-
-	    case opc_lstore: case opc_dstore:
-	    case opc_pop2:
-		count += 2;
-		break;
-		
-	    case opc_iastore:
-	    case opc_fastore: case opc_aastore:
-	    case opc_bastore: case opc_castore: case opc_sastore:
-		count += 3;
-		break;
-	    case opc_lastore: case opc_dastore:
-		count += 4;
-		break;
-	    default:
-		return null;
-	    }
-	}
-    }
-
     static Instruction shrinkPop(Instruction popInstr, int amount) {
 	int newPop = popInstr.opcode - (opc_pop-1) - amount;
 	if (newPop < 0)
@@ -239,6 +60,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
     }
 
     public BytecodeInfo stripCode() {
+	int poppush[] = new int[2];
 	Instruction instr = bytecode.getFirstInstr(); 
 	while (instr != null) {
 	    switch (instr.opcode) {
@@ -250,39 +72,77 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 	    }
 	    case opc_pop:
 	    case opc_pop2: {
-		Instruction prevInstr = findMatchingPush(instr);
-		int opcode = prevInstr == null ? -1 : prevInstr.opcode;
+		/* find push instruction */
+		int count = 0;
+		Instruction pushInstr = instr;
+		while (true) {
+		    if (pushInstr.preds != null) {
+			pushInstr = null;
+			break;
+		    }
+		    pushInstr = pushInstr.prevByAddr;
+		    if (pushInstr == null
+			|| pushInstr.succs != null 
+			|| pushInstr.alwaysJumps) {
+			pushInstr = null;
+			break;
+		    }
+		    pushInstr.getStackPopPush(poppush);
+		    if (count < poppush[1])
+			break;
+		    count += poppush[0] - poppush[1];
+		}
+		int opcode = pushInstr == null ? -1 : pushInstr.opcode;
+
+		if (count > 0) {
+		    /* If this is a dup and the instruction popped is the 
+		     * duplicated element, remove the dup
+		     */
+		    if (count <= 2 && opcode == (opc_dup + count - 1)) {
+			pushInstr.removeInstruction();
+			instr = shrinkPop(instr, 1);
+			continue;
+		    }
+		    
+		    if (instr.opcode == opc_pop2
+			&& count > 1 && count <= 3 
+			&& opcode == (opc_dup2 + count-2)) {
+			pushInstr.removeInstruction();
+			instr = shrinkPop(instr, 2);
+			continue;
+		    }
+		    /* Otherwise popping is not possible */
+		    opcode = -1;
+		}
 		switch (opcode) {
 		case opc_ldc2_w:
 		case opc_lload: case opc_dload:
-		    prevInstr.removeInstruction();
+		    pushInstr.removeInstruction();
 		    instr = shrinkPop(instr, 2);
 		    continue;
 		case opc_ldc:
 		case opc_iload: case opc_fload: case opc_aload:
 		case opc_dup: 
 		case opc_new:
-		    prevInstr.removeInstruction();
+		    pushInstr.removeInstruction();
 		    instr = shrinkPop(instr, 1);
 		    continue;
 		case opc_iaload: case opc_faload: case opc_aaload:
 		case opc_baload: case opc_caload: case opc_saload:
 		    /* We have to pop one entry more. */
-		    prevInstr.opcode = opc_pop;
-		    instr = prevInstr;
+		    pushInstr.opcode = opc_pop;
+		    instr = pushInstr;
 		    continue;
 
 		case opc_dup_x1:
-		    prevInstr.opcode = opc_swap;
+		    pushInstr.opcode = opc_swap;
 		    instr = shrinkPop(instr, 1);
 		    continue;
 		case opc_dup2: 
 		    if (instr.opcode == opc_pop2) {
-			prevInstr.removeInstruction();
-		    } else
-			prevInstr.opcode = opc_dup;
-		    instr = instr.nextByAddr;
-		    instr.prevByAddr.removeInstruction();
+			pushInstr.removeInstruction();
+			instr = shrinkPop(instr, 2);
+		    }
 		    continue;
 
 		case opc_lneg: case opc_dneg:
@@ -297,7 +157,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 		case opc_newarray: case opc_anewarray:
 		case opc_arraylength:
 		case opc_instanceof:
-		    prevInstr.removeInstruction();
+		    pushInstr.removeInstruction();
 		    continue;
 
 		case opc_iadd: case opc_fadd:
@@ -310,9 +170,9 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 		case opc_fcmpl: case opc_fcmpg:
 		case opc_l2i: case opc_l2f:
 		case opc_d2i: case opc_d2f:
-		    prevInstr.opcode = opc_pop2;
+		    pushInstr.opcode = opc_pop2;
 		    shrinkPop(instr, 1);
-		    instr = prevInstr;
+		    instr = pushInstr;
 		    continue;
 		case opc_ladd: case opc_dadd:
 		case opc_lsub: case opc_dsub:
@@ -322,27 +182,27 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 		case opc_land: case opc_lor : case opc_lxor:
 		    if (instr.opcode != opc_pop2)
 			break;
-		    prevInstr.opcode = opc_pop2;
-		    instr = prevInstr;
+		    pushInstr.opcode = opc_pop2;
+		    instr = pushInstr;
 		    continue;
 		case opc_lshl: case opc_lshr: case opc_lushr:
 		    if (instr.opcode != opc_pop2)
 			break;
-		    prevInstr.opcode = opc_pop;
-		    instr = prevInstr;
+		    pushInstr.opcode = opc_pop;
+		    instr = pushInstr;
 		    continue;
 
 		case opc_i2l: case opc_i2d:
 		case opc_f2l: case opc_f2d:
 		    if (instr.opcode != opc_pop2)
 			break;
-		    prevInstr.removeInstruction();
+		    pushInstr.removeInstruction();
 		    instr.opcode = opc_pop;
 		    continue;
 		    
 		case opc_lcmp:
 		case opc_dcmpl: case opc_dcmpg:
-		    prevInstr.opcode = opc_pop2;
+		    pushInstr.opcode = opc_pop2;
 		    if (instr.opcode == opc_pop)
 			instr.opcode = opc_pop2;
 		    else {
@@ -350,24 +210,24 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 			thirdPop.length = 1;
 			thirdPop.opcode = opc_pop;
 		    }
-		    instr = prevInstr;
+		    instr = pushInstr;
 		    continue;
 				    
 		case opc_getstatic:
 		case opc_getfield: {
-		    Reference ref = (Reference) prevInstr.objData;
-		    int count = Type.tType(ref.getType()).stackSize();
-		    if (prevInstr.opcode == opc_getfield)
-			count--;
-		    prevInstr.removeInstruction();
-		    if (count > 0)
-			instr = shrinkPop(instr, count);
+		    Reference ref = (Reference) pushInstr.objData;
+		    int size = Type.tType(ref.getType()).stackSize();
+		    if (pushInstr.opcode == opc_getfield)
+			size--;
+		    pushInstr.removeInstruction();
+		    if (size > 0)
+			instr = shrinkPop(instr, size);
 		    continue;
 		}
 
 		case opc_multianewarray: {
-		    int dims = prevInstr.intData;
-		    prevInstr.removeInstruction();
+		    int dims = pushInstr.intData;
+		    pushInstr.removeInstruction();
 		    if (dims == 0)
 			instr = shrinkPop(instr, 1);
 		    else {
@@ -388,7 +248,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 		case opc_invokestatic:
 		case opc_invokeinterface:
 		    if (((MethodType) 
-			 Type.tType(((Reference) prevInstr.objData).getType()))
+			 Type.tType(((Reference) pushInstr.objData).getType()))
 			.getReturnType().stackSize() != 1)
 			break;
 		    /* fall through */
