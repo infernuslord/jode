@@ -38,7 +38,7 @@ public class CatchBlock extends StructuredBlock {
     Type exceptionType;
     
     /**
-     * The local containing the exception.
+     * The local containing the exception. May be null.
      */
     LocalInfo exceptionLocal;
 
@@ -48,7 +48,8 @@ public class CatchBlock extends StructuredBlock {
     public CatchBlock(Type type, LocalInfo local) {
         exceptionType = type;
         exceptionLocal = local;
-        used.addElement(exceptionLocal);
+	if (local != null)
+	    used.addElement(exceptionLocal);
     }
 
     public Type getExceptionType() {
@@ -94,6 +95,33 @@ public class CatchBlock extends StructuredBlock {
         return new StructuredBlock[] { catchBlock };
     }
 
+    LocalInfo pushedLocal;
+
+    /**
+     * A catch block pushes the exception on the stack, iff a local
+     * doesn't exists.
+     * @param stack the stack before the instruction is called
+     * @return stack the stack afterwards.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	VariableStack newStack;
+	if (exceptionLocal == null) {
+	    pushedLocal = new LocalInfo();
+	    pushedLocal.setType(exceptionType);
+	    newStack = stack.push(pushedLocal);
+	} else
+	    newStack = stack;
+	return super.mapStackToLocal(newStack);
+    }
+
+    public void removePush() {
+	if (pushedLocal != null) {
+	    exceptionLocal = pushedLocal;
+	    used.addElement(pushedLocal);
+	}
+	super.removePush();
+    }
+
     /**
      * Print the code for the declaration of a local variable.
      * @param writer The tabbed print writer, where we print to.
@@ -115,7 +143,8 @@ public class CatchBlock extends StructuredBlock {
 	writer.closeBraceContinue();
         writer.print("catch (");
 	writer.printType(exceptionType);
-	writer.print(" " + exceptionLocal.getName() + ")");
+	writer.print(" " + (exceptionLocal != null
+			    ? exceptionLocal.getName() : "PUSH") + ")");
 	writer.openBrace();
         writer.tab();
         catchBlock.dumpSource(writer);
