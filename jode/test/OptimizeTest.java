@@ -37,7 +37,8 @@ public class OptimizeTest {
 
     public void main(String[] param) {
 	OptimizeTest ot = new OptimizeTest();
-	
+
+	System.err.println(ot.getInlined("abcde".replace('a','b'), param.length));
 	System.err.println(ot.getInlined("Hallo", ot.notInlined(param[1], 10 - ot.getInlined(param[0], 0, new OptimizeTest()), ot)));
 	System.err.println(ot.complexInline("ollah", param.length));
 	System.err.println("result: "+(g++ + sideInline(g) + g++) + "g: "+g);
