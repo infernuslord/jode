@@ -25,17 +25,17 @@ public abstract class StoreInstruction extends Operator
 
     public String lvCasts;
     Type lvalueType;
-    Type rvalueType;
+    Type rvalueType = null;
 
     public StoreInstruction(Type type, int operator) {
         super(Type.tVoid, operator);
         lvalueType = type;
-	rvalueType = Type.tUnknown;
         lvCasts = lvalueType.toString();
     }
 
-    public void makeOpAssign(int operator) {
+    public void makeOpAssign(int operator, Type rvalueType) {
 	setOperatorIndex(operator);
+	this.rvalueType = rvalueType;
     }
 
     public Type getType() {
