@@ -655,7 +655,7 @@ public class Interpreter implements Opcodes {
 		    if (opcode == opc_invokespecial
 			&& ref.getName().equals("<init>")
 			&& stack[--stacktop].getNewObject() != null) {
-			NewObject newObj = stack[--stacktop].getNewObject();
+			NewObject newObj = stack[stacktop].getNewObject();
 			if (!newObj.getType().equals(ref.getClazz()))
 			    throw new InterpreterException
 				("constructor doesn't match new");
