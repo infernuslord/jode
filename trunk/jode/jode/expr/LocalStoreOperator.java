@@ -64,6 +64,10 @@ public class LocalStoreOperator extends StoreInstruction
             == local.getSlot();
     }
 
+    public int getLValuePriority() {
+        return 1000;
+    }
+
     public int getLValueOperandCount() {
         return 0;
     }

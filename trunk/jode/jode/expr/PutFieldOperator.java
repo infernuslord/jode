@@ -75,6 +75,10 @@ public class PutFieldOperator extends StoreInstruction {
 	    && ((GetFieldOperator)loadop).ref.equals(ref);
     }
 
+    public int getLValuePriority() {
+        return 950;
+    }
+
     public int getLValueOperandCount() {
         return staticFlag?0:1;
     }
