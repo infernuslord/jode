@@ -72,24 +72,25 @@ public class CompleteSynchronized {
         /* Is there another expression? */
         if (!(last.outer instanceof SequentialBlock))
             return false;
+	SequentialBlock sequBlock = (SequentialBlock) last.outer;
 
-        Expression object;
-        try {
-            SequentialBlock sequBlock = (SequentialBlock) last.outer;
+	if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
+	    return false;
+	InstructionBlock ib = (InstructionBlock) sequBlock.subBlocks[0];
 
-            LocalStoreOperator assign = (LocalStoreOperator)
-                ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
+	if (!(ib.getInstruction() instanceof StoreInstruction))
+	    return false;
+	StoreInstruction assign = (StoreInstruction) ib.getInstruction();
 
-            if (assign.getLocalInfo() != synBlock.local.getLocalInfo())
-                return false;
-        
-            object = assign.getSubExpressions()[0];
+	if (!(assign.getLValue() instanceof LocalStoreOperator))
+	    return false;
+	LocalStoreOperator lvalue = (LocalStoreOperator) assign.getLValue();
+		
+	if (lvalue.getLocalInfo() != synBlock.local.getLocalInfo()
+	    || assign.getSubExpressions()[1] == null)
+	    return false;
 
-        } catch (ClassCastException ex) {
-            return false;
-        }
-
-        synBlock.object = object;
+        synBlock.object = assign.getSubExpressions()[1];
         synBlock.moveDefinitions(last.outer,last);
         last.replace(last.outer);
         return true;
