@@ -19,6 +19,7 @@
 package jode.obfuscator;
 import jode.Obfuscator;
 import java.io.*;
+import java.util.Hashtable;
 
 public abstract class Identifier {
     /**
@@ -115,7 +116,8 @@ public abstract class Identifier {
     }
 
     public final void setAlias(String name) {
-	getRepresentative().alias = name;
+	if (name != null)
+	    getRepresentative().alias = name;
     }
 
     public final String getAlias() {
@@ -207,9 +209,13 @@ public abstract class Identifier {
 	}
     }
 
-    public void writeTable(PrintWriter out) throws IOException {
-	if (getName() != getAlias())
-	    out.println("" + getFullAlias() + " = " + getName());
+    public void writeTable(Hashtable table) {
+	table.put(getFullAlias(), getName());
+    }
+
+    public void readTable(Hashtable table) {
+	if (isRepresentative())
+	    setAlias((String) table.get(getFullName()));
     }
 
     public abstract Identifier getParent();

@@ -255,12 +255,18 @@ public class ClassIdentifier extends Identifier {
 		identifiers[i].buildTable(renameRule);
     }
 
-    public void writeTable(PrintWriter out) throws IOException {
-	if (getName() != getAlias())
-	    out.println("" + getFullAlias() + " = " + getName());
+    public void readTable(Hashtable table) {
+	super.readTable(table);
 	for (int i=0; i < identifiers.length; i++)
 	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
-		identifiers[i].writeTable(out);
+		identifiers[i].readTable(table);
+    }
+
+    public void writeTable(Hashtable table) {
+	super.writeTable(table);
+	for (int i=0; i < identifiers.length; i++)
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
+		identifiers[i].writeTable(table);
     }
 
     public void addIfaces(Vector result, ClassInfo[] ifaces) {
@@ -268,7 +274,7 @@ public class ClassIdentifier extends Identifier {
 	    ClassIdentifier ifaceident = (ClassIdentifier)
 		bundle.getIdentifier(ifaces[i].getName());
 	    if (ifaceident != null) {
-		if (ifaceident.isReachable())
+		if (!Obfuscator.shouldStrip || ifaceident.isReachable())
 		    result.addElement(ifaceident.getFullAlias());
 		else
 		    addIfaces(result, ifaceident.info.getInterfaces());
@@ -294,7 +300,7 @@ public class ClassIdentifier extends Identifier {
 	    ClassIdentifier superident = (ClassIdentifier)
 		bundle.getIdentifier(superClass.getName());
 	    if (superident != null) {
-		if (superident.isReachable()) {
+		if (!Obfuscator.shouldStrip || superident.isReachable()) {
 		    superName = superident.getFullAlias();
 		    break;
 		} else {
@@ -311,7 +317,7 @@ public class ClassIdentifier extends Identifier {
 	newSuperIfaces.copyInto(result);
 	return result;
     }
-
+    
     public void storeClass(DataOutputStream out) throws IOException {
 	GrowableConstantPool gcp = new GrowableConstantPool();
 
