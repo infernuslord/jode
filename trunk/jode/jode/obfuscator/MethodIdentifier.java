@@ -1,29 +1,34 @@
-/* 
- * MethodIdentifier (c) 1998 Jochen Hoenicke
+/* MethodIdentifier Copyright (C) 1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
+
 package jode.obfuscator;
 import java.lang.reflect.Modifier;
 import jode.Obfuscator;
 import jode.bytecode.*;
+import jode.Type;
 import java.io.*;
 import java.util.Vector;
 import java.util.Enumeration;
 import java.util.Hashtable;
+///#ifdef JDK12
+///import java.lang.ref.SoftReference;
+///#endif
 
 public class MethodIdentifier extends Identifier implements Opcodes {
     ClassIdentifier clazz;
@@ -33,26 +38,55 @@ public class MethodIdentifier extends Identifier implements Opcodes {
      */
     String[] exceptions;
 
+///#ifdef JDK12
+///    /**
+///     * The code analyzer of this method, or null if there isn't any.
+///     */
+///    SoftReference codeAnalyzerRef;
+///#else
     /**
-     * The byte code of this method, or null if there isn't any.
+     * The code analyzer of this method, or null if there isn't any.
      */
-    BytecodeInfo bytecode;
+    CodeAnalyzer codeAnalyzer;
+///#endif
+
+    public CodeAnalyzer getCodeAnalyzer() {
+///#ifdef JDK12
+///	if (codeAnalyzerRef != null && codeAnalyzerRef.get() != null) 
+///	    return (CodeAnalyzer) codeAnalyzerRef.get();
+///	CodeAnalyzer codeAnalyzer = null;
+///#else
+	if (codeAnalyzer != null)
+	    return codeAnalyzer;
+///#endif
+		
+        AttributeInfo codeattr = info.findAttribute("Code");
+	BytecodeInfo code = null;
+	try {
+	    if (codeattr != null) {
+		DataInputStream stream = new DataInputStream
+		    (new ByteArrayInputStream(codeattr.getContents()));
+		code = new BytecodeInfo();
+		code.read(clazz.info.getConstantPool(), stream);
+	    }
+	} catch (IOException ex) {
+	    ex.printStackTrace(Obfuscator.err);
+	}
+	if (code != null) {
+	    codeAnalyzer = new ConstantAnalyzer(code, this);
+///#ifdef JDK12
+///	    codeAnalyzerRef = new SoftReference(codeAnalyzer);
+///#endif
+	}
+	return codeAnalyzer;
+    }
 
     public MethodIdentifier(ClassIdentifier clazz, MethodInfo info) {
 	super(info.getName());
 	this.clazz = clazz;
 	this.info  = info;
-
-        AttributeInfo codeattr = info.findAttribute("Code");
         AttributeInfo exceptionsattr = info.findAttribute("Exceptions");
-
 	try {
-	    if (codeattr != null) {
-		DataInputStream stream = new DataInputStream
-		    (new ByteArrayInputStream(codeattr.getContents()));
-		bytecode = new BytecodeInfo();
-		bytecode.read(clazz.info.getConstantPool(), stream);
-	    }
 	    if (exceptionsattr != null)
 		readExceptions(exceptionsattr);
 	} catch (IOException ex) {
@@ -64,53 +98,6 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	if ((preserveRule & (info.getModifiers() ^ Modifier.PRIVATE)) != 0) {
 	    setReachable();
 	    setPreserved();
-	}
-    }
-
-    /**
-     * Reads the opcodes out of the code info and determine its 
-     * references
-     * @return an enumeration of the references.
-     */
-    public void analyzeCode() throws IOException {
-	for (Instruction instr = bytecode.getFirstInstr();
-	     instr != null; instr = instr.nextByAddr) {
-	    switch (instr.opcode) {
-	    case opc_new:
-	    case opc_anewarray:
-	    case opc_checkcast:
-	    case opc_instanceof:
-	    case opc_multianewarray: {
-		String clName = (String) instr.objData;
-		if (clName.charAt(0) == '[') {
-		    int i;
-		    for (i=0; i< clName.length(); i++)
-			if (clName.charAt(i) != '[')
-			    break;
-		    if (i >= clName.length() || clName.charAt(i) != 'L')
-			break;
-		    int index = clName.indexOf(';', i);
-		    if (index != clName.length()-1)
-			break;
-		    clName = clName.substring(i+1, index);
-		}
-		clazz.bundle.reachableIdentifier(clName, false);
-		break;
-	    }
-	    case opc_getstatic:
-	    case opc_getfield:
-	    case opc_invokespecial:
-	    case opc_invokestatic:
-	    case opc_invokeinterface:
-	    case opc_invokevirtual: {
-		String[] names = (String[]) instr.objData;
-		clazz.bundle.reachableIdentifier
-		    (names[0].replace('/','.')+"."+names[1]+"."+names[2],
-		     instr.opcode == opc_invokevirtual 
-		     || instr.opcode == opc_invokeinterface);
-		break;
-	    }
-	    }
 	}
     }
 
@@ -131,9 +118,12 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 
     public void setSingleReachable() {
 	super.setSingleReachable();
+	clazz.bundle.analyzeIdentifier(this);
+    }
 
+    public void analyze() {
 	if (Obfuscator.isDebugging)
-	    Obfuscator.err.println("Reachable: "+this);
+	    Obfuscator.err.println("Analyze: "+this);
 
 	String type = getType();
 	int index = type.indexOf('L');
@@ -144,18 +134,13 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    index = type.indexOf('L', end);
 	}
 
-	if (bytecode != null) {
-	    try {
-		analyzeCode();
-	    } catch (IOException ex) {
-		ex.printStackTrace(Obfuscator.err);
-		System.exit(0);
-	    }
-	}
 	if (exceptions != null) {
 	    for (int i=0; i< exceptions.length; i++)
 		clazz.bundle.reachableIdentifier(exceptions[i], false);
 	}
+
+	if (getCodeAnalyzer() != null)
+	    getCodeAnalyzer().analyzeCode();
     }
 
     public void readTable(Hashtable table) {
@@ -208,21 +193,14 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	return "MethodIdentifier "+getFullName()+"."+getType();
     }
 
+
     int nameIndex;
     int descriptorIndex;
     int codeIndex;
+    BytecodeInfo bytecode;
     byte[] code;
     int exceptionsIndex;
     int[] excIndices;
-
-    static byte[] buff = new byte[10];
-    static void copy(DataInputStream in, DataOutputStream out, int length) 
-	throws IOException {
-	if (buff.length < length)
-	    buff = new byte[length];
-	in.readFully(buff, 0, length);
-	out.write(buff, 0, length);
-    }
 
     /**
      * This method does the code transformation.  This include
@@ -232,87 +210,61 @@ public class MethodIdentifier extends Identifier implements Opcodes {
      * </ul>
      */
     public void doCodeTransformations(GrowableConstantPool gcp) {
-        if (bytecode != null) {
+	if (getCodeAnalyzer() != null) {
+	    bytecode = getCodeAnalyzer().stripCode();
+//  	    bytecode.dumpCode(Obfuscator.err);
 	    /* XXX This should be in a if (Obfuscator.distributeLocals) */
 	    LocalOptimizer localOpt = new LocalOptimizer(bytecode);
 	    localOpt.calcLocalInfo();
+	    localOpt.stripLocals();
 	    localOpt.distributeLocals();
-	    if (Obfuscator.isDebugging)
-		localOpt.dumpLocals();
+//  	    if (Obfuscator.isDebugging)
+//  		localOpt.dumpLocals();
+//  	    bytecode.dumpCode(Obfuscator.err);
+	    
+	    RemovePopAnalyzer remPop = new RemovePopAnalyzer(bytecode, this);
+	    remPop.stripCode();
+//  	    bytecode.dumpCode(Obfuscator.err);
 
 	    for (Instruction instr = bytecode.getFirstInstr(); 
 		 instr != null; instr = instr.nextByAddr) {
 		switch (instr.opcode) {
-		case opc_ldc:
-		    gcp.reserveConstant(instr.objData);
-		    break;
-
 		case opc_invokespecial:
 		case opc_invokestatic:
 		case opc_invokeinterface:
 		case opc_invokevirtual: {
-		    String[] names = (String[]) instr.objData;
+		    Reference ref = (Reference) instr.objData;
 		    ClassIdentifier ci = (ClassIdentifier)
-			clazz.bundle.getIdentifier(names[0].replace('/','.'));
+			clazz.bundle.getIdentifier(ref.getClazz());
+		    String newType = clazz.bundle.getTypeAlias(ref.getType());
 		    
 		    if (ci != null) {
-			names[0] = ci.getFullAlias();
-			names[1] = 
-			    ((MethodIdentifier)
-			     ci.getIdentifier(names[1], names[2])).getAlias();
-		    }
-		    names[2] = clazz.bundle.getTypeAlias(names[2]);
-		    break;
-		}
-		case opc_getstatic:
-		case opc_getfield: {
-		    String[] names = (String[]) instr.objData;
-		    ClassIdentifier ci = (ClassIdentifier)
-			clazz.bundle.getIdentifier(names[0].replace('/','.'));
-		    if (ci != null) {
-			FieldIdentifier fi = (FieldIdentifier) 
-			    ci.getIdentifier(names[1], names[2]);
-			names[0] = ci.getFullAlias();
-			names[1] = fi.getAlias();
-		    }
-		    names[2] = clazz.bundle.getTypeAlias(names[2]);
+			MethodIdentifier mi = (MethodIdentifier) 
+			    ci.getIdentifier(ref.getName(), ref.getType());
+			instr.objData = new Reference
+			    (ci.getFullAlias(), mi.getAlias(), newType);
+		    } else 
+			instr.objData = new Reference
+			    (ref.getClazz(), ref.getName(), newType);
 		    break;
 		}
 		case opc_putstatic:
-		case opc_putfield: {
-		    String[] names = (String[]) instr.objData;
+		case opc_putfield:
+		case opc_getstatic:
+		case opc_getfield: {
+		    Reference ref = (Reference) instr.objData;
+		    String newType = clazz.bundle.getTypeAlias(ref.getType());
 		    ClassIdentifier ci = (ClassIdentifier)
-			clazz.bundle.getIdentifier(names[0].replace('/','.'));
+			clazz.bundle.getIdentifier(ref.getClazz());
 		    if (ci != null) {
 			FieldIdentifier fi = (FieldIdentifier) 
-			    ci.getIdentifier(names[1], names[2]);
-			if (Obfuscator.shouldStrip && !fi.isReachable()) {
-			    /* Replace instruction with pop opcodes. */
-			    int stacksize = 
-				(instr.opcode 
-				 == Instruction.opc_putstatic) ? 0 : 1;
-			    stacksize += jode.Type.tType(names[2]).stackSize();
-			    if (stacksize == 3) {
-				/* Add a pop instruction after this opcode. */
-				Instruction second = new Instruction();
-				second.length = 1;
-				second.opcode = Instruction.opc_pop;
-				second.nextByAddr = instr.nextByAddr;
-				instr.nextByAddr = second;
-				second.nextByAddr.preds.removeElement(instr);
-				second.nextByAddr.preds.addElement(second);
-				stacksize--;
-			    }
-			    instr.objData = null;
-			    instr.intData = 0;
-			    instr.opcode = Instruction.opc_pop - 1 + stacksize;
-			    instr.length = 1;
-			} else {
-			    names[0] = ci.getFullAlias();
-			    names[1] = fi.getAlias();
-			}
-		    }
-		    names[2] = clazz.bundle.getTypeAlias(names[2]);
+			    ci.getIdentifier(ref.getName(), ref.getType());
+			instr.objData = new Reference
+			    (ci.getFullAlias(), fi.getAlias(), newType);
+		    } else 
+			instr.objData = new Reference
+			    (ref.getClazz(), ref.getName(), newType);
+
 		    break;
 		}
 		case opc_new:
@@ -344,6 +296,8 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    handlers[i].type = ci.getFullAlias();
 		}
 	    }
+
+	    bytecode.prepareWriting(gcp);
 	}
     }
 
@@ -353,9 +307,6 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 
 	codeIndex = 0;
         if (bytecode != null) {
-
-
-
 	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
 	    DataOutputStream output = new DataOutputStream(baos);
 	    try {
@@ -366,6 +317,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    } catch (IOException ex) {
 		code = null;
 	    }
+	    bytecode = null;
 	}
 	if (exceptions != null) {
 	    exceptionsIndex = gcp.putUTF("Exceptions");
@@ -378,6 +330,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		else
 		    excIndices[i] = gcp.putClassRef(exceptions[i]);
 	    }
+	    exceptions = null;
 	}
     }
 
@@ -395,6 +348,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    out.writeShort(codeIndex);
 	    out.writeInt(code.length);
 	    out.write(code);
+	    code = null;
 	}
 	if (excIndices != null) {
 	    out.writeShort(exceptionsIndex);
@@ -402,6 +356,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    out.writeShort(excIndices.length);
 	    for (int i=0; i< excIndices.length; i++)
 		out.writeShort(excIndices[i]);
+	    excIndices = null;
 	}
     }
 }
