@@ -35,18 +35,28 @@ public class TabbedPrintWriter {
     ImportHandler imports;
     Stack scopes = new Stack();
 
-    public TabbedPrintWriter (OutputStream os, ImportHandler imports) {
-	pw = new PrintWriter(os, true);
+    public TabbedPrintWriter (OutputStream os, ImportHandler imports,
+			      boolean autoFlush) {
+	pw = new PrintWriter(os, autoFlush);
 	this.imports = imports;
 	this.indentsize = (Decompiler.outputStyle & Decompiler.TAB_SIZE_MASK);
 	atbol = true;
     }
 
-    public TabbedPrintWriter (Writer os, ImportHandler imports) {
-	pw = new PrintWriter(os, true);
+    public TabbedPrintWriter (Writer os, ImportHandler imports, 
+			      boolean autoFlush) {
+	pw = new PrintWriter(os, autoFlush);
 	this.imports = imports;
 	this.indentsize = (Decompiler.outputStyle & Decompiler.TAB_SIZE_MASK);
 	atbol = true;
+    }
+
+    public TabbedPrintWriter (OutputStream os, ImportHandler imports) {
+	this(os, imports, true);
+    }
+
+    public TabbedPrintWriter (Writer os, ImportHandler imports) {
+	this(os, imports, true);
     }
 
     public TabbedPrintWriter (OutputStream os) {
