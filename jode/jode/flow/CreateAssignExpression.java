@@ -58,14 +58,15 @@ public class CreateAssignExpression {
         StoreInstruction store = (StoreInstruction) ic.getInstruction();
 	if (!store.isFreeOperator())
 	    return false;
-	int lvalueCount = store.getLValue().getFreeOperandCount();
+	Expression lvalue = store.getSubExpressions()[0];
+	int lvalueCount = lvalue.getFreeOperandCount();
 
         boolean isAssignOp = false;
         if (opBlock.subBlocks[0] instanceof SpecialBlock) {
             SpecialBlock dup = (SpecialBlock) opBlock.subBlocks[0];
             if (dup.type != SpecialBlock.DUP
                 || dup.depth != lvalueCount
-                || dup.count != store.getLValue().getType().stackSize()
+                || dup.count != lvalue.getType().stackSize()
                 || !(opBlock.outer instanceof SequentialBlock))
                 return false;
             opBlock = (SequentialBlock) opBlock.outer;
@@ -102,7 +103,7 @@ public class CreateAssignExpression {
 
         if (expr instanceof ConvertOperator
             && expr.getSubExpressions()[0] instanceof Operator
-            && expr.getType().isOfType(store.getLValue().getType())) {
+            && expr.getType().isOfType(lvalue.getType())) {
 
 	    /* This gets tricky.  We need to allow something like
 	     *  s = (short) (int) ((double) s / 0.1);
@@ -129,9 +130,9 @@ public class CreateAssignExpression {
 		|| !(loadExpr.isFreeOperator(lvalueCount)))
                 return false;
 
-	    if (store.getLValue() instanceof LocalStoreOperator)
+	    if (lvalue instanceof LocalStoreOperator)
 		((LocalLoadOperator)loadExpr).getLocalInfo().combineWith
-		    (((LocalStoreOperator)store.getLValue()).getLocalInfo());
+		    (((LocalStoreOperator)lvalue).getLocalInfo());
 		
             rightHandSide = expr.getSubExpressions()[1];
         } else {
@@ -159,9 +160,9 @@ public class CreateAssignExpression {
 		|| !(((Operator) simple).isFreeOperator(lvalueCount)))
                 return false;
 
-	    if (store.getLValue() instanceof LocalStoreOperator)
+	    if (lvalue instanceof LocalStoreOperator)
 		((LocalLoadOperator)simple).getLocalInfo().combineWith
-		    (((LocalStoreOperator)store.getLValue()).getLocalInfo());
+		    (((LocalStoreOperator)lvalue).getLocalInfo());
 		
             /* ... and remove it. */
             if (parent != null) {
@@ -177,7 +178,7 @@ public class CreateAssignExpression {
 	    dup.removeBlock();
         ib.setInstruction(rightHandSide);
         
-	store.getLValue().setType(rvalueType);
+	lvalue.setType(rvalueType);
         store.makeOpAssign(store.OPASSIGN_OP + opIndex);
 
         if (isAssignOp)
@@ -199,10 +200,11 @@ public class CreateAssignExpression {
         if (sequBlock.subBlocks[0] instanceof SpecialBlock
 	    && store.isFreeOperator()) {
 
+	    Expression lvalue = store.getSubExpressions()[0];
             SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
             if (dup.type != SpecialBlock.DUP
-                || dup.depth != store.getLValue().getFreeOperandCount()
-                || dup.count != store.getLValue().getType().stackSize())
+                || dup.depth != lvalue.getFreeOperandCount()
+                || dup.count != lvalue.getType().stackSize())
                 return false;
             
             dup.removeBlock();

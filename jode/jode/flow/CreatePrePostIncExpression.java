@@ -113,8 +113,9 @@ public class CreatePrePostIncExpression {
 	 * not yet resolved (and note that the rvalue part 
 	 * should also have 1 remaining operand)
 	 */
-	int lvalueCount = store.getLValue().getFreeOperandCount();
-	if (!store.getLValue().isFreeOperator()
+	Expression lvalue = store.getSubExpressions()[0];
+	int lvalueCount = lvalue.getFreeOperandCount();
+	if (!((Operator)lvalue).isFreeOperator()
 	    || !store.isVoid()
 	    || !(store.getSubExpressions()[1] instanceof BinaryOperator))
 	    return false;
@@ -148,7 +149,7 @@ public class CreatePrePostIncExpression {
             
         SpecialBlock dup = (SpecialBlock) sb.subBlocks[0];
         if (dup.type != SpecialBlock.DUP
-            || dup.count != store.getLValue().getType().stackSize()
+            || dup.count != lvalue.getType().stackSize()
             || dup.depth != lvalueCount)
             return false;
 
@@ -176,7 +177,7 @@ public class CreatePrePostIncExpression {
                 return false;
         }
         ic.setInstruction
-	    (new PrePostFixOperator(store.getLValue().getType(), op, 
+	    (new PrePostFixOperator(lvalue.getType(), op, 
 				    store.getLValue(), true));
         ic.moveDefinitions(sb, last);
         last.replace(sb);
