@@ -76,6 +76,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     StructuredBlock insertBlock = null;
 
     boolean isJikesConstructor;
+    boolean hasJikesOuterValue;
     boolean isImplicitAnonymousConstructor;
 
     /**
@@ -191,6 +192,10 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 
     public final void setJikesConstructor(boolean value) {
 	isJikesConstructor = value;
+    }
+
+    public final void setHasOuterValue(boolean value) {
+	hasJikesOuterValue = value;
     }
 
     public final void setAnonymousConstructor(boolean value) {
@@ -379,13 +384,18 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 
     public void makeDeclaration() {
 	if (isConstructor() && !isStatic()
-	    && classAnalyzer.outerValues != null) {
+	    && classAnalyzer.outerValues != null
+	    && (Decompiler.options & Decompiler.OPTION_CONTRAFO) != 0) {
 	    Expression[] outerValues = classAnalyzer.outerValues;
 	    for (int i=0; i< outerValues.length; i++) {
 		LocalInfo local = getParamInfo(1+i);
 		local.setExpression(outerValues[i]);
 	    }
 	}
+	if (isJikesConstructor && hasJikesOuterValue
+	    && classAnalyzer.outerValues != null
+	    && classAnalyzer.outerValues.length > 0)
+	    getParamInfo(1).setExpression(classAnalyzer.outerValues[0]);
         
         for (Enumeration enum = allLocals.elements();
 	     enum.hasMoreElements(); ) {
@@ -393,19 +403,21 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
             if (!li.isShadow())
                 imports.useType(li.getType());
         }
-	for (int i=0; i < param.length; i++) {
-	    param[i].guessName();
-	    for (int j=0; j < i; j++) {
-		if (param[j].getName().equals(param[i].getName())) {
-		    /* A name conflict happened. */
-		    param[i].makeNameUnique();
-		    break; /* j */
+	if (code != null) {
+	    for (int i=0; i < param.length; i++) {
+		param[i].guessName();
+		for (int j=0; j < i; j++) {
+		    if (param[j].getName().equals(param[i].getName())) {
+			/* A name conflict happened. */
+			param[i].makeNameUnique();
+			break; /* j */
+		    }
 		}
 	    }
+	    methodHeader.makeDeclaration(param);
+	    methodHeader.simplify();
 	}
-
-	methodHeader.makeDeclaration(param);
-	methodHeader.simplify();
+	    
 	if (innerAnalyzers != null) {
 	    for (Enumeration enum = innerAnalyzers.elements();
 		 enum.hasMoreElements(); ) {
@@ -452,7 +464,8 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	if (isJikesConstructor) {
 	    // This is the real part of a jikes constructor
 	    declareAsConstructor = true;
-	    skipParams = 1;
+	    skipParams = hasJikesOuterValue
+		&& classAnalyzer.outerValues.length > 0 ? 1 : 0;
 	}
 
 	if (declareAsConstructor
@@ -488,12 +501,13 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	if (isJikesConstructor) {
 	    // This is the real part of a jikes constructor
 	    declareAsConstructor = true;
-	    skipParams = 1;
+	    skipParams = hasJikesOuterValue
+		&& classAnalyzer.outerValues.length > 0 ? 1 : 0;
 	}
 
 	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0
 	    && code != null) {
-            // We do the code.analyze() here, to get 
+            // We do the analyzeCode() here, to get 
             // immediate output.
 
 	    analyzeCode();
@@ -730,7 +744,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 
 	class ShrinkOnShrink implements OuterValueListener {
 	    Dictionary limits = new SimpleDictionary();
-	    
+
 	    public void setLimit(ClassAnalyzer other, 
 				 int newLimit) {
 		limits.put(other, new Integer(newLimit));
@@ -738,12 +752,12 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    }
 	    
 	    public void done() {
-		shrinkTo = -1;
+		limits = null;
 	    }
 	    
 	    public void shrinkingOuterValues
 		(ClassAnalyzer other, int newCount) {
-		if (shrinkTo != -1) {
+		if (limits != null) {
 		    int limit = ((Integer) limits.get(other)
 				 ).intValue();
 		    if (newCount <= limit) {
@@ -768,7 +782,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		    return false;
 		}
 		
-		ClassAnalyzer ca1 = method2.classAnalyzer;
+		ClassAnalyzer ca1 = method1.classAnalyzer;
 		int slot = li1.getSlot();
 		Expression[] ov = ca1.getOuterValues();
 		if (ov == null) {
