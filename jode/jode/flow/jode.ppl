@@ -1,0 +1,38 @@
+#----- PSP time and defect log-file -----
+#  Project/Program:   
+#  Author:            
+#  Date of creation:  1998-09-16 18:01:38
+
+#! begin=b; end=e; interrupt=i; defect=e  
+#! phase=ds
+#! phase="design review"=dr
+#! phase="code"=cd
+#! phase=cr; phase=cp; phase=te; phase=pm
+#! phase="test"=te
+
+#--------------------------------------------------
+1998-09-16 18:01:38 bcd
+1998-09-16 18:11:37 be
+1998-09-16 18:11:46 ee cd file ty EmptyBlock.java InstructionBlock.java
+1998-09-16 18:44:48 ecd
+1998-09-16 18:44:54 bdr
+   Need to rethink flowBlock union.
+1998-09-16 19:49:35 edr
+1998-09-17 14:14:57 bcd
+1998-09-17 14:30:33 ecd
+1998-09-17 14:30:38 bdr
+   What to do with in/out-Vectors?
+1998-09-17 14:55:48 bi
+   auf Klo
+   Kaffe kochen
+1998-09-17 15:01:09 ei
+1998-09-17 15:33:08 edr
+1998-09-17 15:33:14 bcd
+1998-09-17 16:04:36 bi
+   zweiten Kaffe holen
+1998-09-17 16:06:25 ei
+1998-09-17 17:08:54 bi
+   auf klo
+1998-09-17 17:11:45 ei
+1998-09-17 17:49:35 ecd
+   
