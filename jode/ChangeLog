@@ -1,4 +1,11 @@
-2002-02-25  Jochen Hoenicke  <hoenicke@marge.Informatik.Uni-Oldenburg.DE>
+2002-06-11  Jochen Hoenicke  <jochen@gnu.org>
+
+	* net/sf/jode/decompiler/Main.java:  New option keep-alive.  With
+	this option jode won't stop after an error but will continue with
+	the next class.
+	Patch suggested by Francis Devereux, francis at hc.eclipse.co.uk
+
+2002-02-25  Jochen Hoenicke  <jochen@gnu.org>
 
 	* jode/bytecode/ClassInfo.java.in (read):  Don't check for a
 	maximum version anymore.  Sun changes it with every release without
