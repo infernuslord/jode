@@ -31,6 +31,34 @@ public class GrowableConstantPool extends ConstantPool {
     Hashtable entryToIndex = new Hashtable(); 
     boolean written;
 
+    /**
+     * This class is used as key to the entryToIndex hashtable
+     */
+    private class Key {
+	int tag;
+	Object objData;
+	int intData;
+
+	public Key(int tag, Object objData, int intData) {
+	    this.tag = tag;
+	    this.objData = objData;
+	    this.intData = intData;
+	}
+
+	public int hashCode() {
+	    return tag ^ objData.hashCode() ^ intData;
+	}
+
+	public boolean equals(Object o) {
+	    if (o instanceof Key) {
+		Key k = (Key) o;
+		return tag == k.tag && intData == k.intData
+		    && objData.equals(k.objData);
+	    }
+	    return false;
+	}
+    }
+
     public GrowableConstantPool () {
 	count = 1;
 	tags = new int[128];
@@ -61,7 +89,7 @@ public class GrowableConstantPool extends ConstantPool {
     }
 
     private int putConstant(int tag, Object constant) {
-	String key = "" + (char)tag + constant;
+	Key key = new Key(tag, constant, 0);
 	Integer index = (Integer) entryToIndex.get(key);
 	if (index != null)
 	    return index.intValue();
@@ -75,7 +103,7 @@ public class GrowableConstantPool extends ConstantPool {
     }
 
     private int putLongConstant(int tag, Object constant) {
-	String key = "" + (char)tag + constant;
+	Key key = new Key(tag, constant, 0);
 	Integer index = (Integer) entryToIndex.get(key);
 	if (index != null)
 	    return index.intValue();
@@ -89,7 +117,8 @@ public class GrowableConstantPool extends ConstantPool {
 	return newIndex;
     }
 
-    int putIndexed(String key, int tag, int index1, int index2) {
+    int putIndexed(int tag, Object obj1, int index1, int index2) {
+	Key key = new Key(tag, obj1, index2);
 	Integer indexObj = (Integer) entryToIndex.get(key);
 	if (indexObj != null) {
 	    /* Maybe this was a reserved, but not filled entry */
@@ -113,8 +142,7 @@ public class GrowableConstantPool extends ConstantPool {
     public int putClassName(String name) {
 	name = name.replace('.','/');
 	TypeSignature.checkTypeSig("L"+name+";");
-	return putIndexed(""+(char) CLASS + name,
-			  CLASS, putUTF8(name), 0);
+	return putIndexed(CLASS, name, putUTF8(name), 0);
     }
 
     public int putClassType(String name) {
@@ -123,14 +151,12 @@ public class GrowableConstantPool extends ConstantPool {
 	    name = name.substring(1, name.length()-1);
 	else if (name.charAt(0) != '[')
 	    throw new IllegalArgumentException("wrong class type: "+name);
-	return putIndexed(""+(char) CLASS + name,
-			  CLASS, putUTF8(name), 0);
+	return putIndexed(CLASS, name, putUTF8(name), 0);
     }
 
     public int putRef(int tag, Reference ref) {
 	String className = ref.getClazz();
 	String typeSig = ref.getType();
-	String nameAndType = ref.getName() + "/" + typeSig;
 	if (tag == FIELDREF)
 	    TypeSignature.checkTypeSig(typeSig);
 	else
@@ -140,10 +166,9 @@ public class GrowableConstantPool extends ConstantPool {
 	int classIndex = putClassType(className);
 	int nameIndex  = putUTF8(ref.getName());
 	int typeIndex  = putUTF8(typeSig);
-	int nameTypeIndex = putIndexed("" + (char) NAMEANDTYPE + nameAndType,
-				       NAMEANDTYPE, nameIndex, typeIndex);
-	return putIndexed("" + (char)tag + className + "/" + nameAndType,
-			  tag, classIndex, nameTypeIndex);
+	int nameTypeIndex = putIndexed(NAMEANDTYPE, 
+				       ref.getName(), nameIndex, typeIndex);
+	return putIndexed(tag, className, classIndex, nameTypeIndex);
     }
 
     /**
@@ -154,8 +179,7 @@ public class GrowableConstantPool extends ConstantPool {
      */
     public int putConstant(Object c) {
 	if (c instanceof String) {
-	    return putIndexed("" + (char) STRING + c,
-			      STRING, putUTF8((String) c), 0);
+	    return putIndexed(STRING, c, putUTF8((String) c), 0);
 	} else {
 	    int tag;
 	    if (c instanceof Integer)
@@ -195,8 +219,7 @@ public class GrowableConstantPool extends ConstantPool {
      */
     public int reserveConstant(Object c) {
 	if (c instanceof String) {
-	    return putIndexed("" + (char)STRING + c, 
-			      STRING, -1, 0);
+	    return putIndexed(STRING, c, -1, 0);
 	} else {
 	    return putConstant(c);
         }

@@ -135,11 +135,43 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 	}
     }
 
+    private static class TodoQueue {
+	public final InstrInfo LAST = new InstrInfo();
+	InstrInfo first = LAST;
+
+	public void add(InstrInfo info) {
+	    if (info.nextTodo == null) {
+		/* only enqueue if not already on queue */
+		info.nextTodo = first;
+		first = info;
+	    }
+	}
+
+	public boolean isEmpty() {
+	    return first == LAST;
+	}
+
+	public InstrInfo remove() {
+	    if (first == LAST)
+		throw new NoSuchElementException();
+	    InstrInfo result = first;
+	    first = result.nextTodo;
+	    result.nextTodo = null;
+	    return result;
+	}
+    }
+    
 
     /**
      * This class contains information for each instruction.
      */
-    class InstrInfo {
+    static class InstrInfo {
+	/**
+	 * The next changed InstrInfo, or null, if this instr info did
+	 * not changed.
+	 */
+	InstrInfo nextTodo;
+
 	/**
 	 * The LocalInfo that this instruction manipulates, or null
 	 * if this is not an ret, iinc, load or store instruction.
@@ -186,8 +218,8 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 
     BytecodeInfo bc;
 
+    TodoQueue changedInfos;
     InstrInfo firstInfo;
-    Stack changedInfos;
     Hashtable instrInfos;
     boolean produceLVT;
     int maxlocals;
@@ -236,7 +268,7 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 
 		if (preInfo.nextReads[i] == null) {
 		    preInfo.nextReads[i] = info.nextReads[i];
-		    changedInfos.push(preInfo);
+		    changedInfos.add(preInfo);
 		} else {
 		    preInfo.nextReads[i].local
 			.combineInto(info.nextReads[i].local);
@@ -328,7 +360,7 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 
 	/* Initialize the InstrInfos and LocalInfos
 	 */
-	changedInfos = new Stack();
+	changedInfos = new TodoQueue();
 	instrInfos = new Hashtable();
 	{
 	    InstrInfo info = firstInfo = new InstrInfo();
@@ -356,14 +388,14 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 		    case opc_iinc:
 			/* this is a load instruction */
 			info.nextReads[instr.getLocalSlot()] = info;
-			changedInfos.push(info);
+			changedInfos.add(info);
 			break;
 
 		    case opc_ret:
 			/* this is a ret instruction */
 			info.usedBySub = new BitSet();
 			info.nextReads[instr.getLocalSlot()] = info;
-			changedInfos.push(info);
+			changedInfos.add(info);
 			break;
 
 		    case opc_lstore: case opc_dstore:
@@ -380,7 +412,7 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 	/* find out which locals are the same.
 	 */
 	while (!changedInfos.isEmpty()) {
-	    InstrInfo info = (InstrInfo) changedInfos.pop();
+	    InstrInfo info = changedInfos.remove();
 	    Instruction instr = info.instr;
 
 	    /* Mark the local as used in all ret instructions */
@@ -393,7 +425,7 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 			&& !retInfo.usedBySub.get(slot)) {
 			retInfo.usedBySub.set(slot);
 			if (retInfo.jsrTargetInfo != null)
-			    changedInfos.push(retInfo.jsrTargetInfo);
+			    changedInfos.add(retInfo.jsrTargetInfo);
 		    }
 		}
 	    }

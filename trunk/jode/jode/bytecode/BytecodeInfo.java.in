@@ -50,6 +50,12 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
     private Handler[] exceptionHandlers;
     private LocalVariableInfo[] lvt;
     private LineNumber[] lnt;
+    
+    /**
+     * A array of instructions, indexed by address.  This array is only
+     * valid while reading the code.
+     */
+    private Instruction[] instrs;
 
     private InstructionList instructions;
 
@@ -66,7 +72,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    return instructionCount;
 	}
 
-	private Instruction get0(int index) {
+	Instruction get0(int index) {
 	    Instruction instr = borderInstr;
 	    if (index < instructionCount / 2) {
 		for (int i=0; i <= index; i++)
@@ -82,6 +88,14 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    if (index < 0 || index >= instructionCount)
 		throw new IllegalArgumentException();
 	    return get0(index);
+	}
+
+	public boolean add(Object o) {
+	    /* optimize add, since it is called many times by read() */
+	    instructionCount++;
+	    borderInstr.prevByAddr.appendInstruction((Instruction) o,
+						     BytecodeInfo.this);
+	    return true;
 	}
 
 	public ListIterator listIterator(final int startIndex) {
@@ -211,19 +225,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		int nameIndex = input.readUnsignedShort();
 		int typeIndex = input.readUnsignedShort();
 		int slot = input.readUnsignedShort();
-		Instruction startInstr = null;
-		Instruction endInstr = null;
+		Instruction startInstr = instrs[start];
+		Instruction endInstr = instrs[end];
 
-		for (Iterator iter = instructions.iterator(); 
-		     iter.hasNext(); ) {
-		    Instruction instr = (Instruction) iter.next();
-		    if (instr.getAddr() == start)
-			startInstr = instr;
-		    if (instr.getNextAddr() == end)
-			endInstr = instr;
-		    if (instr.getAddr() >= end)
-			break;
-		}
 		if (startInstr == null
 		    || endInstr == null
 		    || nameIndex == 0 || typeIndex == 0
@@ -263,14 +267,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    for (int i = 0; i < count; i++) {
 		lnt[i] = new LineNumber();
 		int start = input.readUnsignedShort();
-		Instruction startInstr = null;
-		for (Iterator iter = instructions.iterator(); iter.hasNext(); ) {
-		    Instruction instr = (Instruction) iter.next();
-		    if (instr.getAddr() == start)
-			startInstr = instr;
-		    if (instr.getAddr() >= start)
-			break;
-		}
+		Instruction startInstr = instrs[start];
 		if (startInstr == null) {
 		    GlobalOptions.err.println
 			("Illegal entry, ignoring LineNumberTable table");
@@ -290,7 +287,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
         maxLocals = input.readUnsignedShort();
 	instructions = new InstructionList();
         int codeLength = input.readInt();
-	Instruction[] instrs = new Instruction[codeLength];
+	instrs = new Instruction[codeLength];
 	int[][] succAddrs = new int[codeLength][];
 	{
 	    int addr = 0;
@@ -835,6 +832,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    }
 	}
 	readAttributes(cp, input, FULLINFO);
+	instrs = null;
     }
 
     public void dumpCode(java.io.PrintWriter output) {
