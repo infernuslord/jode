@@ -319,33 +319,9 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return block;
         }
         case opc_new: {
-            Type type = Type.tClassOrArray((String) instr.objData);
+            Type type = Type.tType((String) instr.objData);
             type.useType();
             return createNormal(ca, instr, new NewOperator(type));
-        }
-        case opc_newarray: {
-            Type type;
-            switch (instr.intData) {
-            case  4: type = Type.tBoolean; break;
-            case  5: type = Type.tChar   ; break;
-            case  6: type = Type.tFloat  ; break;
-            case  7: type = Type.tDouble ; break;
-            case  8: type = Type.tByte   ; break;
-            case  9: type = Type.tShort  ; break;
-            case 10: type = Type.tInt    ; break;
-            case 11: type = Type.tLong   ; break;
-            default:
-                throw new ClassFormatError("Invalid newarray operand");
-            }
-            type.useType();
-            return createNormal
-                (ca, instr, new NewArrayOperator(Type.tArray(type), 1));
-        }
-        case opc_anewarray: {
-            Type type = Type.tClassOrArray((String) instr.objData);
-            type.useType();
-            return createNormal
-                (ca, instr, new NewArrayOperator(Type.tArray(type), 1));
         }
         case opc_arraylength:
             return createNormal
@@ -355,13 +331,13 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 (ca, instr, 
                  new ThrowBlock(new NopOperator(Type.tUObject)));
         case opc_checkcast: {
-            Type type = Type.tClassOrArray((String) instr.objData);
+            Type type = Type.tType((String) instr.objData);
             type.useType();
             return createNormal
                 (ca, instr, new CheckCastOperator(type));
         }
         case opc_instanceof: {
-            Type type = Type.tClassOrArray((String) instr.objData);
+            Type type = Type.tType((String) instr.objData);
             type.useType();
             return createNormal
                 (ca, instr, new InstanceOfOperator(type));
