@@ -31,12 +31,15 @@ import jode.expr.Expression;
 import jode.expr.ThisOperator;
 import jode.flow.TransformConstructors;
 import jode.flow.StructuredBlock;
+import jode.flow.FlowBlock;
 
 import java.lang.reflect.Modifier;
 import java.util.NoSuchElementException;
 import java.util.Vector;
 import java.util.Enumeration;
 import java.io.IOException;
+
+import @COLLECTIONS@.Collection;
 
 public class ClassAnalyzer 
     implements Analyzer, Scope, Declarable, ClassDeclarer 
@@ -46,7 +49,7 @@ public class ClassAnalyzer
     ClassDeclarer parent;
 
     String name;
-    StructuredBlock[] blockInitializers;
+    FlowBlock[] blockInitializers;
     FieldAnalyzer[] fields;
     MethodAnalyzer[] methods;
     ClassAnalyzer[] inners;
@@ -56,36 +59,18 @@ public class ClassAnalyzer
     MethodAnalyzer staticConstructor;
     MethodAnalyzer[] constructors;
 
-    /**
-     * outerValues are used in method scoped classes: If a method
-     * scoped class uses a local of the surrounding method, the java
-     * compiler adds the locals to the param list of each constructor
-     * of the method scoped class.  Each invocation of the constructor
-     * must give the correct values for these locals.
-     *
-     * These extra parameters are the outerValues.
-     *
-     * The main problem here is, that we don't know immediately if a
-     * parameter is a standard parameter or a local of the outer
-     * method.  We may shrink this array if we notice a problem later.
-     *
-     * @see #shrinkOuterValues
-     * @see #addOuterValueListener
-     */
-    Expression[] outerValues;
-    boolean jikesAnonymousInner = false;
-
-    Vector ovListeners;
+    OuterValues outerValues;
 
     public ClassAnalyzer(ClassDeclarer parent,
 			 ClassInfo clazz, ImportHandler imports,
 			 Expression[] outerValues)
     {
-        clazz.loadInfo(clazz.FULLINFO);
+        clazz.loadInfo(clazz.MOSTINFO);
         this.parent = parent;
         this.clazz = clazz;
         this.imports = imports;
-	this.outerValues = outerValues;
+	if (outerValues != null)
+	    this.outerValues = new OuterValues(this, outerValues);
 	modifiers = clazz.getModifiers();
 
 	if (parent != null) {
@@ -129,11 +114,15 @@ public class ClassAnalyzer
         return Modifier.isStatic(modifiers);
     }
 
-    public FieldAnalyzer getField(String fieldName, Type fieldType) {
+    public FieldAnalyzer getField(int index) {
+	return fields[index];
+    }
+
+    public int getFieldIndex(String fieldName, Type fieldType) {
         for (int i=0; i< fields.length; i++) {
 	    if (fields[i].getName().equals(fieldName)
 		&& fields[i].getType().equals(fieldType))
-		return fields[i];
+		return i;
         }
 	throw new NoSuchElementException
 	    ("Field "+fieldType+" "+clazz.getName()+"."+fieldName);
@@ -173,57 +162,15 @@ public class ClassAnalyzer
 	this.name = name;
     }
 
-    public Expression[] getOuterValues() {
+    public OuterValues getOuterValues() {
 	return outerValues;
     }
 
-    public void addBlockInitializer(FieldAnalyzer nextField,
+    public void addBlockInitializer(int index,
 				    StructuredBlock initializer) {
-	int index = 0;
-	while (index < fields.length) {
-	    if (fields[index] == nextField)
-		break;
-	    index++;
-	}
-	blockInitializers[index] = initializer;
-    }
-
-    public void addOuterValueListener(OuterValueListener l) {
-	if (ovListeners == null)
-	    ovListeners = new Vector();
-	ovListeners.addElement(l);
-    }
-
-    public void shrinkOuterValues(int newCount) {
-	if (newCount >= outerValues.length)
-	    return;
-	Expression[] newOuter = new Expression[newCount];
-	System.arraycopy(outerValues, 0, newOuter, 0, newCount);
-	outerValues = newOuter;
-	if (ovListeners != null) {
-	    for (Enumeration enum = ovListeners.elements();
-		 enum.hasMoreElements();)
-		((OuterValueListener) enum.nextElement()
-		 ).shrinkingOuterValues(this, newCount);
-	}
-    }
-
-    /**
-     * Jikes gives the outer class reference in an unusual place (as last
-     * parameter) for anonymous classes that extends an inner (or method
-     * scope) class.  This method tells if this is such a class.
-     */
-    public void setJikesAnonymousInner(boolean value) {
-	jikesAnonymousInner = value;
-    }
-
-    /**
-     * Jikes gives the outer class reference in an unusual place (as last
-     * parameter) for anonymous classes that extends an inner (or method
-     * scope) class.  This method tells if this is such a class.
-     */
-    public boolean isJikesAnonymousInner() {
-	return jikesAnonymousInner;
+	if (blockInitializers[index] == null)
+	    blockInitializers[index] = new FlowBlock(null, 0);
+	blockInitializers[index].appendBlock(initializer, 0);
     }
 
     public void initialize() {
@@ -259,7 +206,7 @@ public class ClassAnalyzer
 
 	fields = new FieldAnalyzer[finfos.length];
 	methods = new MethodAnalyzer[minfos.length];
-	blockInitializers = new StructuredBlock[finfos.length+1];
+	blockInitializers = new FlowBlock[finfos.length+1];
         for (int j=0; j < finfos.length; j++)
             fields[j] = new FieldAnalyzer(this, finfos[j], imports);
 
@@ -278,10 +225,6 @@ public class ClassAnalyzer
 
         constructors = new MethodAnalyzer[constrVector.size()];
 	constrVector.copyInto(constructors);
-
-//  	// initialize the methods.
-//          for (int j=0; j < methods.length; j++)
-//  	    methods[j].initialize();
 
 	// initialize the inner classes.
 	for (int j=0; j < inners.length; j++) {
@@ -313,7 +256,7 @@ public class ClassAnalyzer
 	    for (int j=0; j< constructors.length; j++)
 		constructors[j].analyze();
 	    constrAna = new TransformConstructors(this, false, constructors);
-	    constrAna.initSyntheticFields();
+	    constrAna.removeSynthInitializers();
         }
 	if (staticConstructor != null)
 	    staticConstructor.analyze();
@@ -390,7 +333,11 @@ public class ClassAnalyzer
 	    if (blockInitializers[i] != null) {
 		if (needNewLine)
 		    writer.println("");
+		writer.openBrace();
+		writer.tab();
 		blockInitializers[i].dumpSource(writer);
+		writer.untab();
+		writer.closeBrace();
 		needFieldNewLine = needNewLine = true;
 	    }
 	    if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0) {
@@ -588,13 +535,21 @@ public class ClassAnalyzer
      * class with the given name.
      */
     public ClassAnalyzer getInnerClassAnalyzer(String name) {
-	/** precondition name != null; **/
+	/** require name != null; **/
 	int innerCount = inners.length;
 	for (int i=0; i < innerCount; i++) {
 	    if (inners[i].name.equals(name))
 		return inners[i];
 	}
 	return null;
+    }
+
+    /**
+     * We add the named method scoped classes to the declarables.
+     */
+    public void fillDeclarables(Collection used) {
+        for (int j=0; j < methods.length; j++)
+	    methods[j].fillDeclarables(used);
     }
 
     public void addClassAnalyzer(ClassAnalyzer clazzAna) {
