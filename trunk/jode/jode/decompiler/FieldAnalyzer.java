@@ -59,12 +59,7 @@ public class FieldAnalyzer implements Analyzer {
                                           + " has wrong length");
                 int index = (contents[0] & 0xff) << 8 | (contents[1] & 0xff);
 		ConstantPool cpool = cla.getConstantPool();
-		if (cpool.getConstantType(index).equals(Type.tInt))
-		    constant = new ConstOperator(cpool.getConstantInt(index));
-		else
-		    constant = new ConstOperator
-			(cpool.getConstantType(index), 
-			 cpool.getConstantString(index));
+		constant = new ConstOperator(cpool.getConstant(index));
 		constant.setType(type);
                 constant.makeInitializer();
             } catch (ClassFormatException ex) {
