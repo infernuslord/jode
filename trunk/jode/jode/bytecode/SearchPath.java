@@ -21,6 +21,7 @@ import java.io.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.StringTokenizer;
+import java.util.Enumeration;
 
 /**
  * This class represents a path of multiple directories and/or zip files,
@@ -103,5 +104,116 @@ public class SearchPath  {
             }
         }
         throw new FileNotFoundException(filename);
+    }
+
+    /**
+     * Searches for a filename in the search path and tells if it is a
+     * directory.
+     * @param filename the filename. The path components should be separated
+     * by <code>/</code>.
+     * @return true, if filename exists and is a directory, false otherwise.
+     */
+    public boolean isDirectory(String filename) {
+        for (int i=0; i<dirs.length; i++) {
+            if (dirs[i] == null)
+                continue;
+            if (zips[i] != null) {
+//                 ZipEntry ze = zips[i].getEntry(filename);
+//                 if (ze != null)
+//                     return ze.isDirectory();
+                String directoryname = filename+"/";
+                Enumeration zipEnum = zips[i].entries();
+                while (zipEnum.hasMoreElements()) {
+                    ZipEntry ze = (ZipEntry) zipEnum.nextElement();
+                    String name = ze.getName();
+                    if (name.startsWith(directoryname))
+                        return true;
+                }
+            } else {
+                if (java.io.File.separatorChar != '/')
+                    filename = filename
+                        .replace('/', java.io.File.separatorChar);
+                File f = new File(dirs[i], filename);
+                if (f.exists())
+                    return f.isDirectory();
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Searches for a file in the search path.
+     * @param filename the filename. The path components should be separated
+     * by <code>/</code>.
+     * @return An InputStream for the file.
+     */
+    public Enumeration listClassFiles(final String dirName) {
+        return new Enumeration() {
+            int pathNr;
+            Enumeration zipEnum;
+            int fileNr;
+            String[] files;
+
+            public String findNextFile() {
+                while (true) {
+                    if (zipEnum != null) {
+                        while (zipEnum.hasMoreElements()) {
+                            ZipEntry ze = (ZipEntry) zipEnum.nextElement();
+                            String name = ze.getName();
+                            if (name.startsWith(dirName)
+                                && name.endsWith(".class")) {
+                                name = name.substring(dirName.length()+1);
+                                if (name.indexOf('/') == -1)
+                                    return name;
+                            }
+                        }
+                        zipEnum = null;
+                    }
+                    if (files != null) {
+                        while (fileNr < files.length) {
+                            String name = files[fileNr++];
+                            if (name.endsWith(".class")) {
+                                return name;
+                            }
+                        }
+                        files = null;
+                    }
+                    if (pathNr == dirs.length)
+                        return null;
+
+                    if (zips[pathNr] != null) {
+//                         ZipEntry ze = zips[pathNr].getEntry(dirName);
+//                         if (ze != null && ze.isDirectory())
+                        zipEnum = zips[pathNr].entries();
+                    } else if (dirs[pathNr] != null) {
+                        String localDirName = 
+                            (java.io.File.separatorChar != '/')
+                            ? dirName.replace('/', java.io.File.separatorChar)
+                            : dirName;
+                        File f = new File(dirs[pathNr], localDirName);
+                        if (f.exists() && f.isDirectory())
+                            files = f.list();
+                    }
+                    pathNr++;
+                }
+            }
+
+            String nextName;
+
+            public boolean hasMoreElements() {
+                return (nextName != null
+                        || (nextName = findNextFile()) != null);
+            }
+
+            public Object nextElement() {
+                if (nextName == null)
+                    return findNextFile();
+                else {
+                    String result = nextName;
+                    nextName = null;
+                    return result;
+                }
+            }
+        };
     }
 }
