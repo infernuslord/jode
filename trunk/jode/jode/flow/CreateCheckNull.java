@@ -32,7 +32,7 @@ public class CreateCheckNull {
      *
      * jikes:
      *  DUP
-     *  if (!POP != null)
+     *  if (POP == null)
      *    throw null;
      */
 
@@ -80,8 +80,10 @@ public class CreateCheckNull {
      * Transforms the code
      * <pre>
      *   DUP
-     *   if (POP == null)
+     *   if (POP == null) {
      *       throw null
+     *       GOTO END_OF_METHOD  // not checked
+     *   }
      * </pre>
      * to a CheckNullOperator.  This is what jikes generates when it
      * calls ".new" on an operand.
@@ -102,7 +104,7 @@ public class CreateCheckNull {
 	if (!(ifBlock.cond instanceof CompareUnaryOperator))
 	    return false;
 	CompareUnaryOperator cmpOp = (CompareUnaryOperator) ifBlock.cond;
-	if (cmpOp.getOperatorIndex() != Operator.NOTEQUALS_OP
+	if (cmpOp.getOperatorIndex() != Operator.EQUALS_OP
 	    || !(cmpOp.getCompareType().isOfType(Type.tUObject)))
 	    return false;
 
