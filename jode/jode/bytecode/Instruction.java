@@ -20,6 +20,8 @@
 package jode.bytecode;
 import java.util.Vector;
 import java.util.Enumeration;
+import jode.type.Type;
+import jode.type.MethodType;
 
 /**
  * This class represents an instruction in the byte code.
@@ -274,6 +276,105 @@ public class Instruction implements Opcodes{
 	}
     }
 
+    /**
+     * This returns the number of stack entries this instruction
+     * pushes and pops from the stack.  The result fills the given
+     * array.
+     *
+     * @param poppush an array of two ints.  The first element will
+     * get the number of pops, the second the number of pushes.  
+     */
+    public void getStackPopPush(int[] poppush)
+        /*{ require { poppush != null && poppush.length == 2
+	  :: "poppush must be an array of two ints" } } */
+    {
+	byte delta = stackDelta[opcode];
+	if (delta < 0x40) {
+	    poppush[0] = delta & 7;
+	    poppush[1] = delta >> 3;
+	} else {
+	    switch (opcode) {
+	    case opc_invokevirtual:
+	    case opc_invokespecial:
+	    case opc_invokestatic:
+	    case opc_invokeinterface: {
+		Reference ref = (Reference) objData;
+		MethodType mt = (MethodType) Type.tType(ref.getType());
+		poppush[1] = mt.getReturnType().stackSize();
+		
+		poppush[0] = opcode != opc_invokestatic ? 1 : 0;
+		for (int i = mt.getParameterTypes().length-1; i >= 0; i--)
+		    poppush[0] += mt.getParameterTypes()[i].stackSize();
+		break;
+	    }
+	    
+	    case opc_putfield:
+	    case opc_putstatic: {
+		Reference ref = (Reference) objData;
+		poppush[1] = 0;
+		poppush[0] = Type.tType(ref.getType()).stackSize();
+		if (opcode == opc_putfield)
+		    poppush[0]++;
+		break;
+	    }
+	    case opc_getstatic:
+	    case opc_getfield: {
+		Reference ref = (Reference) objData;
+		poppush[1] = Type.tType(ref.getType()).stackSize();
+		poppush[0] = opcode == opc_getfield ? 1 : 0;
+		break;
+	    }
+	    
+	    case opc_multianewarray: {
+		poppush[1] = 1;
+		poppush[0] = prevByAddr.intData;
+		break;
+	    }
+	    default:
+		throw new jode.AssertError("Unknown Opcode: "+opcode);
+	    }
+	}
+    }
+    
+    public Instruction findMatchingPop() {
+	int poppush[] = new int[2];
+	getStackPopPush(poppush);	
+
+	int count = poppush[1];
+	Instruction instr = this;
+	while (true) {
+	    if (instr.succs != null || instr.alwaysJumps)
+		return null;
+	    instr = instr.nextByAddr;
+	    if (instr.preds != null)
+		return null;
+	    
+	    instr.getStackPopPush(poppush);	
+	    if (count == poppush[0])
+		return instr;
+	    count += poppush[1] - poppush[0];
+	}
+    }
+
+    public Instruction findMatchingPush() {
+	int count = 0;
+	Instruction instr = this;
+	int poppush[] = new int[2];
+	while (true) {
+	    if (instr.preds != null)
+		return null;
+	    instr = instr.prevByAddr;
+	    if (instr == null || instr.succs != null || instr.alwaysJumps)
+		return null;
+
+	    instr.getStackPopPush(poppush);
+	    if (count < poppush[1]) {
+		return count == 0 ? instr : null;
+	    }
+	    count += poppush[0] - poppush[1];
+	}
+    }
+
     public String getDescription() {
 	StringBuffer result = new StringBuffer(String.valueOf(addr))
 	    .append('_').append(Integer.toHexString(hashCode()))
@@ -325,5 +426,67 @@ public class Instruction implements Opcodes{
     public String toString() {
 	return ""+addr+"_"+Integer.toHexString(hashCode());
     }
-}
 
+    public final static byte[] stackDelta;
+
+    static { 
+	stackDelta = new byte[202];
+	for (int i=0; i < 202; i++) {
+	    stackDelta[i] = (byte) "\000\010\010\010\010\010\010\010\010\020\020\010\010\010\020\020\010\010\010\010\020\010\020\010\020\010\010\010\010\010\020\020\020\020\010\010\010\010\020\020\020\020\010\010\010\010\012\022\012\022\012\012\012\012\001\002\001\002\001\001\001\001\001\002\002\002\002\001\001\001\001\002\002\002\002\001\001\001\001\003\004\003\004\003\003\003\003\001\002\021\032\043\042\053\064\022\012\024\012\024\012\024\012\024\012\024\012\024\012\024\012\024\012\024\012\024\011\022\011\022\012\023\012\023\012\023\012\024\012\024\012\024\000\021\011\021\012\012\022\011\021\021\012\022\012\011\011\011\014\012\012\014\014\001\001\001\001\001\001\002\002\002\002\002\002\002\002\000\010\000\001\001\001\002\001\002\001\000\100\100\100\100\100\100\100\100\177\010\011\011\011\001\011\011\001\001\177\100\001\001\000\010".charAt(i);
+	}
+    }
+
+    /* stackDelta contains \100 if stack count of opcode is variable
+     * \177 if opcode is illegal, or 8*stack_push + stack_pop otherwise
+     * The above values are extracted from following list with: 
+     *    perl -ne'/"(.*)"/ and print $1' 
+     *
+     * "\000"                             // nop
+     * "\010\010\010\010\010\010\010\010" // aconst_null, iconst_m?[0-5]
+     * "\020\020\010\010\010\020\020"     // [lfd]const_[0-2]
+     * "\010\010\010\010\020"             // sipush bipush ldcx
+     * "\010\020\010\020\010"             // [ilfda]load
+     * "\010\010\010\010"
+     * "\020\020\020\020"
+     * "\010\010\010\010"
+     * "\020\020\020\020"
+     * "\010\010\010\010"
+     * "\012\022\012\022\012\012\012\012" // [ilfdabcs]aload
+     * "\001\002\001\002\001"             // [ilfda]store
+     * "\001\001\001\001"
+     * "\002\002\002\002"
+     * "\001\001\001\001"
+     * "\002\002\002\002"
+     * "\001\001\001\001"
+     * "\003\004\003\004\003\003\003\003" // [ilfdabcs]astore
+     * "\001\002"                         // pop
+     * "\021\032\043\042\053\064"         // dup2?(_x[12])?
+     * "\022"                             // swap
+     * "\012\024\012\024"                 // [ilfd]add
+     * "\012\024\012\024"                 // [ilfd]sub
+     * "\012\024\012\024"                 // [ilfd]mul
+     * "\012\024\012\024"                 // [ilfd]div
+     * "\012\024\012\024"                 // [ilfd]rem
+     * "\011\022\011\022"                 // [ilfd]neg
+     * "\012\023\012\023\012\023"         // [il]u?sh[lr]
+     * "\012\024\012\024\012\024"         // [il](and|or|xor)
+     * "\000"                             // opc_iinc
+     * "\021\011\021"                     // i2[lfd]
+     * "\012\012\022"                     // l2[ifd]
+     * "\011\021\021"                     // f2[ild]
+     * "\012\022\012"                     // d2[ilf]
+     * "\011\011\011"                     // i2[bcs]
+     * "\014\012\012\014\014"             // [lfd]cmp.?
+     * "\001\001\001\001\001\001"         // if..
+     * "\002\002\002\002\002\002"         // if_icmp..
+     * "\002\002"                         // if_acmp..
+     * "\000\010\000\001\001"             // goto,jsr,ret, .*switch
+     * "\001\002\001\002\001\000"         // [ilfda]?return
+     * "\100\100\100\100"                 // (get/put)(static|field)
+     * "\100\100\100\100"                 // invoke.*
+     * "\177\010\011\011\011"             // 186 - 190
+     * "\001\011\011\001\001"             // 191 - 195
+     * "\177\100\001\001"                 // 196 - 199
+     * "\000\010"                         // goto_w, jsr_w
+     */
+}
