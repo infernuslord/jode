@@ -45,13 +45,14 @@ public class ReturnBlock extends InstructionContainer {
      * @return stack the stack afterwards.
      */
     public VariableStack mapStackToLocal(VariableStack stack) {
-	VariableStack newStack;
-	int params = instr.getOperandCount();
-	if (params > 0) {
-	    this.stack = stack.peek(params);
-	    newStack = stack.pop(params);
-	} else 
-	    newStack = stack;
+	VariableStack newStack = stack;
+	if (instr != null) {
+	    int params = instr.getOperandCount();
+	    if (params > 0) {
+		this.stack = stack.peek(params);
+		newStack = stack.pop(params);
+	    }
+	}
 	return null;
     }
 
