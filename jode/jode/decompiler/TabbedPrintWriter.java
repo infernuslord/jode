@@ -140,9 +140,36 @@ public class TabbedPrintWriter {
 	}
     }
 
+    /**
+     * Print a opening brace with the current indentation style.
+     * Called at the end of the line of the instance that opens the
+     * brace.  It doesn't do a tab stop after opening the brace.
+     */
+    public void openBraceNoSpace() {
+	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	    println("{");
+	else {
+	    if (!atbol)
+		println();
+	    if (currentIndent > 0)
+		tab();
+	    println("{");
+	}
+    }
+
     public void closeBraceContinue() {
 	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
 	    print("} ");
+	else {
+	    println("}");
+	    if (currentIndent > 0)
+		untab();
+	}
+    }
+
+    public void closeBraceNoSpace() {
+	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	    print("}");
 	else {
 	    println("}");
 	    if (currentIndent > 0)
