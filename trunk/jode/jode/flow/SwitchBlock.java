@@ -95,7 +95,6 @@ implements BreakableBlock {
 	    newStack = stack.pop(params);
 	} else 
 	    newStack = stack;
-	
 	VariableStack lastStack = newStack;
 	for (int i=0; i< caseBlocks.length; i++) {
 	    if (lastStack != null)
@@ -104,6 +103,10 @@ implements BreakableBlock {
 	}
 	if (lastStack != null)
 	    mergeBreakedStack(lastStack);
+	if (jump != null) {
+	    jump.stackMap = breakedStack;
+	    return null;
+	}
 	return breakedStack;
     }
 
