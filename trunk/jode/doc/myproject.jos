@@ -50,3 +50,35 @@ analyzer = new ConstantAnalyzer
 # The RemovePopAnalyzer will remove instructions that were optimized
 # away by the ConstantAnalyzer and LocalOptimizer.
 post = new LocalOptimizer, new RemovePopAnalyzer
+
+################################################################
+# The syntax for load and preserve is as follows
+################################################################
+#
+# preserve ::= <list of IdentifierMatcher>
+#  // preserves everything that is matched by 
+#  // at least one identifier matcher.
+# 
+# IdentifierMatcher ::= 
+#    MultiIdentifierMatcher { and = <list of IdentifierMatcher> }
+#  |
+#    MultiIdentifierMatcher { or = <list of IdentifierMatcher> }
+#  |
+#    WildCard { value = "<wildcard>" } 
+#  |
+#    ModifierMatcher { access = "<AccessSpec>" 
+#                      [access = "<AccessSpec>" ...]
+#                      modifier = "<ModifierSpec>"
+#                      [modifier = "<ModifierSpec>" ...] 
+#      // identifier must fulfill all constraints
+#                    }
+#  |
+#    SerializedPreserver
+# 
+# AccessSpec ::=
+#    <optional "<" or ">"> (PUBLIC|PROTECTED|PACKAGE|PRIVATE)
+# 
+# ModifierSpec ::=
+#    <optional "!" (not)> (ABSTRACT|FINAL|INTERFACE|NATIVE|STATIC
+#                          |STRICT|SYNCHRONIZED|TRANSIENT|VOLATILE)
+#
