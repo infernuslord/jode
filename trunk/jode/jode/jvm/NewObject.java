@@ -46,7 +46,10 @@ public class NewObject {
     }
 
     public String toString() {
-	return "new "+type;
+	if (instance == null)
+	    return "new "+type;
+	else
+	    return instance.toString();
     }
 }
 
