@@ -682,8 +682,9 @@ public class TransformExceptionHandlers {
                 }
                 /* Remove the jump of the throw instruction.
                  */
-                catchBlock.getSubBlocks()[1]
-                    .jump.destination.predecessors.removeElement(catchFlow);
+                catchFlow.removeSuccessor
+		    (catchBlock.getSubBlocks()[1].jump);
+		catchBlock.getSubBlocks()[1].removeJump();
 
                 /* Replace the catchBlock with the finallyBlock.
                  */
