@@ -2,7 +2,9 @@
 
 <P><i>JODE</i> is a java package containing a decompiler and an
 optimizer for java.  This package is <a href="license.html">freely
-available</a> under the GNU GPL.<p>
+available</a> under the GNU GPL. The bytecode package and the core
+decompiler is now under GNU Lesser General Public License, so you can
+integrate it in your project.</p>
 
 <P>The decompiler reads in <tt>class</tt> files and produces something
 similar to the original <tt>java</tt> file.  Of course this can't be
@@ -30,12 +32,8 @@ fields</li>
 <section title="News">
 
 <ul>
-<li><i>JODE</i> 1.1 is out. With support for javac v8 (jdk 1.3). </li>
-<li><i>JODE</i> is now hosted by <a href="http://sourceforge.net/">SourceForge</a>.</li>
-<li>Now long lines are automatically broken.</li>
-<li><b>Inner and anonymous</b> classes are automatically decompiled.</li>
-<li>The optimizer (aka obfuscator) can be customized via a small
-config file</li>
+<li><i>JODE</i> 1.1.1 is out. With support for javac v8 (jdk 1.3). </li>
+<li>The license changed to LGPL for the bytecode interface and decompiler.</li>
 </ul>
 </section>
 
