@@ -44,6 +44,13 @@ public class PutFieldOperator extends StoreInstruction {
         return staticFlag;
     }
 
+    public boolean isSynthetic() {
+	if (!classType.equals(Type.tClass(codeAnalyzer.getClazz().getName())))
+	    return false;
+	return codeAnalyzer.getClassAnalyzer()
+	    .getField(fieldName, fieldType).isSynthetic();
+    }
+
     public String getFieldName() {
         return fieldName;
     }
@@ -79,10 +86,12 @@ public class PutFieldOperator extends StoreInstruction {
                && codeAnalyzer.findLocal(fieldName) == null
                ? fieldName 
                : classType.toString() + "." + fieldName)
-            : (operands[0].equals("this")
-               && codeAnalyzer.findLocal(fieldName) == null
-               ? fieldName
-               : operands[0] + "." + fieldName);
+            : ((operands[0].equals("this")
+		&& codeAnalyzer.findLocal(fieldName) == null
+		? fieldName
+		: operands[0].equals("null")
+		? "((" + classType + ") null)." + fieldName
+		: operands[0] + "." + fieldName));
     }
 
     public boolean equals(Object o) {
