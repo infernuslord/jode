@@ -20,7 +20,7 @@
 package jode.flow;
 import jode.Decompiler;
 import jode.Type;
-import jode.decompiler.*;
+import jode.expr.*;
 
 import java.util.Enumeration;
 import java.util.Vector;

@@ -17,7 +17,7 @@
  * $Id$
  */
 
-package jode.decompiler;
+package jode.expr;
 import jode.CodeAnalyzer;
 import jode.LocalInfo;
 import jode.Type;

@@ -16,7 +16,7 @@
  *
  * $Id$
  */
-package jode.decompiler;
+package jode.expr;
 
 public interface CombineableOperator extends MatchableOperator {
     /**

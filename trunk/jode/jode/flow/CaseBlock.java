@@ -17,7 +17,7 @@
  * $Id$
  */
 package jode.flow;
-import jode.decompiler.ConstOperator;
+import jode.expr.ConstOperator;
 
 /** 
  * This block represents a case instruction.  A case instruction is a

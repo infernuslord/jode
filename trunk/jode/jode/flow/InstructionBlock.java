@@ -18,9 +18,9 @@
 package jode.flow;
 import jode.TabbedPrintWriter;
 import jode.LocalInfo;
-import jode.decompiler.ComplexExpression;
-import jode.decompiler.Expression;
-import jode.decompiler.LocalStoreOperator;
+import jode.expr.ComplexExpression;
+import jode.expr.Expression;
+import jode.expr.LocalStoreOperator;
 
 /**
  * This is the structured block for atomic instructions.

@@ -19,7 +19,7 @@
 
 package jode.flow;
 import java.util.Vector;
-import jode.decompiler.*;
+import jode.expr.*;
 import jode.Type;
 
 public class CombineIfGotoExpressions {

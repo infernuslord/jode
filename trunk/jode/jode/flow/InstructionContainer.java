@@ -16,8 +16,8 @@
  * $Id$
  */
 package jode.flow;
-import jode.decompiler.Expression;
-import jode.decompiler.LocalVarOperator;
+import jode.expr.Expression;
+import jode.expr.LocalVarOperator;
 
 /**
  * This is a method for block containing a single instruction.

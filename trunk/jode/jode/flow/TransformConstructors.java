@@ -18,7 +18,7 @@
  */
 package jode.flow;
 import jode.ClassAnalyzer;
-import jode.decompiler.*;
+import jode.expr.*;
 
 /**
  * 

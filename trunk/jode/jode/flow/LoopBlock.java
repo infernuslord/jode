@@ -21,10 +21,10 @@ package jode.flow;
 import jode.TabbedPrintWriter;
 import jode.Type;
 import jode.LocalInfo;
-import jode.decompiler.Expression;
-import jode.decompiler.ConstOperator;
-import jode.decompiler.LocalStoreOperator;
-import jode.decompiler.CombineableOperator;
+import jode.expr.Expression;
+import jode.expr.ConstOperator;
+import jode.expr.LocalStoreOperator;
+import jode.expr.CombineableOperator;
 
 /**
  * This is the structured block for an Loop block.

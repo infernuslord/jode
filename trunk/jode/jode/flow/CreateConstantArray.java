@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.Decompiler;
-import jode.decompiler.*;
+import jode.expr.*;
 import jode.Type;
 
 public class CreateConstantArray {
