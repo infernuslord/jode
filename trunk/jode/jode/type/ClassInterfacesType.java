@@ -406,6 +406,15 @@ public class ClassInterfacesType extends ReferenceType {
 	    return Class.forName("java.lang.Object");
     }
 
+    public ClassInfo getClassInfo() {
+	if (clazz != null)
+	    return clazz;
+	else if (ifaces.length > 0)
+	    return ifaces[0];
+	else
+	    return ClassInfo.javaLangObject;
+    }
+
     public String toString()
     {
 	if (this == tObject)
