@@ -21,9 +21,7 @@ import java.io.*;
 import java.net.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.StringTokenizer;
-import java.util.Enumeration;
-import java.util.Hashtable;
+import java.util.*;
 import jode.Decompiler;
 
 /**
@@ -42,6 +40,39 @@ public class SearchPath  {
     URL[] bases;
     File[] dirs;
     ZipFile[] zips;
+    Hashtable[] zipEntries;
+
+    private static void addEntry(Hashtable entries, String name) {
+	String dir = "";
+	int pathsep = name.lastIndexOf("/");
+	if (pathsep != -1) {
+	    dir = name.substring(0, pathsep);
+	    name = name.substring(pathsep+1);
+	}
+
+	Vector dirContent = (Vector) entries.get(dir);
+	if (dirContent == null) {
+	    dirContent = new Vector();
+	    entries.put(dir, dirContent);
+	    if (dir != "")
+		addEntry(entries, dir);
+	}
+	dirContent.addElement(name);
+    }
+
+    private void fillZipEntries(int nr) {
+	Enumeration zipEnum = zips[nr].entries();
+	zipEntries[nr] = new Hashtable();
+	while (zipEnum.hasMoreElements()) {
+	    ZipEntry ze = (ZipEntry) zipEnum.nextElement();
+	    String name = ze.getName();
+	    if (name.endsWith("/"))
+		name = name.substring(0, name.length()-1);
+	    if (ze.isDirectory() && !zipEntries[nr].containsKey(name))
+		zipEntries[nr].put(name, new Vector());
+	    addEntry(zipEntries[nr], name);
+	}
+    }
     
     /**
      * Creates a new search path for the given path.
@@ -57,6 +88,7 @@ public class SearchPath  {
 	bases = new URL[length];
         dirs = new File[length];
         zips = new ZipFile[length];
+        zipEntries = new Hashtable[length];
         for (int i=0; i< length; i++) {
 	    String token = tokenizer.nextToken()
 		.replace(protocolSeparator, ':');
@@ -191,17 +223,10 @@ public class SearchPath  {
             if (dirs[i] == null)
                 continue;
             if (zips[i] != null) {
-//                 ZipEntry ze = zips[i].getEntry(filename);
-//                 if (ze != null)
-//                     return ze.isDirectory();
-                String directoryname = filename+"/";
-                Enumeration zipEnum = zips[i].entries();
-                while (zipEnum.hasMoreElements()) {
-                    ZipEntry ze = (ZipEntry) zipEnum.nextElement();
-                    String name = ze.getName();
-                    if (name.startsWith(directoryname))
-                        return true;
-                }
+		if (zipEntries[i] == null)
+		    fillZipEntries(i);
+		if (zipEntries[i].containsKey(filename))
+		    return true;
             } else {
                 if (java.io.File.separatorChar != '/')
                     filename = filename
@@ -231,32 +256,18 @@ public class SearchPath  {
             int pathNr;
             Enumeration zipEnum;
             int fileNr;
+	    String localDirName = 
+		(java.io.File.separatorChar != '/')
+		? dirName.replace('/', java.io.File.separatorChar)
+		: dirName;
 	    File currentDir;
             String[] files;
-	    Hashtable doneDirs = new Hashtable();
 
             public String findNextFile() {
                 while (true) {
                     if (zipEnum != null) {
                         while (zipEnum.hasMoreElements()) {
-                            ZipEntry ze = (ZipEntry) zipEnum.nextElement();
-                            String name = ze.getName();
-                            if (name.startsWith(dirName)
-                                && name.endsWith(".class")) {
-                                name = name.substring(dirName.length());
-				while (name.charAt(0) == '/')
-				    name = name.substring(1);
-				int slashIndex = name.indexOf('/');
-                                if (slashIndex == -1)
-                                    return name;
-				else {
-				    String dir = name.substring(0, slashIndex);
-				    if (doneDirs.get(dir) == null) {
-					doneDirs.put(dir, dir);
-					return dir;
-				    }
-				}
-                            }
+			    return (String) zipEnum.nextElement();
                         }
                         zipEnum = null;
                     }
@@ -277,14 +288,13 @@ public class SearchPath  {
                         return null;
 
                     if (zips[pathNr] != null) {
-//                         ZipEntry ze = zips[pathNr].getEntry(dirName);
-//                         if (ze != null && ze.isDirectory())
-                        zipEnum = zips[pathNr].entries();
+			if (zipEntries[pathNr] == null)
+			    fillZipEntries(pathNr);
+			Vector entries = 
+			    (Vector) zipEntries[pathNr].get(dirName);
+			if (entries != null)
+			    zipEnum = entries.elements();
                     } else if (dirs[pathNr] != null) {
-                        String localDirName = 
-                            (java.io.File.separatorChar != '/')
-                            ? dirName.replace('/', java.io.File.separatorChar)
-                            : dirName;
 			try {
 			    File f = new File(dirs[pathNr], localDirName);
 			    if (f.exists() && f.isDirectory()) {
