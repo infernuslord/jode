@@ -18,76 +18,109 @@
  */
 
 package jode;
-import java.lang.reflect.*;
+import java.lang.reflect.Modifier;
 import gnu.bytecode.Attribute;
 import gnu.bytecode.CodeAttr;
+import gnu.bytecode.Spy;
 
 public class MethodAnalyzer implements Analyzer {
     JodeEnvironment env;
     CodeAnalyzer code = null;
     ClassAnalyzer classAnalyzer;
     boolean isConstructor;
-    Method method;
-    Constructor constr;
+    int modifiers;
+    String methodName;
+    MethodType methodType;
+    Type[] exceptions;
     
-    private MethodAnalyzer(ClassAnalyzer cla, Method m, Constructor c,
-                          JodeEnvironment e)
-    {
-        classAnalyzer = cla;
-        method = m;
-        constr = c;
-        isConstructor = (c != null);
-        env  = e;
+//     private MethodAnalyzer(ClassAnalyzer cla, Method m, Constructor c,
+//                            JodeEnvironment e)
+//     {
+//         classAnalyzer = cla;
+//         isConstructor = (c != null);
+//         env  = e;
 
-        String name = isConstructor ? "<init>" : m.getName();
-        Class[] paramTypes = (isConstructor 
-                              ? c.getParameterTypes()
-                              : m.getParameterTypes());
+//         this.modifiers = isConstructor 
+//             ? c.getModifiers() : m.getModifiers();
 
-        gnu.bytecode.Method mdef = cla.classType.getMethods();
-        while (mdef != null) {
-            if (mdef.getName().equals(name)) {
-                gnu.bytecode.Type[] argtypes = mdef.getParameterTypes();
-                if (argtypes.length == paramTypes.length) {
-                    int i;
-                    for (i=0; i<argtypes.length; i++) {
-                        if (!Type.tType(paramTypes[i]).equals(Type.tType(argtypes[i].getSignature())))
-                            break;
-                    }
-                    if (i == argtypes.length) 
-                        break;
-                }
-            }
-            mdef = mdef.getNext();
-        }
+//         {
+//             Class[] exceptClasses = isConstructor
+//                 ? c.getExceptionTypes() : m.getExceptionTypes();
+//             this.exceptions = new Type[exceptClasses.length];
+//             for (int i=0; i< exceptClasses.length; i++)
+//                 exceptions[i] = Type.tType(exceptClasses[i]);
+//         }
+
+//         {
+//             Class[] paramTypes = (isConstructor 
+//                                   ? c.getParameterTypes() 
+//                                   : m.getParameterTypes());
+//             Class returnType = (isConstructor 
+//                                 ? Void.TYPE : m.getReturnType());
+//             methodType = new MethodType
+//                 (!isConstructor && Modifier.isStatic(modifiers),
+//                  paramTypes, returnType);
+//             methodName = isConstructor ? "<init>" : m.getName();
+//         }
+
+//         gnu.bytecode.Method mdef;
+//         for (mdef = cla.classType.getMethods(); ; mdef = mdef.getNext()) {
+//             if (mdef.getName().equals(methodName)) {
+//                 MethodType type = new MethodType(mdef.getStaticFlag(),
+//                                                  mdef.getSignature());
+//                 if (type.equals(methodType))
+//                     break;
+//             }
+//         }
         
-        Attribute attr = Attribute.get(mdef, "Code");
-        if (attr != null && attr instanceof CodeAttr)
-            code = new CodeAnalyzer(this, (CodeAttr) attr, env);
-    }
+//         Attribute attr = Attribute.get(mdef, "Code");
+//         if (attr != null && attr instanceof CodeAttr)
+//             code = new CodeAnalyzer(this, (CodeAttr) attr, env);
+//     }
 
-    public MethodAnalyzer(ClassAnalyzer cla, Method method,
-                          JodeEnvironment env)
-    {
-        this(cla, method, null, env);
-    }
-
-    public MethodAnalyzer(ClassAnalyzer cla, Constructor constr,
-                          JodeEnvironment env)
-    {
-        this(cla, null, constr, env);
+    public MethodAnalyzer(ClassAnalyzer cla, gnu.bytecode.Method mdef,
+                          JodeEnvironment env) {
+        this.classAnalyzer = cla;
+        this.env = env;
+        this.modifiers = Spy.getModifiers(mdef);
+        this.methodType = new MethodType(mdef.getStaticFlag(), 
+                                         mdef.getSignature());
+        this.methodName = mdef.getName();
+        this.isConstructor = 
+            methodName.equals("<init>") || methodName.equals("<clinit>");
+        
+        Attribute codeattr = Attribute.get(mdef, "Code");
+        if (codeattr != null && codeattr instanceof CodeAttr)
+            code = new CodeAnalyzer(this, (CodeAttr) codeattr, env);
+        
+        Attribute excattr = Attribute.get(mdef, "Exceptions");
+        if (excattr == null) {
+            exceptions = new Type[0];
+        } else {
+            java.io.DataInputStream stream = Spy.getAttributeStream
+                ((gnu.bytecode.MiscAttr) excattr);
+            try {
+                int throwCount = stream.readUnsignedShort();
+                this.exceptions = new Type[throwCount];
+                for (int t=0; t< throwCount; t++) {
+                    int idx = stream.readUnsignedShort();
+                    gnu.bytecode.CpoolClass cpcls = (gnu.bytecode.CpoolClass) 
+                        classAnalyzer.getConstant(idx);
+                    exceptions[t] = Type.tClass(cpcls.getName().getString());
+                }
+            } catch (java.io.IOException ex) {
+                throw new AssertError("exception attribute too long?");
+            }
+        }
     }
 
     public int getParamCount() {
-	return isConstructor 
-            ? (constr.getParameterTypes().length + 1)
-            : ((Modifier.isStatic(method.getModifiers()) ? 0 : 1)
-               + method.getParameterTypes().length);
+	return (methodType.isStatic() ? 0 : 1)
+            + methodType.getParameterTypes().length;
     }
 
     public Type getReturnType() {
-        return isConstructor 
-            ? Type.tVoid : Type.tType(method.getReturnType());
+        return methodType.getReturnType();
     }
 
     public void analyze() 
@@ -97,30 +130,26 @@ public class MethodAnalyzer implements Analyzer {
 	    return;
 
 	int offset = 0;
-	if (isConstructor || !Modifier.isStatic(method.getModifiers())) {
+	if (!methodType.isStatic()) {
 	    LocalInfo clazz = code.getParamInfo(0);
 	    clazz.setType(Type.tType(this.classAnalyzer.clazz));
 	    clazz.setName("this");
 	    offset++;
 	}
         
-	Class[] paramTypes = isConstructor 
-            ? constr.getParameterTypes() : method.getParameterTypes();
+	Type[] paramTypes = methodType.getParameterTypes();
 	for (int i=0; i< paramTypes.length; i++)
-	    code.getParamInfo(offset+i).setType(Type.tType(paramTypes[i]));
+	    code.getParamInfo(offset+i).setType(paramTypes[i]);
 
-        Class[] exceptions = isConstructor
-            ? constr.getExceptionTypes() : method.getExceptionTypes();
         for (int i= 0; i< exceptions.length; i++)
-            env.useClass(exceptions[i]);
+            exceptions[i].useType();
     
         if (!isConstructor)
-            getReturnType().useType();
+            methodType.getReturnType().useType();
 
 	if (!Decompiler.immediateOutput) {
 	    if (Decompiler.isVerbose)
-		System.err.print((isConstructor 
-                                  ? "<init>" : method.getName())+": ");
+		System.err.print(methodName+": ");
 	    code.analyze();
 	    if (Decompiler.isVerbose)
 		System.err.println("");
@@ -135,56 +164,47 @@ public class MethodAnalyzer implements Analyzer {
             // immediate output.
 
 	    if (Decompiler.isVerbose)
-		System.err.print((isConstructor 
-                                  ? "<init>" : method.getName())+": ");
+		System.err.print(methodName+": ");
 	    code.analyze();
 	    if (Decompiler.isVerbose)
 		System.err.println("");
 	}
 
         writer.println("");
-	String modif = Modifier.toString(isConstructor 
-                                         ? constr.getModifiers()
-                                         : method.getModifiers());
+	String modif = Modifier.toString(modifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
-        if (isConstructor && Modifier.isStatic(constr.getModifiers()))
+        if (isConstructor && methodType.isStatic())
             writer.print(""); /* static block */
         else { 
             if (isConstructor)
                 writer.print(env.classString(classAnalyzer.clazz));
             else
                 writer.print(getReturnType().toString()
-			     + " " + method.getName());
+			     + " " + methodName);
             writer.print("(");
-            Class[] paramTypes = isConstructor 
-                 ? constr.getParameterTypes() : method.getParameterTypes();
-            int offset = (!isConstructor 
-                          && Modifier.isStatic(method.getModifiers()))?0:1;
+            Type[] paramTypes = methodType.getParameterTypes();
+            int offset = methodType.isStatic()?0:1;
             for (int i=0; i<paramTypes.length; i++) {
                 if (i>0)
                     writer.print(", ");
                 LocalInfo li;
                 if (code == null) {
                     li = new LocalInfo(i+offset);
-                    li.setType(Type.tType(paramTypes[i]));
+                    li.setType(paramTypes[i]);
                 } else
                     li = code.getParamInfo(i+offset);
                 writer.print(li.getType().toString()+" "+li.getName());
             }
             writer.print(")");
         }
-        Class[] exceptions = isConstructor
-            ? constr.getExceptionTypes() : method.getExceptionTypes();
-        if (exceptions != null && exceptions.length > 0) {
+        if (exceptions.length > 0) {
             writer.println("");
             writer.print("throws ");
             for (int i= 0; i< exceptions.length; i++) {
-                if (exceptions[i] != null) {
-                    if (i > 0)
-                        writer.print(", ");
-                    writer.print(env.classString(exceptions[i]));
-                }
+                if (i > 0)
+                    writer.print(", ");
+                writer.print(exceptions[i].toString());
             }
         }
         if (code != null) {
