@@ -25,7 +25,7 @@ import java.lang.reflect.Modifier;
 import java.io.PrintStream;
 
 public class Obfuscator {
-    public static boolean isVerbose = false;
+    public static int verboseLevel = 0;
     public static boolean isDebugging = false;
 
     public static boolean shouldStrip = true;
@@ -48,7 +48,8 @@ public class Obfuscator {
 
     public static void usage() {
         err.println("usage: jode.Obfuscator flags* [class | package]*");
-        err.println("\t[-v]               "+"Verbose output");
+        err.println("\t[-v]               "+
+		    "Verbose output (allowed multiple times).");
         err.println("\t[-debug]           "+"Debugging");
         err.println("\t[-nostrip]         "+
 		    "Don't strip not needed methods");
@@ -99,7 +100,7 @@ public class Obfuscator {
 
         for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
-                isVerbose = true;
+                verboseLevel++;
             else if (params[i].equals("-debug"))
                 isDebugging = true;
             else if (params[i].equals("-nostrip"))
