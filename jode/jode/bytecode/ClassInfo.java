@@ -1332,10 +1332,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         if (status < DECLARATIONS)
             throw new IllegalStateException("status is "+status);
 	FieldInfo fi = findField("serialVersionUID", "J");
-	if (fi != null && fi.getConstant() != null)
-	    /* We don't check for static final:  if it has a constant it
-	     * must be static final.
-	     */
+	if (fi != null
+	    && ((fi.getModifiers() & (Modifier.STATIC | Modifier.FINAL))
+		== (Modifier.STATIC | Modifier.FINAL))
+	    && fi.getConstant() != null)
 	    return ((Long) fi.getConstant()).longValue();
 	
 	final MessageDigest md = MessageDigest.getInstance("SHA");
@@ -1378,19 +1378,24 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 		out.writeUTF(fields[i].getType());
 	    }
 
-	    FieldInfo[] methods = (FieldInfo[]) this.methods.clone();
+	    MethodInfo[] methods = (MethodInfo[]) this.methods.clone();
 	    Arrays.sort(methods);
 	    
 	    for (int i=0; i < methods.length; i++) {
 		modifs = methods[i].getModifiers();
+		/* The modifiers of <clinit> should be just static,
+		 * but jikes also marks it final.  
+		 */
+		if (methods[i].getName().equals("<clinit>"))
+		    modifs = Modifier.STATIC;
 		if ((modifs & Modifier.PRIVATE) != 0)
 		    continue;
 		
 		out.writeUTF(methods[i].getName());
 		out.writeInt(modifs);
 		
-		// the replacement of '/' with '.' was needed to make computed
-		// SUID's agree with those computed by JDK.  
+		// the replacement of '/' with '.' was needed to make
+		// computed SUID's agree with those computed by JDK.
 		out.writeUTF(methods[i].getType().replace('/', '.'));
 	    }
 	    
