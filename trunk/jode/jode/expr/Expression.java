@@ -99,7 +99,7 @@ public abstract class Expression {
      * not checked.
      * @param op The combineable operator.
      * @return if this expression contains a matching load.  */
-    public boolean containsConflictingLoad(CombineableOperator op) {
+    public boolean containsConflictingLoad(MatchableOperator op) {
         return op.matches(getOperator());
     }
 
