@@ -176,67 +176,6 @@ public class Type {
     public static final Type tJavaLangClass = tClass("java.lang.Class");
 
     /**
-     * This is a private method for generating the signature of a
-     * given type.  
-     */
-    private static final StringBuffer appendSignature(StringBuffer sb,
-						      Class javaType) {
-	if (javaType.isPrimitive()) {
-	    if (javaType == Boolean.TYPE)
-		return sb.append('Z');
-	    else if (javaType == Byte.TYPE)
-		return sb.append('B');
-	    else if (javaType == Character.TYPE)
-		return sb.append('C');
-	    else if (javaType == Short.TYPE)
-		return sb.append('S');
-	    else if (javaType == Integer.TYPE)
-		return sb.append('I');
-	    else if (javaType == Long.TYPE)
-		return sb.append('J');
-	    else if (javaType == Float.TYPE)
-		return sb.append('F');
-	    else if (javaType == Double.TYPE)
-		return sb.append('D');
-	    else if (javaType == Void.TYPE)
-		return sb.append('V');
-	    else
-		throw new AssertError("Unknown primitive type: "+javaType);
-	} else if (javaType.isArray()) {
-	    return appendSignature(sb.append('['), 
-				   javaType.getComponentType());
-	} else {
-	    return sb.append('L')
-		.append(javaType.getName().replace('.','/')).append(';');
-	}
-    }
-
-    /**
-     * Generate the signature for the given Class.
-     * @param clazz a java.lang.Class, this may also be a primitive or
-     * array type.
-     * @return the type signature (see section 4.3.2 Field Descriptors
-     * of the JVM specification)
-     */
-    public static String getSignature(Class clazz) {
-	return appendSignature(new StringBuffer(), clazz).toString();
-    }
-
-    /**
-     * Generate a method signature.
-     * @param paramT the java.lang.Class of the parameter types of the method.
-     * @param returnT the java.lang.Class of the return type of the method.
-     * @return the method signature (see section 4.3.3 Method Descriptors
-     * of the JVM specification)
-     */
-    public static String getSignature(Class paramT[], Class returnT) {
-	StringBuffer sig = new StringBuffer("(");
-	for (int i=0; i< paramT.length; i++)
-	    appendSignature(sig, paramT[i]);
-	return appendSignature(sig.append(')'), returnT).toString();
-    }
-
-    /**
      * Generate the singleton set of the type represented by the given
      * string.
      * @param type the type signature (or method signature).  
@@ -275,16 +214,6 @@ public class Type {
 	    return tMethod(type);
         }
         throw new AssertError("Unknown type signature: "+type);
-    }
-
-    /**
-     * Generate the singleton set of the type represented by the given
-     * class.
-     * @param javaType the type class.
-     * @return a singleton set containing the given type.
-     */
-    public static final Type tType(Class javaType) {
-	return Type.tType(getSignature(javaType));
     }
 
     /**
@@ -378,16 +307,6 @@ public class Type {
 ///#endif
         }
         return result;
-    }
-
-    /**
-     * Generate/look up the method type for the given class 
-     * @param paramT the parameter types of the method.
-     * @param returnT the return type of the method.
-     * @return a method type (a singleton set).
-     */
-    public static MethodType tMethod(Class paramT[], Class returnT) {
-	return tMethod(getSignature(paramT, returnT));
     }
 
     /**
