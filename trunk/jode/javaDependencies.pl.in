@@ -1,0 +1,140 @@
+#!@PERL@ -s -w
+#
+# javaDependencies Copyright (C) 1999 Jochen Hoenicke.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING.  If not, write to
+# the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+# $Id$
+
+# This scripts create Makefile dependencies out of class files.  It
+# simply scans the constant pool of the class files, finding all
+# references to other classes and adding a dependency to that class.
+#
+# It doesn't do a perfect job, since it can't handle dependencies to 
+# constant values in different classes:  The compiler inlines the 
+# constant and thus doesn't include a reference to the class.
+#
+# Usage:  
+#  javaDependencies.pl -classpath <cp> [-dependdir <depdir>] <classfile>
+# 
+#  cp:     colon separated paths to the java files we should depend on.
+#  depdir: if set, use this path as path to the java files when printing
+#          dependencies, not the path where the java files were found.
+#          useful, if you want to make use of VPATH settings in Makefile.
+#  class:  The class file (not an inner class) for which the dependencies
+#          should be generated.  We will also look for inner and anon 
+#          classes.
+
+my $buff;
+
+sub readUTF {
+    read FILE, $buff, 2 or die "Can't read UTF8 length";
+    my $ulength = unpack("n", $buff) & 0xffff;
+    return "" if $ulength == 0;
+    read FILE, $buff, $ulength or die "Can't read UTF8 string $ulength";
+    unpack("a$ulength", $buff);
+}
+
+$clazz = pop;
+$clazz =~ /(.*)\.class/ or die "not a class file";
+$base = $1;
+my ($filename, %done);
+%done=();
+for $filename ($clazz, glob("$base\\\$*.class")) {
+    open FILE, $filename;
+
+    read FILE, $buff, 8 or die "Can't read header";
+    my ($magic, $minor, $major) = unpack("Nnn", $buff);
+
+    die "Wrong magic $magic" if $magic != 0xcafebabe;
+    die "Wrong minor $minor" if $minor > 3;
+    die "Wrong minor $major" if $major != 45;
+    
+    read FILE, $buff, 2 or die "Can't read cpool length";
+    
+    
+    my ($length) = unpack("n", $buff) & 0xffff;
+
+    my $number;
+    my @strings = ();
+    my @clazzes;
+    for ($number = 1; $number < $length; $number++) {
+	
+	read FILE, $buff, 1 or die "Can't read constant tag";
+	my ($tag) = unpack("C", $buff);
+
+	#print STDERR "$number/$length: $tag";
+      tags:
+	for ($tag) {
+	    /^1$/ && do { 
+		# UTF 8
+		$strings[$number] = &readUTF();
+		#print STDERR ": $strings[$number]";
+		last tags;
+	    }; 
+	    
+	    /^(3|4|9|10|11|12)$/ && do {
+		# INTEGER, FLOAT, FIELDREF, METHODREF, IFACEREF, NAMEANDTYPE
+		read FILE, $buff, 4;
+		last tags;
+	    }; 
+	    
+	    /^(5|6)$/ && do {
+		# LONG, DOUBLE
+		read FILE, $buff, 8;
+		$number++;
+		last tags;
+	    };
+	    
+	    /^7$/ && do {
+		# CLASS
+		read FILE, $buff, 2;
+		push @clazzes, (unpack("n", $buff) & 0xffff);
+		last tags;
+	    }; 
+	    
+	    /^8$/ && do {
+		# STRING
+		read FILE, $buff, 2;
+		last tags;
+	    };
+	    die "Unknown tag: $tag, $number/$length, $filename";
+	}
+	#print STDERR "\n";
+    }
+    
+
+    my @deplist = ();
+  clazz:
+    for $c (@clazzes) {
+	$clzz = $strings[$c];
+	next if $clzz =~ /^\[/;
+	next if defined $done{"$clzz"};
+	$done{$clzz} = 1;
+
+	for $p (split ':', $classpath) {
+	    if (-e "$p/$clzz.java") {
+		push @deplist, (defined $dependdir
+				? "$dependdir/$clzz.java"
+				: "$p/$clzz.java");
+		next clazz;
+	    }
+	}
+    }
+    if (@deplist) {
+	print "# Dependencies of $filename\n";
+	print "$clazz: ". join (" ", @deplist) . "\n";
+    }
+}

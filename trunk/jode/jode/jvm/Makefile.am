@@ -1,7 +1,9 @@
 ## Input file for automake to generate the Makefile.in used by configure
 
 JAR = @JAR@
-JAVAC = top_srcdir=$(top_srcdir) top_builddir=$(top_builddir) $(top_builddir)/javacWithDeps.sh
+JAVAC = @JAVAC@
+JAVADEP = $(top_builddir)/javaDependencies.pl\
+   -dependdir=$(top_builddir) -classpath=$(top_builddir):$(top_srcdir)
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
 BUILD_CLASSPATH = $(top_builddir):$(top_srcdir):$(CLASSPATH):$(CLASSLIB)
@@ -20,11 +22,14 @@ MY_JAVA_FILES = \
 noinst_DATA = $(MY_JAVA_FILES:.java=.class)
 EXTRA_DIST = $(MY_JAVA_FILES)
 
-@QUOTE@-include *.u
+@QUOTE@-include $(MY_JAVA_FILES:.java=.dep)
 
 %.class: %.java
 	$(JAVAC) -classpath $(BUILD_CLASSPATH):$(CLASSLIB) -d $(top_builddir) $<
 
+%.dep: %.class
+	$(JAVADEP) $< >$@
+
 clean-local:
 	@rm -f *.class
-	@rm -f *.u
+	@rm -f *.dep

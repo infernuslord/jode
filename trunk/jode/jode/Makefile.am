@@ -3,11 +3,12 @@
 SUBDIRS = util bytecode type jvm expr flow decompiler obfuscator @SWINGUI@
 
 JAR = @JAR@
-JAVAC = top_srcdir=$(top_srcdir) top_builddir=$(top_builddir) $(top_builddir)/javacWithDeps.sh
+JAVAC = @JAVAC@
+JAVADEP = $(top_builddir)/javaDependencies.pl				\
+   -dependdir=$(top_builddir) -classpath=$(top_builddir):$(top_srcdir)
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
 BUILD_CLASSPATH = $(top_srcdir):$(top_builddir):.:$(CLASSPATH):$(CLASSLIB)
-VPATH=$(srcdir):$(top_srcdir):$(top_builddir)
 
 MY_JAVA_FILES = \
   AssertError.java \
@@ -23,14 +24,16 @@ EXTRA_DIST = $(MY_JAVA_FILES)
 JARFILE = jode-@VERSION@.jar
 data_DATA = $(JARFILE)
 
-@QUOTE@-include *.u
+@QUOTE@-include $(MY_JAVA_FILES:.java=.dep)
 
 %.class: %.java
 	$(JAVAC) -classpath $(BUILD_CLASSPATH):$(CLASSLIB) -d $(top_builddir) $<
+%.dep: %.class
+	$(JAVADEP) $< >$@
 
 clean-local:
 	@rm -f *.class
-	@rm -f *.u
+	@rm -f *.dep
 
 $(JARFILE): $(noinst_DATA)
 	CLASSPATH=$(top_builddir):$(CLASSPATH) $(JAVA) -mx80m \
