@@ -121,7 +121,7 @@ public class ComplexExpression extends Expression {
      * not checked.
      * @param op The combineable operator.
      * @return if this expression contains a matching load.  */
-    public boolean containsConflictingLoad(CombineableOperator op) {
+    public boolean containsConflictingLoad(MatchableOperator op) {
 	if (op.matches(operator))
 	    return true;
 	for (int i=0; i < subExpressions.length; i++) {
