@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class MonitorEnterOperator extends SimpleOperator {
     public MonitorEnterOperator() {
@@ -27,14 +28,13 @@ public class MonitorEnterOperator extends SimpleOperator {
     }
 
     public int getPriority() {
-        return 0;
+        return 700;
     }
 
-    public int getOperandPriority(int i) {
-        return 0;
-    }
-
-    public String toString(String[] operands) {
-        return "MONITORENTER "+operands[0];
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
+        writer.print("MONITORENTER ");
+	operands[0].dumpExpression(writer, 700);
     }
 }

@@ -18,9 +18,11 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.type.NullType;
 import jode.bytecode.Reference;
 import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.TabbedPrintWriter;
 
 public class GetFieldOperator extends Operator {
     boolean staticFlag;
@@ -37,7 +39,7 @@ public class GetFieldOperator extends Operator {
         this.classType = Type.tType(ref.getClazz());
 	this.ref = ref;
         if (staticFlag)
-            classType.useType();
+            codeAnalyzer.useType(classType);
     }
 
     public int getPriority() {
@@ -61,19 +63,36 @@ public class GetFieldOperator extends Operator {
 	    needCast = types[0].getHint().equals(Type.tNull);
     }
 
-    public String toString(String[] operands) {
+    public void dumpExpression(TabbedPrintWriter writer, Expression[] operands)
+	throws java.io.IOException {
+	boolean opIsThis = 
+	    (!staticFlag
+	     && operands[0] instanceof LocalLoadOperator
+	     && (((LocalLoadOperator) operands[0]).getLocalInfo()
+		 .equals(codeAnalyzer.getParamInfo(0)))
+	     && !codeAnalyzer.getMethod().isStatic());
 	String fieldName = ref.getName();
-        return staticFlag
-            ? (classType.equals(Type.tClass(codeAnalyzer.getClazz()))
-               && codeAnalyzer.findLocal(fieldName) == null
-               ? fieldName 
-               : classType.toString() + "." + fieldName)
-            : (operands[0].equals("null")
-	       ? "((" + classType + ") null)." + fieldName
-	       : (operands[0].equals("this")
-		  && codeAnalyzer.findLocal(fieldName) == null
-		  ? fieldName
-		  : operands[0] + "." + fieldName));
+	if (staticFlag) {
+	    if (!classType.equals(Type.tClass(codeAnalyzer.getClazz()))
+		|| codeAnalyzer.findLocal(fieldName) != null) {
+		writer.printType(classType);
+		writer.print(".");
+	    }
+	    writer.print(fieldName);
+	} else if (operands[0].getType() instanceof NullType) {
+	    writer.print("((");
+	    writer.printType(classType);
+	    writer.print(")");
+	    operands[0].dumpExpression(writer, 700);
+	    writer.print(").");
+	    writer.print(fieldName);
+	} else {
+	    if (!opIsThis || codeAnalyzer.findLocal(fieldName) != null) {
+		operands[0].dumpExpression(writer, 950);
+		writer.print(".");
+	    }
+	    writer.print(fieldName);
+	}
     }
 
     public boolean equals(Object o) {

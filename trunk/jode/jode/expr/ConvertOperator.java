@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class ConvertOperator extends Operator {
     Type from;
@@ -29,10 +30,6 @@ public class ConvertOperator extends Operator {
     }
     
     public int getPriority() {
-        return 700;
-    }
-
-    public int getOperandPriority(int i) {
         return 700;
     }
 
@@ -48,8 +45,11 @@ public class ConvertOperator extends Operator {
         from = from.intersection(inputTypes[0]);
     }
 
-    public String toString(String[] operands)
-    {
-        return "("+type.toString()+") "+operands[0];
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] ops) throws java.io.IOException {
+        writer.print("(");
+	writer.printType(type);
+        writer.print(")");
+	ops[0].dumpExpression(writer, 700);
     }
 }

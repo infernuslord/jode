@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class PrePostFixOperator extends Operator {
     StoreInstruction store;
@@ -33,10 +34,6 @@ public class PrePostFixOperator extends Operator {
     
     public int getPriority() {
         return postfix ? 800 : 700;
-    }
-
-    public int getOperandPriority(int i) {
-        return getPriority();
     }
 
     public Type getOperandType(int i) {
@@ -69,10 +66,23 @@ public class PrePostFixOperator extends Operator {
         store.setLValueOperandType(inputTypes);
     }
 
-    public String toString(String[] operands) {
-        if (postfix)
-            return store.getLValueString(operands) + getOperatorString();
-        else
-            return getOperatorString() + store.getLValueString(operands);
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands) 
+    throws java.io.IOException {
+	boolean needBrace = false;
+	int priority = 700;
+	if (postfix) {
+	    writer.print(getOperatorString());
+	    priority = 800;
+	}
+	if (store.getPriority() < priority) {
+	    needBrace = true;
+	    writer.print("(");
+	}
+	store.dumpLValue(writer, operands);
+	if (needBrace)
+	    writer.print(")");
+        if (!postfix)
+	    writer.print(getOperatorString());
     }
 }

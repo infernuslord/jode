@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class CompareUnaryOperator extends SimpleOperator {
     boolean objectType;
@@ -43,16 +44,16 @@ public class CompareUnaryOperator extends SimpleOperator {
         throw new RuntimeException("Illegal operator");
     }
 
-    public int getOperandPriority(int i) {
-        return getPriority();
-    }
-
     public boolean equals(Object o) {
 	return (o instanceof CompareUnaryOperator) &&
 	    ((CompareUnaryOperator)o).operator == operator;
     }
 
-    public String toString(String[] operands) {
-        return operands[0] + getOperatorString() + (objectType?"null":"0");
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	operands[0].dumpExpression(writer, getPriority());
+	writer.print(getOperatorString());
+	writer.print(objectType?"null":"0");
     }
 }

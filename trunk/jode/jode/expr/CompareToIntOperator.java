@@ -18,20 +18,20 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class CompareToIntOperator extends SimpleOperator {
-    public CompareToIntOperator(Type type, int lessGreater) {
+    boolean greaterOnNAN;
+
+    public CompareToIntOperator(Type type, boolean greaterOnNAN) {
         super(Type.tInt, 0, 2);
         operandTypes[0] = operandTypes[1] = type;
+	this.greaterOnNAN = greaterOnNAN;
     }
 
     public int getPriority() {
         return 499;
-    }
-
-    public int getOperandPriority(int i) {
-        return 550;
     }
 
     public void setOperandType(Type[] inputTypes) {
@@ -44,7 +44,12 @@ public class CompareToIntOperator extends SimpleOperator {
 	return (o instanceof CompareToIntOperator);
     }
 
-    public String toString(String[] operands) {
-        return operands[0] + " <=> " + operands[1];
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands)
+	throws java.io.IOException
+    {
+        operands[0].dumpExpression(writer, 550);
+	writer.print(" <=>" + (greaterOnNAN ? 'g' : 'l') + ' ');
+        operands[1].dumpExpression(writer, 551);
     }
 }

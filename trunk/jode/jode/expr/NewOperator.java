@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class NewOperator extends NoArgOperator {
     public NewOperator(Type type) {
@@ -29,7 +30,9 @@ public class NewOperator extends NoArgOperator {
         return 950;
     }
 
-    public String toString(String[] operands) {
-        return "new "+type.toString();
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] expr) throws java.io.IOException{
+	writer.print("new ");
+	writer.printType(type);
     }
 }

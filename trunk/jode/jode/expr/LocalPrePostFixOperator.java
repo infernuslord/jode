@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class LocalPrePostFixOperator extends NoArgOperator {
     IIncOperator iinc;
@@ -35,10 +36,14 @@ public class LocalPrePostFixOperator extends NoArgOperator {
         return postfix ? 800 : 700;
     }
 
-    public String toString(String[] operands) {
-        if (postfix)
-            return iinc.getLocalInfo().getName() + getOperatorString();
-        else
-            return getOperatorString() + iinc.getLocalInfo().getName();
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	String local = iinc.getLocalInfo().getName();
+        if (postfix) {
+	    writer.print(local+getOperatorString());
+	} else {
+	    writer.print(getOperatorString()+local);
+	}
     }
 }

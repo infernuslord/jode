@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class StringAddOperator extends SimpleOperator {
     protected Type operandType;
@@ -36,15 +37,15 @@ public class StringAddOperator extends SimpleOperator {
         return 610;
     }
 
-    public int getOperandPriority(int i) {
-        return 610 + i;
-    }
-
     public boolean equals(Object o) {
 	return (o instanceof StringAddOperator);
     }
 
-    public String toString(String[] operands) {
-        return operands[0] + getOperatorString() + operands[1];
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	operands[0].dumpExpression(writer, 610);
+	writer.print(getOperatorString());
+	operands[1].dumpExpression(writer, 611);
     }
 }

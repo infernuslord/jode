@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
-import jode.ArrayType;
+import jode.type.Type;
+import jode.type.ArrayType;
+import jode.decompiler.TabbedPrintWriter;
 
 public class ConstantArrayOperator extends NoArgOperator {
 
@@ -93,14 +94,25 @@ public class ConstantArrayOperator extends NoArgOperator {
 	return this;
     }
 
-    public String toString(String[] operands) {
-        StringBuffer result = isInitializer ? new StringBuffer("{ ")
-            : new StringBuffer("new ").append(type).append(" { ");
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	writer.print("new ");
+	writer.printType(type);
+	writer.println(" {");
+	writer.tab();
         for (int i=0; i< values.length; i++) {
-            if (i>0)
-                result.append(", ");
-            result.append((values[i] != null) ? values[i] : empty);
+            if (i>0) {
+		if (i % 10 == 0)
+		    writer.println(",");
+		else
+		    writer.print(", ");
+	    }
+            values[i].dumpExpression(writer, 0);
         }
-        return result.append(" }").toString();
+	writer.println();
+	writer.untab();
+	writer.print("}");
     }
 }
+

@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 /**
  * A NopOperator takes one or zero arguments and returns it again.  It
@@ -58,9 +59,15 @@ public class NopOperator extends SimpleOperator {
 	return (o instanceof NopOperator);
     }
 
-    public String toString(String[] operands) {
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands) 
+	throws java.io.IOException {
         if (type == Type.tVoid)
-            return "/* nop */";
-        return operands[0];
+            writer.print("/* NOP */");
+        operands[0].dumpExpression(writer);
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer) {
+	writer.print("POP");
     }
 }

@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class CompareBinaryOperator extends SimpleOperator {
     public CompareBinaryOperator(Type type, int op) {
@@ -40,10 +41,6 @@ public class CompareBinaryOperator extends SimpleOperator {
         throw new RuntimeException("Illegal operator");
     }
 
-    public int getOperandPriority(int i) {
-        return getPriority()+i;
-    }
-
     public void setOperandType(Type[] inputTypes) {
         super.setOperandType(inputTypes);
         operandTypes[0] = operandTypes[1] = 
@@ -55,7 +52,11 @@ public class CompareBinaryOperator extends SimpleOperator {
 	    ((CompareBinaryOperator)o).operator == operator;
     }
 
-    public String toString(String[] operands) {
-        return operands[0] + getOperatorString() + operands[1];
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	operands[0].dumpExpression(writer, getPriority());
+	writer.print(getOperatorString());
+	operands[1].dumpExpression(writer, getPriority()+1);
     }
 }

@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public abstract class StoreInstruction extends Operator
     implements CombineableOperator {
@@ -69,7 +70,6 @@ public abstract class StoreInstruction extends Operator
 
     public abstract boolean matches(Operator loadop);
     public abstract int getLValueOperandCount();
-    public abstract int getLValueOperandPriority(int i);
     public abstract Type getLValueOperandType(int i);
     public abstract void setLValueOperandType(Type [] t);
 
@@ -80,17 +80,8 @@ public abstract class StoreInstruction extends Operator
         lvalueType = lvalueType.intersection(type);
     }
 
-    public abstract String getLValueString(String[] operands);
-
     public int getPriority() {
         return 100;
-    }
-
-    public int getOperandPriority(int i) {
-        if (i == getLValueOperandCount())
-            return 100;
-        else
-            return getLValueOperandPriority(i);
     }
 
     public Type getOperandType(int i) {
@@ -119,9 +110,15 @@ public abstract class StoreInstruction extends Operator
         return 1 + getLValueOperandCount();
     }
 
-    public String toString(String[] operands)
+    public abstract void dumpLValue(TabbedPrintWriter writer, 
+				    Expression[] operands)
+	throws java.io.IOException;
+
+    public void dumpExpression(TabbedPrintWriter writer, Expression[] operands)
+	throws java.io.IOException
     {
-        return getLValueString(operands) + getOperatorString() +
-            operands[getLValueOperandCount()];
+	dumpLValue(writer, operands);
+	writer.print(getOperatorString());
+	operands[getLValueOperandCount()].dumpExpression(writer, 100);
     }
 }

@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.TabbedPrintWriter;
 
 public class ClassFieldOperator extends NoArgOperator {
     Type classType;
@@ -27,14 +28,16 @@ public class ClassFieldOperator extends NoArgOperator {
     public ClassFieldOperator(Type classType) {
         super(Type.tJavaLangClass);
         this.classType = classType;
-	classType.useType();
     }
 
     public int getPriority() {
         return 950;
     }
 
-    public String toString(String[] operands) {
-	return classType.toString() + ".class";
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	writer.printType(classType);
+	writer.print(".class");
     }
 }
