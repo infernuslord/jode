@@ -54,6 +54,11 @@ public abstract class Operator extends Expression {
             throw new jode.AssertError("type == null");
     }
 
+    public Expression addOperand(Expression op) {
+	return new ComplexExpression
+	    (this, new Expression[getOperandCount()]).addOperand(op);
+    }
+
     public Operator getOperator() {
         return this;
     }
