@@ -155,7 +155,7 @@ public class JodeEnvironment {
     }
 
     public void error(String message) {
-        System.err.println(message);
+        Decompiler.err.println(message);
     }
 
     public void doClass(String className, TabbedPrintWriter writer)
@@ -165,11 +165,11 @@ public class JodeEnvironment {
         try {
             clazz = ClassInfo.forName(className);
         } catch (IllegalArgumentException ex) {
-            System.err.println("`"+className+"' is not a class name");
+            Decompiler.err.println("`"+className+"' is not a class name");
             return;
         }
 
-        System.err.println(className);
+        Decompiler.err.println(className);
         
         int pkgdelim = className.lastIndexOf('.');
         pkg = (pkgdelim == -1)? "" : className.substring(0, pkgdelim);
