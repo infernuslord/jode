@@ -140,6 +140,12 @@ public class FieldInfo extends BinaryInfo {
         writeAttributes(constantPool, output);
     }
 
+    public void dropInfo(int howMuch) {
+	if ((howMuch & KNOWNATTRIBS) != 0)
+	    constant = null;
+	super.dropInfo(howMuch);
+    }
+
     public String getName() {
         return name;
     }

@@ -643,6 +643,51 @@ public class ClassInfo extends BinaryInfo {
         }
     }
 
+    /** 
+     * This is the counter part to loadInfo.  It will drop all info specified
+     * in howMuch and clean up the memory.
+     * @param howMuch tells how much info we should drop
+     */
+    public void dropInfo(int howMuch) {
+	if ((status & howMuch) == 0)
+	    return;
+	if (modified) {
+	    System.err.println("Dropping info 0x"
+			       + Integer.toHexString(howMuch)
+			       + " (status 0x" + Integer.toHexString(status)
+			       + ") in class " + this);
+	    Thread.dumpStack();
+	    return;
+	}
+	howMuch &= status;
+
+	if ((howMuch & FIELDS) != 0) {
+	    fields = null;
+	} else if ((status & FIELDS) != 0
+		   && (howMuch & (KNOWNATTRIBS | UNKNOWNATTRIBS)) != 0) {
+	    for (int i=0; i < fields.length; i++)
+		fields[i].dropInfo(howMuch);
+	}
+
+	if ((howMuch & METHODS) != 0) {
+	    methods = null;
+	} else if ((status & METHODS) != 0
+		   && (howMuch & (KNOWNATTRIBS | UNKNOWNATTRIBS)) != 0) {
+	    for (int i=0; i < methods.length; i++)
+		methods[i].dropInfo(howMuch);
+	}
+	if ((howMuch & KNOWNATTRIBS) != 0)
+	    sourceFile = null;
+	if ((howMuch & OUTERCLASSES) != 0)
+	    outerClasses = null;
+	if ((howMuch & INNERCLASSES) != 0) {
+	    innerClasses = null;
+	    extraClasses = null;
+	}
+	super.dropInfo(howMuch);
+	status &= ~howMuch;
+    }
+
     public String getName() {
         return name;
     }
