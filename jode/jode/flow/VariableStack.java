@@ -106,7 +106,8 @@ public class VariableStack {
 	    if (!used.contains(stackMap[i]))
 		used.addElement(stackMap[i]);
 	    expr = expr.addOperand
-		(new LocalLoadOperator(stackMap[i].getType(), stackMap[i]));
+		(new LocalLoadOperator(stackMap[i].getType(), null, 
+				       stackMap[i]));
 	}
 	return expr;
     }
