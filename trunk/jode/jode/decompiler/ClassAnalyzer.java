@@ -18,6 +18,7 @@
  */
 
 package jode.decompiler;
+import jode.GlobalOptions;
 import jode.Decompiler;
 import jode.type.*;
 import jode.bytecode.ClassInfo;
@@ -206,6 +207,8 @@ public class ClassAnalyzer
     }
 
     public void analyze() {
+	if (GlobalOptions.verboseLevel > 0)
+	    GlobalOptions.err.println("Class " + clazz.getName());
 	imports.useClass(clazz);
         if (clazz.getSuperclass() != null)
             imports.useClass(clazz.getSuperclass());
