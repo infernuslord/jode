@@ -36,15 +36,16 @@ import java.io.*;
 
 public class MainWindow 
     implements ActionListener, Runnable, TreeSelectionListener {
+    JFrame frame;
     JTree classTree;
     PackagesTreeModel classModel;
     JTextArea  sourcecodeArea, errorArea;
     Thread decompileThread;
     String currentClassPath, lastClassName;
 
-    public MainWindow() {
-	setClasspath(System.getProperty("java.class.path"));
-	JFrame frame = new JFrame(GlobalOptions.copyright);
+    public MainWindow(String classpath) {
+	setClasspath(classpath);
+	frame = new JFrame(GlobalOptions.copyright);
 	fillContentPane(frame.getContentPane());
 	addMenu(frame);
 	frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -53,6 +54,9 @@ public class MainWindow
 		System.exit(0);
 	    }
 	});
+    }
+
+    public void show() {
 	frame.pack();
 	frame.show();
     }
@@ -224,6 +228,13 @@ public class MainWindow
 	    }
 	});
 	menu.add(item);
+	item = new JMenuItem("Reload classpath");
+	item.addActionListener(new ActionListener() {
+	    public void actionPerformed(ActionEvent ev) {
+		setClasspath(currentClassPath);
+	    }
+	});
+	menu.add(item);
 	bar.add(menu);
 	frame.setJMenuBar(bar);
     }
@@ -240,7 +251,15 @@ public class MainWindow
     }
 
     public static void main(String[] params) {
-	MainWindow win = new MainWindow();
+	String cp = System.getProperty("java.class.path");
+	for (int i=0; i<params.length; i++) {
+	    if (params[i].equals("--cp"))
+		cp = params[++i];
+	    else
+		return;
+	}
+	MainWindow win = new MainWindow(cp);
+	win.show();
     }
 }
 
