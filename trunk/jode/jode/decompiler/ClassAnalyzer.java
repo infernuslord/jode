@@ -29,13 +29,18 @@ import jode.expr.Expression;
 import jode.expr.ThisOperator;
 import jode.expr.ConstructorOperator;
 import jode.flow.TransformConstructors;
+
 import java.util.NoSuchElementException;
+import java.util.Vector;
+import java.util.Enumeration;
 import java.lang.reflect.Modifier;
 
-public class ClassAnalyzer implements Analyzer, Scope, Declarable {
+public class ClassAnalyzer 
+    implements Analyzer, Scope, Declarable, ClassDeclarer 
+{
     ImportHandler imports;
     ClassInfo clazz;
-    Object parent;
+    ClassDeclarer parent;
 
     String name;
     FieldAnalyzer[] fields;
@@ -43,14 +48,16 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
     ClassAnalyzer[] inners;
     int modifiers;
 
+    TransformConstructors constrAna;
     MethodAnalyzer staticConstructor;
     MethodAnalyzer[] constructors;
 
     Expression[] outerValues;
-    boolean constructorAnalyzed = false;
     boolean jikesAnonymousInner = false;
 
-    public ClassAnalyzer(Object parent,
+    Vector ovListeners;
+
+    public ClassAnalyzer(ClassDeclarer parent,
 			 ClassInfo clazz, ImportHandler imports,
 			 Expression[] outerValues)
     {
@@ -88,7 +95,7 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 	}
     }
 
-    public ClassAnalyzer(Object parent,
+    public ClassAnalyzer(ClassDeclarer parent,
 			 ClassInfo clazz, ImportHandler imports)
     {
 	this(parent, clazz, imports, null);
@@ -122,24 +129,49 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 	return null;
     }
     
-    public Object getParent() {
+    public ClassDeclarer getParent() {
         return parent;
+    }
+
+    public void setParent(ClassDeclarer newParent) {
+	this.parent = newParent;
     }
 
     public ClassInfo getClazz() {
         return clazz;
     }
 
+
+    public String getName() {
+	return name;
+    }
+
+    public void setName(String name) {
+	this.name = name;
+    }
+
     public Expression[] getOuterValues() {
 	return outerValues;
     }
 
-    public void setOuterValues(Expression[] outerValues) {
-	this.outerValues = outerValues;
+    public void addOuterValueListener(OuterValueListener l) {
+	if (ovListeners == null)
+	    ovListeners = new Vector();
+	ovListeners.addElement(l);
     }
 
-    public boolean isConstructorAnalyzed() {
-	return constructorAnalyzed;
+    public void shrinkOuterValues(int newCount) {
+	if (newCount >= outerValues.length)
+	    return;
+	Expression[] newOuter = new Expression[newCount];
+	System.arraycopy(outerValues, 0, newOuter, 0, newCount);
+	outerValues = newOuter;
+	if (ovListeners != null) {
+	    for (Enumeration enum = ovListeners.elements();
+		 enum.hasMoreElements();)
+		((OuterValueListener) enum.nextElement()
+		 ).shrinkingOuterValues(this, newCount);
+	}
     }
 
     /**
@@ -161,6 +193,13 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
     }
 
     public void analyze() {
+	imports.useClass(clazz);
+        if (clazz.getSuperclass() != null)
+            imports.useClass(clazz.getSuperclass());
+        ClassInfo[] interfaces = clazz.getInterfaces();
+        for (int j=0; j< interfaces.length; j++)
+            imports.useClass(interfaces[j]);
+
         FieldInfo[] finfos = clazz.getFields();
         MethodInfo[] minfos = clazz.getMethods();
 	InnerClassInfo[] innerInfos = clazz.getInnerClasses();
@@ -211,22 +250,16 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
         for (int j=0; j < fields.length; j++)
 	    fields[j].analyze();
 
-	// now analyze constructors:
+	// now analyze constructors and synthetic fields:
+	constrAna = null;
         constructors = new MethodAnalyzer[constrVector.size()];
 	if (constructors.length > 0) {
             constrVector.copyInto(constructors);
 	    for (int j=0; j< constructors.length; j++)
 		constructors[j].analyze();
-
-	    new TransformConstructors(this, false, constructors).transform();
+	    constrAna = new TransformConstructors(this, false, constructors);
+	    constrAna.initSyntheticFields();
         }
-        if (staticConstructor != null) {
-	    staticConstructor.analyze();
-            new TransformConstructors
-		(this, true, new MethodAnalyzer[] { staticConstructor })
-		.transform();
-	}
-	constructorAnalyzed = true;
 
 	// Now analyze remaining methods.
         for (int j=0; j < methods.length; j++) {
@@ -234,28 +267,37 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 		&& !methods[j].isJikesConstructor)
 		methods[j].analyze();
 	}
+    }
+
+    public void analyzeInnerClasses() {
 	// Now analyze the inner classes.
-	for (int j=0; j < inners.length; j++)
+	for (int j=0; j < inners.length; j++) {
 	    inners[j].analyze();
+	    inners[j].analyzeInnerClasses();
+	}
 
 	// Now analyze the method scoped classes.
         for (int j=0; j < methods.length; j++)
-	    methods[j].analyzeAnonymousClasses();
+	    methods[j].analyzeInnerClasses();
 
-	imports.useClass(clazz);
-        if (clazz.getSuperclass() != null)
-            imports.useClass(clazz.getSuperclass());
-        ClassInfo[] interfaces = clazz.getInterfaces();
-        for (int j=0; j< interfaces.length; j++)
-            imports.useClass(interfaces[j]);
     }
 
-    public String getName() {
-	return name;
-    }
-
-    public void setName(String name) {
-	this.name = name;
+    public void makeDeclaration() {
+	// Finally anlyze the remaining field initializers.
+	if (constrAna != null)
+	    constrAna.transform();
+        if (staticConstructor != null) {
+	    staticConstructor.analyze();
+            new TransformConstructors
+		(this, true, new MethodAnalyzer[] { staticConstructor })
+		.transform();
+	}
+        for (int j=0; j < fields.length; j++)
+	    fields[j].makeDeclaration();
+        for (int j=0; j < inners.length; j++)
+	    inners[j].makeDeclaration();
+        for (int j=0; j < methods.length; j++)
+	    methods[j].makeDeclaration();
     }
 
     public void dumpDeclaration(TabbedPrintWriter writer)
@@ -302,7 +344,7 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 	int modifiedModifiers = modifiers & ~Modifier.SYNCHRONIZED;
 	if (clazz.isInterface())
 	    modifiedModifiers &= ~Modifier.ABSTRACT;
-	if (parent instanceof CodeAnalyzer) {
+	if (parent instanceof MethodAnalyzer) {
 	    /* method scope classes are implicitly private */
 	    modifiedModifiers &= ~Modifier.PRIVATE;
 	    /* anonymous classes are implicitly final */
@@ -340,7 +382,7 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 	writer.tab();
 	dumpBlock(writer);
 	writer.untab();
-	if (parent instanceof CodeAnalyzer) {
+	if (parent instanceof MethodAnalyzer) {
 	    /* This is a method scope class */
 	    writer.closeBraceNoSpace();
 	} else
@@ -353,6 +395,8 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 	imports.init(clazz.getName());
 	LocalInfo.init();
 	analyze();
+	analyzeInnerClasses();
+	makeDeclaration();
 	
 	imports.dumpHeader(writer);
 	dumpSource(writer);
@@ -397,5 +441,27 @@ public class ClassAnalyzer implements Analyzer, Scope, Declarable {
 	    info = info.getSuperclass();
 	}
 	return false;
+    }
+
+    /**
+     * Get the class analyzer for the given class info.  This searches
+     * the method scoped/anonymous classes in this method and all
+     * outer methods and the outer classes for the class analyzer.
+     * @param cinfo the classinfo for which the analyzer is searched.
+     * @return the class analyzer, or null if there is not an outer
+     * class that equals cinfo, and not a method scope/inner class in
+     * an outer method.
+     */
+    public ClassAnalyzer getClassAnalyzer(ClassInfo cinfo) {
+	if (cinfo == getClazz())
+	    return this;
+	if (parent == null)
+	    return null;
+	return getParent().getClassAnalyzer(cinfo);
+    }
+
+    public void addClassAnalyzer(ClassAnalyzer clazzAna) {
+	if (parent != null)
+	    parent.addClassAnalyzer(clazzAna);
     }
 }
