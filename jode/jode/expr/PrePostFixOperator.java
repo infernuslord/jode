@@ -48,6 +48,16 @@ public class PrePostFixOperator extends Operator {
     }
 
     /**
+     * Checks if the value of the given expression can change, due to
+     * side effects in this expression.  If this returns false, the 
+     * expression can safely be moved behind the current expresion.
+     * @param expr the expression that should not change.
+     */
+    public boolean hasSideEffects(Expression expr) {
+	return store.hasSideEffects(expr);
+    }
+
+    /**
      * Sets the return type of this operator.
      */
     public void setType(Type type) {
