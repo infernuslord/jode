@@ -156,6 +156,16 @@ public class MethodInfo extends BinaryInfo {
         writeAttributes(constantPool, output);
     }
 
+    public void dropInfo(int howMuch) {
+	if ((howMuch & KNOWNATTRIBS) != 0) {
+	    bytecode = null;
+	    exceptions = null;
+	}
+	if (bytecode != null) 
+	    bytecode.dropInfo(howMuch);
+	super.dropInfo(howMuch);
+    }
+
     public ClassInfo getClazzInfo() {
 	return clazzInfo;
     }

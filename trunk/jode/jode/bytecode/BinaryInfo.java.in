@@ -150,6 +150,11 @@ public class BinaryInfo {
 	}
     }
 
+    public void dropInfo(int howMuch) {
+	if ((howMuch & UNKNOWNATTRIBS) != 0)
+	    unknownAttributes = null;
+    }
+
     protected void prepareAttributes(GrowableConstantPool gcp) {
 	if (unknownAttributes == null)
 	    return;

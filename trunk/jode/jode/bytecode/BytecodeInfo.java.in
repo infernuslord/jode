@@ -1420,6 +1420,14 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	writeAttributes(gcp, output);
     }
 
+    public void dropInfo(int howMuch) {
+	if ((howMuch & KNOWNATTRIBS) != 0) {
+	    lvt = null;
+	    lnt = null;
+	}
+	super.dropInfo(howMuch);
+    }
+
     public int getSize() {
 	/* maxStack:    2
 	 * maxLocals:   2
