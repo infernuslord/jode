@@ -18,12 +18,15 @@
  */
 
 package jode.flow;
+import java.lang.reflect.Modifier;
 import jode.GlobalOptions;
+import jode.Decompiler;
 import jode.decompiler.Analyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.MethodAnalyzer;
 import jode.expr.*;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.InnerClassInfo;
 
 /**
  * 
@@ -65,15 +68,14 @@ public class TransformConstructors {
 
                 Expression instr = ib.getInstruction();
                 
-                if (!(instr instanceof ComplexExpression)
-                    || !(instr.getOperator() instanceof InvokeOperator)
-                    || !isThis(((ComplexExpression)instr)
-			       .getSubExpressions()[0], 
+                if (!(instr instanceof InvokeOperator)
+		    || instr.getFreeOperandCount() != 0)
+		    return;
+
+                InvokeOperator invoke = (InvokeOperator) instr;
+		if (!invoke.isConstructor() || !invoke.isSuperOrThis()
+		    || !isThis(invoke.getSubExpressions()[0], 
 			       clazzAnalyzer.getClazz()))
-                    return;
-                    
-                InvokeOperator invoke = (InvokeOperator) instr.getOperator();
-                if (!invoke.isConstructor() || !invoke.isSuperOrThis())
                     return;
 
                 if (invoke.isThis()) {
@@ -90,8 +92,19 @@ public class TransformConstructors {
                  * expected. If the super() has no parameters, we
                  * can remove it as it is implicit.
                  */
-                if (invoke.getMethodType().getParameterTypes().length == 0)
+		InnerClassInfo outer = invoke.getOuterClassInfo();
+		if (outer != null && outer.outer != null
+		    && !Modifier.isStatic(outer.modifiers)) {
+		    if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
+			&& (invoke.getMethodType().getParameterTypes()
+			    .length == 1)
+			&& (invoke.getSubExpressions()[1]
+			    instanceof ThisOperator))
+			ib.removeBlock();
+		} else if (invoke.getMethodType().getParameterTypes()
+			   .length == 0)
                     ib.removeBlock();
+
                 if (sb[i] instanceof SequentialBlock)
                     sb[i] = sb[i].getSubBlocks()[1];
                 else
@@ -123,17 +136,19 @@ public class TransformConstructors {
 		
 		Expression instr
 		    = ((InstructionBlock) ib).getInstruction().simplify();
-		if (!(instr instanceof ComplexExpression)
-		    || !(instr.getOperator() instanceof PutFieldOperator)
-		    || ((PutFieldOperator)instr.getOperator()).isStatic())
-		    break this_loop;
-		
-		PutFieldOperator pfo = (PutFieldOperator) instr.getOperator();
-		if (!pfo.isThis())
+		if (!(instr instanceof StoreInstruction)
+		    || instr.getFreeOperandCount() != 0)
 		    break this_loop;
 
-		Expression expr =  ((ComplexExpression)instr)
-		    .getSubExpressions()[isStatic ? 0 : 1];
+		StoreInstruction store = (StoreInstruction) instr;
+		if (!(store.getLValue() instanceof PutFieldOperator))
+		    break this_loop;
+
+		PutFieldOperator pfo = (PutFieldOperator) store.getLValue();
+		if (pfo.isStatic() || !pfo.isThis())
+		    break this_loop;
+
+		Expression expr = store.getSubExpressions()[1];
 
 		if (isMember) {
 		    if (!(expr instanceof ThisOperator))
@@ -147,8 +162,7 @@ public class TransformConstructors {
 		     & GlobalOptions.DEBUG_CONSTRS) != 0)
 		    GlobalOptions.err.println("field "+pfo.getFieldName()
 					      + " = " + expr);
-                if (!isThis(((ComplexExpression)instr)
-			    .getSubExpressions()[0], 
+                if (!isThis(pfo.getSubExpressions()[0], 
 			    clazzAnalyzer.getClazz())) {
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_CONSTRS) != 0)
@@ -215,18 +229,31 @@ public class TransformConstructors {
 
             Expression instr
 		= ((InstructionBlock) ib).getInstruction().simplify();
-            if (!(instr instanceof ComplexExpression)
-                || !(instr.getOperator() instanceof PutFieldOperator)
-                || (((PutFieldOperator)instr.getOperator()).isStatic() 
-                    != isStatic))
-                break big_loop;
+		
+	    if (!(instr instanceof StoreInstruction)
+		|| instr.getFreeOperandCount() != 0)
+		break big_loop;
+	    
+	    StoreInstruction store = (StoreInstruction) instr;
+	    if (!(store.getLValue() instanceof PutFieldOperator))
+		break big_loop;
+	    
+	    PutFieldOperator pfo = (PutFieldOperator) store.getLValue();
+	    if (pfo.isStatic() != isStatic || !pfo.isThis())
+		break big_loop;
 
-            PutFieldOperator pfo = (PutFieldOperator) instr.getOperator();
-            Expression expr =  ((ComplexExpression)instr)
-                .getSubExpressions()[isStatic ? 0 : 1];
+            if (!isStatic) {
+                if (!isThis(pfo.getSubExpressions()[0], 
+			    clazzAnalyzer.getClazz())) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("not this: "+instr);
+		    break big_loop;
+		}
+            }
 
-
-            if (!pfo.isThis() || !expr.isConstant()) {
+            Expression expr =  store.getSubExpressions()[1];
+            if (!expr.isConstant()) {
 		if ((GlobalOptions.debuggingFlags
 		     & GlobalOptions.DEBUG_CONSTRS) != 0)
 		    GlobalOptions.err.println("not constant: "+expr);
@@ -235,18 +262,9 @@ public class TransformConstructors {
 
 	    if ((GlobalOptions.debuggingFlags
 		 & GlobalOptions.DEBUG_CONSTRS) != 0)
-		GlobalOptions.err.println("field "+pfo.getFieldName()+ " = "+expr);
+		GlobalOptions.err.println("field " + pfo.getFieldName()
+					  + " = " + expr);
 
-            if (!isStatic) {
-                if (!isThis(((ComplexExpression)instr)
-			    .getSubExpressions()[0], 
-			    clazzAnalyzer.getClazz())) {
-		    if ((GlobalOptions.debuggingFlags
-			 & GlobalOptions.DEBUG_CONSTRS) != 0)
-			GlobalOptions.err.println("not this: "+instr);
-		    break big_loop;
-		}
-            }
 
             for (int i=1; i< constrCount; i++) {
                 ib = (sb[i] instanceof SequentialBlock) 
