@@ -49,7 +49,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
     Instruction findMatchingPush(Instruction instr) {
 	int count = 0;
 	while (true) {
-	    if (instr.preds.size() != 1)
+	    if (instr.preds != null)
 		return null;
 	    instr = instr.prevByAddr;
 	    switch (instr.opcode) {
@@ -346,7 +346,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 		    if (instr.opcode == opc_pop)
 			instr.opcode = opc_pop2;
 		    else {
-			Instruction thirdPop = instr.appendInstruction(false);
+			Instruction thirdPop = instr.appendInstruction();
 			thirdPop.length = 1;
 			thirdPop.opcode = opc_pop;
 		    }
@@ -399,7 +399,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 			 * split it and continue with second half
 			 */
 			instr.opcode = opc_pop;
-			instr = instr.appendInstruction(false);
+			instr = instr.appendInstruction();
 			instr.opcode = opc_pop;
 			instr.length = 1;
 			continue;
