@@ -190,7 +190,7 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	MethodIdentifier mi = (MethodIdentifier) 
 	    m.clazz.bundle.getIdentifier(ref);
 	if (mi != null) {
-	    BytecodeInfo code = mi.getBytecode();
+	    BytecodeInfo code = mi.info.getBytecode();
 	    if (code != null) {
 		MethodType mt = (MethodType) Type.tType(ref.getType());
 		Value[] locals = new Value[code.getMaxLocals()];
