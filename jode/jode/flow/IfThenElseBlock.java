@@ -105,7 +105,7 @@ public class IfThenElseBlock extends StructuredBlock {
      */
     public VariableStack mapStackToLocal(VariableStack stack) {
 	VariableStack newStack;
-	int params = cond.getOperandCount();
+	int params = cond.getFreeOperandCount();
 	if (params > 0) {
 	    condStack = stack.peek(params);
 	    newStack = stack.pop(params);
