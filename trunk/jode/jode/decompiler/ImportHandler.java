@@ -8,9 +8,6 @@ public class JodeEnvironment extends LoadEnvironment {
     BinaryClass main;
     Identifier pkg;
 
-    public boolean isVerbose = false;
-    public boolean isDebugging = false;
-
     JodeEnvironment() {
         super(null);
 	MyType.setEnvironment(this);
@@ -91,7 +88,6 @@ public class JodeEnvironment extends LoadEnvironment {
             a.analyze();
             TabbedPrintWriter writer = 
                 new TabbedPrintWriter(System.out, "    ");
-            writer.verbosity = isDebugging?10:0;
             a.dumpSource(writer);
         } catch (ClassNotFound e) {
             error(e.toString());

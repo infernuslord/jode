@@ -6,11 +6,13 @@ import sun.tools.java.FieldDefinition;
 public class Expression extends Instruction {
     Operator     operator;
     Expression[] subExpressions;
+    Expression   parent = null;
 
     public Expression(Operator op, Expression[] sub) {
         super(MyType.tUnknown);
         operator = op;
         subExpressions = sub;
+        operator.setExpression(this);
         if (subExpressions.length != op.getOperandCount())
             throw new AssertError ("Operand count mismatch: "+
                                    subExpressions.length + " != " + 
@@ -18,6 +20,7 @@ public class Expression extends Instruction {
         if (subExpressions.length > 0) {
             Type types[] = new Type[subExpressions.length];
             for (int i=0; i < types.length; i++) {
+                subExpressions[i].parent = this;
                 types[i] = subExpressions[i].getType();
             }
             operator.setOperandType(types);
@@ -95,10 +98,12 @@ public class Expression extends Instruction {
         }
     }
 
-    public void setType(Type type) {
-        if (operator.setType(type))
-            updateSubTypes();
-	this.type = operator.getType();
+    public void setType(Type newType) {
+	newType = MyType.intersection(type, newType);
+        if (newType != type) {
+            type = newType;
+            operator.setType(type);
+        }
     }
 
     public boolean isVoid() {
@@ -193,6 +198,38 @@ public class Expression extends Instruction {
                     return subExpressions[0].negate().simplify();
             }
         }
+//         if ((operator instanceof AssignOperator ||
+//              operator instanceof StoreInstruction) &&
+//             subExpressions[subExpressions.length-1]
+//             .operator instanceof ConstOperator) {
+//             StoreInstruction store;
+//             if (operator instanceof AssignOperator)
+//                 store = ((AssignOperator)operator).getStore();
+//             else
+//                 store = (StoreInstruction)operator;
+
+//             ConstOperator one = (ConstOperator) 
+//                 subExpressions[subExpressions.length-1].operator;
+
+//             if ((operator.getOperator() == 
+//                  operator.OPASSIGN_OP+operator.ADD_OP ||
+//                  operator.getOperator() == 
+//                  operator.OPASSIGN_OP+operator.NEG_OP) &&
+//                 (one.getValue().equals("1") || 
+//                  one.getValue().equals("-1"))) {
+
+//                 int op = ((operator.getOperator() == 
+//                            operator.OPASSIGN_OP+operator.ADD_OP) ==
+//                           one.getValue().equals("1"))?
+//                     operator.INC_OP : operator.DEC_OP;
+
+//                 return new Expression
+//                     (new PostFixOperator
+//                      (store.getType(), op, store, 
+//                       operator instanceof StoreInstruction),
+//                      new Expression[0]).simplify();
+//             }
+//         }
         if (operator instanceof CompareUnaryOperator &&
             subExpressions[0].operator instanceof CompareToIntOperator) {
             CompareBinaryOperator newOp = new CompareBinaryOperator

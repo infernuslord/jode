@@ -97,6 +97,12 @@ public class MyType extends Type {
 // 	System.err.println("intersecting "+ t1 +" and "+ t2);
 	/* Trivial cases first.
 	 */
+        if (t1 == tError || t2 == tError) {
+            System.err.println("intersecting "+ t1 +" and "+ t2 + 
+                               " to <error>");
+            Thread.dumpStack();
+	    return tError;
+        }
 	if (t1 == t2 || t2 == tUnknown)
 	    return t1;
 	if (t1 == tUnknown)
@@ -126,6 +132,7 @@ public class MyType extends Type {
 	if (t1.getTypeCode() != 103 || t2.getTypeCode() != 103) {
             System.err.println("intersecting "+ t1 +" and "+ t2 + 
                                " to <error>");
+            Thread.dumpStack();
 	    return tError;
         }
 

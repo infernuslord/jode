@@ -23,8 +23,6 @@ public abstract class SimpleOperator extends Operator {
 
     public void setOperandType(Type[] t) {
         for (int i=0; i< operandTypes.length; i++) {
-            if (MyType.intersection(operandTypes[i], t[i]) == Type.tError)
-                System.err.println("Error: "+operandTypes[i]+","+t[i]);
             operandTypes[i] = MyType.intersection(operandTypes[i], t[i]);
         }
     }

@@ -6,7 +6,7 @@ public class ConstantArrayOperator extends SimpleOperator {
     public ConstantArrayOperator(Type type, int size) {
         super(type, 0, size);
         for (int i=0; i< size; i++)
-            operandTypes[i] = type.getElementType();
+            operandTypes[i] = MyType.tSubType(type.getElementType());
     }
 
     public int getPriority() {

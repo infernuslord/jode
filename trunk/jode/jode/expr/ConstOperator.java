@@ -6,6 +6,8 @@ public class ConstOperator extends NoArgOperator {
 
     public ConstOperator(Type type, String value) {
         super(type);
+        if (type == MyType.tString)
+            value = quoted(value);
         this.value = value;
     }
 
@@ -17,10 +19,10 @@ public class ConstOperator extends NoArgOperator {
         return 1000;
     }
 
-    public String quoted(String str) {
+    public static String quoted(String str) {
         StringBuffer result = new StringBuffer("\"");
-        for (int i=0; i< value.length(); i++) {
-            switch (value.charAt(i)) {
+        for (int i=0; i< str.length(); i++) {
+            switch (str.charAt(i)) {
             case '\t':
                 result.append("\\t");
                 break;
@@ -34,7 +36,7 @@ public class ConstOperator extends NoArgOperator {
                 result.append("\\\"");
                 break;
             default:
-                result.append(value.charAt(i));
+                result.append(str.charAt(i));
             }
         }
         return result.append("\"").toString();
@@ -46,8 +48,6 @@ public class ConstOperator extends NoArgOperator {
     }
 
     public String toString(String[] operands) {
-        if (MyType.isOfType(type, Type.tString))
-            return quoted(value);
         if (type == Type.tBoolean) {
             if (value.equals("0"))
                 return "false";

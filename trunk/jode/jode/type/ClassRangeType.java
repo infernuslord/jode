@@ -239,9 +239,9 @@ public class ClassRangeType extends MyType {
 
         if (t1.getTypeCode() <= 4 && t2.getTypeCode() <= 4) {
 	    if (t1.getTypeCode() < t2.getTypeCode())
-		return t2;
-	    else
 		return t1;
+	    else
+		return t2;
 	}
 	if ((t1.getTypeCode() != 9 && t1.getTypeCode() != 10) ||
 	    (t1.getTypeCode() != 9 && t1.getTypeCode() != 10))
@@ -315,10 +315,12 @@ public class ClassRangeType extends MyType {
 	Type top    = getGeneralizedType(topType, type.topType);
 
 	Type newType = createRangeType(bottom,top);
-        if (newType == tError)
+        if (newType == tError) {
             System.err.println("intersecting "+ this +" and "+ type + 
                                " to <" + bottom + "-" + top + 
                                "> to <error>");
+            Thread.dumpStack();
+        }
         return newType;
     }
 

@@ -35,15 +35,15 @@ public class MethodAnalyzer implements Analyzer, Constants {
     {
 	if (code == null)
 	    return;
-	if (env.isVerbose)
+	if (Decompiler.isVerbose)
 	    System.err.print(mdef.getName().toString()+": locals ");
         lva.createLocalInfo(code);
-	if (env.isVerbose) {
+	if (Decompiler.isVerbose) {
 	    System.err.println("");
 	    System.err.print("code ");
 	}
         code.analyze();
-	if (env.isVerbose)
+	if (Decompiler.isVerbose)
 	    System.err.println("");
     }
 
