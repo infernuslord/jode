@@ -504,7 +504,7 @@ public class ClassInfo extends BinaryInfo {
 		}
 	    }
 	}
-	if ((howMuch & INNERCLASSES) != 0 && outerClasses == null) {
+	if ((howMuch & OUTERCLASSES) != 0 && outerClasses == null) {
 	    int count = 0;
 	    Class declarer = clazz.getDeclaringClass();
 	    while (declarer != null) {
