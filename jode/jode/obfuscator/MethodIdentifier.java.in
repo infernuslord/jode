@@ -27,9 +27,6 @@ import @COLLECTIONS@.Collections;
 import @COLLECTIONS@.Iterator;
 import @COLLECTIONS@.Map;
 
-///#ifdef JDK12
-///import java.lang.ref.SoftReference;
-///#endif
 import java.lang.reflect.Modifier;
 import java.util.BitSet;
 
