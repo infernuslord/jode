@@ -140,11 +140,13 @@ public class SearchPath  {
 		try {
 		    URL url = new URL(bases[i], filename);
 		    URLConnection conn = url.openConnection();
+		    conn.setAllowUserInteraction(true);
 		    return conn.getInputStream();
 		} catch (SecurityException ex) {
 		    Decompiler.err.println("Warning: SecurityException"
 					   +" while accessing "
 					   +bases[i]+filename);
+		    ex.printStackTrace(Decompiler.err);
 		    /* ignore and take next element */
 		} catch (FileNotFoundException ex) {
 		    /* ignore and take next element */

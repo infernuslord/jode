@@ -5,6 +5,8 @@ echo co -u COPYING *.java */*.java >> co.all
 echo javac -d \$HOME/java -g Decompiler.java >> co.all
 echo javac -d \$HOME/java -g Obfuscator.java >> co.all
 echo javac -d \$HOME/java -g JodeApplet.java >> co.all
+echo javac -d \$HOME/java -g JodeWindow.java >> co.all
+echo javac -d \$HOME/java -g JodeAppletOneZero.java >> co.all
 
 cd ..
 tar -cvzf jode.tar.gz jode/co.all jode/RCS jode/*/RCS

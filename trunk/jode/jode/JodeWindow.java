@@ -7,49 +7,75 @@ import java.io.*;
 public class JodeWindow 
     implements ActionListener, Runnable
 {
-    TextField classpathField;
-    TextField classField;
-    TextArea  sourcecodeArea;
-    TextArea  errorArea;
+    TextField classpathField, classField;
+    TextArea  sourcecodeArea, errorArea;
+    Checkbox  verboseCheck, prettyCheck;
+    Button startButton, saveButton;
+    String lastClassName;
+    Frame frame;
 
     Thread decompileThread;
     
-    public JodeWindow(Container frame) {
-	buildComponents(frame);
+    public JodeWindow(Container window) {
+	buildComponents(window);
     }
 
-    private void buildComponents(Container frame) {
+    private void buildComponents(Container window) {
+	if (window instanceof Frame)
+	    frame = (Frame) window;
 	classpathField = new TextField(50);
 	classField = new TextField(50);
 	sourcecodeArea = new TextArea(20, 80);
 	errorArea = new TextArea(3, 80);
+	verboseCheck = new Checkbox("verbose", false);
+	prettyCheck = new Checkbox("pretty", false);
+	startButton = new Button("start");
+	saveButton = new Button("save");
+	saveButton.setEnabled(false);
 
 	sourcecodeArea.setEditable(false);
 	errorArea.setEditable(false);
 
-	frame.setLayout(new GridBagLayout());
+	window.setLayout(new GridBagLayout());
 	GridBagConstraints labelConstr = new GridBagConstraints();
 	GridBagConstraints textConstr = new GridBagConstraints();
 	GridBagConstraints areaConstr = new GridBagConstraints();
+	GridBagConstraints checkConstr = new GridBagConstraints();
+	GridBagConstraints buttonConstr = new GridBagConstraints();
 	labelConstr.fill = GridBagConstraints.NONE;
 	textConstr.fill = GridBagConstraints.HORIZONTAL;
 	areaConstr.fill = GridBagConstraints.BOTH;
+	checkConstr.fill = GridBagConstraints.NONE;
+	buttonConstr.fill = GridBagConstraints.NONE;
+	labelConstr.anchor = GridBagConstraints.EAST;
+	textConstr.anchor = GridBagConstraints.CENTER;
+	checkConstr.anchor = GridBagConstraints.WEST;
+	buttonConstr.anchor = GridBagConstraints.CENTER;
+	labelConstr.anchor = GridBagConstraints.EAST;
 	textConstr.gridwidth = GridBagConstraints.REMAINDER;
 	textConstr.weightx = 1.0;
 	areaConstr.gridwidth = GridBagConstraints.REMAINDER;
 	areaConstr.weightx = 1.0;
 	areaConstr.weighty = 1.0;
 
-	frame.add(new Label("class path: "), labelConstr);
-	frame.add(classpathField, textConstr);
-	frame.add(new Label("class name: "), labelConstr);
-	frame.add(classField, textConstr);
-	frame.add(sourcecodeArea, areaConstr);
+	window.add(new Label("class path: "), labelConstr);
+	window.add(classpathField, textConstr);
+	window.add(new Label("class name: "), labelConstr);
+	window.add(classField, textConstr);
+	window.add(verboseCheck, checkConstr);
+	window.add(prettyCheck, checkConstr);
+	labelConstr.weightx = 1.0;
+	window.add(new Label(), labelConstr);
+	window.add(startButton, buttonConstr);
+	buttonConstr.gridwidth = GridBagConstraints.REMAINDER;
+	window.add(saveButton, buttonConstr);
+	window.add(sourcecodeArea, areaConstr);
 	areaConstr.gridheight = GridBagConstraints.REMAINDER;
 	areaConstr.weighty = 0.0;
-	frame.add(errorArea, areaConstr);
+	window.add(errorArea, areaConstr);
 
-	classField.addActionListener(this);
+	startButton.addActionListener(this);
+	saveButton.addActionListener(this);
 
 	String cp = System.getProperty("java.class.path");
 	if (cp != null)
@@ -61,19 +87,42 @@ public class JodeWindow
     }
 
     public void setClasspath(String cp) {
-	classpathField.setText(cp);
+	classpathField.setText(cp.replace(File.pathSeparatorChar, ','));
     }
     public void setClass(String cls) {
 	classField.setText(cls);
     }
 	
     public synchronized void actionPerformed(ActionEvent e) {
-	if (decompileThread == null) {
+	if (e.getSource() == startButton) {
+	    startButton.setEnabled(false);
 	    decompileThread = new Thread(this);
 	    sourcecodeArea.setText("Please wait, while decompiling...\n");
 	    decompileThread.start();
-	} else
-	    sourcecodeArea.append("Be a little bit more patient, please.\n");
+	} else if (e.getSource() == saveButton) {
+	    if (frame == null)
+		frame = new Frame(); //XXX
+	    FileDialog fd = new FileDialog(frame, 
+					   "Save decompiled code", 
+					   FileDialog.SAVE);
+	    fd.setFile(lastClassName.substring
+		       (lastClassName.lastIndexOf('.')+1).concat(".java"));
+	    fd.show();
+	    String fileName = fd.getFile();
+	    if (fileName == null)
+		return;
+	    try {
+		File f = new File(new File(fd.getDirectory()), fileName);
+		FileWriter out = new FileWriter(f);
+		out.write(sourcecodeArea.getText());
+		out.close();
+	    } catch (IOException ex) {
+		errorArea.setText("");
+		Decompiler.err.println("Couldn't write to file " 
+				       + fileName + ": ");
+		ex.printStackTrace(Decompiler.err);
+	    }
+	}
     }
 
     public class AreaOutputStream extends OutputStream { 
@@ -93,13 +142,22 @@ public class JodeWindow
     }
 
     public void run() {
-	JodeEnvironment env = new JodeEnvironment(classpathField.getText());
-	ByteArrayOutputStream out = new ByteArrayOutputStream();
+	Decompiler.isVerbose = verboseCheck.getState();
+	Decompiler.prettyLocals = prettyCheck.getState();
 	errorArea.setText("");
+	saveButton.setEnabled(false);
+
+	lastClassName = classField.getText();
+	String cp = classpathField.getText();
+	cp = cp.replace(':', jode.bytecode.SearchPath.protocolSeparator);
+	cp = cp.replace(',', File.pathSeparatorChar);
+	JodeEnvironment env = new JodeEnvironment(cp);
+	ByteArrayOutputStream out = new ByteArrayOutputStream();
 	try {
 	    TabbedPrintWriter writer = new TabbedPrintWriter(out, "    ");
-	    env.doClass(classField.getText(), writer);
+	    env.doClass(lastClassName, writer);
 	    sourcecodeArea.setText(out.toString());
+	    saveButton.setEnabled(true);
 	} catch (Throwable t) {
 	    sourcecodeArea.setText("Didn't succeed.\n"
 				   +"Check the below area for more info.");
@@ -107,6 +165,7 @@ public class JodeWindow
 	} finally {
 	    synchronized(this) {
 		decompileThread = null;
+		startButton.setEnabled(true);
 	    }
 	}
     }
