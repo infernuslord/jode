@@ -48,10 +48,6 @@ public class ClassInfo extends BinaryInfo {
     private static SearchPath classpath;
     
     private static final UnifyHash classes = new UnifyHash();
-//      private static final Map classes = new HashMap();
-//  ///#ifdef JDK12
-//  ///    private static final ReferenceQueue queue = new ReferenceQueue();
-//  ///#endif
 
     private int status = 0;
 
