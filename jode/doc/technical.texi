@@ -1,0 +1,200 @@
+@node Technical Info, Top, Top, Top
+@chapter Technical Information
+
+This chapter contains information, how the decompiler works.
+
+@menu
+* Types::
+* Expression analysis::
+* Flow analysis::
+* Solving unknown stack-ops::
+* Highlevel analysis::
+@end menu
+
+@node Types, Expression analysis, Technical Info, Technical Info
+@section Type checking and guessing
+@cindex Types, Conversions
+
+The type class has the following operators:
+
+getSubType
+getSuperType
+intersection
+(getCastHelper?)
+(getImplicitCast?)
+
+reference types (classes, interfaces, arrays and null type) often appear
+in ranges. They have the methods:
+
+createRangeType
+getSpecializedType
+getGeneralizedType
+
+The meaning is  
+ref1.intersection(ref2) = 
+ ref1.getSpecializedType(ref2).createRangeType(ref1.getGeneralizedType(ref2))
+
+<Object - NULL>
+<Object[] - NULL>
+<Object[] - Serialized[]>
+<tUnknown[]>
+<Object - tUnknown[]>
+{IBCS}[]  intersect {CSZ}[] = {CS}[]
+<Object - {ICSB}[]> intersect <Serializable - {CSZ}[]>
+   --> <Serializable - {
+
+The byte code distinguishes five different types:
+
+@enumerate
+@item 16 bit integral types (boolean, byte, short, char and int)
+@item long
+@item float
+@item double
+@item reference types (objects, interfaces, arrays, null type)
+@end enumerate
+
+It sometimes makes a difference between byte, short, char and int, but
+not always.
+
+
+16bit integral types:
+
+We differ seven different 16 bit integral types:
+@table @asis
+@item I
+@code{int} type
+@item C
+@code{char} type
+@item S
+@code{short} type
+@item B
+@code{byte} type
+@item Z
+@code{boolean} type
+@item cS
+An @code{int} constant whose value is in @code{short} range.
+@item cB
+An @code{int} constant whose value is in @code{byte} range.
+@end table
+
+Each of this types has a super range and a sub range:
+@multitable {type} {(I,C,S,B,Z,cS,cB)} {(I,C,S,B,Z,cS,cB)}
+@item type @tab sub types @tab super types
+@item I    @tab (I,C,S,B,cS,cB) @tab (I)
+@item C    @tab (C)             @tab (I,C)
+@item S    @tab (S,B,cS,cB)     @tab (I,S)
+@item B    @tab (B,cB)          @tab (I,S,B)
+@item Z    @tab (Z)             @tab (Z)
+@item cS   @tab (cS,cB)         @tab (I,S,cS)
+@item cB   @tab (cB)            @tab (I,S,B,cS,cB)
+@end multitable
+
+getTop() getBottom() give the type directly.
+
+createRangeType(Type bottom) does the following:
+If top == tUnknown , union all supertypes
+If top is 16bit type, 
+ intersect (union of subtypes of top) (union of supertypes)
+Return tError otherwise.
+
+Type.createRangeType(Type top) does the following:
+if Type == tUnknown
+  if top is IntegerType
+    new IntegerType(union of subtypes of top)
+
+
+
+
+
+Hints.  We distinguish strong and weak Hints:
+
+strong Hints:
+   assignment:  
+     lhs.strongHint = mergeHint(lhs.strongHint, rhs.strongHint)
+     lhs.weakHint   = mergeHint(lhs.weakHint,   rhs.weakHint)
+     rhs.strongHint = lhs.strongHint
+     
+   
+   binary op:
+     left.weakHint = mergeHints(left.weakHint, right.strongHint?strongHint: weakHint)
+     
+   binary op
+types that may occur directly in bytecode:
+  (I,Z)
+  (I)
+  (Z)
+  (I,C,S,B,Z)
+  (I,cS,cB)
+  (I,cS)
+  (I,C,cS,cB)
+  (I,C,cS)
+  (I,C)
+  (C)
+  (S)
+  (B)
+  (B,Z)
+
+now the sub (>) and super (<) operators
+
+  >(I,Z) = (I,C,S,B,Z,cS,cB) New!
+  >(I)   = (I,C,S,B,cS,cB)   New!
+  >(Z)   = (Z)
+  >(I,C,S,B,Z) = (I,C,S,B,Z,cS,cB)
+  >(I,cS,cB)   = (I,C,S,B,cS,cB)
+  >(I,cS)      = (I,C,S,B,cS,cB)
+  >(I,C,cS,cB) = (I,C,S,B,cS,cB)
+  >(I,C,cS)    = (I,C,S,B,cS,cB)
+  >(I,C)       = (I,C,S,B,cS,cB)
+  >(C)         = (C)
+  >(S)         = (S,B,cS,cB) New!
+  >(B)         = (B,cB)      New!
+  >(B,Z)       = (B,Z,cB) New!
+
+  <(I,Z) = (I,Z)
+  <(I)   = (I)
+  <(Z)   = (Z)
+  <(I,C,S,B,Z) = (I,C,S,B,Z)
+  <(I,cS,cB)   = (I,S,B,cS,cB)   New!
+  <(I,cS)      = (I,S,cS)        New!
+  <(I,C,cS,cB) = (I,C,S,B,cS,cB)
+  <(I,C,cS)    = (I,C,S,cS)      New!
+  <(I,C)       = (I,C)
+  <(C)         = (I,C)
+  <(S)         = (I,S)           New!
+  <(B)         = (I,S,B)         New!
+  <(B,Z)       = (I,S,B,Z)  New!
+
+  >(I,C,S,B,Z,cS,cB) = (I,C,S,B,Z,cS,cB)
+  >(I,C,S,B,cS,cB) = (I,C,S,B,cS,cB)
+  >(B,Z,cB)   = (B,Z,cB)
+  >(I,C,S,cS) = (I,C,S,B,cS,cB)
+  >(I,S,B,Z)  = (I,C,S,B,Z,cS,cB)
+  >(I,S,B,cS,cB)  = (I,C,S,B,cS,cB)
+
+  <(I,C,S,B,Z,cS,cB) = (I,C,S,B,Z,cS,cB)
+  <(I,C,S,B,cS,cB)   = (I,C,S,B,cS,cB)
+  <(B,Z,cB)          = (I,S,B,Z,cS,cB)
+  <(I,C,S,cS)        = (I,C,S,cS)
+  <(I,S,B,Z)         = (I,S,B,Z)
+  <(I,S,B,cS,cB)     = (I,S,B,cS,cB)
+  
+
+Zu betrachtende 32bit Typen:
+
+  (I,Z)              = (I,Z)
+  (I)                = (I)
+  (Z)                = (Z)
+  (I,C,S,B,Z)
+  (I,cS,cB)
+  (I,cS)
+  (I,C,cS,cB)
+  (I,C,cS)
+  (I,C)
+  (B,Z)
+  (I,C,S,B,Z,cS,cB)
+  (I,C,S,B,cS,cB)
+  (B,Z,cB)
+  (I,C,S,cS)
+  (I,S,B,Z)
+  (I,S,B,cS,cB)
+
