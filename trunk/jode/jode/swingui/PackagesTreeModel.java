@@ -19,16 +19,16 @@
 
 package jode.swingui;
 import jode.bytecode.ClassInfo;
-///#ifdef JDK12
-///import javax.swing.tree.TreeModel;
-///import javax.swing.tree.TreePath;
-///import javax.swing.event.TreeModelListener;
-///import javax.swing.event.TreeModelEvent;
+///#ifndef OLDSWING
+import javax.swing.tree.TreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.event.TreeModelListener;
+import javax.swing.event.TreeModelEvent;
 ///#else
-import com.sun.java.swing.tree.TreeModel;
-import com.sun.java.swing.tree.TreePath;
-import com.sun.java.swing.event.TreeModelListener;
-import com.sun.java.swing.event.TreeModelEvent;
+///import com.sun.java.swing.tree.TreeModel;
+///import com.sun.java.swing.tree.TreePath;
+///import com.sun.java.swing.event.TreeModelListener;
+///import com.sun.java.swing.event.TreeModelEvent;
 ///#endif
 import java.util.*;
 
@@ -128,10 +128,10 @@ public class PackagesTreeModel implements TreeModel {
     }
 
     public void addTreeModelListener(TreeModelListener l) {
-	listeners.add(l);
+	listeners.addElement(l);
     }
     public void removeTreeModelListener(TreeModelListener l) {
-	listeners.remove(l);
+	listeners.removeElement(l);
     }
     public void valueForPathChanged(TreePath path, Object newValue) {
 	// we don't allow values
