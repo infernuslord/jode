@@ -18,6 +18,15 @@
 	ireturn
 .end method
 
+.method public static overrideParam(I)[I
+	.limit locals 1
+	.limit stack 1
+	aconst_null
+	astore_0
+	aload_0
+	areturn
+.end method
+
 .method public static test()V
 	.limit locals 2
 	.limit stack 2
