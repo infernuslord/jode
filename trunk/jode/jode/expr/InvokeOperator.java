@@ -17,6 +17,10 @@ public class InvokeOperator extends Operator {
         this.field = field;
     }
 
+    public boolean isStatic() {
+        return staticFlag;
+    }
+
     public FieldDefinition getField() {
         return field;
     }

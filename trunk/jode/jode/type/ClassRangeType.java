@@ -36,6 +36,13 @@ public class ClassRangeType extends MyType {
 	//    Fahrzeug,  Fahrrad   <Fahrzeug, Fahrrad>
 	//     int    ,  Fahrrad    error
 
+	if (bottom != null && bottom.getTypeCode() == 103) {
+	    bottom = ((ClassRangeType)bottom).bottomType;
+	}
+	if (top != null && top.getTypeCode() == 103) {
+	    top = ((ClassRangeType)top).topType;
+	}
+
 	/* First the trivial cases
 	 */
 	if (top == tError || bottom == tError) 
@@ -49,13 +56,31 @@ public class ClassRangeType extends MyType {
 	/* <null, object> -> <tObject, object> 
 	 * if bottom is tObject, its okay.
 	 */
-	if (bottom == null || bottom == tObject)
+
+	if (bottom == top)
+	    return bottom;
+
+        if (top.getTypeCode() <= 4 && bottom == null)
+            return top;
+
+        if (bottom != null && bottom.getTypeCode() <= 4 && 
+            top.getTypeCode() <= bottom.getTypeCode())
+            return bottom;
+
+        if (top.getTypeCode() != 9 && top.getTypeCode() != 10)
+            return tError;
+
+        if (bottom == null || bottom == tObject)
 	    return new ClassRangeType(tObject, top);
 
 	/* now bottom != null and top != null */
-	if (bottom.getTypeCode() == 9 && top.getTypeCode() == 9) 
-	    return tArray(createRangeType(bottom.getElementType(), 
-					  top.getElementType()));
+	if (bottom.getTypeCode() == 9 && top.getTypeCode() == 9) {
+            Type type = createRangeType(bottom.getElementType(), 
+                                        top.getElementType());
+            if (type == tError)
+                return tError;
+	    return tArray(type);
+        }
 
 	if (bottom.getTypeCode() != 10 || top.getTypeCode() != 10) 
 	    return tError;
@@ -129,7 +154,7 @@ public class ClassRangeType extends MyType {
 	    return tArray(getSpecializedType(t1.getElementType(),
 					     t2.getElementType()));
 
-	if (t1.getTypeCode() != 10 && t2.getTypeCode() != 10)
+	if (t1.getTypeCode() != 10 || t2.getTypeCode() != 10)
 	    return tError;
 
 	/* Now we have two classes or interfaces.  The result should
@@ -171,8 +196,8 @@ public class ClassRangeType extends MyType {
 	 * Since the while condition is moved to the bottom of 
 	 * the loop, the type information of foo is only available
 	 * <em>after</em> the two interface methods are called.
-	 * The current code would produce tError.  */
-
+	 * The current code would produce tError.  
+         */
 	
 	ClassDeclaration c1 = new ClassDeclaration(t1.getClassName());
 	ClassDeclaration c2 = new ClassDeclaration(t2.getClassName());
@@ -182,10 +207,10 @@ public class ClassRangeType extends MyType {
 		return t2;
 	    if (c2.getClassDefinition(env).superClassOf(env, c1))
 		return t1;
-// 	    if (c1.getClassDefinition(env).implementedBy(env, c2))
-// 		return t2;
-// 	    if (c2.getClassDefinition(env).implementedBy(env, c1))
-// 		return t1;
+	    if (c1.getClassDefinition(env).implementedBy(env, c2))
+		return t2;
+	    if (c2.getClassDefinition(env).implementedBy(env, c1))
+		return t1;
 	} catch (ClassNotFound ex) {
 	}
 	return tError;
@@ -231,7 +256,7 @@ public class ClassRangeType extends MyType {
 	    return tArray(getGeneralizedType(t1.getElementType(),
 					     t2.getElementType()));
 
-	if (t1.getTypeCode() != 10 && t2.getTypeCode() != 10)
+	if (t1.getTypeCode() != 10 || t2.getTypeCode() != 10)
 	    return tError;
 
 	/* This code is not always correct:
@@ -264,14 +289,14 @@ public class ClassRangeType extends MyType {
 	ClassDeclaration c2 = new ClassDeclaration(t2.getClassName());
 	
 	try {
-// 	    /* if one of the two types is an interface which
-// 	     * is implemented by the other type the interface
-// 	     * is the result.
-// 	     */
-// 	    if (c1.getClassDefinition(env).implementedBy(env, c2))	
-// 		return t1;
-// 	    if (c2.getClassDefinition(env).implementedBy(env, c1))
-// 		return t2;
+	    /* if one of the two types is an interface which
+	     * is implemented by the other type the interface
+	     * is the result.
+	     */
+	    if (c1.getClassDefinition(env).implementedBy(env, c2))	
+		return t1;
+	    if (c2.getClassDefinition(env).implementedBy(env, c1))
+		return t2;
 
 	    ClassDefinition c = c1.getClassDefinition(env);
 	    while(c != null && !c.superClassOf(env, c2)) {
@@ -289,14 +314,12 @@ public class ClassRangeType extends MyType {
 	Type bottom = getSpecializedType(bottomType, type.bottomType);
 	Type top    = getGeneralizedType(topType, type.topType);
 
-	System.err.println("intersecting "+ this +" and "+ type + 
-			   " to <" + bottom + "-" + top + ">");
-	try {
-	    throw new AssertError("in:");
-	} catch(AssertError error) {
-	    error.printStackTrace();
-	}
-	return createRangeType(bottom,top);
+	Type newType = createRangeType(bottom,top);
+        if (newType == tError)
+            System.err.println("intersecting "+ this +" and "+ type + 
+                               " to <" + bottom + "-" + top + 
+                               "> to <error>");
+        return newType;
     }
 
     public boolean intersects(ClassRangeType type)

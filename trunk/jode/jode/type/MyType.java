@@ -94,7 +94,7 @@ public class MyType extends Type {
      * @return the intersection, or tError, if a type conflict happens.
      */
     public static Type intersection(Type t1, Type t2) {
-	System.err.println("intersecting "+ t1 +" and "+ t2);
+// 	System.err.println("intersecting "+ t1 +" and "+ t2);
 	/* Trivial cases first.
 	 */
 	if (t1 == t2 || t2 == tUnknown)
@@ -123,10 +123,11 @@ public class MyType extends Type {
 
 	/* Now it must be a class range type, or we have lost!
 	 */
-	if (t1.getTypeCode() != 103 || t2.getTypeCode() != 103)
-	    throw new AssertError("Types incompatible: "+
-				  t1.toString()+","+ t2.toString());
-// 	    return tError;
+	if (t1.getTypeCode() != 103 || t2.getTypeCode() != 103) {
+            System.err.println("intersecting "+ t1 +" and "+ t2 + 
+                               " to <error>");
+	    return tError;
+        }
 
 	return ((ClassRangeType)t1).getIntersection((ClassRangeType)t2);
     }
@@ -140,60 +141,13 @@ public class MyType extends Type {
     }
 
     /**
-     * Check if t1 is in &lt;unknown -- t2&rt;.
-     * @return true if t1 is a more specific type than t2, e.g.
-     *    if t2 is a superclass of t1
-     * @deprecated  think about it, you don't need it! (I think)
-     *             this code is probably broken so don't use it!
+     * Check if t1 and &lt;unknown -- t2&rt; are not disjunct.
+     * @param t1  the type that should be checked
+     * @param t2  a simple type; this mustn't be a range type.
+     * @return true if this is the case.
      */
     public static boolean isOfType(Type t1, Type t2) {
-        if ((t1 == t2 || t2 == tUnknown) && t1 != tError)
-            return true;
-
-        switch (t1.getTypeCode()) {
-        case  0: /* boolean*/
-        case  1: /* byte   */
-        case  2: /* char   */
-        case  3: /* short  */
-        case  4: /* int    */
-
-            /* JavaC thinks, that this is okay. */
-            if (t2.getTypeCode() >= 0 && t2.getTypeCode() <=4)
-                return true;
-
-//             /* fallthrough */
-//         case 104: /* unknown index */
-//             if (t2 == tUInt)
-//                 return true;
-            break;
-
-        case  5: /* long   */
-        case  6: /* float  */
-        case  7: /* double */
-        case  8: /* null?  */
-        case 11: /* void   */
-        case 12: /* method */
-        case 13: /* error  */
-//         case 101: /* unknown int */
-	    /* This are only to themself compatible */
-	    break;
-
-        case  9: /* array  */
-        case 10: /* class  */
-	    t1 = new ClassRangeType(t1, null);
-            /* fall through */
-        case 103: /* class range type */
-            if (t2.getTypeCode() == 103)
-                return ((ClassRangeType)t1).intersects((ClassRangeType)t2);
-
-	    if (t2.getTypeCode() == 9 || t2.getTypeCode() == 10)
-		return ((ClassRangeType)t1).
-		    intersects(new ClassRangeType(t2, null));
-            break;
-
-        default:
-            throw new AssertError("Wrong typeCode "+t1.getTypeCode());
-        }
-        return false;
+        return (ClassRangeType.getGeneralizedType(t1,t2) == t2 &&
+                ClassRangeType.getSpecializedType(t1,t2) == t2);
     }
 }

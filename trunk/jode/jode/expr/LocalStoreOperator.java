@@ -29,12 +29,12 @@ implements LocalVarOperator {
     }
 
     public Type getLValueType() {
-	System.err.println("LocalStore.getType of "+local.getName()+": "+local.getType());
+// 	System.err.println("LocalStore.getType of "+local.getName()+": "+local.getType());
 	return local.getType();
     }
 
     public boolean setLValueType(Type type) {
-	System.err.println("LocalStore.setType of "+local.getName()+": "+local.getType());
+// 	System.err.println("LocalStore.setType of "+local.getName()+": "+local.getType());
 	return super.setLValueType
 	    (local.setType(MyType.tSuperType(type)));
     }

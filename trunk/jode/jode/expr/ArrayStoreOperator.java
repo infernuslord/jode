@@ -36,7 +36,6 @@ public class ArrayStoreOperator extends StoreInstruction {
      */
     public boolean setLValueType(Type type) {
         this.lvalueType = type;
-	System.err.println("Setting Lvalue type to "+lvalueType);
         return true;
     }
 
@@ -54,6 +53,7 @@ public class ArrayStoreOperator extends StoreInstruction {
 	try {
             lvalueType = arrayType.getElementType();
 	} catch (sun.tools.java.CompilerError err) {
+            System.err.println("No Array type: "+arrayType);
             lvalueType = Type.tError;
         }
     }

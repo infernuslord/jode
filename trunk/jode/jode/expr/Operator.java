@@ -11,6 +11,8 @@ public abstract class Operator extends Instruction {
     public final static int INC_OP     = 24; /* must be even! */
     public final static int DEC_OP     = 25;
     public final static int COMPARE_OP = 26; /* must be even! */
+    public final static int EQUALS_OP  = 26;
+    public final static int NOTEQUALS_OP = 27;
     public final static int LOG_AND_OP = 32; /* must be even! */
     public final static int LOG_OR_OP  = 33;
     public final static int LOG_NOT_OP = 34;
@@ -26,14 +28,11 @@ public abstract class Operator extends Instruction {
 
     protected int operator;
     
-    String casts;
-
     Operator (Type type, int op) {
         super(type);
         this.operator = op;
         if (type == null)
             throw new AssertError("type == null");
-        casts = type.toString();
     }
 
     public int getOperator() {
@@ -48,12 +47,7 @@ public abstract class Operator extends Instruction {
      * @return true if the operand types changed
      */
     public boolean setType(Type type) {
-//         if (!MyType.isOfType(type, this.type)) {
-//             casts = type.toString()+"/*invalid*/ <- " + casts;
-//         } else if (type != this.type) {
-//             casts = type.toString()+" <- " + casts;
-//         }
-//         this.type = type;
+        this.type = type;
         return false;
     }
 

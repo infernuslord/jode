@@ -25,8 +25,8 @@ public class ConstructorOperator extends Operator {
 
     public Type getOperandType(int i) {
         if (i == 0)
-            return type;
-        return field.getType().getArgumentTypes()[i-1];
+            return MyType.tSubType(type);
+        return MyType.tSubType(field.getType().getArgumentTypes()[i-1]);
     }
 
     public void setOperandType(Type types[]) {

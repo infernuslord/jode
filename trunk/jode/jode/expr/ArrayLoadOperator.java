@@ -34,10 +34,12 @@ public class ArrayLoadOperator extends SimpleOperator {
 
     public void setOperandType(Type[] t) {
         super.setOperandType(t);
-//         if (operandTypes[0] instanceof ArrayType)
+	try {
             type = operandTypes[0].getElementType();
-//         else
-//             type = Type.tError;
+	} catch (sun.tools.java.CompilerError err) {
+            System.err.println("No Array type: "+operandTypes[0]);
+            type = Type.tError;
+        }
     }
 
     public String toString(String[] operands) {
