@@ -134,6 +134,19 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     final static int CONSTANT      = 0x2;
     final static int CONSTANTFLOW  = 0x4;
 
+    private final static int CMP_EQ = 0;
+    private final static int CMP_NE = 1;
+    private final static int CMP_LT = 2;
+    private final static int CMP_GE = 3;
+    private final static int CMP_GT = 4;
+    private final static int CMP_LE = 5;
+    private final static int CMP_GREATER_MASK
+	= (1 << CMP_GT)|(1 << CMP_GE)|(1 << CMP_NE);
+    private final static int CMP_LESS_MASK
+	= (1 << CMP_LT)|(1 << CMP_LE)|(1 << CMP_NE);
+    private final static int CMP_EQUAL_MASK
+	= (1 << CMP_GE)|(1 << CMP_LE)|(1 << CMP_EQ);
+
     class ConstantAnalyzerInfo implements ConstantListener {
 	ConstantAnalyzerValue[] stack;
 	ConstantAnalyzerValue[] locals;
@@ -383,7 +396,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 //  		index.addConstantListener(result);
 //  	    } else {
 	    result = unknownValue[(opcode == opc_laload
-					|| opcode == opc_daload) ? 1 : 0];
+				   || opcode == opc_daload) ? 1 : 0];
 //  	    }
 	    mergeInfo(instr.nextByAddr, info.poppush(2, result));
 	    break;
@@ -431,8 +444,16 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    int size = 1 + (opcode - opc_iadd & 1);
 	    ConstantAnalyzerValue value1 = info.getStack(2*size);
 	    ConstantAnalyzerValue value2 = info.getStack(1*size);
-	    if (value1.value != ConstantAnalyzerValue.VOLATILE
-		&& value2.value != ConstantAnalyzerValue.VOLATILE) {
+	    boolean known = value1.value != ConstantAnalyzerValue.VOLATILE
+		&& value2.value != ConstantAnalyzerValue.VOLATILE;
+	    if (known) {
+		if ((opcode == opc_idiv 
+		     && ((Integer)value2.value).intValue() == 0)
+		    || (opcode == opc_ldiv 
+			&& ((Long)value2.value).longValue() == 0))
+		    known = false;
+	    }
+	    if (known) {
 		Object newValue;
 		switch (opcode) {
 		case opc_iadd: 
@@ -839,27 +860,34 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    other.addConstantListener(info);
 
 		Instruction pc = instr.nextByAddr;
-		int value = -1;
+		int opc_mask;
 		if (opcode >= opc_if_acmpeq) {
 		    if (opcode >= opc_ifnull) {
-			value = stacktop.value == null ? 0 : 1;
-			opcode += opc_ifeq - opc_ifnull;
+			opc_mask = stacktop.value == null
+			    ? CMP_EQUAL_MASK : CMP_GREATER_MASK;
+			opcode -= opc_ifnull;
 		    } else {
-			value = stacktop.value == other.value ? 0 : 1;
+			opc_mask = stacktop.value == other.value
+			    ? CMP_EQUAL_MASK : CMP_GREATER_MASK;
+			opcode -= opc_if_acmpeq;
 		    }
 		} else {
-		    value = ((Integer) stacktop.value).intValue();
+		    int value = ((Integer) stacktop.value).intValue();
 		    if (opcode >= opc_if_icmpeq) {
 			int val1 = ((Integer) other.value).intValue();
-			value = (val1 == value ? 0
-				 : val1 < value ? -1 : 1);
-			opcode += opc_ifeq - opc_if_icmpeq;
+			opc_mask = (val1 == value ? CMP_EQUAL_MASK
+				    : val1 < value ? CMP_LESS_MASK
+				    : CMP_GREATER_MASK);
+			opcode -= opc_if_icmpeq;
+		    } else {
+			opc_mask = (value == 0 ? CMP_EQUAL_MASK
+				    : value < 0 ? CMP_LESS_MASK
+				    : CMP_GREATER_MASK);
+			opcode -= opc_ifeq;
 		    }
 		}
-		if (value > 0 && (opcode == opc_ifgt || opcode == opc_ifge)
-		    || value < 0 && (opcode == opc_iflt || opcode == opc_ifle)
-		    || value == 0 && (opcode == opc_ifge || opcode == opc_ifle
-				      || opcode == opc_ifeq))
+
+		if ((opc_mask & (1<<opcode)) != 0)
 		    pc = instr.succs[0];
 
 		shortInfo.flags |= CONSTANTFLOW;
