@@ -23,12 +23,13 @@ import jode.obfuscator.Identifier;
 import jode.obfuscator.ClassIdentifier;
 import jode.obfuscator.FieldIdentifier;
 import jode.obfuscator.MethodIdentifier;
+import jode.obfuscator.OptionHandler;
 
 import java.lang.reflect.Modifier;
 import @COLLECTIONS@.Collection;
 import @COLLECTIONS@.Iterator;
 
-public class ModifierMatcher implements IdentifierMatcher, Cloneable {
+public class ModifierMatcher implements IdentifierMatcher, OptionHandler, Cloneable {
     static final int PUBLIC    = Modifier.PUBLIC;
     static final int PROTECTED = Modifier.PROTECTED;
     static final int PRIVATE   = Modifier.PRIVATE;
