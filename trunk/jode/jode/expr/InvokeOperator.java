@@ -18,6 +18,8 @@
  */
 
 package jode.expr;
+import java.lang.reflect.Modifier;
+
 import jode.Decompiler;
 import jode.decompiler.CodeAnalyzer;
 import jode.decompiler.MethodAnalyzer;
@@ -43,7 +45,7 @@ public final class InvokeOperator extends Operator
 			  boolean staticFlag, boolean specialFlag, 
 			  Reference reference) {
         super(Type.tUnknown, 0);
-        this.methodType = (MethodType) Type.tType(reference.getType());
+        this.methodType = Type.tMethod(reference.getType());
         this.methodName = reference.getName();
         this.classType = Type.tType(reference.getClazz());
         this.type = methodType.getReturnType();
@@ -52,25 +54,8 @@ public final class InvokeOperator extends Operator
         this.specialFlag = specialFlag;
         if (staticFlag)
             codeAnalyzer.useType(classType);
-    }
-
-    /**
-     * Checks if the value of the given expression can change, due to
-     * side effects in this expression.  If this returns false, the 
-     * expression can safely be moved behind the current expresion.
-     * @param expr the expression that should not change.
-     */
-    public boolean hasSideEffects(Expression expr) {
-	return expr.containsConflictingLoad(this);
-    }
-
-    /**
-     * Checks if the value of the operator can be changed by this expression.
-     */
-    public boolean matches(Operator loadop) {
-        return (loadop instanceof InvokeOperator
-		|| loadop instanceof ConstructorOperator
-		|| loadop instanceof GetFieldOperator);
+	initOperands((staticFlag ? 0 : 1) 
+		     + methodType.getParameterTypes().length);
     }
 
     public final boolean isStatic() {
@@ -93,21 +78,16 @@ public final class InvokeOperator extends Operator
         return 950;
     }
 
-    public int getOperandCount() {
-        return (isStatic()?0:1) 
-            + methodType.getParameterTypes().length;
-    }
-
-    public Type getOperandType(int i) {
+    public void updateSubTypes() {
+	int offset = 0;
         if (!isStatic()) {
-            if (i == 0)
-                return getClassType();
-            i--;
+	    subExpressions[offset++].setType(Type.tSubType(getClassType()));
         }
-        return methodType.getParameterTypes()[i];
+	Type[] paramTypes = methodType.getParameterTypes();
+	for (int i=0; i < paramTypes.length; i++)
+	    subExpressions[offset++].setType(Type.tSubType(paramTypes[i]));
     }
-
-    public void setOperandType(Type types[]) {
+    public void updateType() {
     }
 
     public boolean isConstructor() {
@@ -129,13 +109,12 @@ public final class InvokeOperator extends Operator
 	return getClassInfo() == codeAnalyzer.getClazz();
     }
 
-    public ClassInfo getOuterClass() {
+    public InnerClassInfo getOuterClassInfo() {
 	ClassInfo clazz = getClassInfo();
 	if (clazz != null) {
 	    InnerClassInfo[] outers = clazz.getOuterClasses();
-	    if (outers != null && outers[0].outer != null
-		&& (Decompiler.options & Decompiler.OPTION_INNER) != 0)
-		return ClassInfo.forName(outers[0].outer);
+	    if (outers != null)
+		return outers[0];
 	}
 	return null;
     }
@@ -202,90 +181,13 @@ public final class InvokeOperator extends Operator
 	return false;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands) 
-	throws java.io.IOException {
-	boolean opIsThis = !staticFlag && operands[0] instanceof ThisOperator;
-        int arg = 1;
-
-	if (isConstructor()) {
-	    ClassInfo outer = getOuterClass();
-	    if (outer != null) {
-		operands[arg++].dumpExpression(writer, 0);
-		writer.print(".");
-	    }
-	}
-	if (specialFlag) {
-	    if (opIsThis
-		&& (((ThisOperator)operands[0]).getClassInfo()
-		    == codeAnalyzer.getClazz())) {
-		if (isThis()) {
-		    /* XXX check if this is a private or final method. */
-		} else {
-		    /* XXX check that this is the first defined
-		     * super method. */
-		    writer.print("super");
-		    opIsThis = false;
-		}
-	    } else {
-		/* XXX check if this is a private or final method. */
-		int minPriority = 950; /* field access */
-		if (!isThis()) {
-		    writer.print("(NON VIRTUAL ");
-		    writer.printType(classType);
-		    writer.print(")");
-		    minPriority = 700;
-		}
-		operands[0].dumpExpression(writer, minPriority);
-	    }
-	} else if (staticFlag) {
-	    arg = 0;
-	    Scope scope = writer.getScope(getClassInfo(),
-					  Scope.CLASSSCOPE);
-	    if (scope != null
-		&& !writer.conflicts(methodName, scope, Scope.METHODNAME))
-		opIsThis = true;
-	    else
-		writer.printType(classType);
-	} else {
-	    if (opIsThis) {
-		ThisOperator thisOp = (ThisOperator) operands[0];
-		Scope scope = writer.getScope(thisOp.getClassInfo(),
-					      Scope.CLASSSCOPE);
-		if (writer.conflicts(methodName, scope, Scope.METHODNAME)) {
-		    thisOp.dumpExpression(writer, 950);
-		    writer.print(".");
-		}
-	    } else {
-		if (operands[0].getType() instanceof NullType) {
-		    writer.print("((");
-		    writer.printType(classType);
-		    writer.print(") ");
-		    operands[0].dumpExpression(writer, 700);
-		    writer.print(")");
-		} else 
-		    operands[0].dumpExpression(writer, 950);
-	    }
-	}
-
-	if (isConstructor()) {
-	    if (opIsThis)
-		writer.print("this");
-	} else {
-	    if (!opIsThis)
-		writer.print(".");
-	    writer.print(methodName);
-	}
-	writer.print("(");
-	boolean first = true;
-	while (arg < operands.length) {
-            if (!first)
-		writer.print(", ");
-	    else
-		first = false;
-            operands[arg++].dumpExpression(writer, 0);
-        }
-        writer.print(")");
+    /**
+     * Checks if the value of the operator can be changed by this expression.
+     */
+    public boolean matches(Operator loadop) {
+        return (loadop instanceof InvokeOperator
+		|| loadop instanceof ConstructorOperator
+		|| loadop instanceof GetFieldOperator);
     }
 
     /**
@@ -329,11 +231,6 @@ public final class InvokeOperator extends Operator
     }
 
     public ConstOperator deobfuscateString(ConstOperator op) {
-	if (!isThis() || !isStatic()
-	    || methodType.getParameterTypes().length != 1
-	    || !methodType.getParameterTypes()[0].equals(Type.tString)
-	    || !methodType.getReturnType().equals(Type.tString))
-	    return null;
 	ClassAnalyzer clazz = codeAnalyzer.getClassAnalyzer();
 	CodeAnalyzer ca = clazz.getMethod(methodName, methodType).getCode();
 	if (ca == null)
@@ -361,8 +258,89 @@ public final class InvokeOperator extends Operator
 	return new ConstOperator(result);
     }
 
-    public Expression simplifyAccess(Expression[] subs) {
-	if (isOuter()) {
+    public Expression simplifyStringBuffer() {
+        if (getClassType().equals(Type.tStringBuffer)
+            && !isStatic() 
+            && getMethodName().equals("append")
+            && getMethodType().getParameterTypes().length == 1) {
+
+            Expression e = subExpressions[0].simplifyStringBuffer();
+            if (e == null)
+                return null;
+            
+	    subExpressions[1] = subExpressions[1].simplifyString();
+
+            if (e == EMPTYSTRING
+		&& subExpressions[1].getType().isOfType(Type.tString))
+                return subExpressions[1];
+	    
+	    if (e instanceof StringAddOperator
+		&& ((Operator)e).getSubExpressions()[0] == EMPTYSTRING)
+		e = ((Operator)e).getSubExpressions()[1];
+
+	    Operator result = new StringAddOperator();
+	    result.addOperand(subExpressions[1]);
+	    result.addOperand(e);
+	    return result;
+        }
+        return null;
+    }
+
+    public Expression simplifyString() {
+	if (getMethodName().equals("toString")
+	    && !isStatic()
+	    && getClassType().equals(Type.tStringBuffer)
+	    && subExpressions.length == 1) {
+	    Expression simple = subExpressions[0].simplifyStringBuffer();
+	    if (simple != null)
+		return simple;
+	}
+	else if (getMethodName().equals("valueOf")
+		 && isStatic() 
+		 && getClassType().equals(Type.tString)
+		 && subExpressions.length == 1) {
+	    
+	    if (subExpressions[0].getType().isOfType(Type.tString))
+		return subExpressions[0];
+	    
+	    Operator op = new StringAddOperator();
+	    op.addOperand(subExpressions[0]);
+	    op.addOperand(EMPTYSTRING);
+	}
+	/* The pizza way (pizza is the compiler of kaffe) */
+	else if (getMethodName().equals("concat")
+		 && !isStatic()
+		 && getClassType().equals(Type.tString)) {
+	    
+	    Expression result = new StringAddOperator();
+	    Expression right = subExpressions[1].simplify();
+	    if (right instanceof StringAddOperator) {
+		Operator op = (Operator) right;
+		if (op.subExpressions != null
+		    && op.subExpressions[0] == EMPTYSTRING)
+		    right = op.subExpressions[1];
+	    }
+	    result.addOperand(right);
+	    result.addOperand(subExpressions[0].simplify());
+	} 
+	else if ((Decompiler.options & Decompiler.OPTION_DECRYPT) != 0
+		 && isThis() && isStatic()
+		 && methodType.getParameterTypes().length == 1
+		 && methodType.getParameterTypes()[0].equals(Type.tString)
+		 && methodType.getReturnType().equals(Type.tString)) {
+
+	    Expression expr = subExpressions[0].simplifyString();
+	    if (expr instanceof ConstOperator) {
+		expr = deobfuscateString((ConstOperator)expr);
+		if (expr != null)
+		    return expr;
+	    }
+	}
+        return this;
+    }
+
+    public Expression simplifyAccess() {
+	if (isOuter() && getMethodAnalyzer() != null) {
 	    SyntheticAnalyzer synth = getMethodAnalyzer().getSynthetic();
 	    if (synth != null) {
 		Operator op = null;
@@ -376,12 +354,14 @@ public final class InvokeOperator extends Operator
 					      synth.getReference());
 		    break;
 		case SyntheticAnalyzer.ACCESSPUTFIELD:
-		    op = new PutFieldOperator(codeAnalyzer, false,
-					      synth.getReference());
+		    op = new StoreInstruction
+			(new PutFieldOperator(codeAnalyzer, false,
+					      synth.getReference()));
 		    break;
 		case SyntheticAnalyzer.ACCESSPUTSTATIC:
-		    op = new PutFieldOperator(codeAnalyzer, true,
-					      synth.getReference());
+		    op = new StoreInstruction
+			(new PutFieldOperator(codeAnalyzer, true,
+					      synth.getReference()));
 		    break;
 		case SyntheticAnalyzer.ACCESSMETHOD:
 		    op = new InvokeOperator(codeAnalyzer, false, 
@@ -394,9 +374,11 @@ public final class InvokeOperator extends Operator
 		}
 
 		if (op != null) {
-		    if (subs == null)
-			return op;
-		    return new ComplexExpression(op, subs);
+		    if (subExpressions != null) {
+			for (int i=subExpressions.length; i-- > 0; )
+			    op.addOperand(subExpressions[i]);
+		    }
+		    return op;
 		}
 	    }
 	}
@@ -404,8 +386,11 @@ public final class InvokeOperator extends Operator
     }
 
     public Expression simplify() {
-	Expression expr = simplifyAccess(null);
+	Expression expr = simplifyAccess();
 	if (expr != null)
+	    return expr.simplify();
+	expr = simplifyString();
+	if (expr != this)
 	    return expr.simplify();
 	return super.simplify();
     }
@@ -414,4 +399,102 @@ public final class InvokeOperator extends Operator
     /* Invokes never equals: they may return different values even if
      * they have the same parameters.
      */
+
+    public void dumpExpression(TabbedPrintWriter writer)
+	throws java.io.IOException {
+	boolean opIsThis = !staticFlag
+	    && subExpressions[0] instanceof ThisOperator;
+        int arg = 1;
+
+	if (isConstructor()) {
+	    InnerClassInfo outer = getOuterClassInfo();
+	    if (outer != null && outer.outer != null
+		&& !Modifier.isStatic(outer.modifiers)
+		&& (Decompiler.options & Decompiler.OPTION_INNER) != 0) {
+		Expression outerInstance = subExpressions[arg++];
+		if (!(outerInstance instanceof ThisOperator)) {
+		    outerInstance.dumpExpression(writer, 0);
+		    writer.print(".");
+		}
+	    }
+	}
+	if (specialFlag) {
+	    if (opIsThis
+		&& (((ThisOperator)subExpressions[0]).getClassInfo()
+		    == codeAnalyzer.getClazz())) {
+		if (isThis()) {
+		    /* XXX check if this is a private or final method. */
+		} else {
+		    /* XXX check that this is the first defined
+		     * super method. */
+		    writer.print("super");
+		    opIsThis = false;
+		}
+	    } else {
+		/* XXX check if this is a private or final method. */
+		int minPriority = 950; /* field access */
+		if (!isThis()) {
+		    writer.print("(NON VIRTUAL ");
+		    writer.printType(classType);
+		    writer.print(")");
+		    minPriority = 700;
+		}
+		subExpressions[0].dumpExpression(writer, minPriority);
+	    }
+	} else if (staticFlag) {
+	    arg = 0;
+	    Scope scope = writer.getScope(getClassInfo(),
+					  Scope.CLASSSCOPE);
+	    if (scope != null
+		&& !writer.conflicts(methodName, scope, Scope.METHODNAME))
+		opIsThis = true;
+	    else
+		writer.printType(classType);
+	} else {
+	    if (opIsThis) {
+		ThisOperator thisOp = (ThisOperator) subExpressions[0];
+		Scope scope = writer.getScope(thisOp.getClassInfo(),
+					      Scope.CLASSSCOPE);
+		if (writer.conflicts(methodName, scope, Scope.METHODNAME)) {
+		    thisOp.dumpExpression(writer, 950);
+		    writer.print(".");
+		} else if (/* This is a inherited field conflicting
+			    * with a field name in some outer class.
+			    */
+			   getMethodAnalyzer() == null 
+			   && writer.conflicts(methodName, null,
+					       Scope.METHODNAME)) {
+		    writer.print("this.");
+		}
+	    } else {
+		if (subExpressions[0].getType() instanceof NullType) {
+		    writer.print("((");
+		    writer.printType(classType);
+		    writer.print(") ");
+		    subExpressions[0].dumpExpression(writer, 700);
+		    writer.print(")");
+		} else 
+		    subExpressions[0].dumpExpression(writer, 950);
+	    }
+	}
+
+	if (isConstructor()) {
+	    if (opIsThis)
+		writer.print("this");
+	} else {
+	    if (!opIsThis)
+		writer.print(".");
+	    writer.print(methodName);
+	}
+	writer.print("(");
+	boolean first = true;
+	while (arg < subExpressions.length) {
+            if (!first)
+		writer.print(", ");
+	    else
+		first = false;
+            subExpressions[arg++].dumpExpression(writer, 0);
+        }
+        writer.print(")");
+    }
 }

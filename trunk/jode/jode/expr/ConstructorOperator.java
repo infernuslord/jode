@@ -18,12 +18,15 @@
  */
 
 package jode.expr;
+import java.lang.reflect.Modifier;
+
 import jode.type.Type;
 import jode.type.NullType;
 import jode.type.ClassInterfacesType;
 import jode.type.MethodType;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.InnerClassInfo;
+import jode.bytecode.Reference;
 import jode.Decompiler;
 import jode.decompiler.CodeAnalyzer;
 import jode.decompiler.ClassAnalyzer;
@@ -38,11 +41,22 @@ public class ConstructorOperator extends Operator
     ClassAnalyzer anonymousClass = null;
     boolean removedCheckNull = false;
 
+    public ConstructorOperator(Reference ref, CodeAnalyzer codeAna,
+			       boolean isVoid) {
+        super(isVoid ? Type.tVoid : Type.tType(ref.getClazz()), 0);
+        this.classType = Type.tType(ref.getClazz());
+        this.methodType = Type.tMethod(ref.getType());
+	this.codeAnalyzer = codeAna;
+	initOperands(methodType.getParameterTypes().length);
+	checkAnonymousClasses();
+    }
+
     public ConstructorOperator(InvokeOperator invoke, boolean isVoid) {
         super(isVoid ? Type.tVoid : invoke.getClassType(), 0);
         this.classType  = invoke.getClassType();
         this.methodType = invoke.getMethodType();
 	this.codeAnalyzer = invoke.codeAnalyzer;
+	initOperands(methodType.getParameterTypes().length);
 	checkAnonymousClasses();
     }
 
@@ -52,16 +66,6 @@ public class ConstructorOperator extends Operator
 
     public CodeAnalyzer getCodeAnalyzer() {
 	return codeAnalyzer;
-    }
-
-    /**
-     * Checks if the value of the given expression can change, due to
-     * side effects in this expression.  If this returns false, the 
-     * expression can safely be moved behind the current expresion.
-     * @param expr the expression that should not change.
-     */
-    public boolean hasSideEffects(Expression expr) {
-	return expr.containsConflictingLoad(this);
     }
 
     /**
@@ -77,28 +81,44 @@ public class ConstructorOperator extends Operator
         return 950;
     }
 
-    public int getOperandCount() {
-        return methodType.getParameterTypes().length;
-    }
-
-    public int getOperandPriority(int i) {
-        return 0;
-    }
-
     public Type getClassType() {
         return classType;
     }
 
-    public Type getOperandType(int i) {
-        return methodType.getParameterTypes()[i];
+    public void updateSubTypes() {
+	Type[] paramTypes = methodType.getParameterTypes();
+	for (int i=0; i < paramTypes.length; i++)
+	    subExpressions[i].setType(Type.tSubType(paramTypes[i]));
     }
 
-    public void setOperandType(Type types[]) {
+    public void updateType() {
     }
 
     public Expression simplifyStringBuffer() {
+	if (getClassType() == Type.tStringBuffer) {
+	    if (methodType.getParameterTypes().length == 0)
+		return EMPTYSTRING;
+	    if (methodType.getParameterTypes().length == 1
+		&& methodType.getParameterTypes()[0].equals(Type.tString))
+                return subExpressions[0].simplifyString();
+        }
         return (getClassType() == Type.tStringBuffer)
             ? EMPTYSTRING : null;
+    }
+
+    public Expression simplify() {
+	InnerClassInfo outer = getOuterClassInfo();
+	if (outer != null && outer.outer != null
+	    && !Modifier.isStatic(outer.modifiers)
+	    && (Decompiler.options & Decompiler.OPTION_INNER) != 0) {
+	    if (subExpressions[0] instanceof CheckNullOperator) {
+		CheckNullOperator cno = (CheckNullOperator) subExpressions[0];
+		cno.removeLocal();
+		subExpressions[0] = cno.subExpressions[0];
+		removedCheckNull = true;
+	    }
+	}
+	return super.simplify();
     }
 
     public ClassInfo getClassInfo() {
@@ -135,8 +155,7 @@ public class ConstructorOperator extends Operator
 	}
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 
 	int arg = 0;
@@ -146,8 +165,10 @@ public class ConstructorOperator extends Operator
 	    return;
 	}
 	InnerClassInfo outer = getOuterClassInfo();
-	if (outer != null && outer.name != null) {
-	    Expression outExpr = operands[arg++];
+	if (outer != null && outer.outer != null
+	    && !Modifier.isStatic(outer.modifiers)
+	    && (Decompiler.options & Decompiler.OPTION_INNER) != 0) {
+	    Expression outExpr = subExpressions[arg++];
 	    if (!removedCheckNull && !(outExpr instanceof ThisOperator))
 		writer.print("MISSING CHECKNULL");
 	    if (outExpr instanceof ThisOperator) {
@@ -180,10 +201,8 @@ public class ConstructorOperator extends Operator
         for (int i = arg; i < methodType.getParameterTypes().length; i++) {
             if (i>arg)
 		writer.print(", ");
-            operands[i].dumpExpression(writer, 0);
+            subExpressions[i].dumpExpression(writer, 0);
         }
         writer.print(")");
     }
 }
-
-

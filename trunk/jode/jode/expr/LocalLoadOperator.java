@@ -25,7 +25,7 @@ import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 
-public class LocalLoadOperator extends NoArgOperator
+public class LocalLoadOperator extends Operator
     implements LocalVarOperator {
     CodeAnalyzer codeAnalyzer;
     LocalInfo local;
@@ -35,8 +35,8 @@ public class LocalLoadOperator extends NoArgOperator
         super(type);
 	this.codeAnalyzer = codeAnalyzer;
         this.local = local;
-        local.setType(type);
         local.setOperator(this);
+	initOperands(0);
     }
 
     public boolean isRead() {
@@ -51,8 +51,19 @@ public class LocalLoadOperator extends NoArgOperator
         return false;
     }
 
+    public int getPriority() {
+        return 1000;
+    }
+
     public LocalInfo getLocalInfo() {
 	return local.getLocalInfo();
+    }
+
+    public void updateSubTypes() {
+        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+	    GlobalOptions.err.println("setType of "+local.getName()+": "
+				      +local.getType());
+	local.setType(type);
     }
 
     public void updateType() {
@@ -60,34 +71,10 @@ public class LocalLoadOperator extends NoArgOperator
             GlobalOptions.err.println("local "+local.getName()+" changed: "
                                +type+" to "+local.getType()
                                +" in "+parent);
-        super.setType(local.getType());
-        if (parent != null)
-            parent.updateType();
+	updateParentType(local.getType());
     }
 
-    public int getPriority() {
-        return 1000;
-    }
-
-    public Type getType() {
-//  	GlobalOptions.err.println("LocalLoad.getType of "+local.getName()+": "+local.getType());
-	return local.getType();
-    }
-
-    public void setType(Type type) {
-// 	GlobalOptions.err.println("LocalLoad.setType of "+local.getName()+": "+local.getType());
-	super.setType(local.setType(type));
-    }
-
-//     public int getSlot() {
-//         return slot;
-//     }
-
-    public String toString() {
-        return local.getName().toString();
-    }
-
-    public boolean equals(Object o) {
+    public boolean opEquals(Operator o) {
         return (o instanceof LocalLoadOperator &&
                 ((LocalLoadOperator) o).local.getSlot() == local.getSlot());
     }
@@ -102,10 +89,8 @@ public class LocalLoadOperator extends NoArgOperator
 	return super.simplify();
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	writer.print(toString());
+	writer.print(local.getName());
     }
 }
-

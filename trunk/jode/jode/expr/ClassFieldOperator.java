@@ -34,8 +34,7 @@ public class ClassFieldOperator extends NoArgOperator {
         return 950;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	writer.printType(classType);
 	writer.print(".class");

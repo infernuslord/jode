@@ -34,11 +34,11 @@ public class ConstOperator extends NoArgOperator {
     public ConstOperator(Object constant) {
 	super(Type.tUnknown);
 	if (constant instanceof Boolean) {
-	    setType(Type.tBoolean);
+	    updateParentType(Type.tBoolean);
 	    constant = new Integer(((Boolean)constant).booleanValue() ? 1 : 0);
 	} else if (constant instanceof Integer) {
 	    int intVal = ((Integer) constant).intValue();
-	    setType 
+	    updateParentType 
 		((intVal == 0 || intVal == 1) ? tBoolConstInt
 		 : (intVal < Short.MIN_VALUE 
 		    || intVal > Character.MAX_VALUE) ? Type.tInt
@@ -54,15 +54,15 @@ public class ConstOperator extends NoArgOperator {
 		  ?    IntegerType.IT_S|IntegerType.IT_C|IntegerType.IT_I
 		  :    IntegerType.IT_C|IntegerType.IT_I));
 	} else if (constant instanceof Long)
-	    setType(Type.tLong);
+	    updateParentType(Type.tLong);
 	else if (constant instanceof Float)
-	    setType(Type.tFloat);
+	    updateParentType(Type.tFloat);
 	else if (constant instanceof Double)
-	    setType(Type.tDouble);
+	    updateParentType(Type.tDouble);
 	else if (constant instanceof String)
-	    setType(Type.tString);
+	    updateParentType(Type.tString);
 	else if (constant == null)
-	    setType(Type.tUObject);
+	    updateParentType(Type.tUObject);
 	else
 	    throw new IllegalArgumentException("Illegal constant type: "
 					       +constant.getClass());
@@ -77,7 +77,7 @@ public class ConstOperator extends NoArgOperator {
         return 1000;
     }
 
-    public boolean equals(Object o) {
+    public boolean opEquals(Operator o) {
 	if (o instanceof ConstOperator) {
 	    Object otherValue = ((ConstOperator)o).value;
 	    return value == null
@@ -173,7 +173,7 @@ public class ConstOperator extends NoArgOperator {
 	} else if (type.equals(Type.tString)) {
 	    return quoted(strVal);
         } else if (parent != null) {
-            int opindex = parent.getOperator().getOperatorIndex();
+            int opindex = parent.getOperatorIndex();
             if (opindex >= OPASSIGN_OP + ADD_OP
                 && opindex <  OPASSIGN_OP + ASSIGN_OP)
                 opindex -= OPASSIGN_OP;
@@ -204,8 +204,9 @@ public class ConstOperator extends NoArgOperator {
 	    && (type.getHint().equals(Type.tByte)
 		|| type.getHint().equals(Type.tShort))
             && !isInitializer
-	    && (parent == null 
-		|| parent.getOperator().getOperatorIndex() != ASSIGN_OP)) {
+	    && !(parent instanceof StoreInstruction
+		 && parent.getOperatorIndex() != ASSIGN_OP
+		 && parent.subExpressions[1] == this)) {
             /* One of the strange things in java.  All constants
              * are int and must be explicitly casted to byte,...,short.
              * But in assignments and initializers this cast is unnecessary.
@@ -217,8 +218,7 @@ public class ConstOperator extends NoArgOperator {
         return strVal;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	writer.print(toString());
     }

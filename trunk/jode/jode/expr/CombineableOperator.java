@@ -19,7 +19,15 @@
 
 package jode.expr;
 
-public interface CombineableOperator extends MatchableOperator {
+public interface CombineableOperator {
+    /**
+     * Returns the LValue.
+     */
+    public LValueExpression getLValue();
+    /**
+     * Checks if the loadOp is combinable with the lvalue.
+     */
+    public boolean lvalueMatches(Operator loadOp);
     /**
      * Make this operator return a value compatible with the loadOp
      * that it should replace.

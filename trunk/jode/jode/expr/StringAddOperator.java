@@ -21,31 +21,40 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
-public class StringAddOperator extends SimpleOperator {
+public class StringAddOperator extends Operator {
     protected Type operandType;
 
     public StringAddOperator() {
-        super(Type.tString, ADD_OP, 2);
-        operandTypes[1] = Type.tUnknown;
+        super(Type.tString, ADD_OP);
+	initOperands(2);
     }
 
-    public void clearFirstType() {
-	operandTypes[0] = Type.tUnknown;
-    }
-    
     public int getPriority() {
         return 610;
     }
 
-    public boolean equals(Object o) {
+    public boolean opEquals(Operator o) {
 	return (o instanceof StringAddOperator);
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void updateSubTypes() {
+	/* A string add allows everything */
+    }
+
+    public void updateType() {
+    }
+    
+
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	operands[0].dumpExpression(writer, 610);
+
+	if (!subExpressions[0].getType().isOfType(Type.tString)
+	    && !subExpressions[1].getType().isOfType(Type.tString))
+	    writer.print("\"\" + ");
+
+	subExpressions[0].dumpExpression(writer, 610);
 	writer.print(getOperatorString());
-	operands[1].dumpExpression(writer, 611);
+	subExpressions[1].dumpExpression(writer, 611);
     }
 }
+

@@ -20,6 +20,7 @@
 package jode.expr;
 import jode.type.Type;
 import jode.bytecode.ClassInfo;
+import jode.decompiler.Scope;
 import jode.decompiler.TabbedPrintWriter;
 
 public class ThisOperator extends NoArgOperator {
@@ -48,19 +49,18 @@ public class ThisOperator extends NoArgOperator {
         return classInfo+".this";
     }
 
-    public boolean equals(Object o) {
+    public boolean opEquals(Operator o) {
         return (o instanceof ThisOperator &&
                 ((ThisOperator) o).classInfo.equals(classInfo));
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	if (!isInnerMost) {
-	    writer.print(writer.getClassString(classInfo));
+	    writer.print(writer.getClassString(classInfo, 
+					       Scope.AMBIGUOUSNAME));
 	    writer.print(".");
 	}
 	writer.print("this");
     }
 }
-

@@ -21,24 +21,28 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
-public class PopOperator extends SimpleOperator {
+public class PopOperator extends Operator {
+
+    Type popType;
 
     public PopOperator(Type argtype) {
-        super(Type.tVoid, 0, 1);
-        operandTypes[0] = argtype;
+        super(Type.tVoid, 0);
+	popType = argtype;
+	initOperands(1);
     }
 
     public int getPriority() {
         return 0;
     }
 
-    public int getOperandPriority(int i) {
-        return 0;
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tSubType(popType));
+    }
+    public void updateType() {
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	operands[0].dumpExpression(writer, 0);
+	subExpressions[0].dumpExpression(writer, 0);
     }
 }

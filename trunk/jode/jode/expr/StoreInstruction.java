@@ -19,42 +19,29 @@
 
 package jode.expr;
 import jode.type.Type;
+import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 
-public abstract class StoreInstruction extends Operator
+public class StoreInstruction extends Operator
     implements CombineableOperator {
 
-    public String lvCasts;
-    Type lvalueType;
-    Type rvalueType = null;
+    boolean isOpAssign = false;
 
-    public StoreInstruction(Type type, int operator) {
-        super(Type.tVoid, operator);
-        lvalueType = type;
-        lvCasts = lvalueType.toString();
+    public StoreInstruction(LValueExpression lvalue) {
+        super(Type.tVoid, ASSIGN_OP);
+	initOperands(2);
+	setSubExpressions(0, lvalue);
     }
 
-    public void makeOpAssign(int operator, Type rvalueType) {
-	setOperatorIndex(operator);
-	this.rvalueType = rvalueType;
+    public LValueExpression getLValue() {
+	return (LValueExpression) subExpressions[0];
     }
 
-    public Type getType() {
-        return type == Type.tVoid ? type : getLValueType();
-    }
-
-    public Type getLValueType() {
-        return lvalueType;
-    }
-
-    /**
-     * Checks if the value of the given expression can change, due to
-     * side effects in this expression.  If this returns false, the 
-     * expression can safely be moved behind the current expresion.
-     * @param expr the expression that should not change.
-     */
-    public boolean hasSideEffects(Expression expr) {
-	return expr.containsConflictingLoad(this);
+    public void makeOpAssign(int operatorIndex) {
+	setOperatorIndex(operatorIndex);
+	if (subExpressions[1] instanceof NopOperator)
+	    subExpressions[1].type = Type.tUnknown;
+	isOpAssign = true;
     }
 
     /**
@@ -63,64 +50,70 @@ public abstract class StoreInstruction extends Operator
     public void makeNonVoid() {
         if (type != Type.tVoid)
             throw new jode.AssertError("already non void");
-        type = lvalueType;
-        if (parent != null && parent.getOperator() == this)
-            parent.type = lvalueType;
+	type = subExpressions[0].getType();
     }
 
-    public abstract boolean matches(Operator loadop);
-    public abstract int getLValueOperandCount();
-    public abstract Type getLValueOperandType(int i);
-    public abstract void setLValueOperandType(Type [] t);
-
-    /**
-     * Sets the type of the lvalue (and rvalue).
-     */
-    public void setLValueType(Type type) {
-        lvalueType = lvalueType.intersection(type);
+    public boolean lvalueMatches(Operator loadop) {
+	return getLValue().matches(loadop);
     }
 
     public int getPriority() {
         return 100;
     }
 
-    public abstract int getLValuePriority();
-
-    public Type getOperandType(int i) {
-        if (i == getLValueOperandCount()) {
-	    if (getOperatorIndex() == ASSIGN_OP)
-		/* In a direct assignment, lvalueType is rvalueType */
-		return getLValueType(); 
-	    else
-		return rvalueType;
-        } else
-            return getLValueOperandType(i);
+    public void updateSubTypes() {
+	if (!isVoid()) {
+	    subExpressions[0].setType(type);
+	    subExpressions[1].setType(Type.tSubType(type));
+	}
     }
 
-    public void setOperandType(Type[] t) {
-        int count = getLValueOperandCount();
-        if (count > 0)
-            setLValueOperandType(t);
-	if (getOperatorIndex() == ASSIGN_OP)
-	    /* In a direct assignment, lvalueType is rvalueType */
-	    setLValueType(t[count]);
-	else
-	    rvalueType = rvalueType.intersection(t[count]);
+    public void updateType() {
+
+	Type newType;
+
+	if (!isOpAssign) {
+	    /* An opassign (+=, -=, etc.) doesn't merge rvalue type. */
+	    Type lvalueType = subExpressions[0].getType();
+	    Type rvalueType = subExpressions[1].getType();
+	    subExpressions[0].setType(Type.tSuperType(rvalueType));
+	    subExpressions[1].setType(Type.tSubType(lvalueType));
+	}
+
+	if (!isVoid())
+	    updateParentType(subExpressions[0].getType());
     }
 
-    public int getOperandCount() {
-        return 1 + getLValueOperandCount();
+    public Expression simplify() {
+	if (subExpressions[1] instanceof ConstOperator) {
+            ConstOperator one = (ConstOperator) subExpressions[1];
+
+            if ((getOperatorIndex() == OPASSIGN_OP+ADD_OP ||
+                 getOperatorIndex() == OPASSIGN_OP+SUB_OP) &&
+                (one.getValue().equals("1") 
+		 || one.getValue().equals("1.0"))) {
+
+                int op = (getOperatorIndex() == OPASSIGN_OP+ADD_OP)
+                    ? INC_OP : DEC_OP;
+
+                return new PrePostFixOperator
+                    (getType(), op, getLValue(), isVoid()).simplify();
+            }
+        }
+	return super.simplify();
     }
 
-    public abstract void dumpLValue(TabbedPrintWriter writer, 
-				    Expression[] operands)
-	throws java.io.IOException;
+    public boolean opEquals(Operator o) {
+	return o instanceof StoreInstruction
+	    && o.operatorIndex == operatorIndex
+	    && o.isVoid() == isVoid();
+    }
 
-    public void dumpExpression(TabbedPrintWriter writer, Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException
     {
-	dumpLValue(writer, operands);
+	subExpressions[0].dumpExpression(writer, 950);
 	writer.print(getOperatorString());
-	operands[getLValueOperandCount()].dumpExpression(writer, 100);
+	subExpressions[1].dumpExpression(writer, 100);
     }
 }

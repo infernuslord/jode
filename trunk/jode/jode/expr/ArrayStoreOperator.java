@@ -22,53 +22,40 @@ import jode.type.Type;
 import jode.type.ArrayType;
 import jode.decompiler.TabbedPrintWriter;
 
-public class ArrayStoreOperator extends StoreInstruction {
-    Type indexType;
-
-    public ArrayStoreOperator(Type type, int operator) {
-        super(type, operator);
-        indexType = Type.tInt;
-    }
+public class ArrayStoreOperator extends LValueExpression {
 
     public ArrayStoreOperator(Type type) {
-        this(type, ASSIGN_OP);
+        super(type);
+	initOperands(2);
     }
-
 
     public boolean matches(Operator loadop) {
         return loadop instanceof ArrayLoadOperator;
     }
 
-    public int getLValuePriority() {
+    public int getPriority() {
         return 950;
     }
 
-    public int getLValueOperandCount() {
-        return 2;
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tArray(type));
+	subExpressions[1].setType(Type.tSubType(Type.tInt));
     }
 
-    public Type getLValueOperandType(int i) {
-        if (i == 0)
-            return Type.tArray(lvalueType);
-        else
-            return indexType;
+    public void updateType() {
+	Type subType = subExpressions[0].getType()
+	    .intersection(Type.tArray(type));
+	if (!(subType instanceof ArrayType))
+	    updateParentType(Type.tError);
+	else 
+	    updateParentType(((ArrayType)subType).getElementType());
     }
 
-    public void setLValueOperandType(Type[] t) {
-        indexType = indexType.intersection(t[1]);
-        Type arrayType = t[0].intersection(Type.tArray(lvalueType));
-        if (arrayType == Type.tError)
-            lvalueType = Type.tError;
-	else
-            lvalueType = ((ArrayType)arrayType).getElementType();
-    }
-
-    public void dumpLValue(TabbedPrintWriter writer,
-			   Expression[] operands) 
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	operands[0].dumpExpression(writer, 950);
+	subExpressions[0].dumpExpression(writer, 950);
 	writer.print("[");
-	operands[1].dumpExpression(writer, 0);
+	subExpressions[1].dumpExpression(writer, 0);
 	writer.print("]");
     }
 }

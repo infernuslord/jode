@@ -1,4 +1,4 @@
-/* NewOperator Copyright (C) 1998-1999 Jochen Hoenicke.
+/* LValueExpression Copyright (C) 1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,20 +19,13 @@
 
 package jode.expr;
 import jode.type.Type;
+import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 
-public class NewOperator extends NoArgOperator {
-    public NewOperator(Type type) {
-        super(type);
-    }
+public abstract class LValueExpression extends Operator 
+    implements MatchableOperator {
 
-    public int getPriority() {
-        return 950;
-    }
-
-    public void dumpExpression(TabbedPrintWriter writer)
-	throws java.io.IOException {
-	writer.print("new ");
-	writer.printType(type);
+    public LValueExpression(Type lvalueType) {
+	super(lvalueType, 0);
     }
 }

@@ -27,29 +27,24 @@ public class ConvertOperator extends Operator {
     public ConvertOperator(Type from, Type to) {
         super(to, 0);
         this.from = from;
+	initOperands(1);
     }
     
     public int getPriority() {
         return 700;
     }
 
-    public int getOperandCount() {
-        return 1;
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tSubType(from));
+    }
+    public void updateType() {
     }
 
-    public Type getOperandType(int i) {
-        return from;
-    }
-
-    public void setOperandType(Type[] inputTypes) {
-        from = from.intersection(inputTypes[0]);
-    }
-
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] ops) throws java.io.IOException {
+    public void dumpExpression(TabbedPrintWriter writer) 
+	throws java.io.IOException {
         writer.print("(");
 	writer.printType(type);
-        writer.print(")");
-	ops[0].dumpExpression(writer, 700);
+        writer.print(") ");
+	subExpressions[0].dumpExpression(writer, 700);
     }
 }

@@ -21,13 +21,15 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
-public class CompareUnaryOperator extends SimpleOperator {
+public class CompareUnaryOperator extends Operator {
     boolean objectType;
+    Type compareType;
 
     public CompareUnaryOperator(Type type, int op) {
-        super(Type.tBoolean, op, 1);
-        operandTypes[0] = type;
+        super(Type.tBoolean, op);
+        compareType = type;
         objectType = (type.isOfType(Type.tUObject));
+	initOperands(1);
     }
 
     public int getPriority() {
@@ -44,15 +46,69 @@ public class CompareUnaryOperator extends SimpleOperator {
         throw new RuntimeException("Illegal operator");
     }
 
-    public boolean equals(Object o) {
-	return (o instanceof CompareUnaryOperator) &&
-	    ((CompareUnaryOperator)o).operator == operator;
+    public Type getCompareType() {
+	return compareType;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tSubType(compareType));
+    }
+
+    public void updateType() {
+    }
+
+    public Expression simplify() {
+        if (subExpressions[0] instanceof CompareToIntOperator) {
+
+	    CompareToIntOperator cmpOp 
+		= (CompareToIntOperator) subExpressions[0];
+
+	    boolean negated = false;
+	    int opIndex = getOperatorIndex();
+	    if (cmpOp.allowsNAN && getOperatorIndex() > NOTEQUALS_OP) {
+		if (cmpOp.greaterOnNAN ==
+		    (opIndex == GREATEREQ_OP || opIndex == GREATER_OP)) {
+		    negated = true;
+		    opIndex ^= 1;
+		}
+	    }
+            Expression newOp = new CompareBinaryOperator
+                (cmpOp.compareType, opIndex)
+		.addOperand(cmpOp.subExpressions[1])
+		.addOperand(cmpOp.subExpressions[0]);
+
+	    if (negated)
+		return newOp.negate().simplify();
+	    return newOp.simplify();
+        }
+        if (subExpressions[0].getType().isOfType(Type.tBoolean)) {
+            /* xx == false */
+            if (getOperatorIndex() == EQUALS_OP)
+                return subExpressions[0].negate().simplify();
+            /* xx != false */
+            if (getOperatorIndex() == NOTEQUALS_OP)
+                return subExpressions[0].simplify();
+	}
+	return super.simplify();
+    }
+
+    public Expression negate() {
+	if ((getType() != Type.tFloat && getType() != Type.tDouble)
+	    || getOperatorIndex() <= NOTEQUALS_OP) {
+            setOperatorIndex(getOperatorIndex() ^ 1);
+            return this;
+        } 
+        return super.negate();
+    }
+
+    public boolean opEquals(Operator o) {
+	return (o instanceof CompareUnaryOperator)
+	    && o.getOperatorIndex() == getOperatorIndex();
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	operands[0].dumpExpression(writer, getPriority());
+	subExpressions[0].dumpExpression(writer, getPriority());
 	writer.print(getOperatorString());
 	writer.print(objectType?"null":"0");
     }

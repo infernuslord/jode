@@ -21,35 +21,43 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
-public class CompareToIntOperator extends SimpleOperator {
+public class CompareToIntOperator extends Operator {
+    boolean allowsNAN;
     boolean greaterOnNAN;
+    Type compareType;
 
     public CompareToIntOperator(Type type, boolean greaterOnNAN) {
-        super(Type.tInt, 0, 2);
-        operandTypes[0] = operandTypes[1] = type;
+        super(Type.tInt, 0);
+        compareType = type;
+	this.allowsNAN = (type == Type.tFloat || type == Type.tDouble);
 	this.greaterOnNAN = greaterOnNAN;
+	initOperands(2);
     }
 
     public int getPriority() {
         return 499;
     }
 
-    public void setOperandType(Type[] inputTypes) {
-        super.setOperandType(inputTypes);
-        Type operandType = operandTypes[0].intersection(operandTypes[1]);
-        operandTypes[0] = operandTypes[1] = operandType;
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tSubType(compareType));
+	subExpressions[1].setType(Type.tSubType(compareType));
     }
 
-    public boolean equals(Object o) {
+    public void updateType() {
+    }
+
+    public boolean opEquals(Operator o) {
 	return (o instanceof CompareToIntOperator);
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException
     {
-        operands[0].dumpExpression(writer, 550);
-	writer.print(" <=>" + (greaterOnNAN ? 'g' : 'l') + ' ');
-        operands[1].dumpExpression(writer, 551);
+        subExpressions[0].dumpExpression(writer, 550);
+	writer.print(" <=>");
+	if (allowsNAN)
+	    writer.print(greaterOnNAN ? "g" : "l");
+	writer.print(" ");
+        subExpressions[1].dumpExpression(writer, 551);
     }
 }

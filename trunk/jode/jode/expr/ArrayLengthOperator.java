@@ -23,33 +23,25 @@ import jode.decompiler.TabbedPrintWriter;
 
 public class ArrayLengthOperator extends Operator {
 
-    Type arrayType;
-
     public ArrayLengthOperator() {
         super(Type.tInt, 0);
-        arrayType = Type.tArray(Type.tUnknown);
+	initOperands(1);
     }
 
     public int getPriority() {
         return 950;
     }
 
-    public int getOperandCount() {
-        return 1;
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tArray(Type.tUnknown));
     }
 
-    public Type getOperandType(int i) {
-        return arrayType;
+    public void updateType() {
     }
 
-    public void setOperandType(Type[] types) {
-        arrayType = arrayType.intersection(types[0]);
-    }
-
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	operands[0].dumpExpression(writer, 900);
+	subExpressions[0].dumpExpression(writer, 900);
 	writer.print(".length");
     }
 }
