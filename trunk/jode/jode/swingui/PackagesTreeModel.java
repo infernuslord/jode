@@ -18,6 +18,7 @@
  */
 
 package jode.swingui;
+import jode.Decompiler;
 import jode.bytecode.ClassInfo;
 ///#ifndef OLDSWING
 import javax.swing.tree.TreeModel;
@@ -106,6 +107,9 @@ public class PackagesTreeModel implements TreeModel {
 	    while (enum.hasMoreElements()) {
 		//insert sorted and remove double elements;
 		String name = (String)enum.nextElement();
+		if (Decompiler.skipClass(ClassInfo.forName(prefix+name)))
+		    continue;
+
 		TreeElement newElem = new TreeElement(prefix, name);
 		for (int i=0; ; i++) {
 		    if (i == v.size()) {
