@@ -224,7 +224,7 @@ public abstract class Operator extends Expression {
     public boolean containsMatchingLoad(CombineableOperator comb) {
 	Operator combOp = (Operator) comb;
 	if (comb.getLValue().matches(this)) {
-	    if (subsEquals(comb.getLValue()))
+	    if (subsEquals((Operator) comb.getLValue()))
 		return true;
         }
         for (int i=0; i < subExpressions.length; i++) {

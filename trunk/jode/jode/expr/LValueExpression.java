@@ -22,10 +22,5 @@ import jode.type.Type;
 import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 
-public abstract class LValueExpression extends Operator 
-    implements MatchableOperator {
-
-    public LValueExpression(Type lvalueType) {
-	super(lvalueType, 0);
-    }
+public interface LValueExpression extends MatchableOperator {
 }

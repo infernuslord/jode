@@ -1,4 +1,4 @@
-/* LocalVarOperator Copyright (C) 1998-1999 Jochen Hoenicke.
+/* LocalOperator Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,16 +18,49 @@
  */
 
 package jode.expr;
+import jode.GlobalOptions;
 import jode.type.Type;
 import jode.decompiler.LocalInfo;
+import jode.decompiler.TabbedPrintWriter;
 
-public interface LocalVarOperator {
-    public boolean isRead();
-    public boolean isWrite();
-    public LocalInfo getLocalInfo();
-    /**
-     * This is called by the local info when the type
-     * of it changed
-     */
-    public void updateType();
+public abstract class LocalVarOperator extends Operator {
+    LocalInfo local;
+
+    public LocalVarOperator(Type lvalueType, LocalInfo local) {
+        super(lvalueType);
+        this.local = local;
+        local.setOperator(this);
+	initOperands(0);
+    }
+
+    public abstract boolean isRead();
+    public abstract boolean isWrite();
+
+    public void updateSubTypes() {
+	if (parent != null
+	    && (GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
+	    GlobalOptions.err.println("local type changed in: "+parent);
+        local.setType(type);
+    }
+
+    public void updateType() {
+	updateParentType(local.getType());
+    }
+
+    public LocalInfo getLocalInfo() {
+	return local.getLocalInfo();
+    }
+
+    public void setLocalInfo(LocalInfo newLocal) {
+	local = newLocal;
+	updateType();
+    }
+
+    public int getPriority() {
+        return 1000;
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer) {
+	writer.print(local.getName());
+    }
 }

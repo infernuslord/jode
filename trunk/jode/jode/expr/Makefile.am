@@ -26,6 +26,7 @@ MY_JAVA_FILES = \
   ConstantArrayOperator.java \
   ConvertOperator.java \
   Expression.java \
+  FieldOperator.java \
   GetFieldOperator.java \
   IIncOperator.java \
   IfThenElseOperator.java \

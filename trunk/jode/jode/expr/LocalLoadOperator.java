@@ -25,18 +25,14 @@ import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 
-public class LocalLoadOperator extends Operator
-    implements LocalVarOperator {
+public class LocalLoadOperator extends LocalVarOperator {
+
     MethodAnalyzer methodAnalyzer;
-    LocalInfo local;
 
     public LocalLoadOperator(Type type, MethodAnalyzer methodAnalyzer,
 			     LocalInfo local) {
-        super(type);
+        super(type, local);
 	this.methodAnalyzer = methodAnalyzer;
-        this.local = local;
-        local.setOperator(this);
-	initOperands(0);
     }
 
     public boolean isRead() {
@@ -51,36 +47,8 @@ public class LocalLoadOperator extends Operator
         return false;
     }
 
-    public int getPriority() {
-        return 1000;
-    }
-
-    public LocalInfo getLocalInfo() {
-	return local.getLocalInfo();
-    }
-
     public void setMethodAnalyzer(MethodAnalyzer ma) {
 	methodAnalyzer = ma;
-    }
-
-    public void setLocalInfo(LocalInfo newLocal) {
-	local = newLocal;
-	updateType();
-    }
-
-    public void updateSubTypes() {
-        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
-	    GlobalOptions.err.println("setType of "+local.getName()+": "
-				      +local.getType());
-	local.setType(type);
-    }
-
-    public void updateType() {
-        if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
-            GlobalOptions.err.println("local "+local.getName()+" changed: "
-				      +type+" to "+local.getType()
-				      +" in "+parent);
-	updateParentType(local.getType());
     }
 
     public boolean opEquals(Operator o) {
@@ -92,10 +60,5 @@ public class LocalLoadOperator extends Operator
 	if (local.getExpression() != null)
 	    return local.getExpression().simplify();
 	return super.simplify();
-    }
-
-    public void dumpExpression(TabbedPrintWriter writer)
-	throws java.io.IOException {
-	writer.print(local.getName());
     }
 }
