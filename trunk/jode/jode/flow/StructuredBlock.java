@@ -72,6 +72,7 @@ public abstract class StructuredBlock {
      * The analyzation is done in makeDeclaration
      */
     VariableSet declare;
+    VariableSet done;
 
     /**
      * The surrounding structured block.  If this is the outermost
@@ -418,6 +419,7 @@ public abstract class StructuredBlock {
      * @param done The set of the already declare variables.
      */
     public void makeDeclaration(VariableSet done) {
+	this.done = (VariableSet) done.clone();
 	declare = new VariableSet();
 	java.util.Enumeration enum = used.elements();
     next_used:
@@ -439,8 +441,12 @@ public abstract class StructuredBlock {
 		     * One bad thing that may happen is that the name
 		     * of prevLocal (it has already a name) doesn't match
 		     * the intersected type.
+		     *
+		     * A special case: this mustn't be merged, since it is
+		     * special.  "this" can't be assigned to.
 		     */
-		    if (prevLocal.getType().isOfType(local.getType())) {
+		    if (prevLocal.getType().isOfType(local.getType())
+			&& prevLocal.getName() != "this") {
 			local.combineWith(prevLocal);
 			continue next_used;
 		    }
@@ -538,6 +544,8 @@ public abstract class StructuredBlock {
 	if (jode.Decompiler.isDebugging) {
 	    if (declare != null)
 		writer.println("declaring: "+declare);
+	    if (done != null)
+		writer.println("done: "+done);
 	    writer.println("using: "+used);
 	}
 
