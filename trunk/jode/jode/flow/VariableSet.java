@@ -34,6 +34,7 @@ public class VariableSet extends java.util.Vector {
      * Creates a new empty variable set
      */
     public VariableSet() {
+        super(0, 0);
     }
 
     /**

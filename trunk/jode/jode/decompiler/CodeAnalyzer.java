@@ -32,6 +32,7 @@ import gnu.bytecode.CodeAttr;
 import gnu.bytecode.Attribute;
 import gnu.bytecode.LocalVarsAttr;
 import gnu.bytecode.CpoolClass;
+import gnu.bytecode.Spy;
 
 public class CodeAnalyzer implements Analyzer {
     
@@ -94,7 +95,7 @@ public class CodeAnalyzer implements Analyzer {
         }
 
         handler = new TransformExceptionHandlers(instr);
-        short[] handlers = gnu.bytecode.Spy.getExceptionHandlers(bincode);
+        short[] handlers = Spy.getExceptionHandlers(bincode);
 
         for (int i=0; i<handlers.length; i += 4) {
             Type type = null;

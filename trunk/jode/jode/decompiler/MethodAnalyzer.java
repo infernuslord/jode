@@ -21,6 +21,9 @@ package jode;
 import java.lang.reflect.Modifier;
 import gnu.bytecode.Attribute;
 import gnu.bytecode.CodeAttr;
+import gnu.bytecode.CpoolClass;
+import gnu.bytecode.Method;
+import gnu.bytecode.MiscAttr;
 import gnu.bytecode.Spy;
 
 public class MethodAnalyzer implements Analyzer {
@@ -33,52 +36,7 @@ public class MethodAnalyzer implements Analyzer {
     MethodType methodType;
     Type[] exceptions;
     
-//     private MethodAnalyzer(ClassAnalyzer cla, Method m, Constructor c,
-//                            JodeEnvironment e)
-//     {
-//         classAnalyzer = cla;
-//         isConstructor = (c != null);
-//         env  = e;
-
-//         this.modifiers = isConstructor 
-//             ? c.getModifiers() : m.getModifiers();
-
-//         {
-//             Class[] exceptClasses = isConstructor
-//                 ? c.getExceptionTypes() : m.getExceptionTypes();
-//             this.exceptions = new Type[exceptClasses.length];
-//             for (int i=0; i< exceptClasses.length; i++)
-//                 exceptions[i] = Type.tType(exceptClasses[i]);
-//         }
-
-//         {
-//             Class[] paramTypes = (isConstructor 
-//                                   ? c.getParameterTypes() 
-//                                   : m.getParameterTypes());
-//             Class returnType = (isConstructor 
-//                                 ? Void.TYPE : m.getReturnType());
-//             methodType = new MethodType
-//                 (!isConstructor && Modifier.isStatic(modifiers),
-//                  paramTypes, returnType);
-//             methodName = isConstructor ? "<init>" : m.getName();
-//         }
-
-//         gnu.bytecode.Method mdef;
-//         for (mdef = cla.classType.getMethods(); ; mdef = mdef.getNext()) {
-//             if (mdef.getName().equals(methodName)) {
-//                 MethodType type = new MethodType(mdef.getStaticFlag(),
-//                                                  mdef.getSignature());
-//                 if (type.equals(methodType))
-//                     break;
-//             }
-//         }
-        
-//         Attribute attr = Attribute.get(mdef, "Code");
-//         if (attr != null && attr instanceof CodeAttr)
-//             code = new CodeAnalyzer(this, (CodeAttr) attr, env);
-//     }
-
-    public MethodAnalyzer(ClassAnalyzer cla, gnu.bytecode.Method mdef,
+    public MethodAnalyzer(ClassAnalyzer cla, Method mdef,
                           JodeEnvironment env) {
         this.classAnalyzer = cla;
         this.env = env;
@@ -98,13 +56,13 @@ public class MethodAnalyzer implements Analyzer {
             exceptions = new Type[0];
         } else {
             java.io.DataInputStream stream = Spy.getAttributeStream
-                ((gnu.bytecode.MiscAttr) excattr);
+                ((MiscAttr) excattr);
             try {
                 int throwCount = stream.readUnsignedShort();
                 this.exceptions = new Type[throwCount];
                 for (int t=0; t< throwCount; t++) {
                     int idx = stream.readUnsignedShort();
-                    gnu.bytecode.CpoolClass cpcls = (gnu.bytecode.CpoolClass) 
+                    CpoolClass cpcls = (CpoolClass) 
                         classAnalyzer.getConstant(idx);
                     exceptions[t] = Type.tClass(cpcls.getName().getString());
                 }
