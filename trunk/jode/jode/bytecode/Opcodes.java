@@ -360,7 +360,7 @@ public abstract class Opcodes {
 		return createNormal
 		    (ca, addr, 1, new ConstOperator
 		     (LONG_TYPE, 
-		      Integer.toString(opcode - opc_lconst_0) + "L"));
+		      Integer.toString(opcode - opc_lconst_0)));
 	    case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
 		return createNormal
 		    (ca, addr, 1, new ConstOperator
@@ -378,7 +378,7 @@ public abstract class Opcodes {
             case opc_sipush:
 		return createNormal
                     (ca, addr, 3, new ConstOperator
-		     (Type.tRange(Type.tInt, Type.tShort), 
+		     (Type.tRange(Type.tInt, Type.tChar), 
                       Integer.toString(stream.readShort())));
             case opc_ldc: {
                 int index = stream.readUnsignedByte();
