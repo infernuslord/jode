@@ -185,13 +185,19 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    LocalOptimizer localOpt = new LocalOptimizer(strippedBytecode,
 							 info);
 	    localOpt.calcLocalInfo();
+	    if ((GlobalOptions.debuggingFlags 
+		 & GlobalOptions.DEBUG_LOCALS) != 0) {
+		GlobalOptions.err.println("Before Local Optimization: ");
+		localOpt.dumpLocals();
+	    }
 	    localOpt.stripLocals();
 	    localOpt.distributeLocals();
 
-
-//  	    if (GlobalOptions.verboseLevel > 4)
-//  		localOpt.dumpLocals();
-//  	    strippedBytecode.dumpCode(GlobalOptions.err);
+	    if ((GlobalOptions.debuggingFlags 
+		 & GlobalOptions.DEBUG_LOCALS) != 0) {
+		GlobalOptions.err.println("After Local Optimization: ");
+		localOpt.dumpLocals();
+	    }
 	    
 	    RemovePopAnalyzer remPop = 
 		new RemovePopAnalyzer(strippedBytecode, this);
