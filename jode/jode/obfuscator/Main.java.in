@@ -123,7 +123,7 @@ public class Main {
 			GlobalOptions.verboseLevel = Integer.parseInt(arg);
 		    } catch (NumberFormatException ex) {
 			GlobalOptions.err.println
-			    ("jode.Decompiler: Argument `"
+			    ("jode.obfuscator.Main: Argument `"
 			     +arg+"' to --verbose must be numeric:");
 			errorInParams = true;
 		    }
