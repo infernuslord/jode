@@ -93,16 +93,18 @@ public class TransformConstructors implements OuterValueListener {
 	this.isStatic = isStatic;
 	this.cons = cons;
 	this.ovMinSlots = 1;
-	ovMaxSlots = Integer.MAX_VALUE;
 	this.outerValues = clazzAnalyzer.getOuterValues();
 	if (outerValues != null) {
 	    clazzAnalyzer.addOuterValueListener(this);
+	    ovMaxSlots = Integer.MAX_VALUE;
 	    updateOuterValues(outerValues.length);
-	}
+	} else
+	    ovMaxSlots = 1;
     }
 
     public void updateOuterValues(int count) {
 	int outerSlots = 1;
+	outerValues = clazzAnalyzer.getOuterValues();
 	if ((GlobalOptions.debuggingFlags
 	     & GlobalOptions.DEBUG_CONSTRS) != 0)
 	    GlobalOptions.err.print("OuterValues: ");
@@ -114,7 +116,7 @@ public class TransformConstructors implements OuterValueListener {
 	}
 	if (outerSlots < ovMaxSlots)
 	    ovMaxSlots = outerSlots;
-	if (outerSlots < ovMinSlots) {
+	if (ovMaxSlots < ovMinSlots) {
 	    GlobalOptions.err.println
 		("WARNING: something got wrong with scoped class "
 		 +clazzAnalyzer.getClazz()+": "+ovMinSlots+","+ovMaxSlots);
@@ -253,9 +255,6 @@ public class TransformConstructors implements OuterValueListener {
     }
 
     public boolean checkJikesContinuation(MethodAnalyzer constr) {
-	if (outerValues == null)
-	    return false;
-
 	MethodType constrType = constr.getType();
 
 	/*
@@ -272,10 +271,15 @@ public class TransformConstructors implements OuterValueListener {
 	 *   constructor$?(outerValues[0], params);
 	 * }
 	 *
+	 * The outerValues[0] parameter is the normal this of the
+	 * surrounding method (but what is the surrounding method?
+	 * That can't be determined in some cases).  If the
+	 * surrounding method is static, the outerValues[0] parameter
+	 * disappears!
+	 *
 	 * Move optional super to method constructor$?
 	 * (renaming local variables) and mark constructor and
-	 * constructor$? as Jikes constructor.
-	 */
+	 * constructor$? as Jikes constructor.  */
 
 	StructuredBlock sb = constr.getMethodHeader().block;
 	
@@ -345,11 +349,42 @@ public class TransformConstructors implements OuterValueListener {
 	if (methodAna == null)
 	    return false;
 	MethodType methodType = methodAna.getType();
+	Expression[] constrParams = invoke.getSubExpressions();
+
+	if (!methodAna.getName().startsWith("constructor$")
+	    || methodType.getReturnType() != Type.tVoid)
+	    return false;
+
+	if (!isThis(invoke.getSubExpressions()[0], 
+		    clazzAnalyzer.getClazz()))
+	    return false;
 
 	int ovLength = constrType.getParameterTypes().length
-	    - (methodType.getParameterTypes().length - 1);
+	    - methodType.getParameterTypes().length;
+
 	if (jikesAnonInner)
 	    ovLength--;
+
+	int firstArg = 1;
+	boolean unsureOuter = false;
+	boolean canHaveOuter = false;
+	if (outerValues != null && outerValues.length > 0
+	    && outerValues[0] instanceof ThisOperator
+	    && firstArg < constrParams.length
+	    && constrParams[firstArg] instanceof LocalLoadOperator
+	    && ((LocalLoadOperator) 
+		constrParams[firstArg]).getLocalInfo().getSlot() == 1) {
+	    if (ovLength == 0 && ovMinSlots == 1)
+		/* It is not sure, if outerValues[0] is present or not.
+		 */
+		unsureOuter = true;
+	    
+	    /* Assume outerValues[0] is there */
+	    ovLength++;
+	    firstArg++;
+	    canHaveOuter = true;
+	}
+
 	if (ovLength > outerValues.length)
 	    return false;
 	int ovSlots = 1;
@@ -362,34 +397,12 @@ public class TransformConstructors implements OuterValueListener {
 				      +ovSlots+" possible: ["
 				      +ovMinSlots+","+ovMaxSlots+"]");
 
-	if (!methodAna.getName().startsWith("constructor$")
-	    || ovSlots < ovMinSlots || ovSlots > ovMaxSlots
-	    || methodType.getReturnType() != Type.tVoid)
+	if (ovSlots < ovMinSlots || ovSlots > ovMaxSlots)
 	    return false;
 
-	if (!isThis(invoke.getSubExpressions()[0], 
-		    clazzAnalyzer.getClazz()))
-	    return false;
-	ClassInfo parent;
-	if (clazzAnalyzer.getParent() instanceof ClassAnalyzer)
-	    parent = ((ClassAnalyzer) clazzAnalyzer.getParent())
-		.getClazz();
-	else if (clazzAnalyzer.getParent() instanceof MethodAnalyzer)
-	    parent = ((MethodAnalyzer) clazzAnalyzer.getParent())
-		.getClazz();
-	else
-	    return false;
-	
-	Expression[] constrParams = invoke.getSubExpressions();
-	if (!isThis(outerValues[0], parent)
-	    || !(constrParams[1] instanceof LocalLoadOperator)
-	    || ((LocalLoadOperator) 
-		constrParams[1]).getLocalInfo().getSlot() != 1)
-	    return false;
 	{
 	    int slot = ovSlots;
-	    int start = 2;
-	    for (int j = start; j < constrParams.length; j++) {
+	    for (int j = firstArg; j < constrParams.length; j++) {
 		if (!(constrParams[j] instanceof LocalLoadOperator))
 		    return false;
 		LocalLoadOperator llop
@@ -403,7 +416,11 @@ public class TransformConstructors implements OuterValueListener {
 	     & GlobalOptions.DEBUG_CONSTRS) != 0)
 	    GlobalOptions.err.println("jikesConstrCont succeded.");
 
-	ovMinSlots = ovMaxSlots = ovSlots;
+	if (unsureOuter) {
+	    ovMaxSlots = 2;
+	} else {
+	    ovMinSlots = ovMaxSlots = ovSlots;
+	}
 	if (superBlock != null
 	    && checkAnonymousConstructor(constr, superBlock)) {
 	    superBlock = null;
@@ -432,7 +449,7 @@ public class TransformConstructors implements OuterValueListener {
 	clazzAnalyzer.setJikesAnonymousInner(jikesAnonInner);
 	constr.setJikesConstructor(true);
 	methodAna.setJikesConstructor(true);
-	methodAna.getParamInfo(1).setExpression(outerValues[0]);
+	methodAna.setHasOuterValue(canHaveOuter);
 	methodAna.analyze();
 	if (constr.isAnonymousConstructor()
 	    && methodAna.getMethodHeader().block instanceof EmptyBlock)
