@@ -89,8 +89,25 @@ public final class InvokeOperator extends Operator {
     }
 
     public String toString(String[] operands) {
-        String object = 
-            methodType.isStatic()
+        String object = null;
+        if (specialFlag) {
+            if (operands[0].equals("this")) {
+                Class clazz = codeAnalyzer.method.classAnalyzer.clazz;
+                object = "";
+                while (clazz != null 
+                       && !classType.equals(Type.tType(clazz))) {
+                    object = "super";
+                    clazz = clazz.getSuperclass();
+                }
+                
+                if (clazz == null)
+                    object = "ERROR-SPECIAL";
+            } else
+                object = "ERROR-SPECIAL";
+        }
+            
+        object = (object != null) ? object
+            : methodType.isStatic()
             ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
                ? ""
                : classType.toString())
@@ -103,11 +120,9 @@ public final class InvokeOperator extends Operator {
                : operands[0]);
 
         int arg = methodType.isStatic() ? 0 : 1;
-        String method;
-        if (isConstructor())
-            method = (object.length() == 0 ? "this" : object);
-        else
-            method = (object.length() == 0 ? "" : object + ".") + methodName;
+        String method = isConstructor() 
+            ? (object.length() == 0 ? "this" : object)
+            : (object.length() == 0 ? "" : object + ".") + methodName;
 
         StringBuffer params = new StringBuffer();
         for (int i=0; i < methodType.getParameterTypes().length; i++) {
