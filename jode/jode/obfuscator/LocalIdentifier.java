@@ -19,6 +19,14 @@
 
 package jode.obfuscator;
 
+///#ifdef JDK12
+///import java.util.Collections;
+///import java.util.Iterator;
+///#else
+import jode.util.Collections;
+import jode.util.Iterator;
+///#endif
+
 public class LocalIdentifier extends Identifier {
     String name;
     String type;
@@ -37,7 +45,8 @@ public class LocalIdentifier extends Identifier {
 	return type;
     }
 
-    public void applyPreserveRule(IdentifierMatcher preserveRule) {
+    public Iterator getChilds() {
+	return Collections.EMPTY_LIST.iterator();
     }
 
     public Identifier getParent() {
