@@ -70,6 +70,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
             addr = instr[addr].getNextAddr();
         }
 	methodHeader = instr[0];
+        methodHeader.makeStartBlock();
         /* XXX do something with handlers */
     }
 
@@ -101,11 +102,11 @@ public class CodeAnalyzer implements Analyzer, Constants {
         new jode.flow.CreateExpression(),
 //         new CreatePostIncExpression(),
 //         new CreateAssignExpression(),
-//         new CreateNewConstructor(),
-//         new CombineIfGotoExpressions(),
+        new jode.flow.CreateNewConstructor(),
+        new jode.flow.CombineIfGotoExpressions(),
 //         new CreateIfThenElseOperator(),
 //         new CreateConstantArray(),
-//         new SimplifyExpression()
+        new jode.flow.SimplifyExpression()
     };
 
     public void analyze()
@@ -113,6 +114,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
         /* XXX optimize */
         Stack todo = new Stack();
         FlowBlock flow = methodHeader;
+    analyzation:
         while (true) {
 
             /* First do some non flow transformations. */
@@ -134,31 +136,37 @@ public class CodeAnalyzer implements Analyzer, Constants {
             }
 
             FlowBlock succ = flow.getSuccessor();
-            if (succ != null) {
+            while (succ != null && !flow.doT1(succ)) {
 
-                if (!flow.doT1(succ)) {
-
-                    /* T1 transformation failed, now succeed with
+                /* T1 transformation failed. */
+                if (!todo.contains(succ) && succ != flow) {
+                    /* succ wasn't tried before, succeed with
                      * successor and put flow on the stack.  
                      */
-                    if (todo.contains(succ)) {
-                        /* This is a sign that the flow graph is not
-                         * reducible.  We give up immediately!
-                         */
-                        break;
-                    }
                     todo.push(flow);
                     flow = succ;
+                    continue analyzation;
                 }
-            } else {
-                /* Block has no successor.
+                
+                /* Try the next successor.
+                 */
+                succ = flow.getSuccessor(succ);
+            }
+            if (succ == null) {
+                /* the Block has no successor where t1 is applicable.
                  *
                  * If everything is okay the stack should be empty now,
                  * and the program is transformed correctly.
                  *
                  * Otherwise flow transformation didn't succeeded.
                  */
-                break;
+                System.err.println("breaking analyzation; flow: "
+                                   + flow.getLabel());
+                while (!todo.isEmpty()) {
+                    System.err.println("on Stack: "
+                                       + ((FlowBlock)todo.pop()).getLabel());
+                }
+                break analyzation;
             }
         }
     }

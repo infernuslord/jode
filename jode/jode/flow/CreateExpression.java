@@ -44,16 +44,20 @@ public class CreateExpression implements Transformation {
         int params;
         StructuredBlock block;
 
+
         try {
-            jode.TabbedPrintWriter writer = 
-                new jode.TabbedPrintWriter(System.err, "    ");
-            writer.tab();
             System.err.println("Transformation on: "+flow.getLabel());
-            flow.block.dumpSource(writer);
             flow.checkConsistent();
-            System.err.println("; lastModified is: ");
-            flow.lastModified.dumpSource(writer);
-        } catch (java.io.IOException ex) {}
+        } catch (RuntimeException ex) {
+            try {
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
+                flow.block.dumpSource(writer);
+            } catch (java.io.IOException ioex) {
+            }
+        }
+
         try {
             SequentialBlock sequBlock;
             block = flow.lastModified;

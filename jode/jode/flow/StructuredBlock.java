@@ -284,7 +284,8 @@ public abstract class StructuredBlock {
      * @param succs The vector, the successors should be stored to.
      */
     public void fillSuccessors(java.util.Vector succs) {
-        succs.addElement(jump);
+        if (jump != null)
+            succs.addElement(jump);
         StructuredBlock[] subs = getSubBlocks();
         for (int i=0; i<subs.length; i++) {
             subs[i].fillSuccessors(succs);
