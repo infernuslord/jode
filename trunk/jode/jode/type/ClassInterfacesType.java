@@ -29,8 +29,8 @@ import java.util.Stack;
  * type must extend and which interfaces it must implement.
  *
  * If this is the top boundary, this gives all interfaces and classes
- * that may extend the type.  I.e. the type may be one of the
- * interfaces or the class type or any of their super types.
+ * that may extend the type.  I.e. at least one interface or class extends
+ * the searched type.
  *
  * @author Jochen Hoenicke */
 public class ClassInterfacesType extends Type {
@@ -156,7 +156,12 @@ public class ClassInterfacesType extends Type {
                 ifaces[count++] = (this.ifaces[j]);
             }
 
-            if (count < ifaces.length) {
+	    if (clazz == null && count == 0) {
+		/* There are no more possible interfaces or classes left.
+		 * This is a type error.
+		 */
+		return tError;
+	    } else if (count < ifaces.length) {
                 ClassInfo[] shortIfaces = new ClassInfo[count];
                 System.arraycopy(ifaces, 0, shortIfaces, 0, count);
                 ifaces = shortIfaces;
