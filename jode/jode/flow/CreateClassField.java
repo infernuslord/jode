@@ -57,7 +57,7 @@ public class CreateClassField {
 
 	ComplexExpression ass = (ComplexExpression) instr;
 	PutFieldOperator put = (PutFieldOperator) ass.getOperator();
-	if (!put.isSynthetic()
+	if (!put.getField().isSynthetic()
 	    || !put.matches((GetFieldOperator)cmp.getSubExpressions()[0])
 	    || !(ass.getSubExpressions()[0] instanceof ComplexExpression)
 	    || !(ass.getSubExpressions()[0].getOperator() 

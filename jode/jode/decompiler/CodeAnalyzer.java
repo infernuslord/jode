@@ -186,8 +186,6 @@ public class CodeAnalyzer implements Analyzer {
             
         excHandlers.analyze();
         methodHeader.analyze();
-	if (!Decompiler.usePUSH && methodHeader.mapStackToLocal())
-	    methodHeader.removePush();
     } 
 
     public void analyze()
@@ -195,6 +193,9 @@ public class CodeAnalyzer implements Analyzer {
         byte[] codeArray = code.getCode();
         int[] handlers = code.getExceptionHandlers();
         readCode(codeArray, handlers);
+	if (!Decompiler.usePUSH && methodHeader.mapStackToLocal())
+	    methodHeader.removePush();
+
         Enumeration enum = allLocals.elements();
         while (enum.hasMoreElements()) {
             LocalInfo li = (LocalInfo)enum.nextElement();
