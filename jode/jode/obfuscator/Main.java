@@ -28,9 +28,11 @@ import java.io.PrintWriter;
 import java.io.File;
 ///#ifdef JDK12
 ///import java.util.Collection;
+///import java.util.Arrays;
 ///import java.util.HashSet;
 ///#else
 import jode.util.Collection;
+import jode.util.Arrays;
 import jode.util.HashSet;
 ///#endif
 
@@ -179,6 +181,19 @@ public class Main {
 
     public static ClassBundle getClassBundle() {
 	return bundle;
+    }
+
+    public static CodeAnalyzer createCodeAnalyzer() {
+	return new ConstantAnalyzer() /*XXX*/;
+    }
+
+    static CodeTransformer[] codeTransformers = {
+	new LocalOptimizer(),
+	new RemovePopAnalyzer()
+    };
+    
+    public static Collection getCodeTransformers() {
+	return Arrays.asList(codeTransformers);
     }
 
     public static void main(String[] params) {
