@@ -145,7 +145,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     }
 
     public void analyze() {
-	if (Obfuscator.isDebugging)
+	if (Obfuscator.verboseLevel > 1)
 	    Obfuscator.err.println("Analyze: "+this);
 
 	String type = getType();
@@ -258,16 +258,14 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		case opc_invokeinterface:
 		case opc_invokevirtual: {
 		    Reference ref = (Reference) instr.objData;
-		    ClassIdentifier ci = (ClassIdentifier)
-			clazz.bundle.getIdentifier(ref.getClazz());
+		    MethodIdentifier mi = (MethodIdentifier)
+			clazz.bundle.getIdentifier(ref);
 		    String newType = clazz.bundle.getTypeAlias(ref.getType());
-		    
-		    if (ci != null) {
-			MethodIdentifier mi = (MethodIdentifier) 
-			    ci.getIdentifier(ref.getName(), ref.getType());
+		    if (mi != null)
 			instr.objData = new Reference
-			    (ci.getFullAlias(), mi.getAlias(), newType);
-		    } else 
+			    ("L"+mi.clazz.getFullAlias().replace('.','/')+';',
+			     mi.getAlias(), newType);
+		    else 
 			instr.objData = new Reference
 			    (ref.getClazz(), ref.getName(), newType);
 		    break;
@@ -278,13 +276,12 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		case opc_getfield: {
 		    Reference ref = (Reference) instr.objData;
 		    String newType = clazz.bundle.getTypeAlias(ref.getType());
-		    ClassIdentifier ci = (ClassIdentifier)
-			clazz.bundle.getIdentifier(ref.getClazz());
-		    if (ci != null) {
-			FieldIdentifier fi = (FieldIdentifier) 
-			    ci.getIdentifier(ref.getName(), ref.getType());
+		    FieldIdentifier fi = (FieldIdentifier) 
+			clazz.bundle.getIdentifier(ref);
+		    if (fi != null) {
 			instr.objData = new Reference
-			    (ci.getFullAlias(), fi.getAlias(), newType);
+			    ("L"+fi.clazz.getFullAlias().replace('.','/')+';',
+			     fi.getAlias(), newType);
 		    } else 
 			instr.objData = new Reference
 			    (ref.getClazz(), ref.getName(), newType);
@@ -292,19 +289,11 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    break;
 		}
 		case opc_new:
-		case opc_anewarray:
 		case opc_checkcast:
 		case opc_instanceof:
 		case opc_multianewarray: {
 		    String clName = (String) instr.objData;
-		    if (clName.charAt(0) == '[') {
-			clName = clazz.bundle.getTypeAlias(clName);
-		    } else {
-			ClassIdentifier ci = (ClassIdentifier) 
-			    clazz.bundle.getIdentifier(clName);
-			if (ci != null)
-			    clName = ci.getFullAlias();
-		    }
+		    clName = clazz.bundle.getTypeAlias(clName);
 		    instr.objData = clName;
 		    break;
 		}
@@ -314,8 +303,8 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    Handler[] handlers = strippedBytecode.getExceptionHandlers();
 	    for (int i=0; i< handlers.length; i++) {
 		if (handlers[i].type != null) {
-		    ClassIdentifier ci = (ClassIdentifier) 
-			clazz.bundle.getIdentifier(handlers[i].type);
+		    ClassIdentifier ci =
+			clazz.bundle.getClassIdentifier(handlers[i].type);
 		    if (ci != null)
 		    handlers[i].type = ci.getFullAlias();
 		}
@@ -347,12 +336,12 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	    exceptionsIndex = gcp.putUTF("Exceptions");
 	    excIndices = new int[exceptions.length];
 	    for (int i=0; i< exceptions.length; i++) {
-		ClassIdentifier ci = (ClassIdentifier) 
-		    clazz.bundle.getIdentifier(exceptions[i]);
+		ClassIdentifier ci =
+		    clazz.bundle.getClassIdentifier(exceptions[i]);
 		if (ci != null)
-		    excIndices[i] = gcp.putClassRef(ci.getFullAlias());
+		    excIndices[i] = gcp.putClassName(ci.getFullAlias());
 		else
-		    excIndices[i] = gcp.putClassRef(exceptions[i]);
+		    excIndices[i] = gcp.putClassName(exceptions[i]);
 	    }
 	    exceptions = null;
 	}
