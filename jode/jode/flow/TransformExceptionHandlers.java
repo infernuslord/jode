@@ -189,18 +189,19 @@ public class TransformExceptionHandlers {
 	} else if (firstInstr instanceof InstructionBlock) {
             Expression instr = 
                 ((InstructionBlock) firstInstr).getInstruction();
-            if (instr instanceof LocalStoreOperator) {
+            if (instr instanceof StoreInstruction
+		&& (((StoreInstruction)instr).getLValue()
+		    instanceof LocalStoreOperator)) {
                 /* The exception is stored in a local variable */
-                local = ((LocalStoreOperator) instr).getLocalInfo();
+                local = ((LocalStoreOperator) 
+			 ((StoreInstruction)instr).getLValue()).getLocalInfo();
                 firstInstr.removeBlock();
             }
         }
 
-        if (local == null) {
-            local = new LocalInfo();
-            local.setName("ERROR!!!");
-        }
-        local.setType(type);
+        if (local != null) {
+	    local.setType(type);
+	}
 
         CatchBlock newBlock = new CatchBlock(type, local);
         ((TryBlock)tryFlow.block).addCatchBlock(newBlock);
@@ -222,9 +223,12 @@ public class TransformExceptionHandlers {
         SequentialBlock sequBlock = (SequentialBlock) subRoutine;
         InstructionBlock instr = (InstructionBlock)sequBlock.subBlocks[0];
         
-        if (! (instr.getInstruction() instanceof LocalStoreOperator))
+        if (!(instr.getInstruction() instanceof StoreInstruction)
+	    || !(((StoreInstruction) instr.getInstruction()).getLValue()
+		 instanceof LocalStoreOperator))
             return false;
-        LocalStoreOperator store = (LocalStoreOperator) instr.getInstruction();
+        LocalStoreOperator store = (LocalStoreOperator) 
+	    ((StoreInstruction)instr.getInstruction()).getLValue();
         
         while (sequBlock.subBlocks[1] instanceof SequentialBlock)
             sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
@@ -297,18 +301,20 @@ public class TransformExceptionHandlers {
                              * in this case.
                              */
                             try {
-                                ComplexExpression expr = (ComplexExpression)
+                                StoreInstruction store = (StoreInstruction)
                                     ((InstructionBlock)
                                      ret.outer.getSubBlocks()[0]).instr;
-                                LocalStoreOperator store = 
-                                    (LocalStoreOperator) expr.getOperator();
-                                if (store.matches((LocalLoadOperator)
-                                                  ret.getInstruction())) {
-                                    ret.setInstruction(expr.
-                                                       getSubExpressions()[0]);
+				LocalInfo local = 
+				    ((LocalStoreOperator) store.getLValue())
+				    .getLocalInfo();
+				if (store.lvalueMatches
+				    ((LocalLoadOperator)
+				     ret.getInstruction())) {
+				    Expression expr = 
+					store.getSubExpressions()[1];
+				    ret.setInstruction(expr);
                                     ret.replace(ret.outer);
-                                    ret.used.removeElement
-                                        (store.getLocalInfo());
+                                    ret.used.removeElement(local);
                                 }
                             } catch(ClassCastException ex) {
                                 /* didn't succeed */
@@ -387,11 +393,11 @@ public class TransformExceptionHandlers {
     }
 
     static boolean isMonitorExit(Expression instr, LocalInfo local) {
-        if (instr instanceof ComplexExpression) {
-            ComplexExpression expr = (ComplexExpression)instr;
-            if (expr.getOperator() instanceof MonitorExitOperator
-                && expr.getSubExpressions()[0] instanceof LocalLoadOperator
-                && (((LocalLoadOperator) expr.getSubExpressions()[0])
+        if (instr instanceof MonitorExitOperator) {
+            MonitorExitOperator monExit = (MonitorExitOperator)instr;
+            if (monExit.getFreeOperandCount() == 0
+                && monExit.getSubExpressions()[0] instanceof LocalLoadOperator
+                && (((LocalLoadOperator) monExit.getSubExpressions()[0])
                     .getLocalInfo().getSlot() == local.getSlot())) {
                 return true;
             }
@@ -451,16 +457,7 @@ public class TransformExceptionHandlers {
                         if (pred instanceof InstructionBlock) {
                             Expression instr = 
                                 ((InstructionBlock)pred).getInstruction();
-                            if (instr instanceof ComplexExpression
-                                && ((ComplexExpression)instr)
-                                .getOperator() instanceof MonitorExitOperator
-                                && ((ComplexExpression)instr)
-                                .getSubExpressions()[0] 
-                                instanceof LocalLoadOperator
-                                && (((LocalLoadOperator) 
-                                     ((ComplexExpression)instr)
-                                     .getSubExpressions()[0]).getLocalInfo()
-                                    .getSlot() == local.getSlot())) 
+			    if (isMonitorExit(instr, local))
                                 continue;
                         }
                     }
@@ -522,14 +519,13 @@ public class TransformExceptionHandlers {
         Expression instr = 
             ((InstructionBlock)catchBlock.subBlocks[0]).getInstruction();
         
-        if (instr instanceof ComplexExpression
-            && ((ComplexExpression)instr).getOperator() 
-            instanceof MonitorExitOperator
-            && ((ComplexExpression)instr).getSubExpressions()[0] 
-            instanceof LocalLoadOperator
+        if (instr instanceof MonitorExitOperator
+	    && instr.getFreeOperandCount() == 0
+            && (((MonitorExitOperator)instr).getSubExpressions()[0] 
+		instanceof LocalLoadOperator)
             && catchBlock.subBlocks[1] instanceof ThrowBlock
-            && ((ThrowBlock)catchBlock.subBlocks[1]).instr 
-            instanceof NopOperator) {
+            && (((ThrowBlock)catchBlock.subBlocks[1]).instr 
+		instanceof NopOperator)) {
 
             /* This is a synchronized block:
              *
@@ -558,11 +554,11 @@ public class TransformExceptionHandlers {
              */
             
             catchFlow.removeSuccessor(catchBlock.subBlocks[1].jump);
-            ComplexExpression monexit = (ComplexExpression)
+            MonitorExitOperator monexit = (MonitorExitOperator)
                 ((InstructionBlock) catchBlock.subBlocks[0]).instr;
             LocalInfo local = 
                 ((LocalLoadOperator)monexit.getSubExpressions()[0])
-                    .getLocalInfo();
+		.getLocalInfo();
             tryFlow.mergeAddr(catchFlow);
 
             checkAndRemoveMonitorExit
@@ -639,11 +635,11 @@ public class TransformExceptionHandlers {
 
         if (catchBlock instanceof SequentialBlock
             && catchBlock.getSubBlocks()[0] instanceof JsrBlock
-            && instr instanceof LocalStoreOperator
+            && instr instanceof StoreInstruction
             && catchBlock.getSubBlocks()[1] instanceof ThrowBlock
             && (((ThrowBlock)catchBlock.getSubBlocks()[1]).instr
                 instanceof LocalLoadOperator)
-            && (((LocalStoreOperator) instr).matches
+            && (((StoreInstruction) instr).lvalueMatches
                 ((LocalLoadOperator)
                  ((ThrowBlock)catchBlock.getSubBlocks()[1]).instr))) {
 

@@ -29,62 +29,56 @@ public class CreateConstantArray {
         /* Situation:
          *  PUSH new Array[]      // or a constant array operator.
          *  DUP                   // duplicate array reference
-         *  PUSH index
-         *  PUSH value
-         *  stack_2[stack_1] = stack_0
+         *  POP[index] = value
          *  ...
          */
         if (last.outer instanceof SequentialBlock) {
 
 	    SequentialBlock sequBlock = (SequentialBlock) last.outer;
 
-	    Operator storeOp = ic.getInstruction().getOperator();
-            if (!(ic.getInstruction() instanceof ComplexExpression)
-		|| !(ic.getInstruction().getOperator() 
-		     instanceof ArrayStoreOperator)
-		|| ic.getInstruction().getOperandCount() != 1
+            if (!(ic.getInstruction() instanceof StoreInstruction)
+		|| ic.getInstruction().getFreeOperandCount() != 1
                 || !(sequBlock.subBlocks[0] instanceof SpecialBlock)
                 || !(sequBlock.outer instanceof SequentialBlock))
                 return false;
 
-	    ComplexExpression storeExpr
-		= (ComplexExpression) ic.getInstruction();
-            ArrayStoreOperator store
-		= (ArrayStoreOperator) storeExpr.getOperator();
+            StoreInstruction store = (StoreInstruction) ic.getInstruction();
 
-	    Expression[] storeSub = storeExpr.getSubExpressions();
-	    if (!(storeSub[0] instanceof NopOperator)
-		|| !(storeSub[1] instanceof ConstOperator))
+	    if (!(store.getLValue() instanceof ArrayStoreOperator))
 		return false;
 
-            Expression expr = storeSub[2];
-            ConstOperator indexOp = (ConstOperator) storeSub[1];
+	    ArrayStoreOperator lvalue = (ArrayStoreOperator) store.getLValue();
+
+	    if (!(lvalue.getSubExpressions()[0] instanceof NopOperator)
+		|| !(lvalue.getSubExpressions()[1] instanceof ConstOperator))
+		return false;
+
+            Expression expr = store.getSubExpressions()[1];
+            ConstOperator indexOp 
+		= (ConstOperator) lvalue.getSubExpressions()[1];
             SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
             sequBlock = (SequentialBlock) sequBlock.outer;
 
             if (dup.type != SpecialBlock.DUP
                 || dup.depth != 0 || dup.count != 1
+		|| !(indexOp.getType().isOfType(Type.tUInt))
                 || !(sequBlock.subBlocks[0] instanceof InstructionBlock))
                 return false;
 
             int index = Integer.parseInt(indexOp.getValue());
             InstructionBlock ib = (InstructionBlock)sequBlock.subBlocks[0];
 
-            if (ib.getInstruction() instanceof ComplexExpression
-                && (ib.getInstruction().getOperator()
-                    instanceof NewArrayOperator)) {
+            if (ib.getInstruction() instanceof NewArrayOperator) {
                 /* This is the first element */
-                ComplexExpression newArrayExpr = 
-                    (ComplexExpression) ib.getInstruction();
-                NewArrayOperator newArrayOp = 
-                    (NewArrayOperator) newArrayExpr.getOperator();
-                if (newArrayOp.getOperandCount() != 1
-                    || !(newArrayExpr.getSubExpressions()[0]
+                NewArrayOperator newArray = 
+                    (NewArrayOperator) ib.getInstruction();
+                if (newArray.getDimensions() != 1
+                    || !(newArray.getSubExpressions()[0]
                          instanceof ConstOperator))
                     return false;
                     
                 ConstOperator countop = 
-                    (ConstOperator) newArrayExpr.getSubExpressions()[0];
+                    (ConstOperator) newArray.getSubExpressions()[0];
                 if (!countop.getType().isOfType(Type.tUInt))
                     return false;
 
@@ -96,7 +90,7 @@ public class CreateConstantArray {
                     GlobalOptions.err.print('a');
 
                 ConstantArrayOperator cao 
-                    = new ConstantArrayOperator(newArrayOp.getType(), 
+                    = new ConstantArrayOperator(newArray.getType(), 
                                                 arraylength);
                 cao.setValue(index, expr);
                 ic.setInstruction(cao);

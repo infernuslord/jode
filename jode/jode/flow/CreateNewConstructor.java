@@ -19,35 +19,122 @@
 
 package jode.flow;
 import jode.expr.*;
+import jode.bytecode.Reference;
+import jode.decompiler.CodeAnalyzer;
+import jode.type.Type;
 
 public class CreateNewConstructor {
 
     public static boolean transform(InstructionContainer ic,
                                     StructuredBlock last) {
-        /* Situation:
+	return transformNormal(ic, last) || transformJikesString(ic, last);
+    }
+
+    static boolean transformJikesString(InstructionContainer ic,
+					StructuredBlock last) {
+        /* special Situation for Jikes String +=:
          *
+	 *   PUSH new StringBuffer()
+	 *   SWAP
+	 *   PUSH POP.append(POP)
+         *
+         * We transform it to javac String +=:
+	 *
+	 *   PUSH new StringBuffer(String.valueOf(POP))
+	 */
+        if (!(last.outer instanceof SequentialBlock)
+	    || !(ic.getInstruction() instanceof InvokeOperator))
+            return false;
+
+        InvokeOperator appendCall = (InvokeOperator) ic.getInstruction();
+        if (!appendCall.getClassType().equals(Type.tStringBuffer)
+	    || !appendCall.isFreeOperator(2)
+            || appendCall.isStatic() 
+            || !appendCall.getMethodName().equals("append")
+            || appendCall.getMethodType().getParameterTypes().length != 1)
+	    return false;
+
+	SequentialBlock sequBlock = (SequentialBlock) last.outer;
+	if (!(sequBlock.outer instanceof SequentialBlock)
+	    || !(sequBlock.subBlocks[0] instanceof SpecialBlock))
+	    return false;
+
+	SpecialBlock swapBlock = (SpecialBlock) sequBlock.subBlocks[0];
+	sequBlock = (SequentialBlock) sequBlock.outer;
+	if (swapBlock.type != SpecialBlock.SWAP
+	    || !(sequBlock.subBlocks[0] instanceof InstructionBlock)
+	    || !(sequBlock.outer instanceof SequentialBlock))
+	    return false;
+
+	InstructionBlock ib = (InstructionBlock) sequBlock.subBlocks[0];
+	sequBlock = (SequentialBlock) sequBlock.outer;
+	if (!(ib.getInstruction() instanceof ConstructorOperator)
+	    || !(sequBlock.subBlocks[0] instanceof InstructionBlock))
+	    return false;
+
+	ConstructorOperator constr = (ConstructorOperator) ib.getInstruction();
+	ib = (InstructionBlock) sequBlock.subBlocks[0];
+
+	if (constr.getClassType() != Type.tStringBuffer
+	    || constr.isVoid()
+	    || constr.getMethodType().getParameterTypes().length != 0)
+	    return false;
+
+	/* Okay everything checked. */
+	CodeAnalyzer codeAna = constr.getCodeAnalyzer();
+	Expression expr = ib.getInstruction();
+	Type appendType = appendCall.getMethodType().getParameterTypes()[0];
+	if (!appendType.equals(Type.tString)) {
+	    InvokeOperator valueOf = new InvokeOperator
+		(codeAna, true, false,
+		 Reference.getReference("Ljava/lang/String;", "valueOf",
+					"(" + appendType.getTypeSignature()
+					+ ")Ljava/lang/String;"));
+	    expr = valueOf.addOperand(expr);
+	}
+	ConstructorOperator newConstr = new ConstructorOperator
+	    (Reference.getReference("Ljava/lang/StringBuffer;", "<init>",
+				    "(Ljava/lang/String;)V"), codeAna, false);
+	ic.setInstruction(newConstr.addOperand(expr));
+	last.replace(sequBlock);
+	return true;
+    }
+
+    static boolean transformNormal(InstructionContainer ic,
+				   StructuredBlock last) {
+        /* Situation (normal):
+	 *
          *  new <object>
          *  (optional DUP)
+	 *  (void resolved expressions)
+         *  stack_n.<init>(resolved expressions)
+         *
+         * transform it to
+         *
+         *  (optional PUSH) new <object>((optional: stack_n), 
+	 *                               resolved expressions)
+	 *
+	 * special situation for string1 += string2:
+	 *
+         *  new <object>
+         *  (optional DUP)
+	 *  (void resolved expressions)
          *  PUSH load_ops
-         *  optionally:  <= used for "string1 += string2"
-         *      DUP_X2/1  <= 2 if above DUP is present
-         *  stack_n.<init>((optional: stack_n), resolved expressions)
+         *  DUP_X2/1  <= 2 if above DUP is present
+         *  stack_n.<init>(stack_n, resolved expressions)
          *
          * transform it to
          *
          *  PUSH load_ops
-         *  optionally:
-         *      DUP       <= remove the depth
-         *  (optional PUSH) new <object>((optional: stack_n), 
-	 *                               resolved expressions)
+         *  DUP       <= remove the depth
+         *  (optional PUSH) new <object>(stack_n, resolved expressions)
          */
 
         if (!(last.outer instanceof SequentialBlock))
             return false;
-        if (!(ic.getInstruction().getOperator() instanceof InvokeOperator))
+        if (!(ic.getInstruction() instanceof InvokeOperator))
             return false;
-	Expression constrExpr = ic.getInstruction();
-        InvokeOperator constrCall = (InvokeOperator) constrExpr.getOperator();
+        InvokeOperator constrCall = (InvokeOperator) ic.getInstruction();
         if (!constrCall.isConstructor())
             return false;
 
@@ -55,13 +142,12 @@ public class CreateNewConstructor {
 
         SpecialBlock optDupX2 = null;
         SequentialBlock sequBlock = (SequentialBlock) last.outer;
-
-	if (constrExpr instanceof ComplexExpression) {
-	    Expression[] subs = 
-		((ComplexExpression) constrExpr).getSubExpressions();
+	Expression[] subs = constrCall.getSubExpressions();
+	int opcount = constrCall.getFreeOperandCount();
+	if (subs != null) {
 	    if (!(subs[0] instanceof NopOperator))
 		return false;
-	    if (constrExpr.getOperandCount() > 1) {
+	    if (constrCall.getFreeOperandCount() > 1) {
 		if (!(sequBlock.outer instanceof SequentialBlock)
 		    || !(sequBlock.subBlocks[0] instanceof SpecialBlock))
 		    return false;
@@ -71,7 +157,6 @@ public class CreateNewConstructor {
 		    || optDupX2.depth == 0)
 		    return false;
 		int count = optDupX2.count;
-		int opcount = constrExpr.getOperandCount() - 1;
 		do {
 		    if (!(sequBlock.outer instanceof SequentialBlock)
 			|| !(sequBlock.subBlocks[0] 
@@ -86,19 +171,22 @@ public class CreateNewConstructor {
 			continue;
 		    count -= expr.getType().stackSize();
 		    opcount--;
-		} while (count > 0 && opcount > 0);
-		if (opcount != 0 || count != 0)
+		} while (count > 0 && opcount > 1);
+		if (count != 0)
 		    return false;
-	    } else if (constrExpr.getOperandCount() != 1)
-		return false;
-	} else if (constrExpr.getOperandCount() != 1)
+	    }
+	}
+	if (opcount != 1)
 	    return false;
 	
-        while (sequBlock.subBlocks[0] instanceof InstructionBlock
-               && ((InstructionBlock)sequBlock.subBlocks[0])
-               .getInstruction().isVoid()
-               && sequBlock.outer instanceof SequentialBlock)
+	while (sequBlock.subBlocks[0] instanceof InstructionBlock
+	       && sequBlock.outer instanceof SequentialBlock) {
+	    Expression expr
+		= ((InstructionBlock)sequBlock.subBlocks[0]).getInstruction();
+	    if (!expr.isVoid() || expr.getFreeOperandCount() > 0)
+		break;
             sequBlock = (SequentialBlock) sequBlock.outer;
+	}
                
         SpecialBlock dup = null;
         if (sequBlock.outer instanceof SequentialBlock
@@ -133,14 +221,9 @@ public class CreateNewConstructor {
 	Expression newExpr = new ConstructorOperator
 	    (constrCall, dup == null);
 
-	if (constrExpr instanceof ComplexExpression) {
-	    Expression[] subs = 
-		((ComplexExpression)constrExpr).getSubExpressions();
-	    for (int i=subs.length - 1; i>=1; i--) {
-		if (subs[i] instanceof NopOperator)
-		    break;
+	if (subs != null) {
+	    for (int i=subs.length; i-- > 1; )
 		newExpr = newExpr.addOperand(subs[i]);
-	    }
 	}
 	ic.setInstruction(newExpr);
         return true;

@@ -21,7 +21,6 @@ package jode.flow;
 import jode.decompiler.TabbedPrintWriter;
 import jode.type.*;
 import jode.expr.Expression;
-import jode.expr.ComplexExpression;
 import jode.expr.InvokeOperator;
 import jode.expr.ConstructorOperator;
 import jode.expr.LocalLoadOperator;
@@ -64,7 +63,7 @@ public class TryBlock extends StructuredBlock {
 	tryFlow.checkConsistent();
     }
 
-    public void addCatchBlock(CatchBlock catchBlock) {
+    public void addCatchBlock(StructuredBlock catchBlock) {
         StructuredBlock[] newSubBlocks = 
             new StructuredBlock[subBlocks.length+1];
         System.arraycopy(subBlocks, 0, newSubBlocks, 0, subBlocks.length);
@@ -164,49 +163,41 @@ public class TryBlock extends StructuredBlock {
 	    ((InstructionBlock)subBlocks[0]).getInstruction();
 	CatchBlock catchBlock = (CatchBlock) subBlocks[1];
 
-	if (instr.isVoid()
-	    || !(instr instanceof ComplexExpression)
-	    || !(instr.getOperator() instanceof InvokeOperator)
+	if (instr.isVoid() || instr.getFreeOperandCount() != 0
+	    || !(instr instanceof InvokeOperator)
 	    || !(catchBlock.catchBlock instanceof ThrowBlock)
 	    || !(catchBlock.exceptionType.equals
 		 (Type.tClass("java.lang.CloneNotSupportedException"))))
 	    return false;
 
-	
-	InvokeOperator arrayClone = 
-	    (InvokeOperator) instr.getOperator();
+	InvokeOperator arrayClone = (InvokeOperator) instr;
 	if (!arrayClone.getMethodName().equals("clone")
 	    || arrayClone.isStatic()
-	    || (arrayClone.getMethodType().getParameterTypes()
-		.length != 0)
-	    || (arrayClone.getMethodType().getReturnType() 
-		!= Type.tObject)
-	    || !(((ComplexExpression) instr).getSubExpressions()[0]
+	    || !(arrayClone.getMethodType().getTypeSignature()
+		 .equals("()Ljava/lang/Object;"))
+	    || !(arrayClone.getSubExpressions()[0]
 		 .getType().isOfType(Type.tArray(Type.tUnknown))))
 	    return false;
 	
 	Expression throwExpr = 
 	    ((ThrowBlock) catchBlock.catchBlock).getInstruction();
 	
-	if (!(throwExpr instanceof ComplexExpression)
-	    || !(throwExpr.getOperator() instanceof ConstructorOperator))
+	if (throwExpr.getFreeOperandCount() != 0
+	    || !(throwExpr instanceof ConstructorOperator))
 	    return false;
 	
-	ConstructorOperator throwOp =
-	    (ConstructorOperator) throwExpr.getOperator();
+	ConstructorOperator throwOp = (ConstructorOperator) throwExpr;
 	
 	if (!(throwOp.getClassType()
 	      .equals(Type.tClass("java.lang.InternalError")))
 	    || throwOp.getMethodType().getParameterTypes().length != 1)
 	    return false;
 	
-	Expression getMethodExpr = 
-	    ((ComplexExpression) throwExpr).getSubExpressions()[0];
-	if (!(getMethodExpr instanceof ComplexExpression)
-	    || !(getMethodExpr.getOperator() instanceof InvokeOperator))
+	Expression getMethodExpr = throwOp.getSubExpressions()[0];
+	if (!(getMethodExpr instanceof InvokeOperator))
 	    return false;
 
-	InvokeOperator invoke = (InvokeOperator) getMethodExpr.getOperator();
+	InvokeOperator invoke = (InvokeOperator) getMethodExpr;
 	if (!invoke.getMethodName().equals("getMessage")
 	    || invoke.isStatic()
 	    || (invoke.getMethodType().getParameterTypes()
@@ -215,12 +206,12 @@ public class TryBlock extends StructuredBlock {
 		!= Type.tString))
 	    return false;
 	
-	Expression exceptExpr = 
-	    ((ComplexExpression) getMethodExpr).getSubExpressions()[0];
+	Expression exceptExpr = invoke.getSubExpressions()[0];
 	if (!(exceptExpr instanceof LocalLoadOperator)
 	    || !(((LocalLoadOperator) exceptExpr).getLocalInfo()
 		 .equals(catchBlock.exceptionLocal)))
 	    return false;
+
 	subBlocks[0].replace(this);
 	if (flowBlock.lastModified == this)
 	    flowBlock.lastModified = subBlocks[0];

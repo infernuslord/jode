@@ -40,7 +40,7 @@ public class CreateExpression {
      */
     public static boolean transform(InstructionContainer ic,
                                     StructuredBlock last) {
-        int params = ic.getInstruction().getOperandCount();
+        int params = ic.getInstruction().getFreeOperandCount();
         if (params == 0)
             return false;
 
@@ -61,9 +61,9 @@ public class CreateExpression {
 	    if (!expr.isVoid())
 		break;
 
-	    if (expr.getOperandCount() > 0
-		|| !(expr.getOperator() instanceof CombineableOperator)
-		|| lastExpression.canCombine(expr) <= 0)
+	    if (expr.getFreeOperandCount() > 0
+		|| !(expr instanceof CombineableOperator)
+		|| lastExpression.canCombine((CombineableOperator) expr) <= 0)
 		return false;
 
 	    /* Hmm, we should really set lastExpression to
@@ -103,12 +103,13 @@ public class CreateExpression {
 		break;
 	    }
 
-	    lastExpression = lastExpression.combine(expr);
+	    lastExpression = lastExpression.combine
+		((CombineableOperator) expr);
             sequBlock = (SequentialBlock)sequBlock.outer;
         }
 
         if (GlobalOptions.verboseLevel > 0
-	    && lastExpression.getOperandCount() == 0)
+	    && lastExpression.getFreeOperandCount() == 0)
             GlobalOptions.err.print('x');
 
 	ic.setInstruction(lastExpression);

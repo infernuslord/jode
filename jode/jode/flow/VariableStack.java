@@ -19,7 +19,6 @@
 
 package jode.flow;
 import jode.decompiler.LocalInfo;
-import jode.expr.ComplexExpression;
 import jode.expr.Expression;
 import jode.expr.LocalLoadOperator;
 import jode.expr.Operator;
@@ -100,7 +99,7 @@ public class VariableStack {
     }
 
     public Expression mergeIntoExpression(Expression expr, VariableSet used) {
-	/* assert expr.getOperandCount() == stackMap.length */
+	/* assert expr.getFreeOperandCount() == stackMap.length */
 
 	for (int i = stackMap.length-1; i >= 0; i--) {
 	    if (!used.contains(stackMap[i]))
