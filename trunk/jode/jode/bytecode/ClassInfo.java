@@ -58,6 +58,7 @@ public class ClassInfo extends BinaryInfo {
     private ClassInfo[]  interfaces;
     private FieldInfo[]  fields;
     private MethodInfo[] methods;
+    private InnerClassInfo[] outerClasses;
     private InnerClassInfo[] innerClasses;
     private String sourceFile;
 
@@ -153,14 +154,16 @@ public class ClassInfo extends BinaryInfo {
 				 ConstantPool cp,
 				 DataInputStream input, 
 				 int howMuch) throws IOException {
-	if (name.equals("SourceFile")) {
+	if ((howMuch & ALL_ATTRIBUTES) != 0 && name.equals("SourceFile")) {
 	    if (length != 2)
 		throw new ClassFormatException("SourceFile attribute"
 					       + " has wrong length");
 	    sourceFile = cp.getUTF8(input.readUnsignedShort());
-	} else if (name.equals("InnerClasses")) {
+	} else if ((howMuch & (OUTERCLASSES | INNERCLASSES)) != 0
+		   && name.equals("InnerClasses")) {
 	    int count = input.readUnsignedShort();
-	    innerClasses = new InnerClassInfo[count];
+	    int innerCount = 0, outerCount = 0;
+	    InnerClassInfo[] innerClassInfo = new InnerClassInfo[count];
 	    for (int i=0; i< count; i++) {
 		int innerIndex = input.readUnsignedShort();
 		int outerIndex = input.readUnsignedShort();
@@ -171,9 +174,37 @@ public class ClassInfo extends BinaryInfo {
 		String innername = 
 		    nameIndex != 0 ? cp.getUTF8(nameIndex) : null;
 		int access = input.readUnsignedShort();
-		innerClasses[i] = new InnerClassInfo
+		InnerClassInfo ici = new InnerClassInfo 
 		    (inner, outer, innername, access);
+
+		if (outer != null && outer.equals(getName()))
+		    innerClassInfo[innerCount++] = ici;
+		else
+		    innerClassInfo[count - (++outerCount)] = ici;
 	    }
+	    if (innerCount > 0) {
+		innerClasses = new InnerClassInfo[innerCount];
+		System.arraycopy(innerClassInfo, 0, 
+				 innerClasses, 0, innerCount);
+	    } else
+		innerClasses = null;
+
+	    if (outerCount > 0) {
+		outerClasses = new InnerClassInfo[outerCount];
+		System.arraycopy(innerClassInfo, innerCount, 
+				 outerClasses, 0, outerCount);
+		if (!outerClasses[0].inner.equals(getName()))
+		    throw new ClassFormatException
+			("InnerClasses attribute has wrong format");
+		for (int i=1; i < outerCount; i++) {
+		    if (outerClasses[i-1].outer != null && 
+			!outerClasses[i].inner.equals(outerClasses[i-1].outer))
+			throw new ClassFormatException
+			    ("InnerClasses attribute has wrong format");
+		}
+	    } else 
+		outerClasses = null;
+
 	    if (length != 2 + 8 * count)
 		throw new ClassFormatException
 		    ("InnerClasses attribute has wrong length");
@@ -273,13 +304,18 @@ public class ClassInfo extends BinaryInfo {
 	    gcp.putUTF8("SourceFile");
 	    gcp.putUTF8(sourceFile);
 	}
-	if (innerClasses != null) {
+	if (outerClasses != null || innerClasses != null) {
 	    gcp.putUTF8("InnerClasses");
-	    int count = innerClasses.length;
-	    for (int i=0; i< count; i++) {
+	    int outerCount = outerClasses != null ? outerClasses.length : 0;
+	    for (int i=outerCount; i-- > 0;) {
+		if (outerClasses[i].outer != null)
+		    gcp.putClassName(outerClasses[i].outer);
+		if (outerClasses[i].name != null)
+		    gcp.putUTF8(outerClasses[i].name);
+	    }
+	    int innerCount = innerClasses != null ? innerClasses.length : 0;
+	    for (int i=0; i< innerCount; i++) {
 		gcp.putClassName(innerClasses[i].inner);
-		if (innerClasses[i].outer != null)
-		    gcp.putClassName(innerClasses[i].outer);
 		if (innerClasses[i].name != null)
 		    gcp.putUTF8(innerClasses[i].name);
 	    }
@@ -304,12 +340,22 @@ public class ClassInfo extends BinaryInfo {
 	    output.writeInt(2);
 	    output.writeShort(gcp.putUTF8(sourceFile));
 	}
-	if (innerClasses != null) {
+	if (outerClasses != null || innerClasses != null) {
 	    output.writeShort(gcp.putUTF8("InnerClasses"));
-	    int count = innerClasses.length;
+	    int outerCount = (outerClasses != null) ? outerClasses.length : 0;
+	    int innerCount = (innerClasses != null) ? innerClasses.length : 0;
+	    int count = outerCount + innerCount;
 	    output.writeInt(2 + count * 8);
 	    output.writeShort(count);
-	    for (int i=0; i< count; i++) {
+	    for (int i=outerCount; i-- > 0; ) {
+		output.writeShort(gcp.putClassName(outerClasses[i].inner));
+		output.writeShort(outerClasses[i].outer != null ? 
+				  gcp.putClassName(outerClasses[i].outer) : 0);
+		output.writeShort(outerClasses[i].name != null ?
+				  gcp.putUTF8(outerClasses[i].name) : 0);
+		output.writeShort(outerClasses[i].modifiers);
+	    }
+	    for (int i=0; i< innerCount; i++) {
 		output.writeShort(gcp.putClassName(innerClasses[i].inner));
 		output.writeShort(innerClasses[i].outer != null ? 
 				  gcp.putClassName(innerClasses[i].outer) : 0);
@@ -398,6 +444,25 @@ public class ClassInfo extends BinaryInfo {
 		    (this, ms[i].getName(), type, ms[i].getModifiers());
 	    }
 	}
+	if ((howMuch & INNERCLASSES) != 0 && innerClasses == null) {
+	    Class[] is;
+	    try {
+		is = clazz.getDeclaredClasses();
+	    } catch (SecurityException ex) {
+		is = clazz.getClasses();
+		GlobalOptions.err.println
+		    ("Could only get public methods of class "
+		     + name + ".");
+	    }
+	    innerClasses = new InnerClassInfo[is.length];
+	    for (int i = is.length; --i >= 0; ) {
+		String inner = is[i].getName();
+		int dollar = inner.lastIndexOf('$');
+		String name = inner.substring(dollar+1);
+		innerClasses[i] = new InnerClassInfo
+		    (inner, getName(), name, is[i].getModifiers());
+	    }
+	}
 	status |= howMuch;
     }
     
@@ -411,7 +476,7 @@ public class ClassInfo extends BinaryInfo {
 
         } catch (IOException ex) {
 	    String message = ex.getMessage();
-            if ((howMuch & ~(FIELDS|METHODS|HIERARCHY)) != 0) {
+            if ((howMuch & ~(FIELDS|METHODS|HIERARCHY|INNERCLASSES)) != 0) {
 		GlobalOptions.err.println
 		    ("Can't read class " + name + ".");
 		ex.printStackTrace(GlobalOptions.err);
@@ -458,6 +523,25 @@ public class ClassInfo extends BinaryInfo {
 
     public String getName() {
         return name;
+    }
+
+    public String getJavaName() {
+	/* Don't load attributes for class names not containing a
+	 * dollar sign.
+	 */
+	if (name.indexOf('$') == -1)
+	    return getName();
+	if (getOuterClasses() != null) {
+	    int last = outerClasses.length-1;
+	    StringBuffer sb = 
+		new StringBuffer(outerClasses[last].outer != null 
+				 ? outerClasses[last].outer : "METHOD");
+	    for (int i=last; i >= 0; i--)
+		sb.append(".").append(outerClasses[i].name != null 
+				      ? outerClasses[i].name : "ANONYMOUS");
+	    return sb.toString();
+	}
+	return getName();
     }
 
     public ClassInfo getSuperclass() {
@@ -514,9 +598,15 @@ public class ClassInfo extends BinaryInfo {
         return fields;
     }
 
+    public InnerClassInfo[] getOuterClasses() {
+        if ((status & OUTERCLASSES) == 0)
+            loadInfo(OUTERCLASSES);
+        return outerClasses;
+    }
+
     public InnerClassInfo[] getInnerClasses() {
-        if ((status & ALL_ATTRIBUTES) == 0)
-            loadInfo(FIELDS);
+        if ((status & INNERCLASSES) == 0)
+            loadInfo(INNERCLASSES);
         return innerClasses;
     }
 
@@ -542,6 +632,10 @@ public class ClassInfo extends BinaryInfo {
 
     public void setFields(FieldInfo[] fi) {
         fields = fi;
+    }
+
+    public void setOuterClasses(InnerClassInfo[] oc) {
+        outerClasses = oc;
     }
 
     public void setInnerClasses(InnerClassInfo[] ic) {
