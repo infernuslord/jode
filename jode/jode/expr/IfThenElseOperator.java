@@ -59,39 +59,49 @@ public class IfThenElseOperator extends Operator {
                     return subExpressions[0].negate().simplify();
             }
         }
-	if (subExpressions[0] instanceof CompareUnaryOperator
-	    && (subExpressions[1] instanceof GetFieldOperator)
-	    && (subExpressions[2] instanceof StoreInstruction)) {
-	    // Check for
-	    //   class$classname != null ? class$classname :
-	    //       (class$classname = class$("classname"))
-	    // and replace with
-	    //   classname.class
+  	if (subExpressions[0] instanceof CompareUnaryOperator
+	    && ((((CompareUnaryOperator) subExpressions[0])
+		.getOperatorIndex() & ~1) == Operator.COMPARE_OP)) {
 	    CompareUnaryOperator cmp 
 		= (CompareUnaryOperator) subExpressions[0];
-	    GetFieldOperator get = (GetFieldOperator) subExpressions[1];
-	    StoreInstruction put = (StoreInstruction) subExpressions[2];
-	    FieldAnalyzer field;
-	    if (cmp.getOperatorIndex() == Operator.NOTEQUALS_OP
-		&& put.getLValue() instanceof PutFieldOperator
-		&& ((field = ((PutFieldOperator)put.getLValue()).getField())
-		    != null) && field.isSynthetic() 
-		&& put.lvalueMatches(get)
-		&& cmp.subExpressions[0] instanceof GetFieldOperator
-		&& put.lvalueMatches((GetFieldOperator)cmp.subExpressions[0])
-		&& put.subExpressions[1] instanceof InvokeOperator) {
-		InvokeOperator invoke = (InvokeOperator) put.subExpressions[1];
-		if (invoke.isGetClass()
-		    && invoke.subExpressions[0] instanceof ConstOperator
-		    && (invoke.subExpressions[0].getType()
-			.equals(Type.tString))) {
-		    String clazz = (String)
-			((ConstOperator)invoke.subExpressions[0]).getValue();
-		    ClassPath cp = field.getClassAnalyzer().getClassPath();
-		    if (field.setClassConstant(clazz))
-			return new ClassFieldOperator
-			    (clazz.charAt(0) == '[' 
-			     ? Type.tType(cp, clazz) : Type.tClass(cp, clazz));
+	    int cmpType = cmp.getOperatorIndex() & 1;
+	    if ((subExpressions[2 - cmpType] instanceof GetFieldOperator)
+		&& (subExpressions[1 + cmpType] instanceof StoreInstruction)) {
+		// Check for
+		//   class$classname != null ? class$classname :
+		//       (class$classname = class$("classname"))
+		// and replace with
+		//   classname.class
+		GetFieldOperator get
+		    = (GetFieldOperator) subExpressions[2 - cmpType];
+		StoreInstruction put
+		    = (StoreInstruction) subExpressions[1 + cmpType];
+		int opIndex = cmp.getOperatorIndex();
+		FieldAnalyzer field;
+		if (put.getLValue() instanceof PutFieldOperator
+		    && ((field = ((PutFieldOperator)put.getLValue())
+			 .getField()) != null) && field.isSynthetic() 
+		    && put.lvalueMatches(get)
+		    && (cmp.subExpressions[0] instanceof GetFieldOperator)
+		    && put.lvalueMatches((GetFieldOperator) 
+					 cmp.subExpressions[0])
+		    && put.subExpressions[1] instanceof InvokeOperator) {
+		    InvokeOperator invoke = (InvokeOperator) 
+			put.subExpressions[1];
+		    if (invoke.isGetClass()
+			&& invoke.subExpressions[0] instanceof ConstOperator
+			&& (invoke.subExpressions[0].getType()
+			    .equals(Type.tString))) {
+			String clazz = (String)
+			    ((ConstOperator)invoke.subExpressions[0])
+			    .getValue();
+			ClassPath cp = field.getClassAnalyzer().getClassPath();
+			if (field.setClassConstant(clazz))
+			    return new ClassFieldOperator
+				(clazz.charAt(0) == '[' 
+				 ? Type.tType(cp, clazz)
+				 : Type.tClass(cp, clazz));
+		    }
 		}
 	    }
 	}

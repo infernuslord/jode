@@ -286,19 +286,17 @@ public class CodeVerifier implements Opcodes {
 		dimensions++;
 	    }
 
-	    if (c1 == '[' || c2 == '[') {
-		// Only one of them is array now, the other must be an
-		// object, the common super is tObject
-		if (c1 == 'L' || c2 == 'L') {
-		    if (dimensions == 0)
-			return cv.tObject;
-		    StringBuffer result = new StringBuffer(dimensions + 18);
-		    for (int i=0; i< dimensions; i++)
-			result.append("[");
-		    result.append("Ljava/lang/Object;");
-		    return cv.tType(result.toString());
-		}
-		return cv.tNone;
+	    // One of them is array now, the other is an object,
+	    // the common super is tObject
+	    if ((c1 == '[' && c2 == 'L')
+		|| (c1 == 'L' && c2 == '[')) {
+		if (dimensions == 0)
+		    return cv.tObject;
+		StringBuffer result = new StringBuffer(dimensions + 18);
+		for (int i=0; i< dimensions; i++)
+		    result.append("[");
+		result.append("Ljava/lang/Object;");
+		return cv.tType(result.toString());
 	    }
 
 	    if (c1 == 'L' && c2 == 'L') {
@@ -337,6 +335,18 @@ public class CodeVerifier implements Opcodes {
 		    result.append("[");
 		result.append("L");
 		return cv.tType(result.toString(), clazz1);
+	    }
+
+	    // Both were arrays, but of different primitive types.  The
+	    // common super is tObject with one dimension less.
+	    if (dimensions > 0) {
+		if (dimensions == 1)
+		    return cv.tObject;
+		StringBuffer result = new StringBuffer(dimensions + 17);
+		for (int i=0; i< dimensions - 1; i++)
+		    result.append("[");
+		result.append("Ljava/lang/Object;");
+		return cv.tType(result.toString());
 	    }
 	    return cv.tNone;
 	}

@@ -1,4 +1,4 @@
-/* TransformConstructors Copyright (C) 1998-1999 Jochen Hoenicke.
+/* TransformConstructors Copyright (C) 1998-2001 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -585,7 +585,8 @@ public class TransformConstructors {
      * @param expr the initializer to check
      * @return the transformed initializer or null if expr is not valid.
      */
-    private Expression transformFieldInitializer(Expression expr) {
+    private Expression transformFieldInitializer(int fieldSlot, 
+						 Expression expr) {
 	if (expr instanceof LocalVarOperator) {
 	    if (!(expr instanceof LocalLoadOperator)) {
 		if ((GlobalOptions.debuggingFlags
@@ -606,11 +607,21 @@ public class TransformConstructors {
 					  +" "+outerValues);
 	    return null;
 	}
+	if (expr instanceof FieldOperator) {
+	    if (expr instanceof PutFieldOperator)
+		return null;
+	    FieldOperator fo = (FieldOperator) expr;
+	    if (fo.getClassInfo() == clazzAnalyzer.getClazz()
+		&& clazzAnalyzer.getFieldIndex(fo.getFieldName(), 
+					       fo.getFieldType()) >= fieldSlot)
+		return null;
+	}
 	if (expr instanceof Operator) {
 	    Operator op = (Operator) expr;
 	    Expression[] subExpr = op.getSubExpressions();
 	    for (int i=0; i< subExpr.length; i++) {
-		Expression transformed = transformFieldInitializer(subExpr[i]);
+		Expression transformed
+		    = transformFieldInitializer(fieldSlot, subExpr[i]);
 		if (transformed == null)
 		    return null;
 		if (transformed != subExpr[i])
@@ -693,7 +704,7 @@ public class TransformConstructors {
 		break big_loop;
 
             Expression expr =  store.getSubExpressions()[1];
-	    expr = transformFieldInitializer(expr);
+	    expr = transformFieldInitializer(field, expr);
 	    if (expr == null)
 		break big_loop;
 
@@ -780,8 +791,14 @@ public class TransformConstructors {
 	    }
 	}
 	
+	int field = clazzAnalyzer.getFieldIndex(pfo.getFieldName(), 
+						pfo.getFieldType());
+
+	if (field <= lastField)
+	    return -1;
+
 	Expression expr =  store.getSubExpressions()[1];
-	expr = transformFieldInitializer(expr);
+	expr = transformFieldInitializer(field, expr);
 	if (expr == null)
 	    return -1;
 	
@@ -790,9 +807,6 @@ public class TransformConstructors {
 	    GlobalOptions.err.println("  field " + pfo.getFieldName()
 				      + " = " + expr);
 	
-	int field = clazzAnalyzer.getFieldIndex(pfo.getFieldName(), 
-						pfo.getFieldType());
-
 	// if field does not exists: -1 <= lastField.
 	if (field <= lastField
 	    || !(clazzAnalyzer.getField(field).setInitializer(expr))) {

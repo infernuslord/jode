@@ -20,6 +20,7 @@
 package jode.flow;
 import jode.type.Type;
 import jode.decompiler.LocalInfo;
+import jode.decompiler.Declarable;
 import jode.expr.Expression;
 import jode.expr.LocalLoadOperator;
 import jode.expr.LocalStoreOperator;
@@ -28,6 +29,7 @@ import jode.util.SimpleSet;
 
 ///#def COLLECTIONS java.util
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Set;
 ///#enddef
 
@@ -162,6 +164,16 @@ public class CatchBlock extends StructuredBlock {
 		ib.appendBlock(catchBlock);
 		catchBlock = ib;
 		exceptionLocal = dummyLocal;
+		String localName = dummyLocal.guessName();
+		Iterator doneIter = done.iterator();
+		while (doneIter.hasNext()) {
+		    Declarable previous = (Declarable) doneIter.next();
+		    if (localName.equals(previous.getName())) {
+			/* A name conflict happened. */
+			dummyLocal.makeNameUnique();
+			break;
+		    }
+		}
 	    }
 	}
     }
