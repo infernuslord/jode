@@ -63,7 +63,7 @@ implements BreakableBlock {
 		this.caseBlocks[i].isDefault = true;
         }
         this.jump = null;
-        mayChangeJump = true;
+        isBreaked = false;
     }
 
     /**
@@ -150,7 +150,7 @@ implements BreakableBlock {
         return caseBlocks;
     }
 
-    boolean mayChangeJump = true;
+    boolean isBreaked = false;
 
     /**
      * The serial number for labels.
@@ -176,7 +176,7 @@ implements BreakableBlock {
      * Is called by BreakBlock, to tell us that this block is breaked.
      */
     public void setBreaked() {
-	mayChangeJump = false;
+	isBreaked = true;
     }
 
     /**
@@ -185,6 +185,8 @@ implements BreakableBlock {
      * @return true, if the jump may be safely changed.
      */
     public boolean jumpMayBeChanged() {
-        return mayChangeJump;
+        return !isBreaked 
+            && (caseBlocks[caseBlocks.length-1].jump != null
+                || caseBlocks[caseBlocks.length-1].jumpMayBeChanged());
     }
 }
