@@ -66,7 +66,8 @@ public class TransformConstructors {
                     /* This constructor calls another constructor, so we
                      * can skip it.
                      */
-                    sb[i] = sb[--constrCount];
+                    System.err.println("skipping this()");
+                    cons[i] = cons[--constrCount];
                     continue;
                 }
                 /* This constructor begins with a super call, as 
@@ -79,6 +80,7 @@ public class TransformConstructors {
                     sb[i] = sb[i].getSubBlocks()[1];
                 else
                     sb[i] = null;
+                System.err.println("normal constructor");
             }
             i++;
         }
