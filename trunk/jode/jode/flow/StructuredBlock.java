@@ -149,7 +149,7 @@ public abstract class StructuredBlock {
 
     FlowBlock getNextFlowBlock(StructuredBlock subBlock) {
         if (jump != null)
-            return jump;
+            return jump.destination;
         return getNextFlowBlock();
     }
 
@@ -162,6 +162,17 @@ public abstract class StructuredBlock {
     boolean replaceSubBlock(StructuredBlock oldBlock, 
                             StructuredBlock newBlock) {
         return false;
+    }
+
+    /**
+     * Returns if this block contains the given block.
+     * @param child the block which should be contained by this block.
+     * @return false, if child is null, or is not contained in this block.
+     */
+    boolean contains(StructuredBlock child) {
+        while (child != this && child != null)
+            child = child.outer;
+        return (child == this);
     }
 
     /**
