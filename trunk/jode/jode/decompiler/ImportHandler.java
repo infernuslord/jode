@@ -30,9 +30,9 @@ public class JodeEnvironment {
 
     SearchPath classPath;
 
-    JodeEnvironment() {
+    JodeEnvironment(String path) {
 	Type.setEnvironment(this);
-        classPath = new SearchPath(System.getProperty("java.class.path"));
+        classPath = new SearchPath(path);
         imports = new Hashtable();
         /* java.lang is always imported */
         imports.put("java.lang.*", new Integer(Integer.MAX_VALUE));
@@ -40,9 +40,7 @@ public class JodeEnvironment {
 
     public java.io.InputStream getClassStream(Class clazz) 
         throws java.io.IOException {
-        return classPath.getFile(clazz.getName().
-                                 replace('.', java.io.File.separatorChar)
-                                 +".class");
+        return classPath.getFile(clazz.getName().replace('.', '/') + ".class");
     }
 
     /**
