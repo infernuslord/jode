@@ -61,28 +61,31 @@ public class CreateIfThenElseOperator implements Transformation {
      */
     public boolean createFunny(FlowBlock flow) {
 
+        if (!(flow.lastModified instanceof ConditionalBlock))
+            return false;
+
+        ConditionalBlock conditional = (ConditionalBlock) flow.lastModified;
+
+        if (!(conditional.trueBlock instanceof EmptyBlock)
+            || conditional.trueBlock.jump == null 
+            || conditional.jump == null
+            || !(conditional.getInstruction() instanceof CompareUnaryOperator))
+            return false;
+        
+        CompareUnaryOperator compare = 
+            (CompareUnaryOperator) conditional.getInstruction();
+
+        FlowBlock trueDestination;
+        if (compare.getOperatorIndex() == compare.EQUALS_OP)
+            trueDestination = conditional.jump.destination;
+        else if (compare.getOperatorIndex() == compare.NOTEQUALS_OP)
+            trueDestination = conditional.trueBlock.jump.destination;
+        else
+            return false;
+
         Expression[] e = new Expression[3];
         IfThenElseBlock ifBlock;
         try {
-            ConditionalBlock conditional = 
-                (ConditionalBlock) flow.lastModified;
-
-            if (!(conditional.trueBlock instanceof EmptyBlock)
-                || conditional.trueBlock.jump == null 
-                || conditional.jump == null)
-                return false;
-
-            CompareUnaryOperator compare = 
-                (CompareUnaryOperator) conditional.getInstruction();
-
-            FlowBlock trueDestination;
-            if (compare.getOperatorIndex() == compare.EQUALS_OP)
-                trueDestination = conditional.jump.destination;
-            else if (compare.getOperatorIndex() == compare.NOTEQUALS_OP)
-                trueDestination = conditional.trueBlock.jump.destination;
-            else
-                return false;
-            
             SequentialBlock sequBlock = 
                 (SequentialBlock) conditional.outer;
 
@@ -129,9 +132,11 @@ public class CreateIfThenElseOperator implements Transformation {
                     return false;
 
                 Expression cond = (Expression) condBlock.getInstruction();
+                flow.removeSuccessor(condBlock.trueBlock.jump);
                 condBlock.trueBlock.removeJump();
                 pushBlock.setInstruction(cond);
                 pushBlock.replace(sequBlock, pushBlock);
+
                 e[i+1] = cond;
             }
         } catch (ClassCastException ex) {
@@ -141,7 +146,7 @@ public class CreateIfThenElseOperator implements Transformation {
         }
 
         if (jode.Decompiler.isVerbose)
-            System.err.print("?");
+            System.err.print('?');
 
         IfThenElseOperator iteo = new IfThenElseOperator
             (e[1].getType().intersection(e[2].getType()));
@@ -170,6 +175,7 @@ public class CreateIfThenElseOperator implements Transformation {
      */
     public boolean create(FlowBlock flow) {
         Expression e[] = new Expression[3];
+        InstructionBlock thenBlock;
         try {
             InstructionBlock elseBlock = (InstructionBlock) flow.lastModified;
 
@@ -181,7 +187,7 @@ public class CreateIfThenElseOperator implements Transformation {
             if (ifBlock.elseBlock != null)
                 return false;
 
-            InstructionBlock thenBlock = (InstructionBlock) ifBlock.thenBlock;
+            thenBlock = (InstructionBlock) ifBlock.thenBlock;
 
             if (thenBlock.jump.destination != elseBlock.jump.destination)
                 return false;
@@ -194,7 +200,6 @@ public class CreateIfThenElseOperator implements Transformation {
                 return false;
             e[0] = (Expression) ifBlock.cond;
 
-            thenBlock.removeJump();
         } catch (ClassCastException ex) {
             return false;
         } catch (NullPointerException ex) {
@@ -202,7 +207,10 @@ public class CreateIfThenElseOperator implements Transformation {
         }
 
         if (jode.Decompiler.isVerbose)
-            System.err.print("?");
+            System.err.print('?');
+
+        flow.removeSuccessor(thenBlock.jump);
+        thenBlock.removeJump();
 
         IfThenElseOperator iteo = new IfThenElseOperator
             (e[1].getType().intersection(e[2].getType()));

@@ -80,6 +80,7 @@ public class CombineIfGotoExpressions implements Transformation{
         } catch (NullPointerException ex) {
             return false;
         }
+        flow.removeSuccessor(prevJump);
         prevJump.prev.removeJump();
         Expression cond = 
             new ComplexExpression

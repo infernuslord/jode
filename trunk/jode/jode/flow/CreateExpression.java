@@ -106,7 +106,7 @@ public class CreateExpression implements Transformation {
             return false;
         }
         if(jode.Decompiler.isVerbose)
-            System.err.print("x");
+            System.err.print('x');
 
         ((InstructionContainer) flow.lastModified).setInstruction
             (new ComplexExpression(op, exprs));

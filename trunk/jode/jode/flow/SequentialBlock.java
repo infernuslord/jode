@@ -44,6 +44,13 @@ public class SequentialBlock extends StructuredBlock {
         sb.setFlowBlock(flowBlock);
     }
 
+    public void checkConsistent() {
+        super.checkConsistent();
+        if (subBlocks[0].jump != null
+            || (jump != null && subBlocks[1].jump != null))
+            throw new jode.AssertError("Inconsistency");
+    }
+
     /**
      * Returns the block where the control will normally flow to, when
      * the given sub block is finished (<em>not</em> ignoring the jump

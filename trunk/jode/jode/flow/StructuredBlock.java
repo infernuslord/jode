@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.TabbedPrintWriter;
+import jode.AssertError;
 import jode.LocalInfo;
 
 /**
@@ -181,12 +182,11 @@ public abstract class StructuredBlock {
     }
 
     /** 
-     * Removes the jump.  This does also update the successors vector
-     * of the flow block.  */
+     * Removes the jump.  This does not update the successors vector
+     * of the flow block, you have to do it yourself.  */
     public void removeJump() {
         if (jump != null) {
             jump.prev = null;
-            flowBlock.removeSuccessor(jump);
             jump = null;
         }
     }
@@ -262,7 +262,8 @@ public abstract class StructuredBlock {
      * @param jump The jump that should be moved, may be null.
      */
     public void moveJump(Jump jump) {
-        removeJump();
+        if (this.jump != null)
+            throw new AssertError("overriding with moveJump()");
         this.jump = jump;
         if (jump != null) {
             jump.prev.jump = null;
@@ -280,6 +281,31 @@ public abstract class StructuredBlock {
 	sequBlock.setFirst(this);
 	sequBlock.setSecond(block);
 	return sequBlock;
+    }
+
+    /**
+     * Removes this block, or replaces it with an EmptyBlock.
+     */
+    public void removeBlock() {
+
+        if (outer instanceof SequentialBlock) {
+            
+            if (outer.getSubBlocks()[1] == this) {
+                if (jump != null)
+                    outer.getSubBlocks()[0].moveJump(jump);
+                outer.getSubBlocks()[0].replace(outer, null);
+                return;
+            } else if (outer.outer instanceof SequentialBlock) {
+                if (jump != null)
+                    outer.outer.getSubBlocks()[0].moveJump(jump);
+                outer.getSubBlocks()[1].replace(outer, null);
+                return;
+            }
+        }
+
+        EmptyBlock eb = new EmptyBlock();
+        eb.moveJump(jump);
+        eb.replace(this, null);
     }
 
     /**
@@ -340,16 +366,14 @@ public abstract class StructuredBlock {
         for (int i=0; i<subs.length; i++) {
             if (subs[i].outer != this ||
                 subs[i].flowBlock != flowBlock) {
-                throw new RuntimeException("Inconsistency");
+                throw new AssertError("Inconsistency");
             }
             subs[i].checkConsistent();
         }
-        if (jump != null && 
-            (jump.prev != this || 
-             !flowBlock.successors.contains(jump) ||
-             !jump.destination.predecessors.contains(flowBlock))) {
-                throw new RuntimeException("Inconsistency");
-        }
+        if (jump != null
+            && !((java.util.Stack) 
+                 flowBlock.successors.get(jump.destination)).contains(jump))
+                throw new AssertError("Inconsistency");
     }
 
     /**
