@@ -32,12 +32,20 @@ public class NewObject {
 	this.type = type;
     }
 
+    public String getType() {
+	return type;
+    }
+
     public void setObject(Object obj) {
 	instance = obj;
     }
 
     public Object objectValue() {
 	return instance;
+    }
+
+    public String toString() {
+	return "new "+type;
     }
 }
 
