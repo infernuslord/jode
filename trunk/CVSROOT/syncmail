@@ -116,21 +116,44 @@ def calculate_diff(filespec):
                      '[...%d lines suppressed...]\n' % removedlines)
     return string.join(lines, '')
 
+
+def calculate_url(dir, filespec):
+    try:
+        file, oldrev, newrev = string.split(filespec, ',')
+    except ValueError:
+        # No diff to report
+        return '***** Bogus filespec: %s' % filespec
+    if oldrev == 'NONE':
+        try:
+	    lines = [ 'http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s?cvsroot=jode&rev=%s' % (dir, file, newrev) ]
+        except IOError, e:
+            lines = ['***** Error reading new file: ',
+                     str(e), '\n***** file: ', file, ' cwd: ', os.getcwd()]
+    elif newrev == 'NONE':
+	lines = [ 'DELETED: http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s?cvsroot=jode&rev=%s' % (dir, file, oldrev) ]
+    else:
+        # This /has/ to happen in the background, otherwise we'll run into CVS
+        # lock contention.  What a crock.
+	lines = [ 'http://cvs.sourceforge.net/cgi-bin/cvsweb.cgi/%s/%s.diff?cvsroot=jode&r1=%s&r2=%s&f=u' % (dir, file, oldrev, newrev) ]
+    return string.join(lines, '')
+
 
 
-def blast_mail(mailcmd, filestodiff):
-    # cannot wait for child process or that will cause parent to retain cvs
-    # lock for too long.  Urg!
-    if not os.fork():
+def blast_mail(mailcmd, dir, filestodiff):
+    ## cannot wait for child process or that will cause parent to retain cvs
+    ## lock for too long.  Urg!
+    #if not os.fork():
         # in the child
         # give up the lock you cvs thang!
         time.sleep(2)
         fp = os.popen(mailcmd, 'w')
         fp.write(sys.stdin.read())
         fp.write('\n')
-        # append the diffs if available
+        # append the cvsweb urls if available
+	fp.write('CVSWeb URLs:');
         for file in filestodiff:
-            fp.write(calculate_diff(file))
+	    # fp.write(calculate_diff(file))
+	    fp.write(calculate_url(dir, file))
             fp.write('\n')
         fp.close()
         # doesn't matter what code we return, it isn't waited on
@@ -176,7 +199,7 @@ def main():
     if specs[-3:] == ['-', 'New', 'directory']:
         del specs[-3:]
     print 'Generating notification message...'
-    blast_mail(mailcmd, specs[1:])
+    blast_mail(mailcmd, specs[0], specs[1:])
     print 'Generating notification message... done.'
 
 
