@@ -23,6 +23,12 @@ import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 import jode.flow.VariableSet;
 
+///#ifdef JDK12
+///import java.util.Set;
+///#else
+import jode.util.SimpleSet;
+///#endif
+
 public abstract class Operator extends Expression {
     public final static int ADD_OP     =  1;
     public final static int SUB_OP     =  2;
@@ -167,6 +173,18 @@ public abstract class Operator extends Expression {
 	}
         for (int i=0; i< subExpressions.length; i++)
 	    subExpressions[i].fillInGenSet(in,gen);
+    }
+
+///#ifdef JDK12
+///    public void fillDeclarables(Set used) {
+///#else
+    public void fillDeclarables(SimpleSet used) {
+///#endif
+	if (this instanceof LocalVarOperator) {
+	    used.add(((LocalVarOperator) this).getLocalInfo());
+	}
+        for (int i=0; i< subExpressions.length; i++)
+	    subExpressions[i].fillDeclarables(used);
     }
 
     /**
