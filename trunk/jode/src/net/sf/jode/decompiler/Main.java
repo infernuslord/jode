@@ -46,6 +46,7 @@ public class Main extends Options {
 	new LongOpt("cp", LongOpt.REQUIRED_ARGUMENT, null, 'c'),
 	new LongOpt("classpath", LongOpt.REQUIRED_ARGUMENT, null, 'c'),
 	new LongOpt("dest", LongOpt.REQUIRED_ARGUMENT, null, 'd'),
+	new LongOpt("keep-going", LongOpt.NO_ARGUMENT, null, 'k'),
 	new LongOpt("help", LongOpt.NO_ARGUMENT, null, 'h'),
 	new LongOpt("version", LongOpt.NO_ARGUMENT, null, 'V'),
 	new LongOpt("verbose", LongOpt.OPTIONAL_ARGUMENT, null, 'v'),
@@ -102,6 +103,10 @@ public class Main extends Options {
 		    "and packages with more then pkglimit used classes.");
 	err.println("                       "+
 		    "Limit 0 means never import. Default is 0,1.");
+	err.println("  -k, --keep-going     "+
+		    "After an error continue to decompile the other classes.");
+	err.println("                       "+
+             "after an error decompiling one of them.");
     }
 
     public static boolean handleOption(int option, int longind, String arg) {
@@ -120,11 +125,11 @@ public class Main extends Options {
 	return true;
     }
 
-    public static void decompileClass(String className, ClassPath classPath,
-				      String classPathStr,
-				      ZipOutputStream destZip, String destDir, 
-				      TabbedPrintWriter writer,
-				      ImportHandler imports) {
+    public static boolean decompileClass
+	(String className, ClassPath classPath,
+	 String classPathStr,
+	 ZipOutputStream destZip, String destDir, 
+	 TabbedPrintWriter writer, ImportHandler imports) {
 	try {
 	    ClassInfo clazz;
 	    try {
@@ -132,10 +137,10 @@ public class Main extends Options {
 	    } catch (IllegalArgumentException ex) {
 		GlobalOptions.err.println
 		    ("`"+className+"' is not a class name");
-		return;
+		return false;
 	    }
 	    if (skipClass(clazz))
-		return;
+		return true;
 	    
 	    String filename = 
 		className.replace('.', File.separatorChar)+".java";
@@ -167,21 +172,43 @@ public class Main extends Options {
 		writer.close();
 	    /* Now is a good time to clean up */
 	    System.gc();
+	    return true;
 	} catch (FileNotFoundException ex) {
 	    GlobalOptions.err.println
 		("Can't read "+ex.getMessage()+".");
 	    GlobalOptions.err.println
 		("Check the class path ("+classPathStr+
 		 ") and check that you use the java class name.");
+	    return false;
 	} catch (ClassFormatException ex) {
 	    GlobalOptions.err.println
 		("Error while reading "+className+".");
 	    ex.printStackTrace(GlobalOptions.err);
+	    return false;
 	} catch (IOException ex) {
 	    GlobalOptions.err.println
 		("Can't write source of "+className+".");
 	    GlobalOptions.err.println("Check the permissions.");
 	    ex.printStackTrace(GlobalOptions.err);
+	    return false;
+	} catch(RuntimeException ex) {
+	    GlobalOptions.err.println
+		("Error whilst decompiling " + className + ".");
+	    ex.printStackTrace(GlobalOptions.err);
+	    return false;
+	} catch(InternalError ex) {
+	    /* InternalError should not normally be
+	     * caught, however we catch it here because
+	     * some parts of JODE
+	     * (e.g. TransformExceptionHandlers.analyze())
+	     * throw it. 
+	     * TODO: Replace InternalError with something else in
+	     * places they can actually be thrown
+	     */
+	    GlobalOptions.err.println
+		("Internal error whilst decompiling " + className + ".");
+	    ex.printStackTrace(GlobalOptions.err);
+	    return false;
 	}
     }
 
@@ -223,11 +250,12 @@ public class Main extends Options {
         int importClassLimit = ImportHandler.DEFAULT_CLASS_LIMIT;;
 	int outputStyle = TabbedPrintWriter.BRACE_AT_EOL;
 	int indentSize = 4;
+	boolean keepGoing = false;
 
 	GlobalOptions.err.println(GlobalOptions.copyright);
 
 	boolean errorInParams = false;
-	Getopt g = new Getopt("net.sf.jode.decompiler.Main", params, "hVvc:d:D:i:s:",
+	Getopt g = new Getopt("net.sf.jode.decompiler.Main", params, "hVvkc:d:D:i:s:",
 			      longOptions, true);
 	for (int opt = g.getopt(); opt != -1; opt = g.getopt()) {
 	    switch(opt) {
@@ -245,6 +273,9 @@ public class Main extends Options {
 		break;
 	    case 'd':
 		destDir = g.getOptarg();
+		break;
+	    case 'k':
+		keepGoing = true;
 		break;
 	    case 'v': {
 		String arg = g.getOptarg();
@@ -364,15 +395,22 @@ public class Main extends Options {
 			if (entry.endsWith(".class")) {
 			    entry = entry.substring(0, entry.length() - 6)
 				.replace('/', '.');
-			    decompileClass(entry, zipClassPath, classPathStr,
-					   destZip, destDir, 
-					   writer, imports);
+			    if (!decompileClass(entry, zipClassPath, 
+						classPathStr,
+						destZip, destDir, 
+						writer, imports)
+				&& !keepGoing)
+				break;
 			}
 		    }
-		} else
-		    decompileClass(params[i], classPath, classPathStr,
-				   destZip, destDir, 
-				   writer, imports);
+		} else {
+		    if (!decompileClass(params[i], classPath, 
+					classPathStr,
+					destZip, destDir, 
+					writer, imports)
+			&& !keepGoing)
+			break;
+		}
 	    } catch (IOException ex) {
 		GlobalOptions.err.println
 		    ("Can't read zip file " + params[i] + ".");
