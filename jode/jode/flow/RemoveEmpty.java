@@ -24,7 +24,7 @@ import jode.NopOperator;
 public class RemoveEmpty implements Transformation {
     
     public boolean transform (FlowBlock fb) {
-        return (removeNop(fb) || removeEmpty(fb));
+        return (removeNop(fb) || removeSwap(fb) || removeEmpty(fb));
     }
 
     public boolean removeNop(FlowBlock flow) {
@@ -50,6 +50,54 @@ public class RemoveEmpty implements Transformation {
             instr.setType(nopInstr.getType());
             ic.setInstruction(instr);
             ic.replace(ic.outer);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean removeSwap(FlowBlock flow) {
+        /* Remove non needed swaps; convert:
+         *
+         *   PUSH expr1
+         *   PUSH expr2
+         *   SWAP
+         *
+         * to:
+         *
+         *   PUSH expr2
+         *   PUSH expr1
+         */
+        StructuredBlock block = flow.lastModified;
+        if (block instanceof SpecialBlock
+            && ((SpecialBlock)block).type == SpecialBlock.SWAP
+            && block.outer instanceof SequentialBlock
+            && block.outer.outer instanceof SequentialBlock
+            && block.outer.getSubBlocks()[0] instanceof InstructionBlock
+            && block.outer.outer.getSubBlocks()[0] 
+            instanceof InstructionBlock) {
+
+            InstructionBlock block1 
+                = (InstructionBlock) block.outer.outer.getSubBlocks()[0];
+            InstructionBlock block2
+                = (InstructionBlock) block.outer.getSubBlocks()[0];
+
+            if (block1.getInstruction().isVoid()
+                || block2.getInstruction().isVoid())
+                return false;
+            /* PUSH expr1 == block1
+             * PUSH expr2
+             * SWAP
+             */
+            block.outer.replace(block1.outer);
+            /* PUSH expr2
+             * SWAP
+             */
+            block1.replace(block);
+            block1.moveJump(block.jump);
+            /* PUSH expr2
+             * PUSH expr1
+             */
+            flow.lastModified = block1;
             return true;
         }
         return false;
