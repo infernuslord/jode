@@ -81,6 +81,8 @@ public abstract class Expression {
         StoreInstruction store = (StoreInstruction) e.getOperator();
         ((ComplexExpression)e).operator
             = new AssignOperator(store.getOperatorIndex(), store);
+        ((ComplexExpression)e).type
+            = this.type.intersection(store.getLValueType());
         return e;
     }
 
