@@ -155,19 +155,18 @@ public class CaseBlock extends StructuredBlock {
 	    }
 	    if (isFallThrough) {
 		writer.tab();
-		writer.print("/* fall through */");
+		writer.println("/* fall through */");
 		writer.untab();
 	    }
 	    writer.print("default:");
 	} else {
 	    if (isFallThrough) {
 		writer.tab();
-		writer.print("/* fall through */");
+		writer.println("/* fall through */");
 		writer.untab();
 	    }
-            ConstOperator constOp = new ConstOperator
-                (((SwitchBlock)outer).getInstruction().getType(), 
-                 Integer.toString(value));
+            ConstOperator constOp = new ConstOperator(new Integer(value));
+	    constOp.setType(((SwitchBlock)outer).getInstruction().getType());
             constOp.makeInitializer();
 	    writer.print("case " + constOp.toString() + ":");
         }
