@@ -140,7 +140,7 @@ public class IfThenElseBlock extends StructuredBlock {
         throws java.io.IOException
     {
         boolean needBrace = thenBlock.needsBraces();
-        writer.print("if ("+cond.simplify().toString()+")");
+        writer.print("if ("+cond.toString()+")");
 	if (needBrace)
 	    writer.openBrace();
 	else
@@ -192,6 +192,11 @@ public class IfThenElseBlock extends StructuredBlock {
         return (thenBlock.jump != null || thenBlock.jumpMayBeChanged())
             && elseBlock != null
             && (elseBlock.jump != null || elseBlock.jumpMayBeChanged());
+    }
+
+    public void simplify() {
+	cond = cond.simplify();
+	super.simplify();
     }
 
     public boolean doTransformations() {

@@ -75,6 +75,6 @@ public class ReturnBlock extends InstructionContainer {
 	throws java.io.IOException
     {
         writer.println("return" + 
-                       (instr == null ? "" : " " + instr.simplify()) + ";");
+                       (instr == null ? "" : " " + instr) + ";");
     }
 }
