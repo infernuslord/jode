@@ -334,24 +334,50 @@ public abstract class StructuredBlock {
     /**
      * Make the declarations, i.e. initialize the declare variable
      * to correct values.  This will declare every variable that
-     * is marked as used, but not done.
+     * is marked as used, but not done.<br>
+     *
+     * This will now also combine locals, that use the same slot, have
+     * compatible types and are declared in the same block. <br>
+     *
      * @param done The set of the already declare variables.
      */
     public void makeDeclaration(VariableSet done) {
 	declare = new VariableSet();
 	java.util.Enumeration enum = used.elements();
+    next_used:
 	while (enum.hasMoreElements()) {
 	    LocalInfo local = (LocalInfo) enum.nextElement();
-            LocalInfo previous = done.findLocal(local.getName());
-            if (previous != null &&!previous.equals(local)) {
-                /* A name conflict happened. */
-                local.makeNameUnique();
-                /* try again. */
-                previous = done.findLocal(local.getName());
-            }
-            if (previous == null) {
-		declare.addElement(local);
-            }
+
+	    // Merge with all locals in this block, that use the same 
+	    // slot and have compatible type.
+	    int size = done.size();
+	    for (int i=0; i< size; i++) {
+		LocalInfo prevLocal = done.elementAt(i);
+		if (prevLocal.getSlot() == local.getSlot()) {
+		    if (prevLocal.equals(local))
+			continue next_used;
+
+		    /* XXX - I have to think about this...
+		     * there may be a case where this leads to type errors.
+		     * TODO: Give a formal proof ;-)
+		     */
+		    if (prevLocal.getType().isOfType(local.getType())) {
+			local.combineWith(prevLocal);
+			continue next_used;
+		    }
+		}
+	    }
+
+	    if (local.hasName()) {
+		LocalInfo previous = done.findLocal(local.getName());
+		if (previous != null) {
+		    /* A name conflict happened. */
+		    local.makeNameUnique();
+		    /* try again. */
+		    previous = done.findLocal(local.getName());
+		}
+	    }
+	    declare.addElement(local);
 	}
         done.unionExact(declare);
         StructuredBlock[] subs = getSubBlocks();
