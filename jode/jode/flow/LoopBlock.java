@@ -24,6 +24,7 @@ import jode.LocalInfo;
 import jode.decompiler.Expression;
 import jode.decompiler.ConstOperator;
 import jode.decompiler.LocalStoreOperator;
+import jode.decompiler.CombineableOperator;
 
 /**
  * This is the structured block for an Loop block.
@@ -67,6 +68,23 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * The body of this loop.  This is always a valid block and not null 
      */
     StructuredBlock bodyBlock;
+
+    /*{ invariant { type != POSSFOR ||
+                    (incr != null
+		     && incr.getInstruction().getOperator() 
+		     instanceof CombineableOperator) 
+		    :: "(possible) for with invalid init/incr";
+		    init == null || 
+		    (init.getInstruction().getOperator() 
+		     instanceof CombinableOperator)
+		    :: "Initializer is not combinableOperator";
+		    type == POSSFOR || type == FOR ||
+		    (init == null && incr == null)
+		    :: "(while/do while) with init or incr";
+		    cond != null && cond.getType() == Type.tBoolean
+		    :: "invalid condition type";
+		    type != POSSFOR || bodyBlock.contains(incr)
+		    :: "incr is not in body of possible for" } }*/
 
     /**
      * Returns the block where the control will normally flow to, when
@@ -179,7 +197,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public void dumpDeclaration(TabbedPrintWriter writer, LocalInfo local)
 	throws java.io.IOException
     {
-        if ((type == FOR || type == POSSFOR) && init != null
+        if (type == FOR && init != null
             && (outer == null || !outer.used.contains(local))
             && (init.getInstruction().getOperator() 
                 instanceof LocalStoreOperator)
