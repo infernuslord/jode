@@ -34,6 +34,7 @@ MY_JAVA_FILES = \
   SimpleAnalyzer.java \
   StrongRenamer.java \
   TranslationTable.java \
+  UniqueRenamer.java \
   WildCard.java
 #  LocalizeFieldTransformer.java
 

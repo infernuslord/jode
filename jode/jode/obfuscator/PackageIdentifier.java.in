@@ -64,44 +64,32 @@ public class PackageIdentifier extends Identifier {
 	    return;
 	loadOnDemand = true;
 	if ((Main.stripping & Main.STRIP_UNREACH) == 0) {
+	    String fullname = getFullName();
+	    if (fullname.length() > 0)
+		fullname += ".";
+
 	    // Load all classes and packages now, so they don't get stripped
-	    Vector v = new Vector();
 	    Enumeration enum = 
 		ClassInfo.getClassesAndPackages(getFullName());
 	    while (enum.hasMoreElements()) {
-		//insert sorted and remove double elements;
-		String subclazz = (String)enum.nextElement();
-		for (int i=0; ; i++) {
-		    if (i == v.size()) {
-			v.addElement(subclazz);
-			break;
-		    }
-		    int compare = subclazz.compareTo((String)v.elementAt(i));
-		    if (compare < 0) {
-			v.insertElementAt(subclazz, i);
-			break;
-		    } else if (compare == 0)
-			break;
-		}
-	    }
-	    enum = v.elements();
-	    while (enum.hasMoreElements()) {
-		String subclazz = (String) enum.nextElement();
-		String fullname = getFullName();
-		fullname = (fullname.length() > 0)
-		    ? fullname + "."+ subclazz
-		    : subclazz;
-		if (ClassInfo.isPackage(fullname)) {
+		String subclazz = ((String)enum.nextElement()).intern();
+		if (loadedClasses.containsKey(subclazz))
+		    continue;
+		String subFull = fullname + subclazz;
+		
+		if (ClassInfo.isPackage(subFull)) {
 		    PackageIdentifier ident = new PackageIdentifier
 			(bundle, this, subclazz);
 		    loadedClasses.put(subclazz, ident);
 		    ident.setLoadOnDemand();
 		} else {
-		    Identifier ident = new ClassIdentifier
-			(this, subclazz, ClassInfo.forName(fullname));
+		    ClassIdentifier ident = new ClassIdentifier
+			(this, subclazz, ClassInfo.forName(subFull));
+		    
+		    if (GlobalOptions.verboseLevel > 1)
+			GlobalOptions.err.println("preloading Class "
+						  + subFull);
 		    loadedClasses.put(subclazz, ident);
-		    if (GlobalOptions.verboseLevel > 0)
-			GlobalOptions.err.println("preloading "+ident);
 		    ((ClassIdentifier) ident).initClass();
 		}
 	    }
@@ -184,6 +172,7 @@ public class PackageIdentifier extends Identifier {
 	if (component != null) {
 	    Identifier ident = (Identifier) loadedClasses.get(component);
 	    if (ident == null) {
+		component = component.intern();
 		String fullname = getFullName();
 		fullname = (fullname.length() > 0)
 		    ? fullname + "." + component
@@ -227,7 +216,7 @@ public class PackageIdentifier extends Identifier {
 	    Enumeration enum = 
 		ClassInfo.getClassesAndPackages(getFullName());
 	    while (enum.hasMoreElements()) {
-		String subclazz = (String)enum.nextElement();
+		String subclazz = ((String)enum.nextElement()).intern();
 		if (loadedClasses.containsKey(subclazz))
 		    continue;
 		String subFull = fullname + subclazz;
@@ -276,36 +265,6 @@ public class PackageIdentifier extends Identifier {
 	    loadMatchingClasses(preserveRule);
 	super.applyPreserveRule(preserveRule);
     }
-
-    public void reachableIdentifier(String fqn, boolean isVirtual) {
-	int index = fqn.indexOf('.');
-	String component = index == -1 ? fqn : fqn.substring(0, index);
-	Identifier ident = getIdentifier(component);
-	if (ident == null)
-	    return;
-
-	if (index == -1) {
-	    ident.setReachable();
-	    return;
-	}
-
-	if (ident instanceof PackageIdentifier)
-	    ((PackageIdentifier) ident).reachableIdentifier
-		(fqn.substring(index+1), isVirtual);
-	else {
-	    String method = fqn.substring(index+1);
-	    index = method.indexOf('.');
-	    if (index == -1) {
-		((ClassIdentifier) ident).reachableIdentifier
-		    (method, null, isVirtual);
-	    } else {
-		((ClassIdentifier) ident).reachableIdentifier
-		    (method.substring(0, index), method.substring(index+1), 
-		     isVirtual);
-	    }
-	}
-    }
-
 //      public void preserveMatchingIdentifier(IdentifierMatcher matcher) {
 //  	String component = matcher.getNextComponent(getFullName());
 //  	if (component != null) {
