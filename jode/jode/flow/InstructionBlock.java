@@ -93,9 +93,8 @@ public class InstructionBlock extends InstructionContainer {
      * @return true if this block should be sorrounded by braces.
      */
     public boolean needsBraces() {
-        return declare != null && !declare.isEmpty();
+        return isDeclaration || (declare != null && !declare.isEmpty());
     }
-
 
     /**
      * Check if this is an local store instruction to a not yet declared
@@ -134,14 +133,15 @@ public class InstructionBlock extends InstructionContainer {
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-        if (isDeclaration) {
+	if (instr.getType() != Type.tVoid)
+	    writer.print("PUSH ");
+        else if (isDeclaration) {
             LocalInfo local = ((LocalStoreOperator) instr.getOperator())
                 .getLocalInfo();
-            writer.println(local.getType().getHint() + " " + instr + ";");
-        } else {
-            if (instr.getType() != Type.tVoid)
-                writer.print("PUSH ");
-            writer.println(instr.toString()+";");
-        }
+	    writer.printType(local.getType().getHint());
+	    writer.print(" ");
+	}
+	instr.dumpExpression(writer);
+	writer.println(";");
     }
 }
