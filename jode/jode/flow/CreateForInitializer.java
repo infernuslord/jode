@@ -41,16 +41,16 @@ public class CreateForInitializer {
         Expression initializer = 
             ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
             
-        if (!(initializer.getOperator() instanceof StoreInstruction)
-            || !initializer.getOperator().isVoid())
+        if (!initializer.getOperator().isVoid()
+            || (forBlock.cond != forBlock.TRUE
+                && !forBlock.cond.containsMatchingLoad(initializer)))
             return false;
 
         if (jode.Decompiler.isVerbose)
             System.err.print('f');
 
-        forBlock.init = initializer;
-        forBlock.moveDefinitions(last.outer, null);
-        last.replace(last.outer);
+        forBlock.init = (InstructionBlock) sequBlock.subBlocks[0];
+        last.replace(sequBlock);
         return true;
     }
 }
