@@ -19,14 +19,12 @@
 
 package jode;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Constructor;
 import gnu.bytecode.ConstantPool;
 import gnu.bytecode.CpoolEntry;
 import gnu.bytecode.CpoolValue1;
 import gnu.bytecode.CpoolValue2;
 import gnu.bytecode.CpoolString;
+import jode.bytecode.ClassHierarchy;
 import jode.flow.TransformConstructors;
 
 public class ClassAnalyzer implements Analyzer {
@@ -35,22 +33,17 @@ public class ClassAnalyzer implements Analyzer {
     MethodAnalyzer staticConstructor;
     MethodAnalyzer[] constructors;
 
-    Class clazz;
+    ClassHierarchy clazz;
     gnu.bytecode.ClassType classType;
     ClassAnalyzer parent;
     
-    public ClassAnalyzer(ClassAnalyzer parent, Class clazz, 
+    public ClassAnalyzer(ClassAnalyzer parent, ClassHierarchy clazz, 
                          JodeEnvironment env)
     {
         this.parent = parent;
         this.clazz = clazz;
         this.env  = env;
-        try {
-            this.classType = gnu.bytecode.ClassFileInput.
-                readClassType(env.getClassStream(clazz));
-        } catch (java.io.IOException ex) {
-            ex.printStackTrace();
-        }
+        this.classType = env.getClassType(clazz.getName());
     }
 
     public boolean setFieldInitializer(String fieldName, Expression expr) {
@@ -64,7 +57,7 @@ public class ClassAnalyzer implements Analyzer {
         return false;
     }
 
-    public Class getClazz() {
+    public ClassHierarchy getClazz() {
         return clazz;
     }
 
@@ -104,12 +97,12 @@ public class ClassAnalyzer implements Analyzer {
             TransformConstructors.transform(this, true, new MethodAnalyzer[] 
                                             { staticConstructor });
 
-	env.useClass(clazz);
+	env.useClass(clazz.getName());
         if (clazz.getSuperclass() != null)
-            env.useClass(clazz.getSuperclass());
-        Class[] interfaces = clazz.getInterfaces();
+            env.useClass(clazz.getSuperclass().getName());
+        ClassHierarchy[] interfaces = clazz.getInterfaces();
         for (int j=0; j< interfaces.length; j++)
-            env.useClass(interfaces[j]);
+            env.useClass(interfaces[j].getName());
     }
 
     public void dumpSource(TabbedPrintWriter writer) throws java.io.IOException
@@ -124,19 +117,20 @@ public class ClassAnalyzer implements Analyzer {
         writer.print(clazz.isInterface() 
                      ? ""/*interface is in modif*/ 
                      : "class ");
-	writer.println(env.classString(clazz));
+	writer.println(env.classString(clazz.getName()));
 	writer.tab();
-        Class superClazz = clazz.getSuperclass();
-	if (superClazz != null && superClazz != Object.class) {
-	    writer.println("extends "+env.classString(superClazz));
+        ClassHierarchy superClazz = clazz.getSuperclass();
+	if (superClazz != null && 
+            superClazz != ClassHierarchy.javaLangObject) {
+	    writer.println("extends "+env.classString(superClazz.getName()));
         }
-        Class[] interfaces = clazz.getInterfaces();
+        ClassHierarchy[] interfaces = clazz.getInterfaces();
 	if (interfaces.length > 0) {
 	    writer.print(clazz.isInterface() ? "extends " : "implements ");
 	    for (int i=0; i < interfaces.length; i++) {
 		if (i > 0)
 		    writer.print(", ");
-		writer.print(env.classString(interfaces[i]));
+		writer.print(env.classString(interfaces[i].getName()));
 	    }
             writer.println("");
 	}

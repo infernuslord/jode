@@ -68,7 +68,7 @@ public class PutFieldOperator extends StoreInstruction {
 
     public String getLValueString(String[] operands) {
         return staticFlag
-            ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
+            ? (classType.equals(Type.tClass(codeAnalyzer.getClazz().getName()))
                && codeAnalyzer.findLocal(fieldName) == null
                ? fieldName 
                : classType.toString() + "." + fieldName)

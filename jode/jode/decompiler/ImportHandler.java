@@ -19,6 +19,8 @@
 
 package jode;
 import java.util.*;
+import jode.bytecode.ClassHierarchy;
+import gnu.bytecode.ClassType;
 
 public class JodeEnvironment {
     Hashtable imports;
@@ -31,16 +33,23 @@ public class JodeEnvironment {
     SearchPath classPath;
 
     JodeEnvironment(String path) {
-	Type.setEnvironment(this);
         classPath = new SearchPath(path);
+        ClassHierarchy.setClassPath(classPath);
+	Type.setEnvironment(this);
         imports = new Hashtable();
         /* java.lang is always imported */
         imports.put("java.lang.*", new Integer(Integer.MAX_VALUE));
     }
 
-    public java.io.InputStream getClassStream(Class clazz) 
-        throws java.io.IOException {
-        return classPath.getFile(clazz.getName().replace('.', '/') + ".class");
+    public gnu.bytecode.ClassType getClassType(String clazzName) {
+        try {
+            return gnu.bytecode.ClassFileInput.readClassType
+                (classPath.getFile(clazzName.replace('.', '/')
+                                   +".class"));
+        } catch (java.io.IOException ex) {
+            ex.printStackTrace();
+            throw new RuntimeException("Class not found.");
+        }
     }
 
     /**
@@ -68,22 +77,9 @@ public class JodeEnvironment {
             name = name.substring(pkgdelim); 
 
             if (pkg.length() != 0) {
-                try {
-                    Class.forName(pkg + name);
-                    /* UGLY: If class doesn't conflict, above
-                     * Instruction throws an exception and we
-                     * doesn't reach here.  
-                     * XXX - Is there a better way to do it ???
-                     */
-//                     System.err.println(""+pkgName+name
-//                                        + " conflicts with "
-//                                        + pkg+name);
+                if (classPath.exists((pkg+name).replace('.', '/')
+                                     + ".class"))
                     return true;
-                } catch (ClassNotFoundException ex) {
-                    /* BTW: Exception generation is slow.  I'm
-                     * really sad that this is the default.
-                     */
-                }
             }
 
             Enumeration enum = imports.keys();
@@ -94,22 +90,9 @@ public class JodeEnvironment {
                     importName = importName.substring
                         (0, importName.length()-2);
                     if (!importName.equals(pkgName)) {
-                        try {
-                            Class.forName(importName + name);
-                            /* UGLY: If class doesn't conflict, above
-                             * Instruction throws an exception and we
-                             * doesn't reach here.  
-                             * XXX - Is there a better way to do it ???
-                             */
-//                             System.err.println(""+pkgName+name
-//                                                + " conflicts with "
-//                                                + importName+name);
+                        if (classPath.exists(importName.replace('.', '/')
+                                             + ".class"))
                             return true;
-                        } catch (ClassNotFoundException ex) {
-                            /* BTW: Exception generation is slow.  I'm
-                             * really sad that this is the default.
-                             */
-                        }
                     }
                 }
             }
@@ -189,12 +172,9 @@ public class JodeEnvironment {
 
     public void doClass(String className) 
     {
-        Class clazz;
+        ClassHierarchy clazz;
         try {
-            clazz = Class.forName(className);
-        } catch (ClassNotFoundException ex) {
-            System.err.println("Class `"+className+"' not found");
-            return;
+            clazz = ClassHierarchy.forName(className);
         } catch (IllegalArgumentException ex) {
             System.err.println("`"+className+"' is not a class name");
             return;
@@ -254,13 +234,6 @@ public class JodeEnvironment {
         }
     }
 
-    /* Marks the clazz as used, so that it will be imported if used often
-     * enough.
-     */
-    public void useClass(Class clazz) {
-        useClass(clazz.getName());
-    }
-
     /**
      * Check if clazz is imported and maybe remove package delimiter from
      * full qualified class name.
@@ -301,10 +274,6 @@ public class JodeEnvironment {
         }
         cachedClassNames.put(name, name);
         return name;
-    }
-
-    public String classString(Class clazz) {
-        return classString(clazz.getName());
     }
 
     protected int loadFileFlags()

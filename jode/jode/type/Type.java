@@ -144,34 +144,11 @@ public class Type {
         throw new AssertError("Unknown type signature: "+type);
     }
 
-    public static final Type tType(Class clazz) {
-        if (clazz.isArray())
-            return tArray(tType(clazz.getComponentType()));
-        if (clazz.isPrimitive()) {
-            return clazz == Boolean.TYPE   ? tBoolean 
-                :  clazz == Byte.TYPE      ? tByte 
-                :  clazz == Character.TYPE ? tChar 
-                :  clazz == Short.TYPE     ? tShort 
-                :  clazz == Integer.TYPE   ? tInt 
-                :  clazz == Float.TYPE     ? tFloat 
-                :  clazz == Long.TYPE      ? tLong 
-                :  clazz == Double.TYPE    ? tDouble 
-                :  clazz == Void.TYPE      ? tVoid 
-                :  tError;
-        }
-        return new ClassInterfacesType(clazz);
-    }
-
     public static final Type tClass(String clazzname) {
         clazzname = clazzname.replace('/', '.');
         Object result = classHash.get(clazzname);
         if (result == null) {
-            try {
-                Class clazz = Class.forName(clazzname);
-                result = new ClassInterfacesType(clazzname);
-            } catch (ClassNotFoundException ex) {
-                result = new UnfoundClassType(clazzname);
-            }
+            result = new ClassInterfacesType(clazzname);
             classHash.put(clazzname, result);
         }
         return (Type) result;

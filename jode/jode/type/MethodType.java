@@ -28,15 +28,6 @@ public class MethodType {
     final Type returnType;
     final boolean staticFlag;
 
-    public MethodType(boolean isStatic, Class[] argTypes, Class retType) {
-        this.staticFlag = isStatic;
-        parameterTypes = new Type[argTypes.length];
-        for (int i=0; i < argTypes.length; i++)
-            parameterTypes[i] = Type.tType(argTypes[i]);
-
-        returnType = Type.tType(retType);
-    }
-
     public MethodType(boolean isStatic, String signature) {
         this.staticFlag = isStatic;
         int index = 1, types = 0;

@@ -105,7 +105,8 @@ public class MethodAnalyzer implements Analyzer {
 	int offset = 0;
 	if (!isStatic()) {
 	    LocalInfo clazz = code.getParamInfo(0);
-	    clazz.setType(Type.tType(this.classAnalyzer.clazz));
+	    clazz.setType
+                (Type.tClass(this.classAnalyzer.getClazz().getName()));
 	    clazz.setName("this");
 	    offset++;
 	}
@@ -157,7 +158,8 @@ public class MethodAnalyzer implements Analyzer {
             writer.print(""); /* static block */
         else { 
             if (isConstructor)
-                writer.print(env.classString(classAnalyzer.clazz));
+                writer.print(env.classString(classAnalyzer.
+                                             getClazz().getName()));
             else
                 writer.print(getReturnType().toString()
 			     + " " + methodName);
