@@ -40,7 +40,6 @@
   <property name="test.log" value="${test}/log"/>
   
   <property name="jcpp" value="${scripts}/jcpp.pl"/>
-  <property name="php2html" value="${scripts}/php2html.pl"/>
 
   <property name="versionfile" value="${src}/jode/GlobalOptions.java"/>
 
@@ -250,19 +249,14 @@
 
   <target name="doc" depends="doc-javadoc,doc-html"/>
 
-  <target name="check-html">
-    <uptodate property="html.uptodate">
-      <srcfiles dir="${basedir}" includes="${doc}/*.php"/>
-      <mapper type="glob" from="*.php" to="*.html"/>
-    </uptodate>
-  </target>
-
-  <target name="doc-html" depends="check-html" 
-	  if="php.present" unless="html.uptodate">
-    <execon dir="${doc}" executable="perl" parallel="true">
-      <arg value="${php2html}"/>
-      <fileset dir="${doc}" includes="*.php"/>
-    </execon>
+  <target name="doc-html" if="htp.present">
+    <apply executable="htp" dir="${doc}" dest="${doc}" parallel="false" relative="yes">
+      <arg value="-NODEPEND" />
+      <srcfile />
+      <targetfile />
+      <fileset dir="${doc}" includes="*.htp"/>
+      <mapper type="glob" from="*.htp" to="*.html"/>
+    </apply>
   </target>
   <target name="doc-javadoc">
     <tstamp>
