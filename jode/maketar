@@ -1,7 +1,6 @@
 #!/bin/sh
 echo '#!/bin/sh' > co.all
 echo co -u jcpp make* COPYING *.html *.java */*.java test/*.j >> co.all
-echo ./compile >> co.all
 chmod a+x co.all
 
 echo '#!/bin/sh' > compile
