@@ -198,8 +198,24 @@ public class ConstOperator extends NoArgOperator {
         }
         if (type.isOfType(Type.tLong))
             return strVal+"L";
-        if (type.isOfType(Type.tFloat))
+        if (type.isOfType(Type.tFloat)) {
+	    if (strVal.equals("NaN"))
+		return "Float.NaN";
+	    if (strVal.equals("-Infinity"))
+		return "Float.NEGATIVE_INFINITY";
+	    if (strVal.equals("Infinity"))
+		return "Float.POSITIVE_INFINITY";
             return strVal+"F";
+	}
+        if (type.isOfType(Type.tDouble)) {
+	    if (strVal.equals("NaN"))
+		return "Double.NaN";
+	    if (strVal.equals("-Infinity"))
+		return "Double.NEGATIVE_INFINITY";
+	    if (strVal.equals("Infinity"))
+		return "Double.POSITIVE_INFINITY";
+            return strVal;
+	}
         if (!type.isOfType(Type.tInt) 
 	    && (type.getHint().equals(Type.tByte)
 		|| type.getHint().equals(Type.tShort))
