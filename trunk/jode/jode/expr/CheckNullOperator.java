@@ -21,6 +21,7 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
+import jode.flow.VariableSet;
 
 /**
  * This is a pseudo operator, which represents the check against null
@@ -66,6 +67,12 @@ public class CheckNullOperator extends Operator {
 
     public void removeLocal() {
 	local.remove();
+    }
+
+    public void fillInGenSet(VariableSet in, VariableSet gen) {
+	if (gen != null)
+	    gen.addElement(local);
+	super.fillInGenSet(in, gen);
     }
 
     public void dumpExpression(TabbedPrintWriter writer)
