@@ -92,14 +92,14 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                                               Instruction instr)
     {
         return new EmptyBlock
-	    (new Jump((FlowBlock)instr.getSuccs()[0].getTmpInfo()));
+	    (new Jump((FlowBlock)instr.getSingleSucc().getTmpInfo()));
     }
 
     private static StructuredBlock createJsr(MethodAnalyzer ma, 
 					     Instruction instr)
     {
         return new JsrBlock
-	    (new Jump((FlowBlock)instr.getSuccs()[0].getTmpInfo()),
+	    (new Jump((FlowBlock)instr.getSingleSucc().getTmpInfo()),
 	     new Jump(FlowBlock.NEXT_BY_ADDR));
     }
 
@@ -108,7 +108,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
 						Expression expr)
     {
         return new ConditionalBlock
-	    (expr, new Jump((FlowBlock)instr.getSuccs()[0].getTmpInfo()), 
+	    (expr, new Jump((FlowBlock)instr.getSingleSucc().getTmpInfo()), 
 	     new Jump(FlowBlock.NEXT_BY_ADDR));
     }
 
@@ -176,7 +176,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                 (ma, instr, new StoreInstruction
 		 (new LocalStoreOperator
 		  (types[LOCAL_TYPES][opcode-opc_istore], 
-		   ma.getLocalInfo(instr.getAddr()+instr.getLength(), 
+		   ma.getLocalInfo(instr.getNextByAddr().getAddr(), 
 				   instr.getLocalSlot()))));
         case opc_iastore: case opc_lastore:
         case opc_fastore: case opc_dastore: case opc_aastore:
@@ -223,7 +223,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
                  (types[ZBIN_TYPES][(opcode - opc_iand)%2],
                   (opcode - opc_iand)/2 + Operator.AND_OP));
         case opc_iinc: {
-            int value = instr.getIntData();
+            int value = instr.getIncrement();
             int operation = Operator.ADD_OP;
             if (value < 0) {
                 value = -value;
@@ -294,18 +294,6 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
             return createRet
                 (ma, instr, 
 		 ma.getLocalInfo(instr.getAddr(), instr.getLocalSlot()));
-        case opc_tableswitch: {
-            int low  = instr.getIntData();
-            int[] cases = new int[instr.getSuccs().length-1];
-            FlowBlock[] dests = new FlowBlock[instr.getSuccs().length];
-            for (int i=0; i < cases.length; i++) {
-                cases[i] = i+low;
-                dests[i] = (FlowBlock) instr.getSuccs()[i].getTmpInfo();
-            }
-            dests[cases.length] = (FlowBlock)
-		instr.getSuccs()[cases.length].getTmpInfo();
-            return createSwitch(ma, instr, cases, dests);
-	}
         case opc_lookupswitch: {
 	    int[] cases = instr.getValues();
             FlowBlock[] dests = new FlowBlock[instr.getSuccs().length];
@@ -382,7 +370,7 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_multianewarray: {
             Type type = Type.tType(instr.getClazzType());
 	    ma.useType(type);
-            int dimension = instr.getIntData();
+            int dimension = instr.getDimensions();
             return createNormal(ma, instr, 
 				new NewArrayOperator(type, dimension));
         }
