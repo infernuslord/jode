@@ -72,11 +72,12 @@ public class CreateExpression {
             Expression expr =
                 ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
             
-            
             if (!expr.isVoid()) {
                 if (--i == 0)
                     break;
             } else if (lastExpression == null
+		       || !(expr.getOperator() 
+			    instanceof CombineableOperator)
                        || lastExpression.canCombine(expr) <= 0)
                 return false;
 

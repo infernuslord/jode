@@ -21,6 +21,7 @@ package jode.flow;
 import java.util.*;
 import jode.*;
 import jode.decompiler.Expression;
+import jode.decompiler.CombineableOperator;
 
 /**
  * A flow block is the structure of which the flow graph consists.  A
@@ -783,9 +784,10 @@ public class FlowBlock {
             } 
 
             if (!createdForBlock 
-                && ((InstructionBlock)
-                    lastModified).getInstruction().isVoid()) {
-                
+                && (((InstructionBlock)
+		     lastModified).getInstruction().getOperator()
+		    instanceof CombineableOperator)) {
+		
                 /* The only jump is the jump of the last
                  * instruction lastModified, there is a big
                  * chance, that this is a for block, but we
