@@ -19,8 +19,16 @@
 
 package jode.bytecode;
 import java.io.*;
-import java.util.Enumeration;
-import jode.util.SimpleDictionary;
+import jode.util.SimpleMap;
+
+///#ifdef JDK12
+///import java.util.Map;
+///import java.util.Iterator;
+///#else
+import jode.util.Map;
+import jode.util.Iterator;
+///#endif
+
 
 /**
  *
@@ -36,7 +44,7 @@ public class BinaryInfo {
     public static final int OUTERCLASSES    = 0x40;
     public static final int FULLINFO        = 0xff;
 
-    protected SimpleDictionary unknownAttributes;
+    protected Map unknownAttributes;
 
     protected void skipAttributes(DataInputStream input) throws IOException {
         int count = input.readUnsignedShort();
@@ -121,7 +129,7 @@ public class BinaryInfo {
                                   DataInputStream input, 
                                   int howMuch) throws IOException {
 	int count = input.readUnsignedShort();
-	unknownAttributes = new SimpleDictionary();
+	unknownAttributes = new SimpleMap();
 	for (int i=0; i< count; i++) {
 	    String attrName = 
 		constantPool.getUTF8(input.readUnsignedShort());
@@ -136,9 +144,9 @@ public class BinaryInfo {
     }
 
     protected void prepareAttributes(GrowableConstantPool gcp) {
-	Enumeration enum = unknownAttributes.keys();
-	while (enum.hasMoreElements())
-	    gcp.putUTF8((String) enum.nextElement());
+	Iterator i = unknownAttributes.keySet().iterator();
+	while (i.hasNext())
+	    gcp.putUTF8((String) i.next());
     }
 
     protected void writeKnownAttributes
@@ -152,11 +160,11 @@ public class BinaryInfo {
 	int count = unknownAttributes.size() + getKnownAttributeCount();
 	output.writeShort(count);
 	writeKnownAttributes(constantPool, output);
-	Enumeration keys = unknownAttributes.keys();
-	Enumeration elts = unknownAttributes.elements();
-	while (keys.hasMoreElements()) {
-	    String name = (String) keys.nextElement();
-	    byte[] data = (byte[]) elts.nextElement();
+	Iterator i = unknownAttributes.entrySet().iterator();
+	while (i.hasNext()) {
+	    Map.Entry e = (Map.Entry) i.next();
+	    String name = (String) e.getKey();
+	    byte[] data = (byte[]) e.getValue();
 	    output.writeShort(constantPool.putUTF8(name));
 	    output.writeInt(data.length);
 	    output.write(data);
@@ -165,9 +173,9 @@ public class BinaryInfo {
 
     public int getAttributeSize() {
 	int size = 2; /* attribute count */
-	Enumeration enum = unknownAttributes.elements();
-	while (enum.hasMoreElements())
-	    size += 2 + 4 + ((byte[]) enum.nextElement()).length;
+	Iterator i = unknownAttributes.values().iterator();
+	while (i.hasNext())
+	    size += 2 + 4 + ((byte[]) i.next()).length;
 	return size;
     }
     
@@ -175,8 +183,8 @@ public class BinaryInfo {
 	return (byte[]) unknownAttributes.get(name);
     }
 
-    public Enumeration getAttributes() {
-	return unknownAttributes.elements();
+    public Iterator getAttributes() {
+	return unknownAttributes.values().iterator();
     }
 
     public void setAttribute(String name, byte[] content) {
@@ -188,6 +196,6 @@ public class BinaryInfo {
     }
 
     public void removeAllAttributes() {
-	unknownAttributes = new SimpleDictionary();
+	unknownAttributes = new SimpleMap();
     }
 }
