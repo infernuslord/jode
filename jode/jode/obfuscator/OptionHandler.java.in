@@ -1,0 +1,8 @@
+package jode.obfuscator;
+
+import @COLLECTIONS@.Collection;
+
+public interface OptionHandler {
+    public void setOption(String option, Collection values)
+	throws IllegalArgumentException;
+}

@@ -46,11 +46,9 @@ import @COLLECTIONS@.Iterator;
  * @author Jochen Hoenicke
  */
 public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
-    boolean working;
     Map constInfos;
 
     BytecodeInfo bytecode;
-    Identifier listener;
 
     private static ConstantRuntimeEnvironment runtime
 	= new ConstantRuntimeEnvironment();
@@ -485,7 +483,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
     }
 
-    public void handleOpcode(StackLocalInfo info) {
+    public void handleOpcode(StackLocalInfo info, Identifier fieldListener) {
 	Instruction instr = info.instr;
 	constInfos.put(instr, unknownConstInfo);
 	
@@ -1206,7 +1204,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    shortInfo.constant = obj;
 		    result = new ConstValue(obj);
 		    result.addConstantListener(shortInfo);
-		    fi.addFieldListener(listener);
+		    fi.addFieldListener(fieldListener);
 		}
 	    } else
 		result = unknownValue[type.stackSize()-1];
@@ -1367,10 +1365,9 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
     }
 
-    public void analyzeCode(MethodIdentifier listener, BytecodeInfo bytecode) {
-	this.listener = listener;
+    public void analyzeCode(MethodIdentifier methodIdent, 
+			    BytecodeInfo bytecode) {
 	this.bytecode = bytecode;
-	working = true;	
 	if (constInfos == null)
 	    constInfos = new HashMap();
 	Set modifiedQueue = new HashSet();
@@ -1385,7 +1382,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    Iterator iter = modifiedQueue.iterator();
 	    StackLocalInfo info = (StackLocalInfo) iter.next();
 	    iter.remove();
-	    handleOpcode(info);
+	    handleOpcode(info, methodIdent);
 	}
 
 	Handler[] handlers = bytecode.getExceptionHandlers();
@@ -1394,7 +1391,6 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		&& handlers[i].type != null)
 		Main.getClassBundle().reachableIdentifier(handlers[i].type, false);
 	}
-	working = false;
 	for (Instruction instr = bytecode.getFirstInstr();
 	     instr != null; instr = instr.getNextByAddr())
 	    instr.setTmpInfo(null);

@@ -23,6 +23,7 @@ MY_JAVA_FILES = \
   Main.java \
   MethodIdentifier.java \
   ModifierMatcher.java \
+  MultiIdentifierMatcher.java \
   NameSwapper.java \
   OptionHandler.java \
   PackageIdentifier.java \

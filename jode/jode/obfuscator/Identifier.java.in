@@ -181,10 +181,10 @@ public abstract class Identifier {
 
 	    // set alias to empty string, so it won't conflict!
 	    rep.alias = "";
-	    String newAlias = null;
+	    Iterator aliases = renameRule.generateNames(this);
 	next_alias:
 	    for (;;) {
-		newAlias = renameRule.generateName(this, newAlias);
+		String newAlias = (String) aliases.next();
 		Identifier ptr = rep;
 		while (ptr != null) {
 		    if (ptr.conflicting(newAlias))
@@ -224,6 +224,7 @@ public abstract class Identifier {
 
     public void applyPreserveRule(IdentifierMatcher preserveRule) {
 	if (preserveRule.matches(this)) {
+	    System.err.println("preserving: "+this);
 	    setReachable();
 	    setPreserved();
 	}

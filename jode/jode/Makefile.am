@@ -37,11 +37,5 @@ clean-local:
 
 $(JARFILE): $(noinst_DATA)
 	CLASSPATH=$(top_builddir):$(CLASSPATH) $(JAVA) -mx80m \
-	    jode.obfuscator.Main --dest $(JARFILE) \
-	    --revtable rename.table \
-	    --rename=none --breakserial --strip=unreach -v -v \
-	    --preserve 'jode.Decompiler.main.*' \
-	    --preserve 'jode.JodeApplet.<init>.*' \
-	    --preserve 'jode.JodeWindow.main.*' \
-	    --preserve 'jode.obfuscator.Main.main.*' \
-	    --preserve 'jode.swingui.Main.main.*'  jode
+	    jode.obfuscator.Main --classpath=$(top_builddir) \
+	                --dest=$(JARFILE) -v -v $(srcdir)/jode.jodescript
