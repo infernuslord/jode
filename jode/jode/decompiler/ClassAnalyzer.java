@@ -31,7 +31,7 @@ import jode.flow.TransformConstructors;
 
 public class ClassAnalyzer implements Analyzer {
     JodeEnvironment env;
-    Analyzer[] analyzers;    
+    Analyzer[] analyzers;
     MethodAnalyzer staticConstructor;
     MethodAnalyzer[] constructors;
 
@@ -62,6 +62,10 @@ public class ClassAnalyzer implements Analyzer {
             }
         }
         return false;
+    }
+
+    public Class getClazz() {
+        return clazz;
     }
 
     public void analyze() {
