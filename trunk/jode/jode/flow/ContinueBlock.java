@@ -22,7 +22,7 @@ import jode.decompiler.TabbedPrintWriter;
  * 
  */
 public class ContinueBlock extends StructuredBlock {
-    StructuredBlock continuesBlock;
+    LoopBlock continuesBlock;
     String continueLabel;
 
     public ContinueBlock(LoopBlock continuesBlock, boolean needsLabel) {
@@ -68,6 +68,19 @@ public class ContinueBlock extends StructuredBlock {
      */
     public FlowBlock getNextFlowBlock() {
         return null;
+    }
+
+    /** 
+     * This is called after the analysis is completely done.  It
+     * will remove all PUSH/stack_i expressions, (if the bytecode
+     * is correct).
+     * @param stack the stackmap at begin of the block
+     * @return null if the bytecode isn't correct and stack mapping
+     * didn't worked, otherwise the stack after the block has executed.
+     */
+    public VariableStack mapStackToLocal(VariableStack stack) {
+	continuesBlock.mergeContinueStack(stack);
+	return null;
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 
