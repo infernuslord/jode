@@ -22,7 +22,7 @@ import jode.Type;
 import jode.LocalInfo;
 
 public class IIncOperator extends NoArgOperator 
-implements LocalVarOperator {
+implements LocalVarOperator, CombineableOperator {
     String value;
     LocalInfo local;
 
