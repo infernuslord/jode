@@ -19,9 +19,12 @@
 
 package jode.expr;
 import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.ClassAnalyzer;
 import jode.MethodType;
+import jode.Decompiler;
 import jode.Type;
-import jode.bytecode.ClassInfo;
+import jode.bytecode.*;
+import jode.jvm.*;
 
 public final class InvokeOperator extends Operator 
     implements MatchableOperator {
@@ -166,6 +169,40 @@ public final class InvokeOperator extends Operator
 	    return false;
 	return codeAnalyzer.getClassAnalyzer()
 	    .getMethod(methodName, methodType).isGetClass();
+    }
+
+    public ConstOperator deobfuscateString(ConstOperator op) {
+	if (!isThis() || !isStatic()
+	    || methodType.getParameterTypes().length != 1
+	    || !methodType.getParameterTypes()[0].equals(Type.tString)
+	    || !methodType.getReturnType().equals(Type.tString))
+	    return null;
+	ClassAnalyzer clazz = codeAnalyzer.getClassAnalyzer();
+	CodeAnalyzer ca = clazz.getMethod(methodName, methodType).getCode();
+	if (ca == null)
+	    return null;
+	CodeInfo info = ca.getCodeInfo();
+	Value[] locals = new Value[info.getMaxLocals()];
+	for (int i=0; i< locals.length; i++)
+	    locals[i] = new Value();
+	Value[] stack = new Value[info.getMaxStack()];
+	for (int i=0; i< stack.length; i++)
+	    stack[i] = new Value();
+	locals[0].setObject(op.getValue());
+	String result;
+	try {
+	    result = (String) Interpreter.interpretMethod
+		(clazz, info.getCode(), locals, stack);
+	} catch (InterpreterException ex) {
+	    Decompiler.err.println("Warning: Can't interpret method "
+				   +methodName);
+	    ex.printStackTrace(Decompiler.err);
+	    return null;
+	} catch (ClassFormatException ex) {
+	    ex.printStackTrace(Decompiler.err);
+	    return null;
+	}
+	return new ConstOperator(Type.tString, result);
     }
 
     /* Invokes never equals: they may return different values even if
