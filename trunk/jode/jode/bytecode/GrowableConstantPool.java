@@ -1,4 +1,4 @@
-/* jode.bytecode.GrowableConstantPool Copyright (C) 1998 Jochen Hoenicke.
+/* GrowableConstantPool Copyright (C) 1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *
  * $Id$
  */
+
 package jode.bytecode;
 import java.io.*;
 import jode.Type;
@@ -98,15 +99,17 @@ public class GrowableConstantPool extends ConstantPool {
 			  CLASS, putUTF(name), 0);
     }
 
-    public int putRef(int tag, String[] names) {
-	int classIndex = putClassRef(names[0]);
-	int nameIndex  = putUTF(names[1]);
-	int typeIndex  = putUTF(names[2]);
-	int nameTypeIndex = putIndexed("" + (char) NAMEANDTYPE
-				       + names[1] + "/" + names[2],
+    public int putRef(int tag, Reference ref) {
+	String className = ref.getClazz();
+	String typeSig = ref.getType();
+	String nameAndType = ref.getName() + "/" + typeSig;
+
+	int classIndex = putClassRef(className);
+	int nameIndex  = putUTF(ref.getName());
+	int typeIndex  = putUTF(typeSig);
+	int nameTypeIndex = putIndexed("" + (char) NAMEANDTYPE + nameAndType,
 				       NAMEANDTYPE, nameIndex, typeIndex);
-	return putIndexed("" + (char)tag
-			  + names[0] + "/" + names[1] + "/" + names[2], 
+	return putIndexed("" + (char)tag + className + "/" + nameAndType,
 			  tag, classIndex, nameTypeIndex);
     }
 
@@ -131,8 +134,8 @@ public class GrowableConstantPool extends ConstantPool {
 	    else if (c instanceof Double)
 		tag = DOUBLE;
 	    else
-		throw new IllegalArgumentException("illegal constant type: "
-						   + c.getClass());
+		throw new IllegalArgumentException("illegal constant "+c
+						   +" of type: "+ c.getClass());
 	    return putConstant(tag, c);
         }
     }
