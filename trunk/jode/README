@@ -13,7 +13,7 @@ decompile the class (e.g. on your own code).
 
 The features of the decompilers are:
 
- * Systematic flow analysis, that can decompile almost every java code
+ * Systematic flow analysis, that can decompile every java code
    without the need of goto (which doesn't exists in java).
  * Type deduction, that can guess the type of local variables, even if 
    it is an interface type that doesn't occur in the bytecode.
@@ -31,29 +31,33 @@ Known bugs of the decompiler:
    the right type, if you don't have access the full class hierarchie.
 
    But if you don't have the dependent classes, you can't compile the
-   code again, anyway.
+   code again, anyway, so why do you want to decompile it?
 
- - There may be situations, where the code doesn't understand complex
-   expressions. In this many ugly temporary variables are used, but the
-   code should still be compileable.  This does especially happen when
-   you compile with `-O' flag and javac has inlined some methods.
+ - There may be situations, where jode doesn't understand complex
+   expressions. In this case many ugly temporary variables are used,
+   but the code should still be compileable.  This does especially
+   happen when you compile with `-O' flag and javac has inlined some
+   methods.
 
- - Sometimes this program may exit with an Exception or
-   produce incorrect code.  If it produced incorrect code the
-   code probably can't be compiled, so that the error can be easily spotted.
-   If you have one of these problems (they are very rare now), I would
-   be very interested in a bug report (including the .class file, if
-   possible).</p>
+ - Sometimes this program may exit with an Exception or produce
+   incorrect code.  If it produced incorrect code the code probably
+   can't be compiled, so that the error can be easily spotted.  If you
+   have one of these problems (they are very rare now), I would be
+   very interested in a bug report (including the .class file, if
+   possible).
 
  - Sometimes it generates some GOTO expression and labels.  This
-   shouldn't happen any more with javac or jikes.  But some flow
-   obfuscator likes Zelix Klassmaster may provoke this.  In
-   that case you can run the Obfuscator first.
+   shouldn't happen any more with code produced by javac or jikes.
+   But some flow obfuscator likes Zelix Klassmaster may provoke this.
+   In that case you can run the Obfuscator first (to optimize away the
+   flow obfuscation ;-).
 
 The features of the obfuscator are:
- * Modular design, you can swap whole classes via the script file.
- * Strong analysis, that optimizes fields, expressions that are known
-   to be constant (and reverts the flow obfuscation of Zelix Klassmaster)
+ * Modular design, you can plug the obfuscation transformation you need
+   together via the script file.
+ * Strong analysis, that optimizes away fields, expressions that are
+   known to be constant (and reverts the flow obfuscation of Zelix
+   Klassmaster)
  * Can also be used as Optimizer, without any obfuscation at all,  it
    will preserve the local variable table and line number table.
  * Many different renaming options, you can also simply add your own.
@@ -67,8 +71,25 @@ You should also have the jode-x.x.xx.jar file.  Read INSTALL how to
 compile it yourself.
 
 Jode also works with jdk1.1, you need the sun collection classes and
-swing in that case and you have to compile the jar-file yourself
+swing in that case and you have to compile the jar-file yourself.
 
+Here are some URLs for the tools and packages you may need:
+
+ CYGWIN (unix tools for win95/NT):
+   http://sourceware.cygnus.com/cygwin/
+
+ JDK 1.1:
+   http://java.sun.com/products/jdk/1.1/index.htm
+
+ Collection classes and Swing for JDK 1.1:
+   http://java.sun.com/beans/infobus/#DOWNLOAD_COLLECTIONS
+   http://java.sun.com/products/jfc/index.html#download-swing
+
+ JDK 1.2:
+   http://java.sun.com/products/jdk/1.2/index.html
+
+ Getopt:
+   http://www.urbanophile.com/arenn/hacking/download.html#getopt
 
 USAGE:
 
