@@ -682,7 +682,8 @@ public class FlowBlock {
 
         if (jumps.next == null
             && jumps.prev == lastModified 
-            && lastModified instanceof InstructionBlock) {
+            && lastModified instanceof InstructionBlock
+            && ((InstructionBlock)lastModified).getInstruction().isVoid()) {
             
             Expression instr = 
                 ((InstructionBlock)lastModified).getInstruction();
