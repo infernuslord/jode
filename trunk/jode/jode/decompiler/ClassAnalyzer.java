@@ -61,6 +61,11 @@ public class ClassAnalyzer implements Analyzer {
     {
         if (cdef.getSource() != null)
             writer.println("/* Original source: "+cdef.getSource()+" */");
+
+        writer.println("package " + cdef.getName().getQualifier() + ";");
+        /* XXX imports */
+        writer.println("");
+
         String modif = Modifier.toString(cdef.getModifiers());
         if (modif.length() > 0)
             writer.print(modif + " ");

@@ -74,14 +74,20 @@ public class CreateExpression implements Transformation {
                     (InstructionBlock) sequBlock.getSubBlocks()[0];
                 if (block.jump != null)
                     return false;
-                exprs[i] = 
-                    (Expression) block.getInstruction();
+                exprs[i] = (Expression) block.getInstruction();
+
+                if (i > 0 && exprs[i].getOperandCount() > 0)
+                    /* This is a not fully resolved expression in the
+                     * middle, we must not touch it.  */
+                    return false;
+
                 if (exprs[i].isVoid()) {
 		    if (i == params-1)
 			return false;
 		    Expression e = exprs[i+1].tryToCombine(exprs[i]);
 		    if (e == null)
 			return false;
+
 		    i++;
                     SequentialBlock subExprBlock = 
                         (SequentialBlock) sequBlock.getSubBlocks()[1];

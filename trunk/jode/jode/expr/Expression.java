@@ -28,6 +28,12 @@ public abstract class Expression extends Instruction {
         super (type);
     }
 
+    /**
+     * Get the number of operands.
+     * @return The number of stack entries this expression needs.
+     */
+    public abstract int getOperandCount();
+
     public Expression negate() {
         Operator negop = 
             new UnaryOperator(Type.tBoolean, Operator.LOG_NOT_OP);
@@ -36,6 +42,17 @@ public abstract class Expression extends Instruction {
     }
 
     public Expression tryToCombine(Expression e) {
+	if (e instanceof ComplexExpression
+            && e.getOperator() instanceof StoreInstruction) {
+            ComplexExpression ce = (ComplexExpression) e;
+	    StoreInstruction store = (StoreInstruction) e.getOperator();
+	    if (store.matches(getOperator()) 
+                && ce.subExpressions.length == 1) {
+                return new ComplexExpression
+                    (new AssignOperator(store.getOperatorIndex(), store),
+                     ce.subExpressions);
+	    }
+	}
 	return null;
     }
 
