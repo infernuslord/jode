@@ -24,8 +24,6 @@ import java.awt.*;
 import java.awt.event.*;
 ///#endif
 import java.io.*;
-import jode.bytecode.ClassInfo;
-import jode.bytecode.SearchPath;
 import jode.GlobalOptions;
 
 public class Window 
@@ -42,6 +40,8 @@ public class Window
     String lastClassName;
     Frame frame;
 
+    PrintWriter errStream;
+    Decompiler decompiler = new Decompiler();
     Thread decompileThread;
     
     public Window(Container window) {
@@ -147,10 +147,11 @@ public class Window
 	startButton.addActionListener(this);
 	saveButton.addActionListener(this);
 ///#endif
-	GlobalOptions.err = new PrintWriter(new AreaWriter(errorArea));
+	errStream = new PrintWriter(new AreaWriter(errorArea));
+	decompiler.setErr(errStream);
     }
 
-    public void setClasspath(String cp) {
+    public void setClassPath(String cp) {
 	classpathField.setText(cp);
     }
     public void setClass(String cls) {
@@ -192,14 +193,14 @@ public class Window
 		out.close();
 	    } catch (IOException ex) {
 		errorArea.setText("");
-		GlobalOptions.err.println("Couldn't write to file " 
+		errStream.println("Couldn't write to file " 
 				       + fileName + ": ");
-		ex.printStackTrace(GlobalOptions.err);
+		ex.printStackTrace(errStream);
 	    } catch (SecurityException ex) {
 		errorArea.setText("");
-		GlobalOptions.err.println("Couldn't write to file " 
+		errStream.println("Couldn't write to file " 
 				       + fileName + ": ");
-		ex.printStackTrace(GlobalOptions.err);
+		ex.printStackTrace(errStream);
 	    }
 	}
     }
@@ -232,11 +233,11 @@ public class Window
     }
 
     public void run() {
-	GlobalOptions.verboseLevel = verboseCheck.getState() ? 1 : 0;
+	decompiler.setOption("verbose", verboseCheck.getState() ? "1" : "0");
 	if (prettyCheck.getState())
-	    Options.options |= Options.OPTION_PRETTY;
+	    decompiler.setOption("pretty", "0");
 	else
-	    Options.options &= ~Options.OPTION_PRETTY;
+	    decompiler.setOption("pretty", "1");
 	errorArea.setText("");
 ///#ifdef AWT10
 ///	saveButton.disable();
@@ -245,12 +246,11 @@ public class Window
 ///#endif
 
 	lastClassName = classField.getText();
-	ClassInfo.setClassPath(classpathField.getText());
-	ImportHandler imports = new ImportHandler();
+	decompiler.setClassPath(classpathField.getText());
 	try {
-	    ClassInfo clazz;
+	    Writer writer = new AreaWriter(sourcecodeArea);
 	    try {
-		clazz = ClassInfo.forName(lastClassName);
+		decompiler.decompile(lastClassName, writer, null);
 	    } catch (IllegalArgumentException ex) {
 		sourcecodeArea.setText
 		    ("`"+lastClassName+"' is not a class name\n"
@@ -259,12 +259,6 @@ public class Window
 		     +"and without .class ending");
 		return;
 	    }
-
-	    TabbedPrintWriter writer = 
-		new TabbedPrintWriter(new AreaWriter(sourcecodeArea), imports);
-	    ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
-	    clazzAna.dumpJavaFile(writer);
-
 ///#ifdef AWT10
 ///	    saveButton.enable();
 ///#else
@@ -292,8 +286,8 @@ public class Window
 
 	String cp = System.getProperty("java.class.path");
 	if (cp != null)
-	    win.setClasspath(cp.replace(File.pathSeparatorChar, 
-					SearchPath.altPathSeparatorChar));
+	    win.setClassPath(cp.replace(File.pathSeparatorChar, 
+					Decompiler.altPathSeparatorChar));
 	String cls = win.getClass().getName();
 	win.setClass(cls);
 

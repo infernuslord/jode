@@ -77,6 +77,10 @@ import @COLLECTIONS@.Set;
  */
 public class MethodAnalyzer implements Scope, ClassDeclarer {
     /**
+     * The minimal visible complexity.
+     */
+    private static double STEP_COMPLEXITY = 0.01;
+    /**
      * The import handler where we should register our types.
      */
     ImportHandler imports;
@@ -199,24 +203,6 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
         
 	if (minfo.getBytecode() != null) {
 	    code = minfo.getBytecode();
-
-	    if ((Options.options & Options.OPTION_VERIFY) != 0) {
-		CodeVerifier verifier
-		    = new CodeVerifier(getClazz(), minfo, code);
-		try {
-		    verifier.verify();
-		} catch (VerifyException ex) {
-		    ex.printStackTrace(GlobalOptions.err);
-		    throw new jode.AssertError("Verification error");
-		}
-	    }
-	
-	    if ((Options.options & Options.OPTION_LVT) != 0) {
-		LocalVariableInfo[] localvars = code.getLocalVariableTable();
-		if (localvars != null)
-		    lvt = new LocalVariableTable(code.getMaxLocals(), 
-						 localvars);
-	    }
 	}
         String[] excattr = minfo.getExceptions();
         if (excattr == null) {
@@ -441,13 +427,31 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
     }
 
     /**
+     * Gets the complexity of this class.  Must be called after it has
+     * been initialized.  This is used for a nice progress bar.
+     */
+    public double getComplexity() {
+	if (code == null)
+	    return 0.0;
+	else
+	    return code.getInstructions().size();
+    }
+
+    /**
      * Analyzes the code of this method.  This creates the
      * flow blocks (including methodHeader) and analyzes them.  
      */
-    private void analyzeCode()
+    private void analyzeCode(ProgressListener pl, double done, double scale) 
     {
+	int instrsPerStep = Integer.MAX_VALUE;
 	if (GlobalOptions.verboseLevel > 0)
 	    GlobalOptions.err.print(methodName+": ");
+
+	if (pl != null) {
+	    instrsPerStep = (int) ((code.getInstructions().size()
+				    * STEP_COMPLEXITY) / (scale * 0.9));
+	}
+
 	/* The adjacent analyzation relies on this */
 	DeadCodeAnalysis.removeDeadCode(code);
 	Handler[] handlers = code.getExceptionHandlers();
@@ -487,6 +491,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
              * second has no predecessors.
              */
             int mark = 1000;
+	    int count = 0;
             FlowBlock lastBlock = null;
 	    boolean   lastSequential = false;
 	    for (Iterator i = code.getInstructions().iterator(); 
@@ -500,6 +505,12 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
                     GlobalOptions.err.print('.');
                     mark += 1000;
                 }
+		if (++count >= instrsPerStep) {
+		    done += count * scale / code.getInstructions().size();
+		    pl.updateProgress(done, methodName);
+		    count = 0;
+		}
+		  
 
                 if (lastSequential && instr.getTmpInfo() == null
 		    /* Only merge with previous block, if this is sequential, 
@@ -562,15 +573,41 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 
 	if (GlobalOptions.verboseLevel > 0)
 	    GlobalOptions.err.println("");
+	if (pl != null) {
+	    done += 0.1 * scale;
+	    pl.updateProgress(done, methodName);
+	}
     } 
 
     /**
      * This is the first pass of the analyzation.  It will analyze the
      * code of this method, but not the method scoped classes.  
      */
-    public void analyze() 
+    public void analyze(ProgressListener pl, double done, double scale) 
       throws ClassFormatError
     {
+	if (pl != null)
+	    pl.updateProgress(done, methodName);
+	if (code != null) {
+	    if ((Options.options & Options.OPTION_VERIFY) != 0) {
+		CodeVerifier verifier
+		    = new CodeVerifier(getClazz(), minfo, code);
+		try {
+		verifier.verify();
+		} catch (VerifyException ex) {
+		    ex.printStackTrace(GlobalOptions.err);
+		    throw new jode.AssertError("Verification error");
+		}
+	    }
+	    
+	    if ((Options.options & Options.OPTION_LVT) != 0) {
+		LocalVariableInfo[] localvars = code.getLocalVariableTable();
+		if (localvars != null)
+		    lvt = new LocalVariableTable(code.getMaxLocals(), 
+						 localvars);
+	    }
+	}
+
         Type[] paramTypes = getType().getParameterTypes();
 	int paramCount = (isStatic() ? 0 : 1) + paramTypes.length;
 	param = new LocalInfo[paramCount];
@@ -598,14 +635,14 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
             imports.useType(methodType.getReturnType());
 
 	if (code != null)
-	    analyzeCode();
+	    analyzeCode(pl, done, scale);
     }
 
     /**
      * This is the second pass of the analyzation.  It will analyze
      * the method scoped classes.  
      */
-    public void analyzeInnerClasses() 
+    public void analyzeInnerClasses()
       throws ClassFormatError
     {
 	int serialnr = 0;
@@ -984,8 +1021,8 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 					     outerValueArray);
 	    addClassAnalyzer(anonAnalyzer);
 	    anonAnalyzer.initialize();
-	    anonAnalyzer.analyze();
-	    anonAnalyzer.analyzeInnerClasses();
+	    anonAnalyzer.analyze(null, 0.0, 0.0);
+	    anonAnalyzer.analyzeInnerClasses(null, 0.0, 0.0);
 	} else {
 	    /*
 	     * Get the previously created outerValues and

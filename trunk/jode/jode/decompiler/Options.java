@@ -39,7 +39,7 @@ public class Options {
     public static final int OPTION_CONTRAFO  = 0x0200;
 
     public static int options = 
-	OPTION_LVT | OPTION_INNER | OPTION_ANON | 
+	OPTION_LVT | OPTION_INNER | OPTION_ANON | OPTION_PRETTY |
 	OPTION_DECRYPT | OPTION_VERIFY | OPTION_CONTRAFO;
 
     public static int outputStyle = SUN_STYLE;

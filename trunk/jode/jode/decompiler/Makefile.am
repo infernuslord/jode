@@ -8,7 +8,7 @@ JAVADEP = $(top_builddir)/javaDependencies.pl -subdir=$(subdir)\
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
 SUBSTCP = @SUBSTCP@
-BUILD_CLASSPATH = $(top_srcdir):$(top_builddir):$(CLASSPATH):$(CLASSLIB)
+FULL_CLASSPATH := $(shell $(SUBSTCP) $(top_srcdir):$(top_builddir):$(CLASSPATH):$(CLASSLIB))
 
 MY_JAVA_FILES = \
   Analyzer.java \
@@ -17,6 +17,7 @@ MY_JAVA_FILES = \
   ClassDeclarer.java \
   DeadCodeAnalysis.java \
   Declarable.java \
+  Decompiler.java \
   FieldAnalyzer.java \
   ImportHandler.java \
   LocalInfo.java \
@@ -29,6 +30,7 @@ MY_JAVA_FILES = \
   Options.java \
   OuterValueListener.java \
   OuterValues.java \
+  ProgressListener.java \
   Scope.java \
   TabbedPrintWriter.java \
   Window.java
@@ -39,7 +41,7 @@ EXTRA_DIST = $(MY_JAVA_FILES)
 @QUOTE@-include Makefile.dep
 
 %.class: %.java
-	$(JAVAC) -classpath `$(SUBSTCP) $(BUILD_CLASSPATH):$(CLASSLIB)` -d $(top_builddir) $<
+	$(JAVAC) -classpath $(FULL_CLASSPATH) -d $(top_builddir) $<
 
 Makefile.dep: $(MY_JAVA_FILES:.java=.class)
 	$(JAVADEP) $^
