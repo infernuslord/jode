@@ -18,7 +18,7 @@
  */
 
 package jode.flow;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.LocalInfo;
 import jode.expr.ComplexExpression;
@@ -127,7 +127,7 @@ public class InstructionBlock extends InstructionContainer {
 			   + local.getName() + " = "
                            + expr.simplify().toString() + ";");
         } else {
-            if (instr.getType() != jode.Type.tVoid)
+            if (instr.getType() != Type.tVoid)
                 writer.print("PUSH ");
             writer.println(instr.simplify().toString()+";");
         }

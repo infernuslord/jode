@@ -21,7 +21,7 @@ package jode.obfuscator;
 import java.lang.reflect.Modifier;
 import jode.Obfuscator;
 import jode.bytecode.*;
-import jode.Type;
+import jode.type.Type;
 import java.io.*;
 import java.util.Vector;
 import java.util.Enumeration;

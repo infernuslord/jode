@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.decompiler.LocalInfo;
-import jode.Type;
+import jode.type.Type;
 
 /** 
  * This block represents a jsr instruction.  A jsr instruction is

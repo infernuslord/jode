@@ -18,7 +18,7 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.LocalInfo;
 
 public interface LocalVarOperator {

@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.type;
+import jode.Decompiler;
 import jode.bytecode.ClassInfo;
 import java.util.Vector;
 import java.util.Stack;

@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.expr.*;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.LocalInfo;
 
 public class CreateClassField {
