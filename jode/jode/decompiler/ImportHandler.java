@@ -21,7 +21,10 @@ package jode.decompiler;
 import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.InnerClassInfo;
-import jode.type.*;
+import jode.type.Type;
+import jode.type.ArrayType;
+import jode.type.ClassInterfacesType;
+import jode.type.NullType;
 
 ///#ifdef JDK12
 ///import java.util.SortedMap;
