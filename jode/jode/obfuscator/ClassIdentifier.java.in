@@ -185,10 +185,12 @@ public class ClassIdentifier extends Identifier {
 		public int compare(Object o1, Object o2)  {
 		    Identifier i1 = (Identifier)o1;
 		    Identifier i2 = (Identifier)o2;
-		    boolean special1 = (i1.equals("<init>")
-					|| i1.equals("<clinit>"));
-		    boolean special2 = (i2.equals("<init>")
-					|| i2.equals("<clinit>"));
+		    String name1 = i1.getName();
+		    String name2 = i2.getName();
+		    boolean special1 = (name1.equals("<init>")
+					|| name1.equals("<clinit>"));
+		    boolean special2 = (name2.equals("<init>")
+					|| name2.equals("<clinit>"));
 		    // Put constructors at the beginning
 		    if (special1 != special2) {
 			return special1 ? -1 : 1;
