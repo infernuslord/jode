@@ -26,6 +26,8 @@ import java.util.*;
 public class FieldIdentifier extends Identifier{
     FieldInfo info;
     ClassIdentifier clazz;
+    String name;
+    String type;
     /**
      * This field tells if the value is not constant.  It is initially
      * set to false, and if a write to that field is found, it is set
@@ -42,6 +44,8 @@ public class FieldIdentifier extends Identifier{
 
     public FieldIdentifier(ClassIdentifier clazz, FieldInfo info) {
 	super(info.getName());
+	this.name = info.getName();
+	this.type = info.getType();
 	this.info = info;
 	this.clazz = clazz;
 	this.constant = info.getConstant();
@@ -82,11 +86,11 @@ public class FieldIdentifier extends Identifier{
     }
 
     public String getName() {
-	return info.getName();
+	return name;
     }
 
     public String getType() {
-	return info.getType();
+	return type;
     }
 
     public boolean isNotConstant() {
@@ -146,6 +150,6 @@ public class FieldIdentifier extends Identifier{
 
     public void doTransformations() {
 	info.setName(getAlias());
-	info.setType(clazz.bundle.getTypeAlias(info.getType()));
+	info.setType(clazz.bundle.getTypeAlias(type));
     }
 }
