@@ -317,7 +317,7 @@ public class ClassIdentifier extends Identifier {
 
 	for (int i=fieldCount; i < identifiers.length; i++)
 	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
-		((MethodIdentifier)identifiers[i]).reserveSmallConstants(gcp);
+		((MethodIdentifier)identifiers[i]).doCodeTransformations(gcp);
 
 	int[] hierarchyInts;
 	{
