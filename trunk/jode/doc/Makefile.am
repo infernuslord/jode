@@ -9,4 +9,5 @@ jode.html \
 license.html \
 usage.html \
 myproject.jos \
+dasm_to_java.perl \
 jode-logo.gif
