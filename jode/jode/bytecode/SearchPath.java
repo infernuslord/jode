@@ -47,7 +47,7 @@ public class SearchPath  {
 
     /**
      * We need a different pathSeparatorChar, since ':' (used for most
-     * UNIX System, is used a protocol separator in URLs.  
+     * UNIX System) is used a protocol separator in URLs.  
      *
      * We currently allow both pathSeparatorChar and
      * altPathSeparatorChar and decide if it is a protocol separator
