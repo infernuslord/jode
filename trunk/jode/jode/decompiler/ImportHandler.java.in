@@ -196,7 +196,7 @@ public class ImportHandler {
          throws java.io.IOException
     {
         writer.println("/* "+ className 
-		       + " - Decompiled by JoDe (Jochen's Decompiler)");
+		       + " - Decompiled by JODE");
 	writer.println(" * "+GlobalOptions.URL);
 	writer.println(" * Send comments or bug reports to "
 		       + GlobalOptions.email);
