@@ -20,7 +20,6 @@
 package jode.flow;
 import jode.Expression;
 import jode.ComplexExpression;
-import jode.DupOperator;
 import jode.ArrayStoreOperator;
 import jode.NewArrayOperator;
 import jode.ConstantArrayOperator;
@@ -37,9 +36,6 @@ public class CreateConstantArray implements Transformation {
         Type type;
         try {
 	    InstructionBlock ib = (InstructionBlock) flow.lastModified;
-            if (ib.getInstruction() instanceof DupOperator)
-                /* this is not the end of the array assign */
-                return false;
 	    
 	    sequBlock = (SequentialBlock) ib.outer;
 	    ib = (InstructionBlock) sequBlock.subBlocks[0];
@@ -52,11 +48,11 @@ public class CreateConstantArray implements Transformation {
 
 		sequBlock = (SequentialBlock) sequBlock.outer;
 		ib = (InstructionBlock) sequBlock.subBlocks[0];
-		Expression lastconst = (Expression) ib.getInstruction();
+		Expression lastconst = ib.getInstruction();
 
 		sequBlock = (SequentialBlock) sequBlock.outer;
 		ib = (InstructionBlock) sequBlock.subBlocks[0];
-                Expression indexexpr = (Expression) ib.getInstruction();
+                Expression indexexpr = ib.getInstruction();
                 ConstOperator indexop = 
                     (ConstOperator) indexexpr.getOperator();
                 if (!indexop.getType().isOfType(Type.tUInt))
@@ -75,10 +71,11 @@ public class CreateConstantArray implements Transformation {
                 }
                 consts[lastindex--] = lastconst;
 		sequBlock = (SequentialBlock) sequBlock.outer;
-		ib = (InstructionBlock) sequBlock.subBlocks[0];
-                DupOperator dup = (DupOperator) ib.getInstruction();
-                if (dup.getDepth() != 0 || 
-                    dup.getCount() != store.getLValueType().stackSize())
+
+                SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
+                if (dup.type != SpecialBlock.DUP
+                    || dup.depth != 0
+                    || dup.count != store.getLValueType().stackSize())
                     return false;
 		count++;
 		sequBlock = (SequentialBlock) sequBlock.outer;
@@ -86,10 +83,8 @@ public class CreateConstantArray implements Transformation {
             }
             if (count == 0)
                 return false;
-            while (lastindex >= 0) {
-                consts[lastindex--] = 
-                    new ConstOperator(Type.tUnknown, "0");
-            }
+            while (lastindex >= 0)
+                consts[lastindex--] = new ConstOperator(Type.tUnknown, "0");
             ComplexExpression newArrayExpr = 
                 (ComplexExpression) ib.getInstruction();
             NewArrayOperator newArrayOp = 
@@ -97,8 +92,7 @@ public class CreateConstantArray implements Transformation {
             type = newArrayOp.getType();
             if (newArrayOp.getOperandCount() != 1)
                 return false;
-            Expression countexpr = 
-                (Expression) newArrayExpr.getSubExpressions()[0];
+            Expression countexpr = newArrayExpr.getSubExpressions()[0];
             ConstOperator countop = 
                 (ConstOperator) countexpr.getOperator();
             if (!countop.getType().isOfType(Type.tUInt))

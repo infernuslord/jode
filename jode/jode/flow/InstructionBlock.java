@@ -16,18 +16,21 @@
  * $Id$
  */
 package jode.flow;
-import jode.*;
+import jode.Expression;
+import jode.TabbedPrintWriter;
+import jode.LocalInfo;
+import jode.LocalStoreOperator;
 
 /**
  * This is the structured block for atomic instructions.
  */
 public class InstructionBlock extends InstructionContainer {
 
-    public InstructionBlock(Instruction instr) {
+    public InstructionBlock(Expression instr) {
         super(instr);
     }
 
-    public InstructionBlock(Instruction instr, Jump jump) {
+    public InstructionBlock(Expression instr, Jump jump) {
         super(instr, jump);
     }
 
@@ -47,10 +50,9 @@ public class InstructionBlock extends InstructionContainer {
     public void dumpDeclaration(TabbedPrintWriter writer, LocalInfo local)
 	throws java.io.IOException
     {
-        if (instr instanceof Expression
-            && ((Expression)instr).getOperator() instanceof LocalStoreOperator
-            && ((LocalStoreOperator) ((Expression)instr).getOperator())
-            .getLocalInfo() == local.getLocalInfo()) {
+        if (instr.getOperator() instanceof LocalStoreOperator
+            && ((LocalStoreOperator) instr.getOperator()).getLocalInfo() 
+            == local.getLocalInfo()) {
             isDeclaration = true;
         } else
             super.dumpDeclaration(writer, local);
@@ -68,12 +70,12 @@ public class InstructionBlock extends InstructionContainer {
     {
         if (isDeclaration) {
             writer.println
-                (((LocalStoreOperator) ((Expression)instr).getOperator())
-                 .getLocalInfo().getType().toString()/*XXX*/
+                (((LocalStoreOperator) instr.getOperator())
+                 .getLocalInfo().getType().toString()
                  + " " + instr.simplify().toString() + ";");
         } else {
-            if (instr.getType() != Type.tVoid)
-                writer.print("push ");
+            if (instr.getType() != jode.Type.tVoid)
+                writer.print("PUSH ");
             writer.println(instr.simplify().toString()+";");
         }
     }

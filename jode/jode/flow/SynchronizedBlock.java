@@ -17,7 +17,7 @@
  * $Id$
  */
 package jode.flow;
-import jode.Instruction;
+import jode.Expression;
 import jode.LocalInfo;
 import jode.TabbedPrintWriter;
 
@@ -28,7 +28,7 @@ import jode.TabbedPrintWriter;
  */
 public class SynchronizedBlock extends StructuredBlock {
 
-    Instruction object;
+    Expression object;
     LocalInfo local;
     boolean isEntered;
 

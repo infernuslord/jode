@@ -18,7 +18,12 @@
  */
 
 package jode.flow;
-import jode.*;
+import jode.TabbedPrintWriter;
+import jode.Expression;
+import jode.ConstOperator;
+import jode.Type;
+import jode.LocalInfo;
+import jode.LocalStoreOperator;
 
 /**
  * This is the structured block for an Loop block.
@@ -29,23 +34,23 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public static final int DOWHILE = 1;
     public static final int FOR = 2;
 
-    public static final Instruction TRUE = 
+    public static final Expression TRUE = 
         new ConstOperator(Type.tBoolean, "1");
-    public static final Instruction FALSE = 
+    public static final Expression FALSE = 
         new ConstOperator(Type.tBoolean, "0");
 
     /**
      * The condition.  Must be of boolean type.
      */
-    Instruction cond;
+    Expression cond;
     /**
      * The init instruction, only valid if type == FOR.
      */
-    Instruction init;
+    Expression init;
     /**
      * The increase instruction, only valid if type == FOR.
      */
-    Instruction incr;
+    Expression incr;
 
     /**
      * True, if the initializer is a declaration.
@@ -77,7 +82,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         return null;
     }
     
-    public LoopBlock(int type, Instruction cond) {
+    public LoopBlock(int type, Expression cond) {
         this.type = type;
         this.cond = cond;
         this.mayChangeJump = (cond == TRUE);
@@ -89,11 +94,11 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         body.setFlowBlock(flowBlock);
     }
 
-    public Instruction getCondition() {
+    public Expression getCondition() {
         return cond;
     }
 
-    public void setCondition(Instruction cond) {
+    public void setCondition(Expression cond) {
         this.cond = cond;
         mayChangeJump = false;
     }
@@ -113,7 +118,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * @return false, if oldBlock wasn't a direct sub block.
      */
     public boolean replaceSubBlock(StructuredBlock oldBlock, 
-                            StructuredBlock newBlock) {
+                                   StructuredBlock newBlock) {
         if (bodyBlock == oldBlock)
             bodyBlock = newBlock;
         else
@@ -133,12 +138,11 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     {
         if (type == FOR && init != null
             && (outer == null || !outer.used.contains(local))
-            && init instanceof Expression
-            && ((Expression)init).getOperator() instanceof LocalStoreOperator
-            && ((LocalStoreOperator) ((Expression)init).getOperator())
-            .getLocalInfo() == local.getLocalInfo()) {
+            && init.getOperator() instanceof LocalStoreOperator
+            && ((LocalStoreOperator) init.getOperator()).getLocalInfo() 
+            == local.getLocalInfo())
             isDeclaration = true;
-        } else
+        else
             super.dumpDeclaration(writer, local);
     }
 
@@ -168,8 +172,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         case FOR:
             writer.print("for (");
             if (isDeclaration)
-                writer.print(((LocalStoreOperator)
-                              ((Expression)init).getOperator())
+                writer.print(((LocalStoreOperator) init.getOperator())
                              .getLocalInfo().getType().toString()
                              + " " + init.simplify().toString());
             else if (init != null)

@@ -16,7 +16,7 @@
  * $Id$
  */
 package jode.flow;
-import jode.Instruction;
+import jode.Expression;
 import jode.LocalVarOperator;
 import jode.TabbedPrintWriter;
 
@@ -26,13 +26,13 @@ import jode.TabbedPrintWriter;
  */
 public class ConditionalBlock extends InstructionContainer {
 
-    StructuredBlock trueBlock;
+    EmptyBlock trueBlock;
     
     /**
      * Creates a new if then else block.  The method setThenBlock must
      * be called shortly after the creation.
      */
-    public ConditionalBlock(Instruction cond, Jump condJump, Jump elseJump) {
+    public ConditionalBlock(Expression cond, Jump condJump, Jump elseJump) {
         super(cond, elseJump);
         /* cond is a CompareBinary or CompareUnary operator, so no
          * check for LocalVarOperator (for condJump) is needed here.  
@@ -59,12 +59,8 @@ public class ConditionalBlock extends InstructionContainer {
      * @return false, if oldBlock wasn't a direct sub block.
      */
     public boolean replaceSubBlock(StructuredBlock oldBlock, 
-                            StructuredBlock newBlock) {
-        if (trueBlock == oldBlock)
-            trueBlock = newBlock;
-        else
-            return false;
-        return true;
+                                   StructuredBlock newBlock) {
+        throw new jode.AssertError("replaceSubBlock on ConditionalBlock");
     }
 
     /**

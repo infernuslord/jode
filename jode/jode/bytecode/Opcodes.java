@@ -257,16 +257,24 @@ public abstract class Opcodes {
     
     public static FlowBlock createNormal(CodeAnalyzer ca, 
 					 int addr, int length, 
-                                         Instruction instr)
+                                         Expression instr)
     {
         return new FlowBlock(ca, addr, length,
                              new InstructionBlock(instr, 
                                                   new Jump(addr+length)));
     }
 
+    public static FlowBlock createSpecial(CodeAnalyzer ca, 
+                                          int addr, int length, 
+                                          int type, int stackcount, int param)
+    {
+        return new FlowBlock(ca, addr, length,
+                             new SpecialBlock(type, stackcount, param,
+                                              new Jump(addr+length)));
+    }
+
     public static FlowBlock createGoto(CodeAnalyzer ca,
-				       int addr, int length, 
-                                       int destAddr)
+				       int addr, int length, int destAddr)
     {
         return new FlowBlock(ca, addr, length, 
 			     new EmptyBlock(new Jump(destAddr)));
@@ -283,7 +291,7 @@ public abstract class Opcodes {
 
     public static FlowBlock createIfGoto(CodeAnalyzer ca, 
 					 int addr, int length, 
-                                         int destAddr, Instruction instr)
+                                         int destAddr, Expression instr)
     {
         ConditionalBlock ifBlock = 
             new ConditionalBlock(instr, 
@@ -297,7 +305,7 @@ public abstract class Opcodes {
                                          int[] cases, int[] dests)
     {
         return new FlowBlock(ca, addr, length, 
-			     new SwitchBlock(new NopOperator(Type.tInt), 
+			     new SwitchBlock(new NopOperator(Type.tUInt), 
 					     cases, dests));
     }
 
@@ -441,11 +449,11 @@ public abstract class Opcodes {
 		    (ca, addr, 1, new PopOperator(opcode - opc_pop + 1));
             case opc_dup: case opc_dup_x1: case opc_dup_x2:
             case opc_dup2: case opc_dup2_x1: case opc_dup2_x2:
-		return createNormal
-                    (ca, addr, 1, new DupOperator
-		     ((opcode - opc_dup)%3, (opcode - opc_dup)/3+1));
+		return createSpecial
+                    (ca, addr, 1, SpecialBlock.DUP, 
+                     (opcode - opc_dup)/3+1, (opcode - opc_dup)%3);
             case opc_swap:
-                return createNormal(ca, addr, 1, new SwapOperator());
+                return createSpecial(ca, addr, 1, SpecialBlock.SWAP, 1, 0);
             case opc_iadd: case opc_ladd: case opc_fadd: case opc_dadd:
             case opc_isub: case opc_lsub: case opc_fsub: case opc_dsub:
             case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
@@ -629,8 +637,9 @@ public abstract class Opcodes {
                 CpoolClass cpcls = (CpoolClass) 
                     ca.method.classAnalyzer.getConstant(stream.readUnsignedShort());
                 Type type = Type.tClassOrArray(cpcls.getName().getString());
+                type.useType();
                 return createNormal
-		    (ca, addr, 3, new NewOperator(type, type.toString()));
+		    (ca, addr, 3, new NewOperator(type));
             }
             case opc_newarray: {
                 Type type;
@@ -646,6 +655,7 @@ public abstract class Opcodes {
                 default:
                     throw new ClassFormatError("Invalid newarray operand");
                 }
+                type.useType();
                 return createNormal
                     (ca, addr, 2, new NewArrayOperator(Type.tArray(type), 1));
             }
@@ -654,6 +664,7 @@ public abstract class Opcodes {
                     ca.method.classAnalyzer.getConstant
                     (stream.readUnsignedShort());
                 Type type = Type.tClassOrArray(cpcls.getName().getString());
+                type.useType();
                 return createNormal
 		    (ca, addr, 3, new NewArrayOperator(Type.tArray(type), 1));
             }
@@ -670,18 +681,18 @@ public abstract class Opcodes {
                     ca.method.classAnalyzer.getConstant
                     (stream.readUnsignedShort());
                 Type type = Type.tClassOrArray(cpcls.getName().getString());
+                type.useType();
                 return createNormal
-		    (ca, addr, 3, new CheckCastOperator
-		     (type, type.toString()));
+		    (ca, addr, 3, new CheckCastOperator(type));
             }
             case opc_instanceof: {
                 CpoolClass cpcls = (CpoolClass) 
                     ca.method.classAnalyzer.getConstant
                     (stream.readUnsignedShort());
                 Type type = Type.tClassOrArray(cpcls.getName().getString());
+                type.useType();
                 return createNormal
-		    (ca, addr, 3,
-		     new InstanceOfOperator(type, type.toString()));
+		    (ca, addr, 3, new InstanceOfOperator(type));
             }
             case opc_monitorenter:
                 return createNormal(ca, addr, 1,

@@ -36,12 +36,12 @@ public class CreatePrePostIncExpression implements Transformation {
         try {
             lastBlock = (InstructionContainer) flow.lastModified;
 
-            Instruction instr2 = lastBlock.getInstruction();
+            Expression instr2 = lastBlock.getInstruction();
             SequentialBlock sequBlock = (SequentialBlock)lastBlock.outer;
             if (sequBlock.subBlocks[1] != lastBlock)
                 return false;
             InstructionBlock ib = (InstructionBlock) sequBlock.subBlocks[0];
-            Instruction instr1 = ib.getInstruction();
+            Expression instr1 = ib.getInstruction();
 
             LocalLoadOperator load;
             if (instr1 instanceof IIncOperator 
@@ -93,7 +93,7 @@ public class CreatePrePostIncExpression implements Transformation {
         try {
             lastBlock = (InstructionBlock) flow.lastModified;
 
-            Expression storeExpr = (Expression) lastBlock.getInstruction();
+            Expression storeExpr = lastBlock.getInstruction();
 	    store = (StoreInstruction) storeExpr.getOperator();
 
             sequBlock = (SequentialBlock) lastBlock.outer;
@@ -127,27 +127,24 @@ public class CreatePrePostIncExpression implements Transformation {
 		op ^= 1;
 
             sequBlock = (SequentialBlock) sequBlock.outer;
-            ib = (InstructionBlock) sequBlock.subBlocks[0];
-
-            DupOperator dup = (DupOperator) ib.getInstruction();
-            if (dup.getCount() != store.getLValueType().stackSize() ||
-                dup.getDepth() != store.getLValueOperandCount())
+            SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
+            if (dup.type != SpecialBlock.DUP
+                || dup.count != store.getLValueType().stackSize()
+                || dup.depth != store.getLValueOperandCount())
                 return false;
 
             sequBlock = (SequentialBlock) sequBlock.outer;
             ib = (InstructionBlock) sequBlock.subBlocks[0];
-
             Operator load = (Operator) ib.getInstruction();
 	    if (!store.matches(load))
 		return false;
 
             if (store.getLValueOperandCount() > 0) {
                 sequBlock = (SequentialBlock) sequBlock.outer;
-                ib = (InstructionBlock) sequBlock.subBlocks[0];
-                
-                DupOperator dup2 = (DupOperator) ib.getInstruction();
-                if (dup2.getCount() != store.getLValueOperandCount() ||
-                    dup2.getDepth() != 0)
+                SpecialBlock dup2 = (SpecialBlock) sequBlock.subBlocks[0];
+                if (dup2.type != SpecialBlock.DUP
+                    || dup2.count != store.getLValueOperandCount() 
+                    || dup2.depth != 0)
                     return false;
             }
 	    type = load.getType().intersection(store.getLValueType());

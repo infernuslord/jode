@@ -100,7 +100,7 @@ public class CreateIfThenElseOperator implements Transformation {
                     break;
             }
 
-            e[0] = (Expression) ifBlock.cond;
+            e[0] = ifBlock.cond;
 
             StructuredBlock[] subBlocks = ifBlock.getSubBlocks();
             if (subBlocks.length != 2)
@@ -108,8 +108,7 @@ public class CreateIfThenElseOperator implements Transformation {
 
             for (int i=0; i< 2; i++) {
                 if (subBlocks[i] instanceof InstructionBlock) {
-                    e[i+1] = (Expression) 
-                        ((InstructionBlock)subBlocks[i]).getInstruction();
+                    e[i+1] = ((InstructionBlock)subBlocks[i]).getInstruction();
                     continue;
                 }
 
@@ -131,7 +130,7 @@ public class CreateIfThenElseOperator implements Transformation {
                     != trueDestination)
                     return false;
 
-                Expression cond = (Expression) condBlock.getInstruction();
+                Expression cond = condBlock.getInstruction();
                 flow.removeSuccessor(condBlock.trueBlock.jump);
                 condBlock.trueBlock.removeJump();
                 pushBlock.setInstruction(cond);
@@ -192,13 +191,13 @@ public class CreateIfThenElseOperator implements Transformation {
             if (thenBlock.jump.destination != elseBlock.jump.destination)
                 return false;
 
-            e[1] = (Expression) thenBlock.getInstruction();
+            e[1] = thenBlock.getInstruction();
             if (e[1].isVoid())
                 return false;
-            e[2] = (Expression) elseBlock.getInstruction();
+            e[2] = elseBlock.getInstruction();
             if (e[2].isVoid())
                 return false;
-            e[0] = (Expression) ifBlock.cond;
+            e[0] = ifBlock.cond;
 
         } catch (ClassCastException ex) {
             return false;

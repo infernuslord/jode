@@ -27,66 +27,74 @@ import jode.BinaryOperator;
 public class CombineIfGotoExpressions implements Transformation{
 
     public boolean transform(FlowBlock flow) {
-        Expression[] e;
-        ConditionalBlock cb;
-        Jump prevJump;
-        int operator;
-        try {
-            cb = (ConditionalBlock) flow.lastModified;
-            SequentialBlock sequBlock = (SequentialBlock) cb.outer;
-            if (sequBlock.subBlocks[1] != cb)
+        if (!(flow.lastModified instanceof ConditionalBlock)
+            || !(flow.lastModified.outer instanceof SequentialBlock))
+            return false;
+        
+        ConditionalBlock cb = (ConditionalBlock) flow.lastModified;
+        SequentialBlock sequBlock = (SequentialBlock) cb.outer;
+        Expression[] e = new Expression[2];
+
+        e[1] = cb.getInstruction();
+        Expression lastCombined = e[1];
+            
+        while (sequBlock.subBlocks[0] instanceof InstructionBlock) {
+            InstructionBlock ib = 
+                (InstructionBlock) sequBlock.subBlocks[0];
+
+            if (!(sequBlock.outer instanceof SequentialBlock))
                 return false;
 
-            // jode.Assert.assert(sequBlock.jump == null)
+            Expression expr = ib.getInstruction();
+            if (lastCombined.canCombine(expr) + e[1].canCombine(expr) <= 0)
+                /* Tricky, the above is true, iff one of the two
+                 * Expressions conflict, or both fail.  */
+                return false;
 
-            e = new Expression[2];
-            e[1] = (Expression)cb.getInstruction();
-            while (sequBlock.subBlocks[0] instanceof InstructionBlock) {
-                InstructionBlock ib = 
-                    (InstructionBlock) sequBlock.subBlocks[0];
-                Expression expr = (Expression) ib.getInstruction();
-                if (!expr.isVoid())
-                    return false;
+            lastCombined = expr;
 
-                Expression combined = e[1].tryToCombine(expr);
-                if (combined == null)
-                    return false;
-                
-                cb.replace(sequBlock, cb);
-                cb.setInstruction(combined);
-                e[1] = combined;
-                sequBlock = (SequentialBlock) cb.outer;
-            }
+            sequBlock = (SequentialBlock) sequBlock.outer;
+        }
+        
+        if (sequBlock.subBlocks[0] instanceof ConditionalBlock) {
 
             ConditionalBlock cbprev = 
                 (ConditionalBlock) sequBlock.subBlocks[0];
 
-            if (cbprev.jump != null)
-                return false;
-            
-            prevJump = ((EmptyBlock) cbprev.trueBlock).jump;
+            Jump prevJump = cbprev.trueBlock.jump;
 
+            int operator;
             if (prevJump.destination == cb.jump.destination) {
                 operator = BinaryOperator.LOG_AND_OP;
-                e[0] = ((Expression)cbprev.getInstruction()).negate();
-            } else if (prevJump.destination
-                       == ((EmptyBlock) cb.trueBlock).jump.destination) {
+                e[0] = cbprev.getInstruction().negate();
+            } else if (prevJump.destination == cb.trueBlock.jump.destination) {
                 operator = BinaryOperator.LOG_OR_OP;
-                e[0] = (Expression)cbprev.getInstruction();
+                e[0] = cbprev.getInstruction();
             } else
                 return false;
-        } catch (ClassCastException ex) {
-            return false;
-        } catch (NullPointerException ex) {
-            return false;
+
+            sequBlock = (SequentialBlock) cb.outer;
+            while (sequBlock.subBlocks[0] instanceof InstructionBlock) {
+                /* Now combine the expression.  Everything should
+                 * succeed, because we have checked above.  */
+                InstructionBlock ib = 
+                     (InstructionBlock) sequBlock.subBlocks[0];
+
+                Expression expr = ib.getInstruction();
+
+                e[1] = e[1].combine(expr);
+                sequBlock = (SequentialBlock) sequBlock.outer;
+            }
+
+            flow.removeSuccessor(prevJump);
+            prevJump.prev.removeJump();
+            Expression cond = 
+                new ComplexExpression
+                (new BinaryOperator(Type.tBoolean, operator), e);
+            cb.setInstruction(cond);
+            cb.replace(sequBlock, cb);
+            return true;
         }
-        flow.removeSuccessor(prevJump);
-        prevJump.prev.removeJump();
-        Expression cond = 
-            new ComplexExpression
-            (new BinaryOperator(Type.tBoolean, operator), e);
-        cb.setInstruction(cond);
-        cb.replace(cb.outer, cb);
-        return true;
+        return false;    
     }
 }

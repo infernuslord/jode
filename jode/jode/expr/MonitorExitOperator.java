@@ -38,6 +38,6 @@ public class MonitorExitOperator extends SimpleOperator {
     }
 
     public String toString(String[] operands) {
-        return "monitorexit "+operands[0];
+        return "MONITOREXIT "+operands[0];
     }
 }

@@ -19,21 +19,38 @@
 
 package jode;
 
-public class NopOperator extends Instruction {
+/**
+ * A NopOperator takes one or zero arguments and returns it again.  It
+ * is mainly used as placeholder when the real operator is not yet
+ * known (e.g. in SwitchBlock).  But there also exists a nop opcode in
+ * the java virtual machine (The compiler can't create such a opcode,
+ * though).
+ *
+ * @author Jochen Hoenicke */
+public class NopOperator extends SimpleOperator {
     public NopOperator(Type type) {
-	super(type);
+	super(type, 0, 1);
     }
 
     public NopOperator() {
-        this(Type.tVoid);
+        super(Type.tVoid, 0, 0);
+    }
+
+    public int getPriority() {
+        return 0;
+    }
+
+    public int getOperandPriority(int i) {
+        return 0;
     }
 
     public boolean equals(Object o) {
 	return (o instanceof NopOperator);
     }
 
-    public String toString() 
-    {
-        return "nop";
+    public String toString(String[] operands) {
+        if (type == Type.tVoid)
+            return "/* nop */";
+        return operands[0];
     }
 }

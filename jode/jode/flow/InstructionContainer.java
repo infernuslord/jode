@@ -16,22 +16,22 @@
  * $Id$
  */
 package jode.flow;
-import jode.Instruction;
+import jode.Expression;
 import jode.LocalVarOperator;
 
 /**
  * This is a method for block containing a single instruction.
  */
 public abstract class InstructionContainer extends StructuredBlock {
-    Instruction instr;
+    Expression instr;
 
-    public InstructionContainer(Instruction instr) {
+    public InstructionContainer(Expression instr) {
         this.instr = instr;
         if (instr instanceof LocalVarOperator)
 	  used.addElement(((LocalVarOperator)instr).getLocalInfo());
     }
 
-    public InstructionContainer(Instruction instr, Jump jump) {
+    public InstructionContainer(Expression instr, Jump jump) {
         this.instr = instr;
         if (instr instanceof LocalVarOperator) {
             LocalVarOperator varOp = (LocalVarOperator) instr;
@@ -59,7 +59,7 @@ public abstract class InstructionContainer extends StructuredBlock {
      * Get the contained instruction.
      * @return the contained instruction.
      */
-    public Instruction getInstruction() {
+    public Expression getInstruction() {
         return instr;
     }
 
@@ -67,7 +67,7 @@ public abstract class InstructionContainer extends StructuredBlock {
      * Set the contained instruction.
      * @param instr the new instruction.
      */
-    public void setInstruction(Instruction instr) {
+    public void setInstruction(Expression instr) {
         this.instr = instr;
     }
 }

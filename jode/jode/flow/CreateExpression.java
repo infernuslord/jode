@@ -40,78 +40,79 @@ public class CreateExpression implements Transformation {
      * @return true if flow block was simplified.
      */
     public boolean transform(FlowBlock flow) {
-        Operator op;
-        Expression exprs[];
-        int params;
-        StructuredBlock sequBlock;
+        if (!(flow.lastModified instanceof InstructionContainer)
+            || !(flow.lastModified.outer instanceof SequentialBlock))
+            return false;
 
-//         try {
-//             System.err.println("Transformation on: "+flow.getLabel());
-//             flow.checkConsistent();
-//         } catch (RuntimeException ex) {
-//             try {
-//                 jode.TabbedPrintWriter writer = 
-//                     new jode.TabbedPrintWriter(System.err, "    ");
-//                 writer.tab();
-//                 flow.block.dumpSource(writer);
-//             } catch (java.io.IOException ioex) {
-//             }
-//         }
+        InstructionContainer ic = (InstructionContainer) flow.lastModified;
+        if (ic.getInstruction() instanceof Operator) {
 
-        try {
-            op = (Operator) 
-                ((InstructionContainer)flow.lastModified).getInstruction();
-            params = op.getOperandCount();
+            Operator op = (Operator) ic.getInstruction();
+            int params = op.getOperandCount();
             if (params == 0)
                 return false;
-            exprs = new Expression[params];
 
-            sequBlock = flow.lastModified.outer;
-            if (sequBlock.getSubBlocks()[1] != flow.lastModified)
-                return false;
-            for (int i = params-1; i>=0; i--) {
-                InstructionBlock block = 
-                    (InstructionBlock) sequBlock.getSubBlocks()[0];
-                if (block.jump != null)
+            Expression[] exprs = new Expression[params];
+
+            SequentialBlock sequBlock = (SequentialBlock) ic.outer;
+
+            Expression lastExpression = null;
+            /* First check if Expression can be created, but do nothing yet.
+             */
+            for (int i=params; ;) {
+                if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
                     return false;
-                exprs[i] = (Expression) block.getInstruction();
 
-                if (i > 0 && exprs[i].getOperandCount() > 0)
+                InstructionBlock block = 
+                    (InstructionBlock) sequBlock.subBlocks[0];
+                
+                Expression expr = block.getInstruction();
+
+                if (!expr.isVoid()) {
+                    if (--i == 0)
+                        break;
+                } else if (lastExpression != null
+                           && lastExpression.canCombine(expr) <= 0)
+                    return false;
+
+                if (expr.getOperandCount() > 0)
                     /* This is a not fully resolved expression in the
                      * middle, we must not touch it.  */
                     return false;
 
-                if (exprs[i].isVoid()) {
-		    if (i == params-1)
-			return false;
-		    Expression e = exprs[i+1].tryToCombine(exprs[i]);
-		    if (e == null)
-			return false;
-
-		    i++;
-                    SequentialBlock subExprBlock = 
-                        (SequentialBlock) sequBlock.getSubBlocks()[1];
-                    subExprBlock.replace(sequBlock, subExprBlock);
-                    sequBlock = subExprBlock;
-                    ((InstructionContainer)subExprBlock.getSubBlocks()[0]).
-                        setInstruction(e);
-		    exprs[i] = e;
-		}
-                if (i > 0)
-                    sequBlock = (SequentialBlock)sequBlock.outer;
+                lastExpression =  expr;
+                if (!(sequBlock.outer instanceof SequentialBlock))
+                    return false;
+                sequBlock = (SequentialBlock)sequBlock.outer;
             }
-        } catch (NullPointerException ex) {
-            return false;
-        } catch (ClassCastException ex) {
-            return false;
-        }
-        if(jode.Decompiler.isVerbose)
-            System.err.print('x');
 
-        ((InstructionContainer) flow.lastModified).setInstruction
-            (new ComplexExpression(op, exprs));
-        flow.lastModified.replace(sequBlock, flow.lastModified);
-        return true;
+            /* Now, do the combination. Everything must succeed now.
+             */
+            sequBlock = (SequentialBlock) ic.outer;
+            for (int i=params; ;) {
+
+                InstructionBlock block = 
+                    (InstructionBlock) sequBlock.subBlocks[0];
+                
+                Expression expr = block.getInstruction();
+
+                if (!expr.isVoid()) {
+                    exprs[--i] = expr;
+                    if (i == 0)
+                        break;
+                } else
+                    exprs[i] = exprs[i].combine(expr);
+
+                sequBlock = (SequentialBlock)sequBlock.outer;
+            }
+
+            if(jode.Decompiler.isVerbose)
+                System.err.print('x');
+            
+            ic.setInstruction(new ComplexExpression(op, exprs));
+            ic.replace(sequBlock, ic);
+            return true;
+        }
+        return false;
     }
 }
-

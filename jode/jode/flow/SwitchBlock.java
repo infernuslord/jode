@@ -27,7 +27,7 @@ public class SwitchBlock extends InstructionContainer
 implements BreakableBlock {
     CaseBlock[] caseBlocks;
 
-    public SwitchBlock(jode.Instruction instr,
+    public SwitchBlock(jode.Expression instr,
 		       int[] cases, int[] dests) {
 	super(instr);
         this.caseBlocks = new CaseBlock[dests.length];
@@ -137,15 +137,6 @@ implements BreakableBlock {
 	for (int i=0; i < caseBlocks.length; i++)
 	    caseBlocks[i].dumpSource(writer);
 	writer.println("}");
-    }
-
-    public void setInstruction(jode.Instruction instr) {
-	super.setInstruction(instr);
-	jode.Type type = instr.getType();
-	if (type != caseBlocks[0].type) {
-	    for (int i=0; i < caseBlocks.length; i++)
-		caseBlocks[i].type = type;
-	}
     }
 
     /**

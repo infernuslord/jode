@@ -289,18 +289,13 @@ public abstract class StructuredBlock {
     public void removeBlock() {
 
         if (outer instanceof SequentialBlock) {
-            
             if (outer.getSubBlocks()[1] == this) {
                 if (jump != null)
                     outer.getSubBlocks()[0].moveJump(jump);
                 outer.getSubBlocks()[0].replace(outer, null);
-                return;
-            } else if (outer.outer instanceof SequentialBlock) {
-                if (jump != null)
-                    outer.outer.getSubBlocks()[0].moveJump(jump);
+            } else
                 outer.getSubBlocks()[1].replace(outer, null);
-                return;
-            }
+            return;
         }
 
         EmptyBlock eb = new EmptyBlock();

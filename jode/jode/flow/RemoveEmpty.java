@@ -18,7 +18,7 @@
  */
 
 package jode.flow;
-import jode.Instruction;
+import jode.Expression;
 import jode.NopOperator;
 
 public class RemoveEmpty implements Transformation {
@@ -28,37 +28,31 @@ public class RemoveEmpty implements Transformation {
     }
 
     public boolean removeNop(FlowBlock flow) {
-        StructuredBlock block;
-        SequentialBlock sequBlock;
-        Instruction instr;
-        try {
-            block = flow.lastModified;
-            Instruction prevInstr = 
-                ((InstructionContainer)block).getInstruction();
-            if (!(prevInstr instanceof NopOperator))
+        StructuredBlock block = flow.lastModified;
+        if (block instanceof InstructionContainer
+            && block.outer instanceof SequentialBlock
+            && block.outer.getSubBlocks()[0] instanceof InstructionBlock) {
+            
+            InstructionContainer ic = (InstructionContainer) block;
+
+            Expression nopInstr = ic.getInstruction();
+            if (!(nopInstr instanceof NopOperator)
+                || nopInstr.getType() == jode.Type.tVoid)
                 return false;
             
-            sequBlock = (SequentialBlock)block.outer;
-            if (sequBlock.getSubBlocks()[1] != block)
-                return false;
-
             InstructionBlock prev = 
-                (InstructionBlock) sequBlock.getSubBlocks()[0];
-            if (prev.jump != null)
-                return false;
-            instr = (Instruction) prev.getInstruction();
+                (InstructionBlock) ic.outer.getSubBlocks()[0];
+
+            Expression instr = prev.getInstruction();
             if (instr.getType() == jode.Type.tVoid)
                 return false;
-            instr.setType(prevInstr.getType());
-        } catch (NullPointerException ex) {
-            return false;
-        } catch (ClassCastException ex) {
-            return false;
+
+            instr.setType(nopInstr.getType());
+            ic.setInstruction(instr);
+            ic.replace(ic.outer, ic);
+            return true;
         }
-        ((InstructionContainer)block).setInstruction(instr);
-        block.replace(sequBlock, block);
-        flow.lastModified = block;
-        return true;
+        return false;
     }
 
     public boolean removeEmpty(FlowBlock flow) {

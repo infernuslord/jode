@@ -54,15 +54,9 @@ public class ClassAnalyzer implements Analyzer {
         Field[] fields = clazz.getDeclaredFields(); 
         Method[] methods = clazz.getDeclaredMethods();
         Constructor[] constrs = clazz.getDeclaredConstructors();
-        Class[] clazzes = clazz.getDeclaredClasses();
 
-        analyzers = new Analyzer[fields.length + methods.length
-                             + constrs.length + clazzes.length];
-
-        for (int j=0; j< clazzes.length; j++) {
-            analyzers[i] = new ClassAnalyzer(this, clazzes[j], env);
-            analyzers[i++].analyze();
-        }
+        analyzers = new Analyzer[fields.length + methods.length 
+                                + constrs.length];
 
         for (int j=0; j< fields.length; j++) {
             analyzers[i] = new FieldAnalyzer(this, fields[j], env);
