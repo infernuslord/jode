@@ -385,6 +385,15 @@ public class ClassInterfacesType extends Type {
         }
     }
 
+    public String getTypeSignature() {
+	if (clazz != null)
+	    return "L" + clazz.getName().replace('.','/') + ";";
+	else if (ifaces.length > 0)
+	    return "L" + ifaces[0].getName().replace('.','/') + ";";
+	else
+	    return "Ljava/lang/Object;";
+    }
+
     public String toString()
     {
         if (jode.Decompiler.isTypeDebugging) {

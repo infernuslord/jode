@@ -112,6 +112,10 @@ public class ArrayType extends Type {
         elementType.useType();
     }
 
+    public String getTypeSignature() {
+	return "["+elementType.getTypeSignature();
+    }
+
     public String toString() {
         return elementType.toString()+"[]";
     }

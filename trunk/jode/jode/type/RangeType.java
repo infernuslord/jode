@@ -88,6 +88,13 @@ public class RangeType extends Type {
             bottomType.useType();
     }
 
+    public String getTypeSignature() {
+        if (topType.isClassType() || bottomType == tUnknown)
+            return topType.getTypeSignature();
+        else
+            return bottomType.getTypeSignature();
+    }
+
     public String toString()
     {
         if (jode.Decompiler.isTypeDebugging)
