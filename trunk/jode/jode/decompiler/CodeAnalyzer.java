@@ -35,7 +35,7 @@ import java.io.DataInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
-public class CodeAnalyzer implements Analyzer {
+public class CodeAnalyzer implements Analyzer, Scope {
     
     FlowBlock methodHeader;
     BytecodeInfo code;
@@ -43,6 +43,7 @@ public class CodeAnalyzer implements Analyzer {
     ImportHandler imports;
 
     Vector allLocals = new Vector();
+    Vector anonClasses = new Vector();
     LocalInfo[] param;
     LocalVariableTable lvt;
     
@@ -60,7 +61,7 @@ public class CodeAnalyzer implements Analyzer {
 	    throw new jode.AssertError("Verification error");
 	}
 	
-	if (Decompiler.useLVT) {
+	if ((Decompiler.options & Decompiler.OPTION_LVT) != 0) {
 	    LocalVariableInfo[] localvars = code.getLocalVariableTable();
 	    if (localvars != null)
 		lvt = new LocalVariableTable(code.getMaxLocals(), 
@@ -144,11 +145,11 @@ public class CodeAnalyzer implements Analyzer {
                 if (lastSequential && instr.tmpInfo == null
 		    /* Only merge with previous block, if this is sequential, 
 		     * too.  
-		     * Why?  doSequentialT1 does only handle sequential blocks.
+		     * Why?  doSequentialT2 does only handle sequential blocks.
 		     */
 		    && !instr.alwaysJumps && instr.succs == null) {
 		    
-                    lastBlock.doSequentialT1(block, instr.length);
+                    lastBlock.doSequentialT2(block, instr.length);
 
                 } else {
 
@@ -202,9 +203,10 @@ public class CodeAnalyzer implements Analyzer {
 	if (code == null)
 	    return;
         readCode();
-	if (!Decompiler.usePUSH && methodHeader.mapStackToLocal())
+	if ((Decompiler.options & Decompiler.OPTION_PUSH) == 0
+	    && methodHeader.mapStackToLocal())
 	    methodHeader.removePush();
-	if (Decompiler.removeOnetimeLocals)
+	if ((Decompiler.options & Decompiler.OPTION_ONETIME) != 0)
 	    methodHeader.removeOnetimeLocals();
 
         Enumeration enum = allLocals.elements();
@@ -224,15 +226,23 @@ public class CodeAnalyzer implements Analyzer {
 	}
 	methodHeader.makeDeclaration(new jode.flow.VariableSet(param));
 	methodHeader.simplify();
+
+        enum = anonClasses.elements();
+        while (enum.hasMoreElements()) {
+            ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    classAna.analyze();
+        }
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
+	writer.pushScope(this);
 	if (methodHeader != null)
 	    methodHeader.dumpSource(writer);
 	else
 	    writer.println("COULDN'T DECOMPILE METHOD!");
+	writer.popScope();
     }
 
     public LocalInfo getLocalInfo(int addr, int slot) {
@@ -259,6 +269,36 @@ public class CodeAnalyzer implements Analyzer {
         return null;
     }
 
+    /**
+     * Checks if an anonymous class with the given name exists.
+     */
+    public ClassAnalyzer findAnonClass(String name) {
+        Enumeration enum = anonClasses.elements();
+        while (enum.hasMoreElements()) {
+            ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+            if (classAna.getName().equals(name))
+                return classAna;
+        }
+        return null;
+    }
+
+    static int serialnr = 0;
+    public ClassAnalyzer addAnonymousClass(ClassInfo clazz) {
+        Enumeration enum = anonClasses.elements();
+        while (enum.hasMoreElements()) {
+            ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    if (classAna.getClazz() == clazz) {
+		if (classAna.getName() == null)
+		    classAna.setName("Anonymous_" + (serialnr++));
+		return classAna;
+	    }
+	}
+
+	ClassAnalyzer classAna = new ClassAnalyzer(this, clazz, imports);
+	anonClasses.addElement(classAna);
+	return classAna;
+    }
+
     public LocalInfo getParamInfo(int nr) {
 	return param[nr];
     }
@@ -281,7 +321,24 @@ public class CodeAnalyzer implements Analyzer {
      */
     public MethodAnalyzer getMethod() {return method;}
 
+    public ImportHandler getImportHandler() {
+	return imports;
+    }
+    
     public void useType(Type type) {
 	imports.useType(type);
+    }
+
+
+    public boolean isScopeOf(Object obj, int scopeType) {
+	return false;
+    }
+
+    public boolean conflicts(String name, int usageType) {
+	if (usageType == AMBIGUOUSNAME)
+	    return findLocal(name) != null;
+	if (usageType == AMBIGUOUSNAME || usageType == CLASSNAME)
+	    return findAnonClass(name) != null;
+	return false;
     }
 }
