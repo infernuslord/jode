@@ -162,8 +162,6 @@ public class TransformExceptionHandlers {
      *      |  ...
      *      `- catch block
      */
-    static int serialno=0;
-
     static void analyzeCatchBlock(Type type, 
                                   FlowBlock tryFlow, FlowBlock catchFlow) {
 
@@ -179,7 +177,7 @@ public class TransformExceptionHandlers {
                 && ((PopOperator) instr).getCount() == 1) {
                 /* The exception is ignored.  Create a dummy local for it */
                 local = new LocalInfo(-1);
-                local.setName("exception_"+(serialno++)+"_");
+                local.setName("exception");
                 firstInstr.removeBlock();
 
             } else if (instr instanceof jode.LocalStoreOperator) {

@@ -341,16 +341,23 @@ public abstract class StructuredBlock {
 	declare = new VariableSet();
 	java.util.Enumeration enum = used.elements();
 	while (enum.hasMoreElements()) {
-	    LocalInfo local = ((LocalInfo) enum.nextElement()).getLocalInfo();
-	    if (!declare.contains(local))
+	    LocalInfo local = (LocalInfo) enum.nextElement();
+            LocalInfo previous = done.findLocal(local.getName());
+            if (previous == null)
 		declare.addElement(local);
+            else if (!previous.equals(local)) {
+                /* A name conflict happened. */
+                local.makeNameUnique();
+                declare.addElement(local);
+            }
 	}
-	declare.subtractExact(done);
-	done.unionExact(declare);
-
+        done.unionExact(declare);
         StructuredBlock[] subs = getSubBlocks();
 	for (int i=0; i<subs.length; i++)
 	    subs[i].makeDeclaration(done);
+        /* remove the variables again, since we leave the scope.
+         */
+        done.subtractExact(declare);
     }
 
     public void checkConsistent() {

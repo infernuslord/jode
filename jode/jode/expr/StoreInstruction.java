@@ -30,6 +30,10 @@ public abstract class StoreInstruction extends Operator {
         lvCasts = lvalueType.toString();
     }
 
+    public Type getType() {
+        return type == Type.tVoid ? type : getLValueType();
+    }
+
     public Type getLValueType() {
         return lvalueType;
     }
@@ -41,6 +45,8 @@ public abstract class StoreInstruction extends Operator {
         if (type != Type.tVoid)
             throw new AssertError("already non void");
         type = lvalueType;
+        if (parent != null && parent.getOperator() == this)
+            parent.type = lvalueType;
     }
 
     public abstract boolean matches(Operator loadop);

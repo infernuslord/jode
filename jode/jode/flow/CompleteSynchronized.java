@@ -27,59 +27,67 @@ import jode.Expression;
 public class CompleteSynchronized {
 
     /**
-     * This combines the monitorenter and the initial expression
-     * into a synchronized statement
+     * This combines the monitorenter into a synchronized statement
      * @param flow The FlowBlock that is transformed 
      */
-    public static boolean transform(SynchronizedBlock synBlock, 
-                             StructuredBlock last) {
+    public static boolean enter(SynchronizedBlock synBlock, 
+                                StructuredBlock last) {
 
         if (!(last.outer instanceof SequentialBlock))
             return false;
-
+        
         /* If the program is well formed, the following succeed */
         try {
             SequentialBlock sequBlock = (SequentialBlock) synBlock.outer;
             
             ComplexExpression monenter = (ComplexExpression)
                 ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
-                                              
+            
             if (!(monenter.getOperator() instanceof MonitorEnterOperator)
                 || ((LocalLoadOperator) monenter.getSubExpressions()[0]).
                 getLocalInfo() != synBlock.local.getLocalInfo())
                 return false;
-
+            
         } catch (ClassCastException ex) {
             return false;
         }
-
+        
         if (jode.Decompiler.isVerbose)
             System.err.print('s');
-
+        
         synBlock.isEntered = true;
         synBlock.moveDefinitions(last.outer,last);
         last.replace(last.outer);
+        return true;
+    }
+
+    /**
+     * This combines the initial expression describing the object
+     * into a synchronized statement
+     * @param flow The FlowBlock that is transformed 
+     */
+    public static boolean combineObject(SynchronizedBlock synBlock, 
+                                        StructuredBlock last) {
 
         /* Is there another expression? */
-        if (!(last.outer instanceof SynchronizedBlock))
+        if (!(last.outer instanceof SequentialBlock))
             return false;
 
         Expression object;
         try {
-            SequentialBlock sequBlock = 
-                (SequentialBlock) synBlock.outer;
+            SequentialBlock sequBlock = (SequentialBlock) last.outer;
 
             ComplexExpression assign = (ComplexExpression)
                 ((InstructionBlock) sequBlock.subBlocks[0]).getInstruction();
 
             if (((LocalStoreOperator) assign.getOperator()).
                 getLocalInfo() != synBlock.local.getLocalInfo())
-                return true;
-
+                return false;
+        
             object = assign.getSubExpressions()[0];
 
         } catch (ClassCastException ex) {
-            return true;
+            return false;
         }
 
         synBlock.object = object;

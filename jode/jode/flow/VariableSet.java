@@ -85,6 +85,16 @@ public class VariableSet implements Cloneable {
     }
 
     /**
+     * Checks if the variable set contains a local with the given name.
+     */
+    public LocalInfo findLocal(String name) {
+        for (int i=0; i<count;i++)
+            if (locals[i].getName().equals(name))
+                return locals[i];
+        return null;
+    }
+
+    /**
      * Removes a local info from this variable set.  
      */
     public void removeElement(LocalInfo li) {

@@ -37,6 +37,14 @@ public class PutFieldOperator extends StoreInstruction {
             classType.useType();
     }
 
+    public boolean isStatic() {
+        return staticFlag;
+    }
+
+    public String getFieldName() {
+        return fieldName;
+    }
+
     public boolean matches(Operator loadop) {
         return loadop instanceof GetFieldOperator
 	    && ((GetFieldOperator)loadop).classType.equals(classType)
@@ -61,9 +69,11 @@ public class PutFieldOperator extends StoreInstruction {
     public String getLValueString(String[] operands) {
         return staticFlag
             ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
+               && codeAnalyzer.findLocal(fieldName) == null
                ? fieldName 
                : classType.toString() + "." + fieldName)
             : (operands[0].equals("this")
+               && codeAnalyzer.findLocal(fieldName) == null
                ? fieldName
                : operands[0] + "." + fieldName);
     }

@@ -128,6 +128,13 @@ public abstract class Expression {
 
     public abstract Operator getOperator();
 
+    public void makeInitializer() {
+    }
+
+    public boolean isConstant() {
+        return true;
+    }
+
     public abstract String toString();
 
     String toString(int minPriority) {

@@ -22,6 +22,8 @@ package jode;
 public class ConstOperator extends NoArgOperator {
     String value;
 
+    boolean isInitializer = false;
+
     public ConstOperator(Type type, String value) {
         super(type);
         this.value = value;
@@ -40,7 +42,12 @@ public class ConstOperator extends NoArgOperator {
 	    ((ConstOperator)o).value.equals(value);
     }
 
+    public void makeInitializer() {
+        isInitializer = true;
+    }
+
     public String toString(String[] operands) {
+        String value = this.value;
         if (type.isOfType(Type.tBoolean)) {
             if (value.equals("0"))
                 return "false";
@@ -86,15 +93,15 @@ public class ConstOperator extends NoArgOperator {
                 if (type.isOfType(Type.tUInt)) {
                     int i = Integer.parseInt(value);
                     if (i < -1) 
-                        return "~0x"+Integer.toHexString(-i-1);
+                        value = "~0x"+Integer.toHexString(-i-1);
                     else
-                        return "0x"+Integer.toHexString(i);
+                        value = "0x"+Integer.toHexString(i);
                 } else if (type.equals(Type.tLong)) {
                     long l = Long.parseLong(value);
                     if (l < -1) 
-                        return "~0x"+Long.toHexString(-l-1)+"L";
+                        value = "~0x"+Long.toHexString(-l-1);
                     else
-                        return "0x"+Long.toHexString(l)+"L";
+                        value = "0x"+Long.toHexString(l);
                 }
             }
         }
@@ -102,6 +109,14 @@ public class ConstOperator extends NoArgOperator {
             return value+"L";
         if (type.isOfType(Type.tFloat))
             return value+"F";
+        if (!type.isOfType(Type.tInt) && type.isOfType(Type.tUInt) 
+            && !isInitializer)
+            /* One of the strange things in java.  All constants
+             * are int and must be explicitly casted to byte,...,short.
+             * But in initializers this cast is unnecessary.
+             */
+            return "("+type+") "+value;
+
         return value;
     }
 }

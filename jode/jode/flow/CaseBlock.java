@@ -136,6 +136,7 @@ public class CaseBlock extends StructuredBlock {
             ConstOperator constOp = new ConstOperator
                 (((SwitchBlock)outer).getInstruction().getType(), 
                  Integer.toString(value));
+            constOp.makeInitializer();
 	    writer.println("case " + constOp.toString() + ":"
                            + (wantBraces ? " {" : ""));
         }

@@ -81,7 +81,7 @@ public class SynchronizedBlock extends StructuredBlock {
 	throws java.io.IOException
     {
         if (!isEntered)
-            writer.print("/* missing monitorenter */");
+            writer.println("MISSING MONITORENTER");
         writer.println("synchronized ("
                        + (object != null 
                           ? object.simplify().toString()
@@ -93,6 +93,9 @@ public class SynchronizedBlock extends StructuredBlock {
     }
 
     public boolean doTransformations() {
-        return CompleteSynchronized.transform(this, flowBlock.lastModified);
+        StructuredBlock last = flowBlock.lastModified;
+        return (!isEntered && CompleteSynchronized.enter(this, last))
+            || (isEntered && object == null 
+                && CompleteSynchronized.combineObject(this, last));
     }
 }

@@ -38,6 +38,10 @@ implements LocalVarOperator {
         return false;
     }
 
+    public boolean isConstant() {
+        return false;
+    }
+
 //     public void setLocalInfo(LocalInfo local) {
 //         local.setType(type);
 // 	this.local = local;

@@ -35,6 +35,7 @@ import java.util.Vector;
 public class LocalInfo {
     private static int serialnr = 0;
     private int slot;
+    private boolean isUnique;
     private String name;
     private Type type;
     private LocalInfo shadow;
@@ -126,8 +127,10 @@ public class LocalInfo {
             }
             return shadow.getName();
         }
-        if (name == null)
-            name = "local_"+slot+"__"+serialnr++;
+        if (name == null) {
+            name = "local_"+slot+"__"+serialnr+++"_";
+            isUnique = true;
+        }
         return name;
     }
 
@@ -143,10 +146,20 @@ public class LocalInfo {
      * Set the name of this local.
      */
     public void setName(String name) {
-        if (shadow != null) 
-            shadow.setName(name);
-        else
-            this.name = name;
+        LocalInfo li = getLocalInfo();
+        li.name = name;
+    }
+
+    /**
+     * Set the name of this local.
+     */
+    public void makeNameUnique() {
+        LocalInfo li = getLocalInfo();
+        String name = li.getName();
+        if (!li.isUnique) {
+            li.name = name + "__"+serialnr+++"_";
+            li.isUnique = true;
+        }
     }
 
     /**
