@@ -262,4 +262,7 @@ public interface Opcodes {
 	"instanceof", "monitorenter", "monitorexit", "wide", "multianewarray", 
 	"ifnull", "ifnonnull", "goto_w", "jsr_w", "breakpoint"
     };
+
+    public String newArrayTypes = "ZCFDBSIJ";
 }
+
