@@ -72,6 +72,7 @@ public class MainWindow
 	if (node != null && classModel.isLeaf(node)) {
 	    lastClassName = classModel.getFullName(node);
 	    decompileThread = new Thread(this);
+	    decompileThread.setPriority(Thread.MIN_PRIORITY);
 	    sourcecodeArea.setText("Please wait, while decompiling...\n");
 	    decompileThread.start();
 	}
@@ -164,6 +165,11 @@ public class MainWindow
 	    win.setClasspath(cp.replace(File.pathSeparatorChar, ','));
 
 	frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+	frame.addWindowListener(new WindowAdapter() {
+	    public void windowClosing(WindowEvent e) {
+		System.exit(0);
+	    }
+	});
 	frame.pack();
 	frame.show();
     }
