@@ -41,8 +41,16 @@ public class NopOperator extends SimpleOperator {
         return 0;
     }
 
+    public Expression addOperand(Expression op) {
+	return op;
+    }
+
     public int getOperandPriority(int i) {
         return 0;
+    }
+
+    public boolean isConstant() {
+	return false;
     }
 
     public boolean equals(Object o) {
