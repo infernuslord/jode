@@ -24,17 +24,9 @@ import jode.Instruction;
 /**
  * This is the structured block for an Throw block.
  */
-public class ThrowBlock extends InstructionContainer {
-    public ThrowBlock(Instruction instr) {
-        super(instr);
-    }
-
-    /**
-     * Tells if this block needs braces when used in a if or while block.
-     * @return true if this block should be sorrounded by braces.
-     */
-    public boolean needsBraces() {
-        return declare != null && !declare.isEmpty();
+public class ThrowBlock extends ReturnBlock {
+    public ThrowBlock(Instruction instr, Jump jump) {
+        super(instr, jump);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 
