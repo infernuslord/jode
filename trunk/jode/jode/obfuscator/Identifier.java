@@ -17,17 +17,25 @@
  * $Id$
  */
 package jode.obfuscator;
+import jode.Obfuscator;
+import java.io.*;
 
-public class Identifier {
+public abstract class Identifier {
     /**
      * This is a doubly list of identifiers, that must have always
-     * have the same names, and same reachable/preserved settings.
+     * have the same names, and same preserved settings.
      */
     private Identifier right = null;
     private Identifier left  = null;
 
     private boolean reachable = false;
     private boolean preserved = false;
+
+    private String alias = null;
+
+    public Identifier(String alias) {
+	this.alias = alias;
+    }
 
     /**
      * Returns true, if this identifier is reachable in some way, false if it
@@ -51,7 +59,6 @@ public class Identifier {
      * You shouldn't call this directly, but use setPreserved instead.
      */
     protected void setSinglePreserved() {
-	preserved = true;
     }
 
     /**
@@ -63,22 +70,15 @@ public class Identifier {
      * You shouldn't call this directly, but use setReachable instead.
      */
     protected void setSingleReachable() {
-	reachable = true;
     }
 
     /**
      * Mark all shadows as reachable.
      */
     public void setReachable() {
-	Identifier ptr = this;
-	while (ptr != null) {
-	    ptr.setSingleReachable();
-	    ptr = ptr.left;
-	}
-	Identifier ptr = right;
-	while (ptr != null) {
-	    ptr.setSingleReachable();
-	    ptr = ptr.right;
+	if (!reachable) {
+	    reachable = true;
+	    setSingleReachable();
 	}
     }
 
@@ -86,23 +86,38 @@ public class Identifier {
      * Mark all shadows as preserved.
      */
     public void setPreserved() {
-	Identifier ptr = this;
-	while (ptr != null) {
-	    ptr.setSinglePreserved();
-	    ptr = ptr.left;
-	}
-	Identifier ptr = right;
-	while (ptr != null) {
-	    ptr.setSinglePreserved();
-	    ptr = ptr.right;
+	if (!preserved) {
+	    preserved = true;
+	    Identifier ptr = this;
+	    while (ptr != null) {
+		ptr.setSinglePreserved();
+		ptr = ptr.left;
+	    }
+	    ptr = right;
+	    while (ptr != null) {
+		ptr.setSinglePreserved();
+		ptr = ptr.right;
+	    }
 	}
     }
 
-    public void getRepresentative() {
+    public Identifier getRepresentative() {
 	Identifier ptr = this;
 	while (ptr.left != null)
 	    ptr = ptr.left;
 	return ptr;
+    }
+
+    public final boolean isRepresentative() {
+	return left == null;
+    }
+
+    public final void setAlias(String name) {
+	getRepresentative().alias = name;
+    }
+
+    public final String getAlias() {
+	return getRepresentative().alias;
     }
 
     /**
@@ -110,11 +125,6 @@ public class Identifier {
      * the same name.
      */
     public void addShadow(Identifier orig) {
-	if (isReachable() && !orig.isReachable())
-	    orig.setReachable();
-	else if (!isReachable() && orig.isReachable())
-	    setReachable();
-
 	if (isPreserved() && !orig.isPreserved())
 	    orig.setPreserved();
 	else if (!isPreserved() && orig.isPreserved())
@@ -123,9 +133,84 @@ public class Identifier {
 	Identifier ptr = this;
 	while (ptr.right != null)
 	    ptr = ptr.right;
+
+	/* Check if orig is already on the ptr chain */
+	Identifier check = orig;
+	while (check.right != null)
+	    check = check.right;
+	if (check == ptr)
+	    return;
+
 	while (orig.left != null)
 	    orig = orig.left;
 	ptr.right = orig;
 	orig.left = ptr;
     }
+
+    static int serialnr = 0;
+    public void buildTable(int renameRule) {
+	if (isPreserved()) {
+	    if (Obfuscator.isDebugging)
+		Obfuscator.err.println(toString() + " is preserved");
+	} else if (isRepresentative()
+		   && renameRule != Obfuscator.RENAME_NONE) {
+
+	    if (renameRule == Obfuscator.RENAME_UNIQUE)
+		setAlias("xxx" + serialnr++);
+	    else {
+		StringBuffer newAlias = new StringBuffer();
+	    next_alias:
+		for (;;) {
+		okay:
+		    do {
+			for (int pos = 0; pos < newAlias.length(); pos++) {
+			    char c = newAlias.charAt(pos);
+			    if (renameRule == Obfuscator.RENAME_WEAK) {
+				if (c == '9') {
+				    newAlias.setCharAt(pos, 'A');
+				    break okay;
+				} else if (c == 'Z') {
+				    newAlias.setCharAt(pos, 'a');
+				    break okay;
+				} else if (c != 'z') {
+				    newAlias.setCharAt(pos, (char)(c+1));
+				    break okay;
+				}
+				newAlias.setCharAt(pos, '0');
+			    } else {
+				while (c++ < Character.MAX_VALUE) {
+				    if (Character.isUnicodeIdentifierPart(c)) {
+					newAlias.setCharAt(pos, c);
+					break okay;
+				    }
+				}
+				newAlias.setCharAt(pos, '!');
+			    }
+			}
+			newAlias.insert(0, renameRule == Obfuscator.RENAME_WEAK
+					? 'A': '!');
+		    } while (false);
+		    Identifier ptr = this;
+		    while (ptr != null) {
+			if (ptr.conflicting(newAlias.toString()))
+			    continue next_alias;
+			ptr = ptr.right;
+		    }
+		    alias = newAlias.toString();
+		    return;
+		}
+	    }
+	}
+    }
+
+    public void writeTable(PrintWriter out) throws IOException {
+	if (getName() != getAlias())
+	    out.println("" + getFullAlias() + " = " + getName());
+    }
+
+    public abstract String getName();
+    public abstract String getType();
+    public abstract String getFullName();
+    public abstract String getFullAlias();
+    public abstract boolean conflicting(String newAlias);
 }
