@@ -226,7 +226,10 @@ public class JodeWindow
 
     public void run() {
 	GlobalOptions.verboseLevel = verboseCheck.getState() ? 1 : 0;
-	Decompiler.prettyLocals = prettyCheck.getState();
+	if (prettyCheck.getState())
+	    Decompiler.options |= Decompiler.OPTION_PRETTY;
+	else
+	    Decompiler.options &= ~Decompiler.OPTION_PRETTY;
 	errorArea.setText("");
 ///#ifdef AWT10
 ///	saveButton.disable();
