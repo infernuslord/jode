@@ -226,6 +226,8 @@ public interface Opcodes {
     public final static int opc_goto_w = 200;
     public final static int opc_jsr_w = 201;
     public final static int opc_breakpoint = 202;
+    public final static int opc_impdep1 = 254;
+    public final static int opc_impdep2 = 255;
 
     public final static String[] opcodeString = {
 	"nop", "aconst_null", "iconst_m1", "iconst_0", "iconst_1",

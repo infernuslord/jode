@@ -64,7 +64,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	int instructionCount = 0;
 
 	InstructionList() {
-	    borderInstr = new Instruction(opc_xxxunusedxxx);
+	    // opc_impdep1 is used as border instruction, it may not
+	    // occur in bytecode.
+	    borderInstr = new Instruction(opc_impdep1);
 	    borderInstr.nextByAddr = borderInstr.prevByAddr = borderInstr;
 	}
 

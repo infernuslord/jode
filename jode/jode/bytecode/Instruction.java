@@ -333,13 +333,13 @@ public final class Instruction implements Opcodes{
     }
 
     public final Instruction getPrevByAddr() {
-	if (prevByAddr.opcode == opc_xxxunusedxxx)
+	if (prevByAddr.opcode == opc_impdep1)
 	    return null;
 	return prevByAddr;
     }
 
     public final Instruction getNextByAddr() {
-	if (nextByAddr.opcode == opc_xxxunusedxxx)
+	if (nextByAddr.opcode == opc_impdep1)
 	    return null;
 	return nextByAddr;
     }
@@ -608,7 +608,7 @@ public final class Instruction implements Opcodes{
 	if (lnt != null) {
 	    for (int i=0; i< lnt.length; i++) {
 		if (lnt[i].start == this) {
-		    if (nextByAddr.opcode == opc_xxxunusedxxx
+		    if (nextByAddr.opcode == opc_impdep1
 			|| (i+1 < lnt.length 
 			    && lnt[i+1].start == nextByAddr)) {
 			/* Remove the line number.
