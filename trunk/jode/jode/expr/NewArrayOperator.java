@@ -48,7 +48,7 @@ public class NewArrayOperator extends Operator {
 
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-        Type flat = type;
+        Type flat = type.getCanonic();
 	int depth = 0;
         while (flat instanceof ArrayType) {
             flat = ((ArrayType)flat).getElementType();

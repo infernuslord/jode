@@ -48,7 +48,7 @@ public class ConvertOperator extends Operator {
     public void dumpExpression(TabbedPrintWriter writer) 
 	throws java.io.IOException {
         writer.print("(");
-	writer.printType(type);
+	writer.printType(type.getCanonic());
         writer.print(") ");
 	subExpressions[0].dumpExpression(writer, 700);
     }
