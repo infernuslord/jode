@@ -25,6 +25,7 @@ import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.CodeAnalyzer;
 import jode.expr.Expression;
 import jode.expr.CombineableOperator;
+import jode.util.SimpleDictionary;
 
 /**
  * A flow block is the structure of which the flow graph consists.  A
@@ -1488,6 +1489,10 @@ public class FlowBlock {
 	in.subtract(param);
 	block.propagateUsage();
 	block.makeDeclaration(param);
+    }
+
+    public void simplify() {
+	block.simplify();
     }
 
     /**
