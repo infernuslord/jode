@@ -63,13 +63,6 @@ public class FieldIdentifier extends Identifier{
 	this.constant = info.getConstant();
     }
 
-    public void applyPreserveRule(int preserveRule) {
-	if ((preserveRule & (info.getModifiers() ^ Modifier.PRIVATE)) != 0) {
-	    setReachable();
-	    setPreserved();
-	}
-    }
-
     public void setSingleReachable() {
 	super.setSingleReachable();
 	Main.getClassBundle().analyzeIdentifier(this);
