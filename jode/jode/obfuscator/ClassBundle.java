@@ -169,7 +169,11 @@ public class ClassBundle {
 	basePackage.writeTable(prop);
 	try {
 	    OutputStream out = new FileOutputStream(filename);
+///#ifdef JDK12
+///	    prop.store(out, "Reverse renaming table");
+///#else
 	    prop.save(out, "Reverse renaming table");
+///#endif
 	    out.close();
 	} catch (java.io.IOException ex) {
 	    GlobalOptions.err.println("Can't write rename table "+filename);
