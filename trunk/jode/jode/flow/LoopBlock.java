@@ -33,6 +33,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public static final int WHILE = 0;
     public static final int DOWHILE = 1;
     public static final int FOR = 2;
+    public static final int POSSFOR = 3;
 
     public static final Expression TRUE = 
         new ConstOperator(Type.tBoolean, "1");
@@ -44,13 +45,13 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      */
     Expression cond;
     /**
-     * The init instruction, only valid if type == FOR.
+     * The init instruction, only valid if type == FOR or POSSFOR
      */
-    Expression init;
+    InstructionBlock init;
     /**
-     * The increase instruction, only valid if type == FOR.
+     * The increase instruction, only valid if type == FOR or POSSFOR.
      */
-    Expression incr;
+    InstructionBlock incr;
     
     /**
      * True, if the initializer is a declaration.
@@ -98,8 +99,43 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         return cond;
     }
 
+    public void putBackInit() {
+        StructuredBlock last = 
+            (outer instanceof SequentialBlock
+             && outer.getSubBlocks()[0] == this) ? outer : this;
+
+        SequentialBlock sequBlock = new SequentialBlock();
+        sequBlock.replace(last);
+        sequBlock.setFirst(init);
+        sequBlock.setSecond(last);
+        init = null;
+    }
+
     public void setCondition(Expression cond) {
         this.cond = cond;
+        if (type == POSSFOR) {
+            /* canCombine returns 1 if cond contains a sub expression
+             * that matches the store in incr */
+            if (cond.containsMatchingLoad(incr.getInstruction())) {
+                type = FOR;
+                if (init != null
+                    && !cond.containsMatchingLoad(init.getInstruction())) {
+                    /* This is a for, but the init instruction doesn't
+                     * match.  Put the init back to its old place.
+                     */
+                    putBackInit();
+                }
+            } else {
+                type = WHILE;
+                StructuredBlock last = bodyBlock;
+                while (last instanceof SequentialBlock)
+                    last = last.getSubBlocks()[1];
+                last.appendBlock(incr);
+                incr = null;
+                if (init != null)
+                    putBackInit();
+            }
+        }
         mayChangeJump = false;
     }
 
@@ -109,6 +145,16 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 
     public void setType(int type) {
         this.type = type;
+    }
+
+    public VariableSet propagateUsage() {
+        if (init != null)
+            used.unionExact(init.used);
+        if (incr != null)
+            used.unionExact(incr.used);
+        VariableSet allUse = (VariableSet) used.clone();
+        allUse.unionExact(bodyBlock.propagateUsage());
+        return allUse;
     }
 
     /**
@@ -136,11 +182,13 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public void dumpDeclaration(TabbedPrintWriter writer, LocalInfo local)
 	throws java.io.IOException
     {
-        if (type == FOR && init != null
+        if ((type == FOR || type == POSSFOR) && init != null
             && (outer == null || !outer.used.contains(local))
-            && init.getOperator() instanceof LocalStoreOperator
-            && ((LocalStoreOperator) init.getOperator()).getLocalInfo() 
-            == local.getLocalInfo())
+            && (init.getInstruction().getOperator() 
+                instanceof LocalStoreOperator)
+            && (((LocalStoreOperator) 
+                 init.getInstruction().getOperator()).getLocalInfo() 
+                == local.getLocalInfo()))
             isDeclaration = true;
         else
             super.dumpDeclaration(writer, local);
@@ -164,22 +212,28 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
         boolean needBrace = bodyBlock.needsBraces();
         switch (type) {
         case WHILE:
-            writer.print("while ("+cond.simplify().toString()+")");
+            if (cond == TRUE)
+                /* special syntax for endless loops: */
+                writer.print("for (;;)");
+            else
+                writer.print("while ("+cond.simplify().toString()+")");
             break;
         case DOWHILE:
             writer.print("do");
             break;
         case FOR:
+        case POSSFOR:
             writer.print("for (");
-            if (isDeclaration)
-                writer.print(((LocalStoreOperator) init.getOperator())
-                             .getLocalInfo().getType().toString()
-                             + " " + init.simplify().toString());
-            else if (init != null)
-                writer.print(init.simplify().toString());
-
+            if (init != null) {
+                if (isDeclaration)
+                    writer.print(((LocalStoreOperator) 
+                                  init.getInstruction().getOperator())
+                                 .getLocalInfo().getType().toString()
+                                 + " ");
+                writer.print(init.getInstruction().simplify().toString());
+            }
             writer.print("; "+cond.simplify().toString()+"; "
-                         +incr.simplify().toString()+")");
+                         +incr.getInstruction().simplify().toString()+")");
             break;
         }
         writer.println( needBrace?" {": "");
@@ -255,8 +309,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     }
 
     public boolean doTransformations() {
-        return type == FOR && init == null
+        return init == null && (type == FOR || type == POSSFOR)
             && CreateForInitializer.transform(this, flowBlock.lastModified);
     }
 }
-

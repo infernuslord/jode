@@ -291,7 +291,7 @@ public abstract class StructuredBlock {
     /**
      * Removes this block, or replaces it with an EmptyBlock.
      */
-    public void removeBlock() {
+    public final void removeBlock() {
 
         if (outer instanceof SequentialBlock) {
             if (outer.getSubBlocks()[1] == this) {
@@ -325,8 +325,8 @@ public abstract class StructuredBlock {
             /* All variables used in more than one sub blocks, are
              * used in this block, too.  
              */
-            used.addExact(allUse.intersectExact(childUse));
-            allUse.addExact(childUse);
+            used.unionExact(allUse.intersectExact(childUse));
+            allUse.unionExact(childUse);
         }
         return allUse;
     }
@@ -346,7 +346,7 @@ public abstract class StructuredBlock {
 		declare.addElement(local);
 	}
 	declare.subtractExact(done);
-	done.addExact(declare);
+	done.unionExact(declare);
 
         StructuredBlock[] subs = getSubBlocks();
 	for (int i=0; i<subs.length; i++)

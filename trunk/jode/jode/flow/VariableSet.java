@@ -154,26 +154,6 @@ public class VariableSet extends java.util.Vector {
     }
 
     /**
-     * Add the other variable set to the current, except when the slot
-     * is already in the current set.  
-     */
-    public void addExact(VariableSet vs) {
-        int oldSize = elementCount;
-    iloop:
-        for (int i=0; i< vs.elementCount; i++) {
-            LocalInfo li2 = ((LocalInfo) vs.elementData[i]).getLocalInfo();
-            /* check if this slot was already overwritten by this block */
-            for (int j=0; j< oldSize; j++) {
-                LocalInfo li1 = (LocalInfo) elementData[j];
-                if (li1.getLocalInfo() == li2)
-                    /* Yes it was, take next variable */
-                    continue iloop;
-            }
-            addElement(li2);
-        }
-    }
-
-    /**
      * Add the variables in gen to the current set, unless there are
      * variables in kill using the same slot.
      * @param gen The gen set.

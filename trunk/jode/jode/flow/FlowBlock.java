@@ -198,70 +198,75 @@ public class FlowBlock {
 
                 ConditionalBlock cb = (ConditionalBlock) jump.prev.outer;
                 Expression instr = cb.getInstruction();
+                
+                /* If this is the first instruction of a
+                 * while/for(true) block, make this the loop condition
+                 * (negated of course).
+                 */
 
-//                 if (cb.outer instanceof LoopBlock 
-//                     || (cb.outer instanceof SequentialBlock 
-//                         && cb.outer.getSubBlocks()[0] == cb 
-//                         && cb.outer.outer instanceof LoopBlock)) {
+                if (cb.outer instanceof LoopBlock 
+                    || (cb.outer instanceof SequentialBlock 
+                        && cb.outer.getSubBlocks()[0] == cb 
+                        && cb.outer.outer instanceof LoopBlock)) {
             
-//                     LoopBlock loopBlock = (cb.outer instanceof LoopBlock) ?
-//                         (LoopBlock) cb.outer : (LoopBlock) cb.outer.outer;
+                    LoopBlock loopBlock = (cb.outer instanceof LoopBlock) ?
+                        (LoopBlock) cb.outer : (LoopBlock) cb.outer.outer;
 
-//                     if (loopBlock.getCondition() == LoopBlock.TRUE &&
-//                         loopBlock.getType() != LoopBlock.DOWHILE &&
-//                         (loopBlock.jumpMayBeChanged()
-//                          || loopBlock.getNextFlowBlock() == succ)) {
+                    if (loopBlock.getCondition() == LoopBlock.TRUE &&
+                        loopBlock.getType() != LoopBlock.DOWHILE &&
+                        (loopBlock.jumpMayBeChanged()
+                         || loopBlock.getNextFlowBlock() == succ)) {
                         
-//                         if (loopBlock.jump == null) {
-//                             /* consider this jump again */
-//                             loopBlock.moveJump(jump);
-//                             jumps = jump;
-//                         } else
-//                             jump.prev.removeJump();
+                        if (loopBlock.jump == null) {
+                            /* consider this jump again */
+                            loopBlock.moveJump(jump);
+                            jumps = jump;
+                        } else
+                            jump.prev.removeJump();
 
-//                         loopBlock.setCondition(instr.negate());
-//                         loopBlock.moveDefinitions(cb, null);
-//                         cb.removeBlock();
-//                         continue;
-//                     }
+                        loopBlock.setCondition(instr.negate());
+                        loopBlock.moveDefinitions(cb, null);
+                        cb.removeBlock();
+                        continue;
+                    }
 
-//                 } else if (cb.outer instanceof SequentialBlock 
-//                            && cb.outer.getSubBlocks()[1] == cb) {
+                } else if (cb.outer instanceof SequentialBlock 
+                           && cb.outer.getSubBlocks()[1] == cb) {
 
-//                     /* And now for do/while loops, where the jump is
-//                      * at the end of the loop.
-//                      */
+                    /* And now for do/while loops, where the jump is
+                     * at the end of the loop.
+                     */
                     
-//                     /* First find the beginning of the loop */
-//                     StructuredBlock sb = cb.outer.outer;
-//                     while (sb instanceof SequentialBlock) {
-//                         sb = sb.outer;
-//                     }
-//                     /* sb is now the first and cb is the last
-//                      * instruction in the current block.
-//                      */
-//                     if (sb instanceof LoopBlock) {
-//                         LoopBlock loopBlock = (LoopBlock) sb;
-//                         if (loopBlock.getCondition() == LoopBlock.TRUE &&
-//                             loopBlock.getType() == LoopBlock.WHILE &&
-//                             (loopBlock.jumpMayBeChanged()
-//                              || loopBlock.getNextFlowBlock() == succ)) {
+                    /* First find the beginning of the loop */
+                    StructuredBlock sb = cb.outer.outer;
+                    while (sb instanceof SequentialBlock) {
+                        sb = sb.outer;
+                    }
+                    /* sb is now the first and cb is the last
+                     * instruction in the current block.
+                     */
+                    if (sb instanceof LoopBlock) {
+                        LoopBlock loopBlock = (LoopBlock) sb;
+                        if (loopBlock.getCondition() == LoopBlock.TRUE &&
+                            loopBlock.getType() == LoopBlock.WHILE &&
+                            (loopBlock.jumpMayBeChanged()
+                             || loopBlock.getNextFlowBlock() == succ)) {
                             
-//                             if (loopBlock.jump == null) {
-//                                 /* consider this jump again */
-//                                 loopBlock.moveJump(jump);
-//                                 jumps = jump;
-//                             } else
-//                                 jump.prev.removeJump();
+                            if (loopBlock.jump == null) {
+                                /* consider this jump again */
+                                loopBlock.moveJump(jump);
+                                jumps = jump;
+                            } else
+                                jump.prev.removeJump();
 
-//                             loopBlock.setType(LoopBlock.DOWHILE);
-//                             loopBlock.setCondition(instr.negate());
-//                             loopBlock.moveDefinitions(cb, null);
-//                             cb.removeBlock();                            
-//                             continue;
-//                         }
-//                     }
-//                 }
+                            loopBlock.setType(LoopBlock.DOWHILE);
+                            loopBlock.setCondition(instr.negate());
+                            loopBlock.moveDefinitions(cb, null);
+                            cb.removeBlock();                            
+                            continue;
+                        }
+                    }
+                }
 
 		/* replace all conditional jumps to the successor, which
 		 * are followed by a block which has the end of the block
@@ -669,44 +674,44 @@ public class FlowBlock {
         return true;
     }
 
-    /**
-     * Find the exit condition of a for/while block.  The loop block
-     * mustn't have an exit condition yet.
-     */
-    public void mergeCondition() {
-        /* If the first instruction of a while is a conditional
-         * block, which jumps to the next address use the condition
-         * as while condition.  
-         */
-        LoopBlock loopBlock = (LoopBlock) lastModified;
-        int loopType = loopBlock.getType();
+//     /**
+//      * Find the exit condition of a for/while block.  The loop block
+//      * mustn't have an exit condition yet.
+//      */
+//     public void mergeCondition() {
+//         /* If the first instruction of a while is a conditional
+//          * block, which jumps to the next address use the condition
+//          * as while condition.  
+//          */
+//         LoopBlock loopBlock = (LoopBlock) lastModified;
+//         int loopType = loopBlock.getType();
 
-        ConditionalBlock cb = null;
-        if (loopBlock.bodyBlock instanceof ConditionalBlock)
-            cb = (ConditionalBlock) loopBlock.bodyBlock;
-        else if (loopBlock.bodyBlock instanceof SequentialBlock
-                 && loopBlock.bodyBlock.getSubBlocks()[0] 
-                 instanceof ConditionalBlock)
-            cb = (ConditionalBlock) loopBlock.bodyBlock.getSubBlocks()[0];
-        else if (loopBlock.bodyBlock instanceof SequentialBlock
-                 && loopType == LoopBlock.WHILE) {
-            loopType = LoopBlock.DOWHILE;
-            SequentialBlock sequBlock = (SequentialBlock) loopBlock.bodyBlock;
-            while (sequBlock.subBlocks[1] instanceof SequentialBlock)
-                sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
-            if (sequBlock.subBlocks[1] instanceof ConditionalBlock)
-                cb = (ConditionalBlock) sequBlock.subBlocks[1];
-        }
+//         ConditionalBlock cb = null;
+//         if (loopBlock.bodyBlock instanceof ConditionalBlock)
+//             cb = (ConditionalBlock) loopBlock.bodyBlock;
+//         else if (loopBlock.bodyBlock instanceof SequentialBlock
+//                  && loopBlock.bodyBlock.getSubBlocks()[0] 
+//                  instanceof ConditionalBlock)
+//             cb = (ConditionalBlock) loopBlock.bodyBlock.getSubBlocks()[0];
+//         else if (loopBlock.bodyBlock instanceof SequentialBlock
+//                  && loopType == LoopBlock.WHILE) {
+//             loopType = LoopBlock.DOWHILE;
+//             SequentialBlock sequBlock = (SequentialBlock) loopBlock.bodyBlock;
+//             while (sequBlock.subBlocks[1] instanceof SequentialBlock)
+//                 sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
+//             if (sequBlock.subBlocks[1] instanceof ConditionalBlock)
+//                 cb = (ConditionalBlock) sequBlock.subBlocks[1];
+//         }
 
-        if (cb != null 
-            && cb.trueBlock.jump.destination.addr == addr + length) {
-            loopBlock.moveJump(cb.trueBlock.jump);
-            loopBlock.setCondition(cb.getInstruction().negate());
-            loopBlock.setType(loopType);
-            loopBlock.moveDefinitions(cb, null);
-            cb.removeBlock();
-        }
-    }
+//         if (cb != null 
+//             && cb.trueBlock.jump.destination.addr == addr + length) {
+//             loopBlock.moveJump(cb.trueBlock.jump);
+//             loopBlock.setCondition(cb.getInstruction().negate());
+//             loopBlock.setType(loopType);
+//             loopBlock.moveDefinitions(cb, null);
+//             cb.removeBlock();
+//         }
+//     }
 
     public boolean doT2(int start, int end) {
         /* If there are no jumps to the beginning of this flow block
@@ -749,8 +754,6 @@ public class FlowBlock {
             && lastModified instanceof InstructionBlock
             && ((InstructionBlock)lastModified).getInstruction().isVoid()) {
             
-            Expression instr = 
-                ((InstructionBlock)lastModified).getInstruction();
             if (lastModified.outer instanceof SequentialBlock
                 && lastModified.outer.getSubBlocks()[0] 
                 instanceof LoopBlock) {
@@ -767,38 +770,40 @@ public class FlowBlock {
                      * continue to for.  
                      */
                     
+                    lastModified.removeJump();
                     LoopBlock forBlock = 
                         new LoopBlock(LoopBlock.FOR, LoopBlock.TRUE);
                     forBlock.replace(bodyBlock);
                     forBlock.setBody(bodyBlock);
-                    forBlock.incr = instr;
-                    forBlock.moveDefinitions(lastModified, null);
+                    forBlock.incr = (InstructionBlock) lastModified;
                     forBlock.replaceBreakContinue(lb);
 
-                    lastModified.removeJump();
                     lb.bodyBlock.replace(lastModified.outer);
                     createdForBlock = true;
                 }
                 
             } 
 
-            if (!createdForBlock &&
-                (instr.getOperator() instanceof StoreInstruction 
-                 || instr.getOperator() instanceof IIncOperator)) {
+            if (!createdForBlock 
+                && ((InstructionBlock)
+                    lastModified).getInstruction().isVoid()) {
                 
                 /* The only jump is the jump of the last
-                 * instruction lastModified */
-                
-                LoopBlock forBlock = 
-                    new LoopBlock(LoopBlock.FOR, LoopBlock.TRUE);
-                forBlock.replace(bodyBlock);
-                forBlock.setBody(bodyBlock);
-                forBlock.incr = instr;
-                forBlock.moveDefinitions(lastModified, null);
+                 * instruction lastModified, there is a big
+                 * chance, that this is a for block, but we
+                 * can't be sure until we have seen the condition.
+                 * We will transform it to a for block, and take
+                 * that back, when we get a non matching condition.
+                 */
                 
                 lastModified.removeJump();
-                lastModified.outer.getSubBlocks()[0]
-                    .replace(lastModified.outer);
+                LoopBlock forBlock = 
+                    new LoopBlock(LoopBlock.POSSFOR, LoopBlock.TRUE);
+                forBlock.replace(bodyBlock);
+                forBlock.setBody(bodyBlock);
+                forBlock.incr = (InstructionBlock) lastModified;
+                lastModified.removeBlock();
+                
                 createdForBlock = true;
             }
         }
@@ -864,7 +869,8 @@ public class FlowBlock {
          */
         predecessors.removeElement(this);
         lastModified = block;
-        mergeCondition();
+        doTransformations();
+//         mergeCondition();
 
         /* T2 analysis succeeded */
         checkConsistent();
@@ -942,6 +948,7 @@ public class FlowBlock {
         if (lastModified.jump.destination == END_OF_METHOD)
             lastModified.removeJump();
 
+        doTransformations();
         /* transformation succeeded */
         checkConsistent();
     }

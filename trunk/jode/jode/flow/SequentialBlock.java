@@ -97,12 +97,12 @@ public class SequentialBlock extends StructuredBlock {
      */
     public void makeDeclaration(VariableSet done) {
 	/* A sequential block is special, since it doesn't declare
-	 * any local Variable, but let the first sub block do this.
+	 * any local Variable, but lets the first sub block do this.
 	 */
 	declare = new VariableSet();
-        subBlocks[0].used.addExact(used);
+        subBlocks[0].used.unionExact(used);
 	subBlocks[0].makeDeclaration(done);
-	done.addExact(used);
+	done.unionExact(used);
 	subBlocks[1].makeDeclaration(done);
     }
 
