@@ -69,10 +69,6 @@ public class ConstructorOperator extends Operator
         return methodType;
     }
 
-    public MethodAnalyzer getMethodAnalyzer() {
-	return methodAnalyzer;
-    }
-
     /**
      * Checks if the value of the operator can be changed by this expression.
      */
