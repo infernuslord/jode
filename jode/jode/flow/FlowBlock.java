@@ -1391,9 +1391,10 @@ public class FlowBlock {
         if (prev != null)
             prev.next = destJumps.next;
         else {
-            if (destJumps.next == null)
+            if (destJumps.next == null) {
                 successors.remove(jump.destination);
-            else
+		jump.destination.predecessors.removeElement(this);
+            } else
                 successors.put(jump.destination, destJumps.next);
         }
     }
