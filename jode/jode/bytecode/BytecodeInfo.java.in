@@ -225,8 +225,21 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		int nameIndex = input.readUnsignedShort();
 		int typeIndex = input.readUnsignedShort();
 		int slot = input.readUnsignedShort();
-		Instruction startInstr = instrs[start];
-		Instruction endInstr = instrs[end];
+		Instruction startInstr = 
+		    start >= 0 && start < instrs.length ? instrs[start] : null;
+		Instruction endInstr;
+		if (end >=0 && end < instrs.length)
+		    endInstr = instrs[end].getPrevByAddr();
+		else {
+		    endInstr = null;
+		    for (int nr = instrs.length - 1; nr >= 0; nr--) {
+			if (instrs[nr] != null) {
+			    if (instrs[nr].getNextAddr() == end)
+				endInstr = instrs[nr];
+			    break;
+			}
+		    }
+		}
 
 		if (startInstr == null
 		    || endInstr == null
