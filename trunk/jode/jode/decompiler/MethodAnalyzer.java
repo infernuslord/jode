@@ -84,6 +84,11 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
      */
     private static double STEP_COMPLEXITY = 0.01;
     /**
+     * The value of the strictfp modifier.
+     * JDK1.1 doesn't define it.
+     */
+    private static int STRICTFP = 0x800;
+    /**
      * The import handler where we should register our types.
      */
     ImportHandler imports;
@@ -308,6 +313,14 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
      */
     public final boolean isSynthetic() {
 	return minfo.isSynthetic();
+    }
+
+    /**
+     * Checks if this method is strictfp
+     * @return true, iff this method is synthetic.
+     */
+    public final boolean isStrictFP() {
+	return (minfo.getModifiers() & STRICTFP) != 0;
     }
 
     /**
@@ -681,7 +694,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    if (synth.getKind() == synth.GETCLASS)
 		return true;
 	    if (synth.getKind() >= synth.ACCESSGETFIELD
-		&& synth.getKind() <= synth.ACCESSCONSTRUCTOR
+		&& synth.getKind() <= synth.ACCESSDUPPUTSTATIC
 		&& (Options.options & Options.OPTION_INNER) != 0
 		&& (Options.options & Options.OPTION_ANON) != 0)
 		return true;
@@ -711,10 +724,12 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	if (isJikesBlockInitializer)
 	    return true;
 
-	/* The default constructor must be empty of course */
+	/* The default constructor must be empty 
+	 * and mustn't throw exceptions */
 	if (getMethodHeader() == null
 	    || !(getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock)
-	    || !getMethodHeader().hasNoJumps())
+	    || !getMethodHeader().hasNoJumps()
+	    || exceptions.length > 0)
 	    return false;
 
 	if (declareAsConstructor
@@ -804,7 +819,9 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	 * as final.
 	 */
 	if (isConstructor() && isStatic())
-	    modifiedModifiers &= ~Modifier.FINAL;
+  	    modifiedModifiers &= ~(Modifier.FINAL | Modifier.PUBLIC
+  				   | Modifier.PROTECTED | Modifier.PRIVATE);
+	modifiedModifiers &= ~STRICTFP;
 
 	writer.startOp(writer.NO_PAREN, 0);
 	writer.startOp(writer.NO_PAREN, 5);
@@ -819,6 +836,22 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	writer.print(delim + modif);
 	if (modif.length() > 0)
 	    delim = " ";
+	if (isStrictFP()) {
+	    /* The STRICTFP modifier is set.
+	     * We handle it, since java.lang.reflect.Modifier is too dumb.
+	     */
+
+	    /* If STRICTFP is already set for class don't set it for method.
+	     * And don't set STRICTFP for native methods or constructors.
+	     */
+	    if (!classAnalyzer.isStrictFP()
+		&& !isConstructor()
+		&& (modifiedModifiers & Modifier.NATIVE) == 0) {
+		writer.print(delim + "strictfp");
+		delim = " ";
+	    }
+	}
+
         if (isConstructor
 	    && (isStatic()
 		|| (classAnalyzer.getName() == null

@@ -32,6 +32,8 @@ import jode.expr.*;
 import jode.type.MethodType;
 import jode.type.Type;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.ClassPath;
+import jode.bytecode.MethodInfo;
 
 import java.io.IOException;
 import java.util.Vector;
@@ -325,7 +327,18 @@ public class TransformConstructors {
 	    }
 	}
 
-	if (minSuperOuter > 0) {
+	if (minSuperOuter == 1
+	    && superAna.getParent() instanceof ClassAnalyzer) {
+	    /* Check if this is the implicit Outer Class */
+	    LocalLoadOperator llop = (LocalLoadOperator) subExpr[start];
+	    if (outerValues.getValueBySlot(llop.getLocalInfo().getSlot())
+		instanceof ThisOperator) {
+		minSuperOuter = 0;
+		outerValues.setImplicitOuterClass(true);
+	    }
+	}
+
+	if (minSuperOuter > 0) {		
 	    if (superOV == null || superOV.getCount() < minSuperOuter) {
 		if ((GlobalOptions.debuggingFlags
 		     & GlobalOptions.DEBUG_CONSTRS) != 0)
@@ -615,6 +628,29 @@ public class TransformConstructors {
 		&& clazzAnalyzer.getFieldIndex(fo.getFieldName(), 
 					       fo.getFieldType()) >= fieldSlot)
 		return null;
+	}
+	if (expr instanceof InvokeOperator) {
+	    /* Don't allow method invocations that can throw a checked
+	     * exception to leave the constructor.
+	     */
+	    MethodInfo method = ((InvokeOperator) expr).getMethodInfo();
+	    String[] excs = method == null ? null : method.getExceptions();
+	    if (excs != null) {
+		ClassPath classPath = clazzAnalyzer.getClassPath();
+		ClassInfo runtimeException
+		    = classPath.getClassInfo("java.lang.RuntimeException");
+		ClassInfo error = classPath.getClassInfo("java.lang.Error");
+		for (int i = 0; i < excs.length; i++) {
+		    ClassInfo exClass = classPath.getClassInfo(excs[i]);
+		    try {
+			if (!runtimeException.superClassOf(exClass)
+			    && !error.superClassOf(exClass))
+			    return null;
+		    } catch (IOException ex) {
+			return null;
+		    }
+		}
+	    }
 	}
 	if (expr instanceof Operator) {
 	    Operator op = (Operator) expr;

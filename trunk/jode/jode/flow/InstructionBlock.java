@@ -114,7 +114,6 @@ public class InstructionBlock extends InstructionContainer {
 		 * change this to a initializing variable declaration.  
 		 */
 		isDeclaration = true;
-		storeOp.getSubExpressions()[1].makeInitializer();
 		declareSet.remove(local);
 	    }
 	}
@@ -142,6 +141,7 @@ public class InstructionBlock extends InstructionContainer {
 	    local.dumpDeclaration(writer);
 	    writer.breakOp();
 	    writer.print(" = ");
+	    store.getSubExpressions()[1].makeInitializer(local.getType());
 	    store.getSubExpressions()[1].dumpExpression(writer.IMPL_PAREN, 
 							writer);
 	    writer.endOp();

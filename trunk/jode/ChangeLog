@@ -1,4 +1,119 @@
 2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
+	* jode/decompiler/Decompiler.java (decompile): removed 
+	setClassPath call.  ClassInfo.forName() is no longer used.
+	* jode/decompiler/Main.java (decompile): likewise.
+	
+2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
+	Applied patches from 2001-05-26 of Jode 1.1 tree:
+	* configure.in: Set version to 1.1.
+
+	* jode/swingui/Main.java (main): Also use bootclasspath if no
+	classpath given.
+
+	* jode/decompiler/MethodAnalyzer.java (skipWriting): Don't skip
+	empty constructor that have a throws clause.
+
+	* configure.in: Determine whether jdk1.1 resp. jdk1.2.  Call jcpp
+	in config.status.
+
+	* jode/expr/Expression.java (makeInitializer): Now takes the
+	type of the initialization.  Changed all callers.
+	* jode/expr/ConstantArrayOperator.java (makeInitializer): Check
+	that type is our array type, otherwise we can't omit new Array[].
+
+	* jode/decompiler/LocalInfo.java (markFinal): Don't check that
+	only one write is present.  If two writes are in an then and an
+	else branch of an if, the local can still be final.
+
+	* jode/type/ArrayType.java (getSubType): Handle array of integer
+	types correctly: byte[] is something completely different than
+	int[].
+	(getSuperType): Likewise.
+
+	* jode/expr/FieldOperator.java (getFieldInfo):  New function.
+	(needsCast): A cast is also needed if the field is private or
+	package scope and the current type can't access the field.
+
+	* jode/expr/InvokeOperator.java (getMethodInfo):  New function.
+	(needsCast): A cast is also needed if the method is private or
+	package scope and the current type can't access the method.
+
+	* jode/expr/ArrayStoreOperator.java (dumpExpression): Check if a
+	cast of the array expression is needed.
+
+	* jode/expr/TransformConstructors.java
+	(transformFieldInitializers): Don't allow moving method invocations
+	that throw a checked exception.
+
+	* jode/bytecode/MethodInfo.java (readAttribute): Read Exceptions
+	attribute even when not all attributes should be read.  They are
+	needed by TransformConstructors, see above.
+
+	* jode/decompiler/TabbedPrintWriter.java (saveOps): Don't allow
+	line breaks in not completed expressions since implicit parentheses
+	would destroy the syntax.  No need to put line break option on stack.
+	(restoreOps): Adapted Stack format.		
+
+	* jode/decompiler/ClassAnalyzer.java (dumpDeclaration): Moved
+	Code from dumpSource here.  Don't put a line break after closing
+	brace.
+	(dumpSource): call dumpDeclaration and add a line break.
+	(dumpBlock): Moved dropInfo(ATTRIBS) here.
+
+	* jode/decompiler/ClassAnalyzer.java (STRICTFP): New Constant.
+	(isStrictFP): New function.
+	(initialize): Set strictfp modifier if a constructor has it set.
+	(dumpSource): Handle strictfp modifier.
+	
+	* jode/decompiler/MethodAnalyzer.java (STRICTFP): New Constant.
+	(isStrictFP): New function.
+	(dumpSource): Handle strictfp modifier.
+	
+	* jode/jvm/SyntheticAnalyzer.java (checkAccess): Check for a
+	special putfield access, where the set value is returned.  Allow
+	the modifier of field/method to be protected and the class to be
+	a superclass.
+	(checkStaticAccess): Likewise.
+	(ACCESSDUPPUTFIELD): New Constant.
+	(ACCESSDUPPUTSTATIC): New Constant.
+
+	* jode/expr/InvokeOperator.java (simplifyAccess): Handle new
+	synthetics.
+
+	* jode/flow/SpecialBlock.java (removePop): Remove pop also for
+	non void store instructions.
+
+	* jode/decompiler/MethodAnalyzer.java (skipWriting): Also skip
+	the new synthetics.
+
+	* jode/decompiler/Main.java (main): Call System.exit() after
+	everything was compiled.
+
+	* jode/flow/TransformExceptionHandlers.java (removeJSR):
+	Renamed back from removeBadJSR (see patch from 2001-02-04).  The
+	checkAndRemove* functions mustn't change the successors while they
+	iterate over them.  Instead of removing good jsr they mark them as
+	good and removeJSR will finally remove them.
+	(checkAndRemoveJSR): See above.
+	(checkAndRemoveMonitorExit): See above.
+
+	* jode/flow/JsrBlock.java (good): New variable, see above.
+	(setGood): New method.
+	(isGood): New method.
+
+2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
+	Applied patch from 2001-05-08 of Jode 1.1 tree:
+	* jode/jvm/CodeVerifier.java (doVerify): Don't check for
+ 	uninitialized objects in local or stack slots on backwards jump or
+ 	exception blocks.  Sun's jdk also doesn't check it, and I never
+	understood why it is necessary.  But see JVM Spec 4.9.4.
+
+2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
+	Applied patch from 2001-05-02 of Jode 1.1 tree:
+	* jode/obfuscator/modules/ConstantAnalyzer.java (handleOpcode):
+	Added divide by zero checks for opc_irem and opc_lrem.
+
+2001-07-15  Jochen Hoenicke  <jochen@gnu.org>
 	Applied patches from 2001-02-27 of Jode 1.1 tree:
 
 	* acinclude.m4 (JODE_CHECK_CLASS): Changed "test -e" to "-f" since
@@ -6,7 +121,7 @@
 	correct anyway. 
 	Reported by Erik Modén.
 
-	* jode/swingui/Main.java.in (AreaWriter): Convert all kinds of
+	* jode/swingui/Main.java (AreaWriter): Convert all kinds of
 	line breaks (CR+LF, CR, LF) to a LF character, which a JTextArea
 	understands.
 

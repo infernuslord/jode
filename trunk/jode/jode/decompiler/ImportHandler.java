@@ -20,6 +20,7 @@
 package jode.decompiler;
 import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
+import jode.bytecode.ClassPath;
 import jode.type.Type;
 import jode.type.ArrayType;
 import jode.type.ClassInfoType;
@@ -53,6 +54,7 @@ public class ImportHandler {
     /* Classes that doesn't need to be qualified. */
     Hashtable cachedClassNames = null;
     ClassAnalyzer main;
+    ClassPath classPath;
     String className;
     String pkg;
 
@@ -77,11 +79,13 @@ public class ImportHandler {
 	}
     };
 
-    public ImportHandler() {
-	this(DEFAULT_PACKAGE_LIMIT, DEFAULT_CLASS_LIMIT);
+    public ImportHandler(ClassPath classPath) {
+	this(classPath, DEFAULT_PACKAGE_LIMIT, DEFAULT_CLASS_LIMIT);
     }
     
-    public ImportHandler(int packageLimit, int classLimit) {
+    public ImportHandler(ClassPath classPath,
+			 int packageLimit, int classLimit) {
+	this.classPath = classPath;
 	importPackageLimit = packageLimit;
 	importClassLimit = classLimit;
     }
@@ -112,12 +116,12 @@ public class ImportHandler {
 
             if (pkg.length() != 0) {
 		/* Does this conflict with a class in this package? */
-                if (ClassInfo.exists(pkg+name))
+                if (classPath.existsClass(pkg+name))
                     return true;
             } else {
 		/* Does this conflict with a class in this unnamed
                  * package? */
-		if (ClassInfo.exists(name.substring(1)))
+		if (classPath.existsClass(name.substring(1)))
 		    return true;
 	    }
 
@@ -129,7 +133,7 @@ public class ImportHandler {
                     importName = importName.substring
                         (0, importName.length()-2);
                     if (!importName.equals(pkgName)) {
-                        if (ClassInfo.exists(importName+name))
+                        if (classPath.existsClass(importName+name))
                             return true;
                     }
                 } else {
@@ -399,5 +403,3 @@ public class ImportHandler {
         return 1;
     }
 }
-
-

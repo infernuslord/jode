@@ -110,7 +110,7 @@ public class ConstOperator extends NoArgOperator {
 	return false;
     }
 
-    public void makeInitializer() {
+    public void makeInitializer(Type type) {
         isInitializer = true;
     }
 

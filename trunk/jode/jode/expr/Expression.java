@@ -210,7 +210,7 @@ public abstract class Expression {
         return null;
     }
 
-    public void makeInitializer() {
+    public void makeInitializer(Type type) {
     }
 
     public boolean isConstant() {

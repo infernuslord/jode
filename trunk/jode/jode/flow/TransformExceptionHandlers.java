@@ -1,4 +1,4 @@
-/* TransformExceptionHandlers Copyright (C) 1998-1999 Jochen Hoenicke.
+/* TransformExceptionHandlers Copyright (C) 1998-2001 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -210,7 +210,7 @@ public class TransformExceptionHandlers {
      * @param tryFlow the FlowBLock of the try block.
      * @param subRoutine the FlowBlock of the sub routine.
      */
-    private void removeBadJSR(FlowBlock tryFlow, StructuredBlock catchBlock,
+    private void removeJSR(FlowBlock tryFlow, StructuredBlock catchBlock,
 			   FlowBlock subRoutine) {
 	Jump nextJump;
         for (Jump jumps = tryFlow.getJumps(subRoutine); 
@@ -220,18 +220,27 @@ public class TransformExceptionHandlers {
 	    nextJump = jumps.next;
             if (prev instanceof EmptyBlock
                 && prev.outer instanceof JsrBlock) {
+		JsrBlock jsr = (JsrBlock) prev.outer;
 		if (prev.outer == catchBlock) {
 		    /* This is the mandatory jsr in the catch block */
 		    continue;
 		}
-		/* We have a JSR to the subroutine, which is badly placed.
-		 * We complain here.
-		 */
-		DescriptionBlock msg 
-		    = new DescriptionBlock("ERROR: JSR FINALLY BLOCK!");
+
 		tryFlow.removeSuccessor(jumps);
 		prev.removeJump();
-		msg.replace(prev.outer);
+		if (jsr.isGood()) {
+		    StructuredBlock next = jsr.getNextBlock();
+		    jsr.removeBlock();
+		    if (next instanceof ReturnBlock)
+			removeReturnLocal((ReturnBlock) next);
+		} else {
+		    /* We have a JSR to the subroutine, which is badly placed.
+		     * We complain here.
+		     */
+		    DescriptionBlock msg 
+			= new DescriptionBlock("ERROR: JSR FINALLY BLOCK!");
+		    msg.replace(prev.outer);
+		}
             } else {
 		/* We have a jump to the subroutine, that is wrong.
 		 * We complain here.
@@ -330,18 +339,15 @@ public class TransformExceptionHandlers {
 
 		StructuredBlock pred = skipFinExitChain(prev);
 		if (pred instanceof JsrBlock) {
-		    StructuredBlock jsrInner = ((JsrBlock) pred).innerBlock;
+		    JsrBlock jsr = (JsrBlock) pred;
+		    StructuredBlock jsrInner = jsr.innerBlock;
 		    if (jsrInner instanceof EmptyBlock
 			&& jsrInner.jump != null
 			&& jsrInner.jump.destination == subRoutine) {
-			/* The jump is preceeded by the right jsr.  Remove
-			 * the jsr.
+			/* The jump is preceeded by the right jsr.  Mark the
+			 * jsr as good.
 			 */
-			tryFlow.removeSuccessor(jsrInner.jump);
-			jsrInner.removeJump();
-			pred.removeBlock();
-			if (prev instanceof ReturnBlock)
-			    removeReturnLocal((ReturnBlock) prev);
+			jsr.setGood(true);
 			continue;
 		    }
 		}
@@ -386,7 +392,8 @@ public class TransformExceptionHandlers {
 		}
             }
         }
-	removeBadJSR(tryFlow, catchBlock, subRoutine);
+	if (tryFlow.getSuccessors().contains(subRoutine))
+	    removeJSR(tryFlow, catchBlock, subRoutine);
     }
 
     private void checkAndRemoveMonitorExit(FlowBlock tryFlow, 
@@ -412,7 +419,8 @@ public class TransformExceptionHandlers {
                 }
 		StructuredBlock pred = skipFinExitChain(prev);
 		if (pred instanceof JsrBlock) {
-		    StructuredBlock jsrInner = ((JsrBlock) pred).innerBlock;
+		    JsrBlock jsr = (JsrBlock) pred;
+		    StructuredBlock jsrInner = jsr.innerBlock;
 		    if (jsrInner instanceof EmptyBlock
 			&& jsrInner.jump != null) {
 			FlowBlock dest = jsrInner.jump.destination;
@@ -426,14 +434,10 @@ public class TransformExceptionHandlers {
 			}
 
 			if (dest == subRoutine) {
-			    /* The jump is preceeded by the right jsr.  Remove
-			     * the jsr.
+			    /* The jump is preceeded by the right jsr.
+			     * Mark it as good.
 			     */
-			    tryFlow.removeSuccessor(jsrInner.jump);
-			    jsrInner.removeJump();
-			    pred.removeBlock();
-			    if (prev instanceof ReturnBlock)
-				removeReturnLocal((ReturnBlock) prev);
+			    jsr.setGood(true);
 			    continue;
 			}
 		    }
@@ -498,7 +502,8 @@ public class TransformExceptionHandlers {
         }
 
 	if (subRoutine != null) {
-	    removeBadJSR(tryFlow, catchBlock, subRoutine);
+	    if (tryFlow.getSuccessors().contains(subRoutine))
+		removeJSR(tryFlow, catchBlock, subRoutine);
 	    tryFlow.mergeBlockNr(subRoutine);
 	}
     }

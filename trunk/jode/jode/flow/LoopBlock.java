@@ -269,7 +269,6 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 		 * change this to a initializing variable declaration.  
 		 */
 		isDeclaration = true;
-		storeOp.getSubExpressions()[1].makeInitializer();
 		declareSet.remove(local);
 	    }
 	}
@@ -336,6 +335,8 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 		    local.dumpDeclaration(writer);
 		    writer.breakOp();
 		    writer.print(" = ");
+		    store.getSubExpressions()[1]
+			.makeInitializer(local.getType());
 		    store.getSubExpressions()[1].dumpExpression(writer, 100);
 		    writer.endOp();
 		} else

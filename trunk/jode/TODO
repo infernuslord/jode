@@ -12,6 +12,8 @@ Obfuscator:
  - Detect Class.forName() calls with constant parameters and rename
    these constants.  Detect class$ methods with constant parameters.
    Warn about all other occurences of Class.forName()
+ - work around Class.forName, by creating a new version using a hash
+   table that maps md5 sums of old names to obfuscated names.
 
    This should be put into the constant analyzer.  The simple
    analyzer should only do the warnings.
@@ -55,3 +57,6 @@ User Interface:
 
 Internal:
  - clean up package hierarchy, esp. expr, flow and decompiler.
+ - move to net.sf.jode package.
+ - make the class names more precise, e.g. StructuredBlock is Statement,
+   FlowBlock is BasicBlock.

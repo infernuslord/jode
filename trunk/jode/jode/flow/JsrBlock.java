@@ -33,10 +33,19 @@ public class JsrBlock extends StructuredBlock {
      * The inner block that jumps to the subroutine.
      */
     StructuredBlock innerBlock;
+    boolean good = false;
 
     public JsrBlock() {
 	innerBlock = new EmptyBlock();
 	innerBlock.outer = this;
+    }
+
+    public void setGood(boolean g) {
+	good = g;
+    }
+
+    public boolean isGood() {
+	return good;
     }
 
     /**

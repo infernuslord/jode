@@ -59,7 +59,7 @@ public class FieldAnalyzer implements Analyzer {
         if (fd.getConstant() != null) {
 	    constant = new ConstOperator(fd.getConstant());
 	    constant.setType(type);
-	    constant.makeInitializer();
+	    constant.makeInitializer(type);
         }
     }
 
@@ -109,7 +109,7 @@ public class FieldAnalyzer implements Analyzer {
 	    }
 	    analyzedSynthetic();
 	} else
-	    expr.makeInitializer();
+	    expr.makeInitializer(type);
 
 	constant = expr;
 	return true;

@@ -171,7 +171,7 @@ public class Main extends Options {
 		("Can't read "+ex.getMessage()+".");
 	    GlobalOptions.err.println
 		("Check the class path ("+classPathStr+
-		     ") and check that you use the java class name.");
+		 ") and check that you use the java class name.");
 	} catch (IOException ex) {
 	    GlobalOptions.err.println
 		("Can't write source of "+className+".");
@@ -181,6 +181,22 @@ public class Main extends Options {
     }
 
     public static void main(String[] params) {
+	try {
+	    decompile(params);
+	} catch (ExceptionInInitializerError ex) {
+	    ex.getException().printStackTrace();
+	} catch (Throwable ex) {
+	    ex.printStackTrace();
+	}
+	/* When AWT applications are compiled with insufficient
+	 * classpath the type guessing by reflection code can
+	 * generate an awt thread that will prevent normal
+	 * exiting.
+	 */
+	System.exit(0);
+    }
+
+    public static void decompile(String[] params) {
 	if (params.length == 0) {
 	    usage();
 	    return;
@@ -305,8 +321,8 @@ public class Main extends Options {
 	if (errorInParams)
 	    return;
 	classPath = new ClassPath(classPathStr);
-        ClassInfo.setClassPath(classPath);
-	ImportHandler imports = new ImportHandler(importPackageLimit,
+	ImportHandler imports = new ImportHandler(classPath,
+						  importPackageLimit,
 						  importClassLimit);
 
 	ZipOutputStream destZip = null;

@@ -26,6 +26,7 @@ import jode.bytecode.FieldInfo;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.ClassPath;
 import jode.bytecode.Reference;
+import jode.bytecode.TypeSignature;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.MethodAnalyzer;
@@ -35,6 +36,7 @@ import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.Scope;
 
 import java.io.IOException;
+import java.lang.reflect.Modifier;
 ///#def COLLECTIONS java.util
 import java.util.Collection;
 ///#enddef
@@ -159,6 +161,34 @@ public abstract class FieldOperator extends Operator {
 	return clazz.getFields();
     }
 
+    private static FieldInfo getFieldInfo(ClassInfo clazz, 
+					  String name, String type) {
+	while (clazz != null) {
+	    FieldInfo field = clazz.findField(name, type);
+	    if (field != null)
+		return field;
+
+	    ClassInfo[] ifaces = clazz.getInterfaces();
+	    for (int i = 0; i < ifaces.length; i++) {
+		field = getFieldInfo(ifaces[i], name, type);
+		if (field != null)
+		    return field;
+	    }
+
+	    clazz = clazz.getSuperclass();
+	}
+	return null;
+    }
+    
+    public FieldInfo getFieldInfo() {
+	ClassInfo clazz;
+	if (ref.getClazz().charAt(0) == '[')
+	    clazz = classPath.getClassInfo("java.lang.Object");
+	else
+	    clazz = TypeSignature.getClassInfo(classPath, ref.getClazz());
+        return getFieldInfo(clazz, ref.getName(), ref.getType());
+    }
+
     public boolean needsCast(Type type) {
 	if (type instanceof NullType)
 	    return true;
@@ -168,6 +198,37 @@ public abstract class FieldOperator extends Operator {
 	
 	ClassInfo clazz = ((ClassInfoType) classType).getClassInfo();
 	ClassInfo parClazz = ((ClassInfoType) type).getClassInfo();
+	FieldInfo field = clazz.findField(ref.getName(), ref.getType());
+
+	find_field:
+	while (field == null) {
+	    ClassInfo ifaces[] = clazz.getInterfaces();
+	    for (int i = 0; i < ifaces.length; i++) {
+		field = ifaces[i].findField(ref.getName(), ref.getType());
+		if (field != null)
+		    break find_field;
+	    }
+	    clazz = clazz.getSuperclass();
+	    if (clazz == null)
+		/* Weird, field not existing? */
+		return false;
+	    field = clazz.findField(ref.getName(), ref.getType());
+	}	    
+	if (Modifier.isPrivate(field.getModifiers()))
+	    return parClazz != clazz;
+	else if ((field.getModifiers() 
+		  & (Modifier.PROTECTED | Modifier.PUBLIC)) == 0) {
+	    /* Field is protected.  We need a cast if parClazz is in
+	     * other package than clazz.
+	     */
+	    int lastDot = clazz.getName().lastIndexOf('.');
+	    if (lastDot == -1
+		|| lastDot != parClazz.getName().lastIndexOf('.')
+		|| !(parClazz.getName()
+		     .startsWith(clazz.getName().substring(0,lastDot))))
+		return true;
+	}
+	    
 	while (clazz != parClazz && clazz != null) {
 	    FieldInfo[] fields = parClazz.getFields();
 	    for (int i = 0; i < fields.length; i++) {
@@ -246,20 +307,8 @@ public abstract class FieldOperator extends Operator {
 				*/
 			       getField() == null 
 			       && writer.conflicts(fieldName, null,
-						   Scope.NOSUPERFIELDNAME))) {
-
-		    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
-		    while (ana.getParent() instanceof ClassAnalyzer
-			   && ana != scope)
-			ana = (ClassAnalyzer) ana.getParent();
-		    if (ana == scope)
-			// For a simple outer class we can say this
-			writer.print("this");
-		    else {
-			// For a class that owns a method that owns
-			// us, we have to give the full class name
-			thisOp.dumpExpression(writer, 950);
-		    }
+				 Scope.NOSUPERFIELDNAME))) {
+		    thisOp.dumpExpression(writer, 950);
 		    writer.breakOp();
 		    writer.print(".");
 		}

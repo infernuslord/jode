@@ -62,6 +62,7 @@ public final class InvokeOperator extends Operator
     int methodFlag;
     MethodType methodType;
     String methodName;
+    Reference ref;
     int skippedArgs;
     ClassType classType;
     Type[] hints;
@@ -149,6 +150,7 @@ public final class InvokeOperator extends Operator
 			  int methodFlag, Reference reference) {
         super(Type.tUnknown, 0);
 	this.classPath = methodAnalyzer.getClassAnalyzer().getClassPath();
+	this.ref = reference;
         this.methodType = Type.tMethod(classPath, reference.getType());
         this.methodName = reference.getName();
         this.classType = (ClassType) 
@@ -206,6 +208,26 @@ public final class InvokeOperator extends Operator
 
     public String getMethodName() {
         return methodName;
+    }
+
+    private static MethodInfo getMethodInfo(ClassInfo clazz, 
+					    String name, String type) {
+	while (clazz != null) {
+	    MethodInfo method = clazz.findMethod(name, type);
+	    if (method != null)
+		return method;
+	    clazz = clazz.getSuperclass();
+	}
+	return null;
+    }
+    
+    public MethodInfo getMethodInfo() {
+	ClassInfo clazz;
+	if (ref.getClazz().charAt(0) == '[')
+	    clazz = classPath.getClassInfo("java.lang.Object");
+	else
+	    clazz = TypeSignature.getClassInfo(classPath, ref.getClazz());
+        return getMethodInfo(clazz, ref.getName(), ref.getType());
     }
 
     public Type getClassType() {
@@ -603,14 +625,20 @@ public final class InvokeOperator extends Operator
 					      synth.getReference());
 		    break;
 		case SyntheticAnalyzer.ACCESSPUTFIELD:
+		case SyntheticAnalyzer.ACCESSDUPPUTFIELD:
 		    op = new StoreInstruction
 			(new PutFieldOperator(methodAnalyzer, false,
 					      synth.getReference()));
+		    if (synth.getKind() == synth.ACCESSDUPPUTFIELD)
+			((StoreInstruction) op).makeNonVoid();
 		    break;
 		case SyntheticAnalyzer.ACCESSPUTSTATIC:
+		case SyntheticAnalyzer.ACCESSDUPPUTSTATIC:
 		    op = new StoreInstruction
 			(new PutFieldOperator(methodAnalyzer, true,
 					      synth.getReference()));
+		    if (synth.getKind() == synth.ACCESSDUPPUTSTATIC)
+			((StoreInstruction) op).makeNonVoid();
 		    break;
 		case SyntheticAnalyzer.ACCESSMETHOD:
 		    op = new InvokeOperator(methodAnalyzer, ACCESSSPECIAL, 
@@ -669,9 +697,35 @@ public final class InvokeOperator extends Operator
 	Type realClassType;
 	if (methodFlag == STATIC) 
 	    realClassType = classType;
-	else {
-	    if (param == 0)
-		return paramTypes[0] instanceof NullType;
+	else if (param == 0) {
+	    if (paramTypes[0] instanceof NullType)
+		return true;
+	    if (!(paramTypes[0] instanceof ClassInfoType
+		  && classType instanceof ClassInfoType))
+		return false;
+	    
+	    ClassInfo clazz = ((ClassInfoType) classType).getClassInfo();
+	    ClassInfo parClazz
+		= ((ClassInfoType) paramTypes[0]).getClassInfo();
+	    MethodInfo method = getMethodInfo();
+	    if (method == null)
+		/* This is a NoSuchMethodError */
+		return false;
+	    if (Modifier.isPrivate(method.getModifiers()))
+		return parClazz != clazz;
+	    else if ((method.getModifiers() 
+		      & (Modifier.PROTECTED | Modifier.PUBLIC)) == 0) {
+		/* Method is protected.  We need a cast if parClazz is in
+		 * other package than clazz.
+		 */
+		int lastDot = clazz.getName().lastIndexOf('.');
+		if (lastDot != parClazz.getName().lastIndexOf('.')
+		    || !(parClazz.getName()
+			 .startsWith(clazz.getName().substring(0,lastDot+1))))
+		    return true;
+	    }
+	    return false;
+	} else {
 	    realClassType = paramTypes[0];
 	}
 
@@ -765,6 +819,7 @@ public final class InvokeOperator extends Operator
 	int arg = 1;
 	int length = subExpressions.length;
 	boolean jikesAnonymousInner = false;
+	boolean implicitOuterClass = false;
 
 	if ((Options.options & Options.OPTION_ANON) != 0
 	    && clazzAna != null && clazz.isMethodScoped()) {
@@ -772,6 +827,7 @@ public final class InvokeOperator extends Operator
 	    OuterValues ov = clazzAna.getOuterValues();
 	    arg += ov.getCount();
 	    jikesAnonymousInner = ov.isJikesAnonymousInner();
+	    implicitOuterClass  = ov.isImplicitOuterClass();
 	    
 	    for (int i=1; i< arg; i++) {
 		Expression expr = subExpressions[i];
@@ -799,7 +855,9 @@ public final class InvokeOperator extends Operator
 	if ((~Options.options & (Options.OPTION_INNER
 				 | Options.OPTION_CONTRAFO)) == 0
 	    && clazz.getOuterClass() != null
-	    && !Modifier.isStatic(clazz.getModifiers())) {
+	    && !Modifier.isStatic(clazz.getModifiers())
+	    && !implicitOuterClass
+	    && arg < length) {
 	    
 	    Expression outerExpr = jikesAnonymousInner 
 		? subExpressions[--length]
@@ -883,6 +941,7 @@ public final class InvokeOperator extends Operator
 
 	    boolean qualifiedNew = false;
 	    boolean jikesAnonymousInner = false;
+	    boolean implicitOuterClass = false;
 
 	    /* clazz != null, since an array doesn't have a constructor */
 	    
@@ -894,6 +953,7 @@ public final class InvokeOperator extends Operator
 		OuterValues ov = clazzAna.getOuterValues();
 		arg += ov.getCount();
 		jikesAnonymousInner = ov.isJikesAnonymousInner();
+		implicitOuterClass  = ov.isImplicitOuterClass();
 		    
 		if (clazz.getClassName() == null) {
 		    /* This is an anonymous class */
@@ -933,47 +993,54 @@ public final class InvokeOperator extends Operator
 		    (Options.OPTION_INNER
 		     | Options.OPTION_CONTRAFO)) == 0) {
 
-		Expression outerExpr = jikesAnonymousInner 
-		    ? subExpressions[--length]
-		    : subExpressions[arg++];
-		if (outerExpr instanceof CheckNullOperator) {
-		    CheckNullOperator cno = (CheckNullOperator) outerExpr;
-		    outerExpr = cno.subExpressions[0];
-		} else if (!(outerExpr instanceof ThisOperator)) {
-		    // Complain about missing checknull, but not if
-		    // that is the known bug in jikes.
-		    if (!jikesAnonymousInner)
-			writer.print("MISSING CHECKNULL ");
-		}
+		if (implicitOuterClass) {
+		    /* Outer class is "this" and is not given
+		     * explicitly. No need to print something.
+		     */
+		} else if (arg < length) {
+		    Expression outerExpr = jikesAnonymousInner 
+			? subExpressions[--length]
+			: subExpressions[arg++];
+		    if (outerExpr instanceof CheckNullOperator) {
+			CheckNullOperator cno = (CheckNullOperator) outerExpr;
+			outerExpr = cno.subExpressions[0];
+		    } else {
+			/* We used to complain about MISSING CHECKNULL
+			 * here except for ThisOperators.  But javac
+			 * v8 doesn't seem to create CHECKNULL ops.
+			 */
+		    }
 
-		if (outerExpr instanceof ThisOperator) {
-		    Scope scope = writer.getScope
-			(((ThisOperator) outerExpr).getClassInfo(), 
-			 Scope.CLASSSCOPE);
-		    if (writer.conflicts(clazz.getClassName(),
-					 scope, Scope.CLASSNAME)) {
+		    if (outerExpr instanceof ThisOperator) {
+			Scope scope = writer.getScope
+			    (((ThisOperator) outerExpr).getClassInfo(), 
+			     Scope.CLASSSCOPE);
+			if (writer.conflicts(clazz.getClassName(),
+					     scope, Scope.CLASSNAME)) {
+			    qualifiedNew = true;
+			    outerExpr.dumpExpression(writer, 950);
+			    writer.breakOp();
+			    writer.print(".");
+			}
+		    } else {
 			qualifiedNew = true;
-			outerExpr.dumpExpression(writer, 950);
+			if (outerExpr.getType() instanceof NullType) {
+			    writer.print("(");
+			    writer.startOp(writer.EXPL_PAREN, 1);
+			    writer.print("(");
+			    writer.printType(Type.tClass(clazz));
+			    writer.print(") ");
+			    writer.breakOp();
+			    outerExpr.dumpExpression(writer, 700);
+			    writer.endOp();
+			    writer.print(")");
+			} else 
+			    outerExpr.dumpExpression(writer, 950);
 			writer.breakOp();
 			writer.print(".");
 		    }
-		} else {
-		    qualifiedNew = true;
-		    if (outerExpr.getType() instanceof NullType) {
-			writer.print("(");
-			writer.startOp(writer.EXPL_PAREN, 1);
-			writer.print("(");
-			writer.printType(Type.tClass(clazz));
-			writer.print(") ");
-			writer.breakOp();
-			outerExpr.dumpExpression(writer, 700);
-			writer.endOp();
-			writer.print(")");
-		    } else 
-			outerExpr.dumpExpression(writer, 950);
-		    writer.breakOp();
-		    writer.print(".");
-		}
+		} else
+		    writer.print("MISSING OUTEREXPR ");
 	    }
 	    
 	    if (subExpressions[0] instanceof NewOperator
@@ -1102,10 +1169,10 @@ public final class InvokeOperator extends Operator
 		Scope scope = writer.getScope(thisOp.getClassInfo(),
 					      Scope.CLASSSCOPE);
 		if (writer.conflicts(methodName, scope, Scope.METHODNAME)
-		    || (/* This field is inherited from the parent of
+		    || (/* This method is inherited from the parent of
 			 * an outer class, or it is inherited from the
 			 * parent of this class and there is a conflicting
-			 * field in some outer class.
+			 * method in some outer class.
 			 */
 			getMethodAnalyzer() == null 
 			&& (!isThis() || 
