@@ -25,6 +25,8 @@ import jode.bytecode.MethodInfo;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.io.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public class PackageIdentifier extends Identifier {
     ClassBundle bundle;
@@ -43,12 +45,50 @@ public class PackageIdentifier extends Identifier {
 	this.name = name;
 	this.loadOnDemand = loadOnDemand;
 	this.loadedClasses = new Hashtable();
+	if (loadOnDemand && !Obfuscator.shouldStrip) {
+	    // Load all classes and packages now, so they don't get stripped
+	    Vector v = new Vector();
+	    Enumeration enum = 
+		ClassInfo.getClassesAndPackages(parent.getFullName()
+						+getName());
+	    while (enum.hasMoreElements()) {
+		//insert sorted and remove double elements;
+		String subclazz = (String)enum.nextElement();
+		for (int i=0; ; i++) {
+		    if (i == v.size()) {
+			v.addElement(subclazz);
+			break;
+		    }
+		    int compare = subclazz.compareTo((String)v.elementAt(i));
+		    if (compare < 0) {
+			v.insertElementAt(subclazz, i);
+			break;
+		    } else if (compare == 0)
+			break;
+		}
+	    }
+	    enum = v.elements();
+	    while (enum.hasMoreElements()) {
+		String subclazz = (String) enum.nextElement();
+		String fullname = getFullName() + subclazz;
+		if (ClassInfo.isPackage(fullname)) {
+		    Identifier ident = new PackageIdentifier
+			(bundle, this, subclazz, true);
+		    loadedClasses.put(subclazz, ident);
+		} else {
+		    Identifier ident = new ClassIdentifier
+			(bundle, this, subclazz, ClassInfo.forName(fullname));
+		    loadedClasses.put(subclazz, ident);
+		    ((ClassIdentifier) ident).initClass();
+		}
+	    }		
+	}
     }
 
     public Identifier getIdentifier(String name) {
 	if (loadOnDemand) {
 	    Identifier ident = loadClass(name);
-	    if (bundle.preserveRule != -1)
+	    if (ident != null && bundle.preserveRule != -1)
 		ident.applyPreserveRule(bundle.preserveRule);
 	}
 
@@ -75,8 +115,7 @@ public class PackageIdentifier extends Identifier {
 		    ident = new PackageIdentifier(bundle, this, name, true);
 		    loadedClasses.put(name, ident);
 		} else if (!ClassInfo.exists(fullname)) {
-		    throw new IllegalArgumentException
-			("Can't find class "+fullname);
+		    System.err.println("Warning: Can't find class "+fullname);
 		} else {
 		    ident = new ClassIdentifier(bundle, this, name, 
 						ClassInfo.forName(fullname));
@@ -265,6 +304,38 @@ public class PackageIdentifier extends Identifier {
 	return "package";
     }
 
+    public void storeClasses(ZipOutputStream zip) {
+	Enumeration enum = loadedClasses.elements();
+	while (enum.hasMoreElements()) {
+	    Identifier ident = (Identifier) enum.nextElement();
+	    if (Obfuscator.shouldStrip && !ident.isReachable()) {
+		if (Obfuscator.isDebugging)
+		    Obfuscator.err.println("Class/Package "
+					   + ident.getFullName()
+					   + " is not reachable");
+		continue;
+	    }
+	    if (ident instanceof PackageIdentifier)
+		((PackageIdentifier) ident)
+		    .storeClasses(zip);
+	    else {
+		try {
+		    String filename = ident.getFullAlias().replace('.','/')
+			+ ".class";
+		    zip.putNextEntry(new ZipEntry(filename));
+		    DataOutputStream out = new DataOutputStream(zip);
+		    ((ClassIdentifier) ident).storeClass(out);
+		    out.flush();
+		    zip.closeEntry();
+		} catch (java.io.IOException ex) {
+		    Obfuscator.err.println("Can't write Class "
+					   + ident.getName());
+		    ex.printStackTrace();
+		}
+	    }
+	}
+    }
+
     public void storeClasses(File destination) {
 	File newDest = (parent == null) ? destination 
 	    : new File(destination, getAlias());
@@ -297,6 +368,7 @@ public class PackageIdentifier extends Identifier {
 		    DataOutputStream out = new DataOutputStream
 			(new FileOutputStream(file));
 		    ((ClassIdentifier) ident).storeClass(out);
+		    out.close();
 		} catch (java.io.IOException ex) {
 		    Obfuscator.err.println("Can't write Class "
 					   + ident.getName());
