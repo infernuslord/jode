@@ -203,7 +203,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 	    case opc_istore:
 	    case opc_fstore: case opc_astore:
 	    case opc_pop:
-		count ++;
+		count++;
 		break;
 
 	    case opc_lstore: case opc_dstore:
@@ -405,7 +405,7 @@ public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
 			continue;
 		    }
 		}
-		if (instr.opcode == opc_pop 
+		if (instr.opcode == opc_pop  && instr.preds == null
 		    && instr.prevByAddr.opcode == opc_pop) {
 		    /* merge two single pops together. */
 		    instr.prevByAddr.removeInstruction();
