@@ -749,7 +749,9 @@ public class FlowBlock {
             
             LoopBlock whileBlock = 
                 new LoopBlock(LoopBlock.WHILE, LoopBlock.TRUE);
-            
+
+            /* The block may have been changed above. */
+            bodyBlock = block;            
             whileBlock.replace(bodyBlock);
             whileBlock.setBody(bodyBlock);
             
