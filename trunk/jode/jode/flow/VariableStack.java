@@ -88,7 +88,8 @@ public class VariableStack {
 	}
 	Expression[] loads = new Expression[stackMap.length];
 	for (int i=0; i< stackMap.length; i++) {
-	    used.addElement(stackMap[i]);
+	    if (!used.contains(stackMap[i]))
+		used.addElement(stackMap[i]);
 	    loads[i] = new LocalLoadOperator(stackMap[i].getType(),
 					     stackMap[i]);
 	}
