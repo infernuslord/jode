@@ -37,6 +37,9 @@ public class FlowBlock {
     static FlowBlock END_OF_METHOD = 
         new FlowBlock(null, Integer.MAX_VALUE, 0, new EmptyBlock());
 
+    static FlowBlock ILLEGAL = 
+        new FlowBlock(null, -1, 0, new DescriptionBlock("ILLEGAL BLOCK"));
+
     static {
         END_OF_METHOD.label = "END_OF_METHOD";
     }
@@ -88,7 +91,7 @@ public class FlowBlock {
     /**
      * This contains a map of all successing flow blocks and there
      * jumps.  The key of this dictionary are the flow blocks, while
-     * the elements is the first jump to that dictionary.  The other
+     * the elements is the first jump to that flow block.  The other
      * jumps are accessible via the jump.next field.
      */
     Dictionary successors = new SimpleDictionary();
@@ -102,6 +105,25 @@ public class FlowBlock {
      * flow block in a method.
      */
     Vector predecessors = new Vector();
+
+    /**
+     * This is set if the block is reachable.  If this is false after
+     * marking the start block and the catch blocks as reachable, this
+     * block is dead code and may (must) be removed.
+     */
+    boolean reachable = false;
+    
+    /**
+     * This is a pointer to the next flow block in byte code order.
+     * It is null for the last flow block.
+     */
+    FlowBlock nextByAddr;
+
+    /**
+     * This is a pointer to the previous flow block in byte code order.
+     * It is null for the first flow block.
+     */
+    FlowBlock prevByAddr;
 
     /**
      * The default constructor.  Creates a new flowblock containing
@@ -118,7 +140,7 @@ public class FlowBlock {
         block.fillInGenSet(in, gen);
     }
 
-    public int getNextAddr() {
+    public final int getNextAddr() {
         return addr+length;
     }
 
@@ -168,47 +190,47 @@ public class FlowBlock {
              * be lastModified.
              */
 
-            /* remove this jump if it jumps to the getNextFlowBlock().  
-	     */
-            if (jump.destination
-                == jump.prev.outer.getNextFlowBlock(jump.prev)) {
-                jump.prev.removeJump();
-                continue;
-            }
-
             if (jump.prev.outer instanceof ConditionalBlock) {
-
                 StructuredBlock prev = jump.prev;
                 ConditionalBlock cb = (ConditionalBlock) prev.outer;
                 Expression instr = cb.getInstruction();
+
+		/* This is a jump inside an ConditionalBlock. 
+		 *
+		 * cb    is the conditional block, 
+		 * prev  the empty block containing the jump
+		 * instr is the condition */
 
                 if (cb.jump != null) {
                     /* This can only happen if cb also jumps to succ.
                      * This is a weired "if (cond) empty"-block.  We
                      * transform it by hand.  
-                     */
+                     */		    
                     prev.removeJump();
                     IfThenElseBlock ifBlock = 
-                        new IfThenElseBlock(cb.getInstruction());
+                        new IfThenElseBlock(cb.getInstruction().negate());
                     ifBlock.moveDefinitions(cb, prev);
                     ifBlock.replace(cb);
+		    ifBlock.moveJump(cb.jump);
                     ifBlock.setThenBlock(prev);
+		    if (cb == lastModified)
+			lastModified = ifBlock;
                     continue;
                 }
 
                 /* Now cb.jump is null, so cb.outer is not null,
                  * since otherwise it would have no successor.  */
 
-                /* If this is the first instruction of a
-                 * while/for(true) block, make this the loop condition
-                 * (negated of course).
-                 */
-
                 if (cb.outer instanceof LoopBlock 
                     || (cb.outer instanceof SequentialBlock 
                         && cb.outer.getSubBlocks()[0] == cb 
                         && cb.outer.outer instanceof LoopBlock)) {
             
+		    /* If this is the first instruction of a
+		     * while/for(true) block, make this the loop condition
+		     * (negated of course).
+		     */
+
                     LoopBlock loopBlock = (cb.outer instanceof LoopBlock) ?
                         (LoopBlock) cb.outer : (LoopBlock) cb.outer.outer;
 
@@ -268,9 +290,19 @@ public class FlowBlock {
                     }
                 }
 
+		/* This is still a jump inside an ConditionalBlock. 
+		 *
+		 * cb    is the conditional block, 
+		 * prev  the empty block containing the jump
+		 * instr is the condition */
+
 		/* replace all conditional jumps to the successor, which
 		 * are followed by a block which has the end of the block
-		 * as normal successor, with "if (not condition) block".  
+		 * as normal successor, with "if (not condition) block":
+		 *
+		 *  /IF cond GOTO succ          if (!cond)
+		 *  \block               ===>     block
+		 * -> normal Succesor succ     -> normal Successor succ
 		 */
                 if (cb.outer instanceof SequentialBlock && 
                     cb.outer.getSubBlocks()[0] == cb &&
@@ -303,6 +335,15 @@ public class FlowBlock {
                     continue;
                 }
             } else {
+		
+		/* remove this jump if it jumps to the
+		 * getNextFlowBlock().  */
+		if (jump.destination
+		    == jump.prev.outer.getNextFlowBlock(jump.prev)) {
+			jump.prev.removeJump();
+			continue;
+		}
+
 
                 /* Now find the real outer block, that is ascend the chain
                  * of SequentialBlocks.
@@ -317,11 +358,31 @@ public class FlowBlock {
                 while (sb instanceof SequentialBlock)
                     sb = sb.outer;
                 
+
+                /* if this is a unconditional jump at the end of a
+		 * then block belonging to a if-then block without
+		 * else part, but a single jump, then replace the
+		 * if-then block with a if-then-else block with an
+		 * empty block as else block that jumps and move the
+		 * unconditional jump to the if.  
+		 */
+                if (sb instanceof IfThenElseBlock) {
+                    IfThenElseBlock ifBlock = (IfThenElseBlock) sb;
+                    if (ifBlock.elseBlock == null && ifBlock.jump != null) {
+			ifBlock.setElseBlock(new EmptyBlock());
+			ifBlock.elseBlock.moveJump(ifBlock.jump);
+			ifBlock.moveJump(jump);
+			/* consider this jump again */
+			jumps = jump;
+			continue;
+		    }
+		}
+
                 /* if this is a jump at the end of a then block belonging
                  * to a if-then block without else part, and the if-then
                  * block is followed by a single block, then replace the
-                 * if-then block with a if-then-else block and remove the
-                 * unconditional jump.  
+                 * if-then block with a if-then-else block and move the
+                 * unconditional jump to the if.
                  */
                 if (sb instanceof IfThenElseBlock
 		    && sb.outer instanceof SequentialBlock
@@ -333,6 +394,7 @@ public class FlowBlock {
                     
                     if (ifBlock.elseBlock == null
                         && (elseBlock.getNextFlowBlock() == succ
+			    || elseBlock.jump != null
                             || elseBlock.jumpMayBeChanged())) {
                         
                         ifBlock.replace(sequBlock);
@@ -470,7 +532,52 @@ public class FlowBlock {
             }
         }
     }
-    
+
+    /**
+     * Fixes the addr chained list, after merging this block with succ.
+     */
+    public void mergeAddr(FlowBlock succ) {
+	if (succ.nextByAddr == this || succ.prevByAddr == null) {
+	    /* Merge succ with its nextByAddr.
+	     * Note: succ.nextByAddr != null, since this is on the
+	     * nextByAddr chain. */
+	    succ.nextByAddr.addr = succ.addr;
+	    succ.nextByAddr.length += succ.length;
+
+	    succ.nextByAddr.prevByAddr = succ.prevByAddr;
+	    if (succ.prevByAddr != null) 
+		succ.prevByAddr.nextByAddr = succ.nextByAddr;
+	} else {
+	    /* Merge succ with its prevByAddr */
+	    succ.prevByAddr.length += succ.length;
+
+	    succ.prevByAddr.nextByAddr = succ.nextByAddr;
+	    if (succ.nextByAddr != null)
+		succ.nextByAddr.prevByAddr = succ.prevByAddr;
+	} 
+    }
+
+//     /**
+//      * Mark all predecessors of this block as illegal, i.e. change the
+//      * successor to the ILLEGAL block.
+//      */
+//     public void markPredecessorsIllegal() {
+// 	Enumeration preds = predecessors.elements();
+// 	while (preds.hasMoreElements()) {
+// 	    FlowBlock pred = (FlowBlock) preds.nextElement();
+// 	    Jump jump = (Jump)pred.successors.remove(this);
+// 	    for (/**/; jump.next != null; jump = jump.next)
+// 		jump.destination = ILLEGAL;
+	    
+// 	    jump.destination = ILLEGAL;
+// 	    jump.next = (Jump) pred.successors.get(jump.destination);
+// 	    if (jump.next == null)
+// 		ILLEGAL.predecessors.addElement(this);
+// 	    pred.successors.put(jump.destination, jump);
+// 	}
+// 	predecessors.removeAllElements();
+//     }
+
     /** 
      * Updates the in/out-Vectors of the structured block of the
      * successing flow block simultanous to a T1 transformation.
@@ -606,8 +713,14 @@ public class FlowBlock {
      * a special precondition:  The succ must be a simple instruction block,
      * mustn't have another predecessor and all structured blocks in this
      * flow block must be simple instruction blocks.
+     * @param succ The successing structured block that should be merged.
+     * @param length the length of the structured block.
      */
     public void doSequentialT1(StructuredBlock succ, int length) {
+	if (Decompiler.isFlowDebugging) {
+	    Decompiler.err.println("merging sequentialBlock: "+this);
+	    Decompiler.err.println("and: "+succ);
+	}
         VariableSet succIn = new VariableSet();
         succ.fillInGenSet(succIn, this.gen);
 
@@ -663,10 +776,8 @@ public class FlowBlock {
         /* This will also set last modified to the new correct value.  */
         doTransformations();
 
-        /* Set addr+length to correct value. */
-        if (succ.addr < addr)
-            addr = succ.addr;
-        length += succ.length;
+        /* Set addr and length to correct value and update nextByAddr */
+	mergeAddr(succ);
 
         /* T1 transformation succeeded */
         checkConsistent();
@@ -703,7 +814,7 @@ public class FlowBlock {
 //         }
 
 //         if (cb != null 
-//             && cb.trueBlock.jump.destination.addr == addr + length) {
+//             && cb.trueBlock.jump.destination.addr == getNextAddr()) {
 //             loopBlock.moveJump(cb.trueBlock.jump);
 //             loopBlock.setCondition(cb.getInstruction().negate());
 //             loopBlock.setType(loopType);
@@ -1028,8 +1139,8 @@ public class FlowBlock {
                     Decompiler.err.println("after T2: "+this);
 
                 if (Decompiler.debugAnalyze)
-                    Decompiler.err.println("T2("+addr+","+(addr+length)
-                                       +") succeeded");
+                    Decompiler.err.println("T2("+addr+","+getNextAddr()
+					   +") succeeded");
                 /* T2 transformation succeeded.  This may
                  * make another T1 analysis in the previous
                  * block possible.  
@@ -1048,11 +1159,10 @@ public class FlowBlock {
                         Decompiler.err.println
                             ("No more successors applicable: "
                              + start + " - " + end + "; "
-                             + addr + " - " + (addr+length));
+                             + addr + " - " + getNextAddr());
                     return changed;
                 } else {
-                    if ((succ.addr == addr+length 
-                         || succ.addr+succ.length == addr)
+                    if ((nextByAddr == succ || succ.nextByAddr == this)
                         /* Only do T1 transformation if the blocks are
                          * adjacent.  */
                         && doT1(succ)) {
@@ -1077,17 +1187,17 @@ public class FlowBlock {
                                 Decompiler.err.println
                                     ("breaking analyze("
                                      + start + ", " + end + "); "
-                                     + addr + " - " + (addr+length));
+                                     + addr + " - " + getNextAddr());
                             return changed;
                         }
                     }                            
                     /* analyze succ, the new region is the
                      * continuous region of
-                     * [start,end) \cap \compl [addr, addr+length)
+                     * [start,end) \cap \compl [addr, getNextAddr())
                      * where succ.addr lies in.
                      */
                     int newStart = (succ.addr > addr)
-                        ? addr+length : start;
+                        ? getNextAddr() : start;
                     int newEnd   = (succ.addr > addr)
                         ? end         : addr;
                     if (succ.analyze(newStart, newEnd))
@@ -1129,10 +1239,10 @@ public class FlowBlock {
                      * return early after a T2 trafo so call it
                      * until nothing more is possible.  
                      */
-                    while (nextFlow.analyze(addr + length, end))
+                    while (nextFlow.analyze(getNextAddr(), end))
                         changed = changed || true;
                     
-                    if (nextFlow.addr != addr + length)
+                    if (nextFlow.addr != getNextAddr())
                         break;
                     
                     /* Check if nextFlow has only the previous case
@@ -1179,7 +1289,7 @@ public class FlowBlock {
                      */
 
                     switchBlock.caseBlocks[i].subBlock.removeJump();
-                    length += nextFlow.length;
+		    mergeAddr(nextFlow);
 
                     lastFlow = nextFlow;
                     last = i;
@@ -1211,13 +1321,22 @@ public class FlowBlock {
             if (jump != null && jump.destination == null) {
                 if (jump.destAddr == -1) 
                     jump.destination = END_OF_METHOD;
-                else
+                else if (jump.destAddr == instr.length)
+		    // In this case, the jump must belong to dead code.
+		    jump.destination = ILLEGAL;
+		else {
                     jump.destination = instr[jump.destAddr];
-                if (jump.destination == null)
-                    throw new AssertError("Missing dest: "+jump.destAddr);
+		    if (jump.destination == null)
+			throw new AssertError("Missing dest: "+jump.destAddr);
+		}
                 addSuccessor(jump);
             }
         }
+
+	if (getNextAddr() < instr.length) {
+	    nextByAddr = instr[getNextAddr()];
+	    nextByAddr.prevByAddr = this;
+	}
     }
 
     /**
@@ -1262,6 +1381,45 @@ public class FlowBlock {
     }
 
     /**
+     * Mark this block and all successing blocks as reachable.
+     */
+    public void markReachable() {
+	if (reachable) {
+	    // This block was already checked.  This prevents infinite
+	    // recursion.
+	    return;
+	}
+	reachable = true;
+	Enumeration succs = successors.keys();
+	while (succs.hasMoreElements())
+	    ((FlowBlock) succs.nextElement()).markReachable();
+    }
+
+    /**
+     * Removes dead code, i.e. merges the dead flow block with there 
+     * prevByAddr and removing their code completely. <br>
+     *
+     * Why is it necessary?  Because jikes actually generates a lot
+     * of dead code in try, catch and finally blocks.  This will break
+     * a lot of other code, e.g. checking that a catch handler has no
+     * entries or merging only adjacent blocks.
+     *
+     * @param flow The first flow block in this method.
+     */
+    public static void removeDeadCode(FlowBlock flow) {
+	while (flow.nextByAddr != null) {
+	    if (!flow.nextByAddr.reachable) {
+		Enumeration succs = flow.nextByAddr.successors.keys();
+		while (succs.hasMoreElements())
+		    ((FlowBlock) succs.nextElement()).predecessors
+			.removeElement(flow.nextByAddr);
+		flow.mergeAddr(flow.nextByAddr);
+	    } else
+		flow = flow.nextByAddr;
+	}
+    }
+
+    /**
      * Print the source code for this structured block.  This handles
      * everything that is unique for all structured blocks and calls
      * dumpInstruction afterwards.
@@ -1272,7 +1430,7 @@ public class FlowBlock {
     {
         if (predecessors.size() != 0) {
             writer.untab();
-            writer.println(label+":");
+            writer.println(getLabel()+":");
             writer.tab();
         }
 
@@ -1281,6 +1439,9 @@ public class FlowBlock {
         }
 
         block.dumpSource(writer);
+
+	if (nextByAddr != null)
+	    nextByAddr.dumpSource(writer);
     }
 
     /**
@@ -1313,10 +1474,10 @@ public class FlowBlock {
     public String toString() {
         try {
             java.io.StringWriter strw = new java.io.StringWriter();
-            TabbedPrintWriter writer = new TabbedPrintWriter(strw, "    ");
+            TabbedPrintWriter writer = new TabbedPrintWriter(strw);
             writer.println(super.toString());
             writer.tab();
-            dumpSource(writer);
+            block.dumpSource(writer);
             return strw.toString();
         } catch (java.io.IOException ex) {
             return super.toString();
