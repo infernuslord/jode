@@ -42,6 +42,7 @@ import java.io.IOException;
 public class ClassIdentifier extends Identifier {
     PackageIdentifier pack;
     String name;
+    String fullName;
     ClassInfo info;
     String superName;
     String[] ifaceNames;
@@ -50,10 +51,11 @@ public class ClassIdentifier extends Identifier {
     List knownSubClasses = new LinkedList();
     List virtualReachables = new LinkedList();
 
-    public ClassIdentifier(PackageIdentifier pack, 
+    public ClassIdentifier(PackageIdentifier pack, String fullName,
 			   String name, ClassInfo info) {
 	super(name);
 	this.pack = pack;
+	this.fullName = fullName;
 	this.name = name;
 	this.info = info;
     }
@@ -712,10 +714,7 @@ public class ClassIdentifier extends Identifier {
      * @return the full qualified name, excluding trailing dot.
      */
     public String getFullName() {
-	if (pack.parent == null)
-	    return getName();
-	else 
-	    return pack.getFullName() + "." + getName();
+	return fullName;
     }
 
     /**

@@ -206,17 +206,23 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
     }
 
+    private static class TodoQueue {
+	StackLocalInfo first;
+    }
+
     private static class StackLocalInfo implements ConstantListener {
 	ConstValue[] stack;
 	ConstValue[] locals;
 	Instruction instr;
+
+	StackLocalInfo nextOnQueue;
 
 	/**
 	 * The queue that should be notified, if the constant values of
 	 * this instruction changes.  We put ourself on this queue in that
 	 * case.
 	 */
-	Collection notifyQueue;
+	TodoQueue notifyQueue;
 
 	public ConstValue copy(ConstValue value) {
 	    return (value == null) ? null : value.copy();
@@ -224,7 +230,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 
 	private StackLocalInfo(ConstValue[] stack, 
 			       ConstValue[] locals,
-			       Collection notifyQueue) {
+			       TodoQueue notifyQueue) {
 	    this.stack = stack;
 	    this.locals = locals;
 	    this.notifyQueue = notifyQueue;
@@ -232,7 +238,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
     
 	public StackLocalInfo(int numLocals, 
 			      boolean isStatic, String methodTypeSig,
-			      Collection notifyQueue) {
+			      TodoQueue notifyQueue) {
 	    
 	    String[] paramTypes 
 		= TypeSignature.getParameterTypes(methodTypeSig);
@@ -250,7 +256,10 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	}
 
 	public final void enqueue() {
-	    notifyQueue.add(this);
+	    if (nextOnQueue == null) {
+		this.nextOnQueue = notifyQueue.first;
+		notifyQueue.first = this;
+	    }
 	}
     
 	public void constantChanged() {
@@ -1361,18 +1370,18 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	this.bytecode = bytecode;
 	if (constInfos == null)
 	    constInfos = new HashMap();
-	Set modifiedQueue = new HashSet();
+	TodoQueue modifiedQueue = new TodoQueue();
 	MethodInfo minfo = bytecode.getMethodInfo();
 	StackLocalInfo firstInfo = new StackLocalInfo 
 	    (bytecode.getMaxLocals(), minfo.isStatic(), minfo.getType(), 
 	     modifiedQueue);
 	firstInfo.instr = (Instruction) bytecode.getInstructions().get(0);
 	firstInfo.instr.setTmpInfo(firstInfo);
-	modifiedQueue.add(firstInfo);
-	while (!modifiedQueue.isEmpty()) {
-	    Iterator iter = modifiedQueue.iterator();
-	    StackLocalInfo info = (StackLocalInfo) iter.next();
-	    iter.remove();
+	firstInfo.enqueue();
+	while (modifiedQueue.first != null) {
+	    StackLocalInfo info = modifiedQueue.first;
+	    modifiedQueue.first = info.nextOnQueue;
+	    info.nextOnQueue = null;
 	    handleOpcode(info, methodIdent);
 	}
 
