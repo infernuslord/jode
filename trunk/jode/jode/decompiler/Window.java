@@ -37,7 +37,7 @@ public class Window
     TextArea  sourcecodeArea, errorArea;
     Checkbox  verboseCheck, prettyCheck;
     Button startButton, saveButton;
-    String lastClassName;
+    String lastClassName, lastClassPath;
     Frame frame;
 
     PrintWriter errStream;
@@ -58,8 +58,8 @@ public class Window
 	classField = new TextField(50);
 	sourcecodeArea = new TextArea(20, 80);
 	errorArea = new TextArea(3, 80);
-	verboseCheck = new Checkbox("verbose", false);
-	prettyCheck = new Checkbox("pretty", false);
+	verboseCheck = new Checkbox("verbose", true);
+	prettyCheck = new Checkbox("pretty", true);
 	startButton = new Button("start");
 	saveButton = new Button("save");
 ///#ifdef AWT10
@@ -234,10 +234,7 @@ public class Window
 
     public void run() {
 	decompiler.setOption("verbose", verboseCheck.getState() ? "1" : "0");
-	if (prettyCheck.getState())
-	    decompiler.setOption("pretty", "0");
-	else
-	    decompiler.setOption("pretty", "1");
+	decompiler.setOption("pretty", prettyCheck.getState() ? "1" : "0");
 	errorArea.setText("");
 ///#ifdef AWT10
 ///	saveButton.disable();
@@ -246,17 +243,23 @@ public class Window
 ///#endif
 
 	lastClassName = classField.getText();
-	decompiler.setClassPath(classpathField.getText());
+	String newClassPath = classpathField.getText();
+	if (!newClassPath.equals(lastClassPath)) {
+	    decompiler.setClassPath(newClassPath);
+	    lastClassPath = newClassPath;
+	}
+				    
 	try {
-	    Writer writer = new AreaWriter(sourcecodeArea);
+	    Writer writer
+		= new BufferedWriter(new AreaWriter(sourcecodeArea), 512);
 	    try {
 		decompiler.decompile(lastClassName, writer, null);
 	    } catch (IllegalArgumentException ex) {
 		sourcecodeArea.setText
-		    ("`"+lastClassName+"' is not a class name\n"
+		    ("`"+lastClassName+"' is not a class name.\n"
 		     +"You have to give a full qualified classname "
 		     +"with '.' as package delimiter \n"
-		     +"and without .class ending");
+		     +"and without .class ending.");
 		return;
 	    }
 ///#ifdef AWT10

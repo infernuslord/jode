@@ -132,10 +132,10 @@ public class Decompiler {
 		    || value.equals("off")
 		    || value.equals("no"))
 		    Options.options &= ~(1 << i);
-		else if  (value.equals("1") 
-		    || value.equals("on")
-		    || value.equals("yes"))
-		    Options.options &= ~(1 << i);
+		else if (value.equals("1") 
+			 || value.equals("on")
+			 || value.equals("yes"))
+		    Options.options |= 1 << i;
 		else
 		    throw new IllegalArgumentException("Illegal value for "+
 						       option);
