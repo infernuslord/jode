@@ -53,9 +53,19 @@ import java.util.Hashtable;
  * @date 98/08/06 */
 public class RangeType extends Type {
     /**
-     * The bottom type set.  All types in this range type can be casted
-     * to all bottom types by a widening cast.  
-     */
+     * The bottom type set.  It is special in that its interpretation
+     * depends on what ReferenceType class it implements:
+     *
+     * <dl>
+     * <dt>ClassInterfacesType</dt>
+     * <dd>All types in this range must be widening castable to all interfaces
+     * and to the class in the bottomType</dd>
+     * <dt>ArrayType</dt>
+     * <dd>All types in this range must be of the bottomType, or the
+     * NullType.</dd>
+     * <dt>NullType</dt>
+     * <dd>not allowed</dd>
+     * </dl> */
     final ReferenceType bottomType;
     /**
      * The top type set.  For each type in this range type, there is a 
@@ -204,7 +214,7 @@ public class RangeType extends Type {
 
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0) {
 	    GlobalOptions.err.println("intersecting "+ this +" and "+ type + 
-                                   " to " + result);
+				      " to " + result);
 	}	    
         return result;
     }
