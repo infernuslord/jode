@@ -34,10 +34,13 @@ import jode.expr.Operator;
  * @see FlowBlock.removePush
  */
 public class VariableStack {
-    public final static VariableStack EMPTY = 
-	new VariableStack(new LocalInfo[0]);
+    public final static VariableStack EMPTY = new VariableStack();
 
     final LocalInfo[] stackMap; 
+
+    private VariableStack() {
+	stackMap = new LocalInfo[0];
+    }
 
     private VariableStack(LocalInfo[] stack) {
 	stackMap = stack;
