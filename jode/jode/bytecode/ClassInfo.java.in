@@ -210,7 +210,7 @@ public class ClassInfo extends BinaryInfo {
 	/* Since we have to read the whole class anyway, we load all
 	 * info, that we may need later and that does not take much memory. 
 	 */
-	howMuch |= FIELDS | METHODS | HIERARCHY | INNERCLASSES | OUTERCLASSES;
+	howMuch |= HIERARCHY | INNERCLASSES | OUTERCLASSES;
 	howMuch &= ~status;
 	/* header */
 	if (input.readInt() != 0xcafebabe)
