@@ -1,18 +1,18 @@
-/* 
- * FlowBlock  (c) 1998 Jochen Hoenicke
+/* FlowBlock Copyright (C) 1998-1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
@@ -463,14 +463,17 @@ public class FlowBlock {
             for (StructuredBlock surrounder = jump.prev.outer;
                  surrounder != null; surrounder = surrounder.outer) {
                 if (surrounder instanceof BreakableBlock) {
-                    if (surrounder.getNextFlowBlock() != succ
-                        && surrounder.jumpMayBeChanged()) {
+                    if (surrounder.getNextFlowBlock() == succ)
+			/* We can break to that block; this is done later. */
+			break; 
 
+		    if (surrounder.jumpMayBeChanged()) {
                         surrounder.setJump(new Jump(succ));
+			/* put surrounder in todo list */
                         surrounder.jump.next = jumps;
-			/* consider this jump again */
                         jumps = surrounder.jump;
-			continue next_jump;
+			/* The break is inserted later */
+			break;
                     }
 		    if (succ == END_OF_METHOD) {
 			/* If the jump can be replaced by a return
@@ -564,9 +567,11 @@ public class FlowBlock {
             Jump hisJumps = (Jump) succs.nextElement();
             Jump myJumps = (Jump) successors.get(dest);
 
-            dest.predecessors.removeElement(succ);
+	    if (dest != END_OF_METHOD)
+		dest.predecessors.removeElement(succ);
             if (myJumps == null) {
-                dest.predecessors.addElement(this);
+		if (dest != END_OF_METHOD)
+		    dest.predecessors.addElement(this);
                 successors.put(dest, hisJumps);
             } else {
                 while (myJumps.next != null)
@@ -696,7 +701,7 @@ public class FlowBlock {
         Enumeration succs = successors.elements();
         while (keys.hasMoreElements()) {
             FlowBlock dest = (FlowBlock) keys.nextElement();
-            if (!dest.predecessors.contains(this))
+            if (dest.predecessors.contains(this) == (dest == END_OF_METHOD))
                 throw new AssertError("Inconsistency");
                 
             Jump jumps = (Jump)succs.nextElement();
@@ -776,12 +781,19 @@ public class FlowBlock {
      */
     public void setNextByAddr(FlowBlock flow) {
 	Jump jumps = (Jump) successors.remove(NEXT_BY_ADDR);
+	Jump flowJumps = (Jump) successors.get(flow);
 	if (jumps != null) {
 	    NEXT_BY_ADDR.predecessors.removeElement(this);
-	    for (Jump jump = jumps; jump != null; jump = jump.next)
-		jump.destination = flow;
+	    jumps.destination = flow;
+	    while (jumps.next != null) {
+		jumps = jumps.next;
+		jumps.destination = flow;
+	    }
 	    successors.put(flow, jumps);
-	    flow.predecessors.addElement(this);
+	    if (flowJumps != null)
+		jumps.next = flowJumps;
+	    else if (flow != END_OF_METHOD)
+		flow.predecessors.addElement(this);
         }
 	checkConsistent();
 
@@ -1359,6 +1371,9 @@ public class FlowBlock {
                 (switchBlock.caseBlocks[last].subBlock);
             mergeSuccessors(lastFlow);
         }
+	
+	if (Decompiler.isFlowDebugging)
+	    System.err.println("after analyzeSwitch: "+this);
         checkConsistent();
         return changed;
     }
@@ -1392,7 +1407,7 @@ public class FlowBlock {
 
     public void addSuccessor(Jump jump) {
         jump.next = (Jump) successors.get(jump.destination);
-        if (jump.next == null)
+        if (jump.next == null && jump.destination != END_OF_METHOD)
             jump.destination.predecessors.addElement(this);
         
         successors.put(jump.destination, jump);
@@ -1426,11 +1441,9 @@ public class FlowBlock {
      * didn't worked.
      */
     public void mapStackToLocal(VariableStack initialStack) {
-	if (stackMap != null) {
-	    stackMap.merge(initialStack);
-	} else
-	    stackMap = initialStack;
-
+	if (initialStack == null)
+	    throw new jode.AssertError("initial stack is null");
+	stackMap = initialStack;
 	block.mapStackToLocal(initialStack);
 	Enumeration enum = successors.elements();
 	while (enum.hasMoreElements()) {
@@ -1439,6 +1452,9 @@ public class FlowBlock {
 	    FlowBlock succ = jumps.destination;
 	    stack = succ.stackMap;
 	    for (/**/; jumps != null; jumps = jumps.next) {
+		if (jumps.stackMap == null)
+		    System.err.println("Dead jump? "+jumps.prev+" in "+this);
+		
 		stack = VariableStack.merge(stack, jumps.stackMap);
 	    }
 	    if (succ.stackMap == null)
