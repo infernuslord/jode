@@ -18,8 +18,6 @@
  */
 
 package jode.expr;
-import java.lang.reflect.Modifier;
-
 import jode.type.Type;
 import jode.type.NullType;
 import jode.type.ClassInterfacesType;
@@ -33,31 +31,39 @@ import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.Scope;
 
+import java.lang.reflect.Modifier;
+///#ifdef JDK12
+///import java.util.Set;
+///#else
+import jode.util.SimpleSet;
+///#endif
+
 public class ConstructorOperator extends Operator 
     implements MatchableOperator {
     MethodType methodType;
     Type classType;
     CodeAnalyzer codeAnalyzer;
-    ClassAnalyzer anonymousClass = null;
     boolean removedCheckNull = false;
 
-    public ConstructorOperator(Reference ref, CodeAnalyzer codeAna,
-			       boolean isVoid) {
-        super(isVoid ? Type.tVoid : Type.tType(ref.getClazz()), 0);
-        this.classType = Type.tType(ref.getClazz());
-        this.methodType = Type.tMethod(ref.getType());
+    public ConstructorOperator(Type classType, MethodType methodType, 
+			       CodeAnalyzer codeAna, boolean isVoid) {
+        super(isVoid ? Type.tVoid : classType, 0);
+        this.classType = classType;
+        this.methodType = methodType;
 	this.codeAnalyzer = codeAna;
 	initOperands(methodType.getParameterTypes().length);
 	checkAnonymousClasses();
     }
 
+    public ConstructorOperator(Reference ref, CodeAnalyzer codeAna,
+			       boolean isVoid) {
+	this (Type.tType(ref.getClazz()), Type.tMethod(ref.getType()),
+	      codeAna, isVoid);
+    }
+
     public ConstructorOperator(InvokeOperator invoke, boolean isVoid) {
-        super(isVoid ? Type.tVoid : invoke.getClassType(), 0);
-        this.classType  = invoke.getClassType();
-        this.methodType = invoke.getMethodType();
-	this.codeAnalyzer = invoke.codeAnalyzer;
-	initOperands(methodType.getParameterTypes().length);
-	checkAnonymousClasses();
+	this (invoke.getClassType(), invoke.getMethodType(),
+	      invoke.codeAnalyzer, isVoid);
     }
 
     public MethodType getMethodType() {
@@ -108,9 +114,13 @@ public class ConstructorOperator extends Operator
 
     public Expression simplify() {
 	InnerClassInfo outer = getOuterClassInfo();
-	if (outer != null && outer.outer != null
+	if (outer != null && outer.outer != null && outer.name != null
 	    && !Modifier.isStatic(outer.modifiers)
 	    && (Decompiler.options & Decompiler.OPTION_INNER) != 0) {
+	    if (subExpressions.length == 0) {
+		System.err.println("outer: "+outer.outer+","+outer.inner+","+outer.name);
+	    }
+
 	    if (subExpressions[0] instanceof CheckNullOperator) {
 		CheckNullOperator cno = (CheckNullOperator) subExpressions[0];
 		cno.removeLocal();
@@ -142,11 +152,11 @@ public class ConstructorOperator extends Operator
 	if ((Decompiler.options & Decompiler.OPTION_ANON) == 0)
 	    return;
 	InnerClassInfo outer = getOuterClassInfo();
-	if (outer != null && outer.outer == null) {
+	if (outer != null && (outer.outer == null || outer.name == null)) {
 	    ClassInfo clazz = getClassInfo();
-	    anonymousClass = codeAnalyzer.addAnonymousClass(clazz);
-	    
-	    if (anonymousClass.getName() == null) {
+	    codeAnalyzer.addAnonymousConstructor(this);
+
+	    if (outer.name == null) {
 		if (clazz.getInterfaces().length > 0)
 		    type = Type.tClass(clazz.getInterfaces()[0]);
 		else
@@ -155,19 +165,34 @@ public class ConstructorOperator extends Operator
 	}
     }
 
+///#ifdef JDK12
+///    public void fillDeclarables(Set used) {
+///#else
+    public void fillDeclarables(SimpleSet used) {
+///#endif
+	if ((Decompiler.options & Decompiler.OPTION_ANON) == 0)
+	    return;
+	InnerClassInfo outer = getOuterClassInfo();
+	if (outer != null && outer.outer == null && outer.name != null) {
+	    ClassAnalyzer anonymousClass 
+		= codeAnalyzer.getAnonymousClass(getClassInfo());
+	    used.add(anonymousClass);
+	}
+    }
+
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 
 	int arg = 0;
-	if (anonymousClass != null) {
-	    writer.print("new ");
-	    anonymousClass.dumpSource(writer);
-	    return;
-	}
+	Type object = classType;
 	InnerClassInfo outer = getOuterClassInfo();
-	if (outer != null && outer.outer != null
+	if (outer != null && outer.outer != null && outer.name != null
 	    && !Modifier.isStatic(outer.modifiers)
 	    && (Decompiler.options & Decompiler.OPTION_INNER) != 0) {
+	    if (subExpressions.length == 0) {
+		System.err.println("outer: "+outer.outer+","+outer.inner+","+outer.name);
+	    }
+
 	    Expression outExpr = subExpressions[arg++];
 	    if (!removedCheckNull && !(outExpr instanceof ThisOperator))
 		writer.print("MISSING CHECKNULL");
@@ -183,7 +208,8 @@ public class ConstructorOperator extends Operator
 		int minPriority = 950; /* field access */
 		if (outExpr.getType() instanceof NullType) {
 		    writer.print("((");
-		    writer.printType(classType);
+		    writer.printType(Type.tClass
+				     (ClassInfo.forName(outer.outer)));
 		    writer.print(") ");
 		    outExpr.dumpExpression(writer, 700);
 		    writer.print(")");
@@ -192,11 +218,35 @@ public class ConstructorOperator extends Operator
 		writer.print(".");
 	    }
 	}
+
+	ClassAnalyzer anonymousClass = null;
+	boolean dumpBlock = false;
+	if ((Decompiler.options & Decompiler.OPTION_ANON) != 0
+	    && codeAnalyzer.hasAnalyzedAnonymous()
+	    && outer != null && (outer.outer == null || outer.name == null)) {
+	    anonymousClass = codeAnalyzer.getAnonymousClass(getClassInfo());
+	    if (anonymousClass.getName() == null) {
+		/* This is an anonymous class */
+		ClassInfo clazz = anonymousClass.getClazz();
+		ClassInfo superClazz = clazz.getSuperclass();
+		ClassInfo[] interfaces = clazz.getInterfaces();
+		if (interfaces.length == 1
+		    && (superClazz == null
+			|| superClazz == ClassInfo.javaLangObject)) {
+		    object = Type.tClass(interfaces[0]);
+		} else {
+		    if (interfaces.length > 0) {
+			writer.print("too many supers in ANONYMOUS ");
+		    }
+		    object = (superClazz != null 
+			      ? Type.tClass(superClazz) : Type.tObject);
+		}
+		dumpBlock = true;
+	    }
+	    arg += anonymousClass.getOuterValues().length;
+	}
 	writer.print("new ");
-	if (outer != null && outer.name != null)
-	    writer.print(outer.name);
-	else
-	    writer.printType(classType);
+	writer.printType(object);
 	writer.print("(");
         for (int i = arg; i < methodType.getParameterTypes().length; i++) {
             if (i>arg)
@@ -204,5 +254,13 @@ public class ConstructorOperator extends Operator
             subExpressions[i].dumpExpression(writer, 0);
         }
         writer.print(")");
+	if (dumpBlock) {
+	    writer.openBrace();
+	    writer.tab();
+	    anonymousClass.dumpBlock(writer);
+	    writer.untab();
+	    writer.closeBraceNoSpace();
+	}
     }
 }
+
