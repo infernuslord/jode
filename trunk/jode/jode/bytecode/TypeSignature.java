@@ -204,18 +204,21 @@ public class TypeSignature {
 	return methodTypeSig.substring(methodTypeSig.lastIndexOf(')')+1);
     }
 
-    private static void checkClassName(String clName) 
-	throws IllegalArgumentException 
+    /**
+     * Check if there is a valid class name starting at index
+     * in string typesig and ending with a semicolon.
+     * @return the index at which the class name ends.
+     * @exception IllegalArgumentException if there was an illegal character.
+     * @exception StringIndexOutOfBoundsException if the typesig ended early.
+     */
+    private static int checkClassName(String clName, int i) 
+	throws IllegalArgumentException, StringIndexOutOfBoundsException 
     {
-	boolean start = true;
-	for (int i=0; i< clName.length(); i++) {
-	    char c = clName.charAt(i);
-	    if (c == '/')
-		start = true;
-	    else if (start && Character.isJavaIdentifierStart(c)) 
-		start = false;
-	    else if ((start && false /*XXX*/)
-		     || !Character.isJavaIdentifierPart(c))
+	while (true) {
+	    char c = clName.charAt(i++);
+	    if (c == ';')
+		return i;
+	    if (c != '/' && !Character.isJavaIdentifierPart(c))
 		throw new IllegalArgumentException("Illegal java class name: "
 						   + clName);
 	}
@@ -233,10 +236,7 @@ public class TypeSignature {
 	while (c == '[')
 	    c = typesig.charAt(index++);
 	if (c == 'L') {
-	    int end = typesig.indexOf(';', index);
-	    // next instruction throws StringIndexOutOfBounds, if no ; exists.
-	    checkClassName(typesig.substring(index+1, end));
-	    index = end + 1;
+	    index = checkClassName(typesig, index);
 	} else {
 	    if ("ZBSCIJFD".indexOf(c) == -1)
 		throw new IllegalArgumentException("Type sig error: "+typesig);
