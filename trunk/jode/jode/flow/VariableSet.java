@@ -15,7 +15,8 @@
  *
  * $Id$
  */
-package jode.Flow;
+package jode.flow;
+import jode.LocalInfo;
 
 /**
  * This class represents a set of Variables, which are mainly used in
@@ -39,7 +40,7 @@ public class VariableSet extends java.util.Vector {
      * Adds a local variable to the variable set.
      * @param li The local variable of type LocalInfo.
      */
-    public addElement(LocalInfo li) {
+    public void addElement(LocalInfo li) {
         super.addElement((Object)li);
     }
 
@@ -54,7 +55,7 @@ public class VariableSet extends java.util.Vector {
             LocalInfo li1 = ((LocalInfo) elementData[i]).getLocalInfo();
             for (int j=0; j<vs.elementCount; j++) {
                 LocalInfo li2 = ((LocalInfo) vs.elementData[j]).getLocalInfo();
-                if (li1.getSlot() = li2.getSlot()) {
+                if (li1.getSlot() == li2.getSlot()) {
                     li1.combineWith(li2);
                 }
             }
@@ -72,7 +73,7 @@ public class VariableSet extends java.util.Vector {
             LocalInfo li1 = ((LocalInfo) elementData[i]).getLocalInfo();
             for (int j=0; j<vs.elementCount; j++) {
                 LocalInfo li2 = ((LocalInfo) vs.elementData[j]).getLocalInfo();
-                if (li1.getSlot() = li2.getSlot()) {
+                if (li1.getSlot() == li2.getSlot()) {
                     if (!intersection.contains(li1))
                         intersection.addElement(li1);
                     if (!intersection.contains(li2))
@@ -106,7 +107,7 @@ public class VariableSet extends java.util.Vector {
      * Add the other variable set to the current, except when the slot
      * is already in the current set.  
      */
-    public void union(VariableSet vs) {
+    public void add(VariableSet vs) {
         int oldSize = elementCount;
     iloop:
         for (int i=0; i< vs.elementCount; i++) {
@@ -132,7 +133,7 @@ public class VariableSet extends java.util.Vector {
         /* We count from top to bottom to have easier reorganization.
          * Note, that the variables have not to be in any particular
          * order.  */
-        int newCount = elementCount
+        int newCount = elementCount;
         for (int i=newCount-1; i>=0; i--) {
             LocalInfo li1 = (LocalInfo) elementData[i];
             for (int j=0; j<vs.elementCount; j++) {

@@ -63,9 +63,13 @@ public class LocalInfo {
      * @param li the local info that we want to shadow.
      */
     public void combineWith(LocalInfo li) {
-        if (shadow != null)
-            shadow.combineWith(li);
         li = li.getLocalInfo();
+        if (shadow != null) {
+            while (shadow.shadow != null) {
+                shadow = shadow.shadow;
+            }
+            shadow.combineWith(li);
+        }
         if (this != li) {
             shadow = li;
             li.setType(type);
@@ -77,8 +81,12 @@ public class LocalInfo {
      * current object if this is a shadow local info.
      */
     public LocalInfo getLocalInfo() {
-        if (shadow != null)
+        if (shadow != null) {
+            while (shadow.shadow != null) {
+                shadow = shadow.shadow;
+            }
             return shadow.getLocalInfo();
+        }
         return this;
     }
 
@@ -86,8 +94,12 @@ public class LocalInfo {
      * Get the name of this local.
      */
     public Identifier getName() {
-        if (shadow != null) 
+        if (shadow != null) {
+            while (shadow.shadow != null) {
+                shadow = shadow.shadow;
+            }
             return shadow.getName();
+        }
         if (name == null)
             name = Identifier.lookup("local_"+slot+"__"+serialnr++);
         return name;
@@ -96,7 +108,7 @@ public class LocalInfo {
     /**
      * Get the slot of this local.
      */
-    public Identifier getSlot() {
+    public int getSlot() {
         /* The slot does not change when shadowing */
         return slot;
     }
@@ -115,8 +127,12 @@ public class LocalInfo {
      * Get the type of this local.
      */
     public Type getType() {
-        if (shadow != null) 
+        if (shadow != null) {
+            while (shadow.shadow != null) {
+                shadow = shadow.shadow;
+            }
             return shadow.getType();
+        }
         return type;
     }
 
@@ -127,8 +143,12 @@ public class LocalInfo {
      * @return The new type of the local.
      */
     public Type setType(Type newType) {
-        if (shadow != null) 
+        if (shadow != null) {
+            while (shadow.shadow != null) {
+                shadow = shadow.shadow;
+            }
             return shadow.setType(newType);
+        }
         this.type = MyType.intersection(this.type, newType);
         if (this.type == MyType.tError)
             System.err.println("Type error in "+getName());

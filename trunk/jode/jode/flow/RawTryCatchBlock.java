@@ -17,6 +17,7 @@
  */
 
 package jode.flow;
+import jode.TabbedPrintWriter;
 
 /**
  * A RawTryCatchBlock is created for each exception in the
@@ -39,7 +40,7 @@ package jode.flow;
  * @see SynchronizedBlock
  */
 
-public RawTryCatchBlock extends StructuredBlock {
+public class RawTryCatchBlock extends StructuredBlock {
 
     /**
      * An unconditional jump to the EndBlock.
@@ -55,5 +56,10 @@ public RawTryCatchBlock extends StructuredBlock {
      * The type of the exception that is catched. This is null for a
      * synchronized/finally block 
      */
-    Type type;
+    jode.MyType type;
+
+    public void dumpInstruction(TabbedPrintWriter writer) 
+        throws java.io.IOException {
+        writer.println("IMPLEMENT FINALLY");
+    }
 }
