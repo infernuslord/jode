@@ -145,7 +145,7 @@ public class MainWindow
 	} catch (Throwable t) {
 	    sourcecodeArea.setText("Didn't succeed.\n"
 				   +"Check the below area for more info.");
-	    t.printStackTrace();
+	    t.printStackTrace(Decompiler.err);
 	} finally {
 	    synchronized(this) {
 		decompileThread = null;

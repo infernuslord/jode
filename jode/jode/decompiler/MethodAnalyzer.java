@@ -60,7 +60,7 @@ public class MethodAnalyzer implements Analyzer {
                 codeinfo.read(classAnalyzer.getConstantPool(), stream);
                 code = new CodeAnalyzer(this, codeinfo, env);
             } catch (IOException ex) {
-                ex.printStackTrace();
+                ex.printStackTrace(Decompiler.err);
                 code = null;
             }
         }

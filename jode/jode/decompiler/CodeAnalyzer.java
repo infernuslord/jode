@@ -101,7 +101,7 @@ public class CodeAnalyzer implements Analyzer {
                         flags[succs[i]] |= PREDECESSORS;
 	    }
         } catch (IOException ex) {
-            ex.printStackTrace();
+            ex.printStackTrace(Decompiler.err);
             throw new ClassFormatError(ex.getMessage());
         }
         for (int i=0; i<handlers.length; i += 4) {
@@ -175,7 +175,7 @@ public class CodeAnalyzer implements Analyzer {
 		instr[handler].markReachable();
             }
         } catch (IOException ex) {
-            ex.printStackTrace();
+            ex.printStackTrace(Decompiler.err);
             throw new ClassFormatError(ex.getMessage());
         }
 

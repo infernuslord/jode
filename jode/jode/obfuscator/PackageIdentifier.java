@@ -330,7 +330,7 @@ public class PackageIdentifier extends Identifier {
 		} catch (java.io.IOException ex) {
 		    Obfuscator.err.println("Can't write Class "
 					   + ident.getName());
-		    ex.printStackTrace();
+		    ex.printStackTrace(Obfuscator.err);
 		}
 	    }
 	}
@@ -372,7 +372,7 @@ public class PackageIdentifier extends Identifier {
 		} catch (java.io.IOException ex) {
 		    Obfuscator.err.println("Can't write Class "
 					   + ident.getName());
-		    ex.printStackTrace();
+		    ex.printStackTrace(Obfuscator.err);
 		}
 	    }
 	}

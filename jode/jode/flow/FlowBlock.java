@@ -1420,7 +1420,7 @@ public class FlowBlock {
 	} catch (RuntimeException ex) {
 	    Decompiler.err.println("Can't resolve all PUSHes, "
 				   +"this is probably illegal bytecode:");
-	    ex.printStackTrace();
+	    ex.printStackTrace(Decompiler.err);
 	    return false;
 	}
     }
