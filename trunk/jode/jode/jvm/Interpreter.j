@@ -701,10 +701,11 @@ two_op_instr:
 	iand
 	iconst_2
 	swap
-	ifeq second_op_single
+	ifne second_op_single
 	iinc 5 -1
 	iconst_2
 	ishl
+
 second_op_single:
 	aload_3
 	iload 5
@@ -716,7 +717,7 @@ second_op_done:
 ;  opcode
 	astore 7
 	dup
-	bipush 0x0E38
+	sipush 0x0E38
 	iand
 	iinc 5 -1
 	ifeq first_op_single
@@ -1844,7 +1845,7 @@ newarray_loop:
 newarray_test:
 	iinc 7 -1
 	iload 7
-	ifne newarray_loop
+	ifge newarray_loop
 	astore 7
 	aload_3
 	iload 5
