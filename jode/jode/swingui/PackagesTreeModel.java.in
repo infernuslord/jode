@@ -20,19 +20,13 @@
 package jode.swingui;
 import jode.Decompiler;
 import jode.bytecode.ClassInfo;
-///#ifndef OLDSWING
-import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreePath;
-import javax.swing.event.TreeModelListener;
-import javax.swing.event.TreeModelEvent;
-///#else
-///import com.sun.java.swing.tree.TreeModel;
-///import com.sun.java.swing.tree.TreePath;
-///import com.sun.java.swing.event.TreeModelListener;
-///import com.sun.java.swing.event.TreeModelEvent;
-///#endif
 
-///#ifdef JDK12
+import @JAVAX_SWING@.tree.TreeModel;
+import @JAVAX_SWING@.tree.TreePath;
+import @JAVAX_SWING@.event.TreeModelListener;
+import @JAVAX_SWING@.event.TreeModelEvent;
+
+///#ifndef JDK12
 ///import java.util.Arrays;
 ///import java.util.TreeSet;
 ///import java.util.HashSet;
@@ -48,6 +42,7 @@ import jode.util.Set;
 import jode.util.HashMap;
 import jode.util.Map;
 ///#endif
+
 
 import java.util.Enumeration;
 import java.util.NoSuchElementException;

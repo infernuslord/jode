@@ -1,0 +1,10 @@
+1.0.90 is a prerelease..
+* First version using configure.  Jode can now be almost automatically
+  build, see INSTALL for instructions.
+* The decompiler can handler inner and anoymous classes.
+* You now need the gnu getopt package.
+* You need JDK 1.2 or alternatively the swing and collection packages
+  for 1.1
+
+
+

@@ -1,0 +1,128 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT()
+
+AM_INIT_AUTOMAKE(jode, 1.0.90)
+
+dnl Checks for programs.
+dnl AC_PROG_CXX
+dnl AC_PROG_AWK
+dnl AC_PROG_CC
+dnl AC_PROG_CPP
+dnl AC_PROG_INSTALL
+dnl AC_PROG_LN_S
+AC_PROG_MAKE_SET
+dnl AC_PROG_RANLIB
+dnl AC_PATH_PROG(ZIP, zip)
+AC_PATH_PROG(UNZIP, unzip)
+
+dnl Checks for libraries.
+
+dnl Checks for header files.
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+
+dnl Checks for library functions.
+
+dnl hack to quote Makefile lines
+QUOTE=""
+AC_SUBST(QUOTE)
+
+AC_SUBST(SHELL)
+
+AC_ARG_WITH(java,
+  [  --with-java		  specify path to a java-like program ],
+  [
+    if test ${withval} != "" || test ${withval} != "yes" || test ${withval} != "no"; then
+      # set javac to user input value
+      JODE_CHECK_JAVA(${withval})
+    else
+      JODE_CHECK_JAVA(/usr/lib/java)
+    fi
+  ],
+  [ 
+    JODE_CHECK_JAVA(/usr/lib/java)
+  ])
+
+dnl jikes can also handle dependancies.
+AC_ARG_WITH(jikes,
+[  --with-jikes		  specify location of jikes ],
+[
+  USER_SPECIFIED_JIKES=true
+  if test "${withval}" = "yes" || test "${withval}" = ""; then
+    AC_PATH_PROG(JIKES, jikes, "", $PATH)
+  else
+    echo "searching jikes in ${withval}:$PATH"
+    AC_PATH_PROG(JIKES, jikes, "", ${withval}:$PATH)
+  fi
+  if test -n "$JIKES"; then
+    JAVAC=$JIKES
+  fi
+],
+[
+  USER_SPECIFIED_JIKES=
+  AC_PATH_PROG(JIKES, jikes, "", $PATH)
+])
+AM_CONDITIONAL(HAVE_JIKES, test x"$JIKES" != x)
+
+AC_ARG_WITH(javac,
+  [  --with-javac            specify location of javac ],
+  [
+   if test x$USER_SPECIFIED_JIKES == xtrue; then
+      AC_MSG_ERROR(You must only give one option --with-javac or --with-jikes)
+   fi
+   if test ${withval} != "" || test ${withval} != "yes" || test ${withval} != "no"; then
+      AC_CHECK_FILES(${withval}, 
+	[ JAVAC=${withval} ],
+	[ AC_MSG_ERROR(${withval} does not exists) ])
+   fi
+], [ true ])
+
+JODE_CHECK_CLASS(java.lang.Object, $CLASSLIB,
+  [ true ],
+  [ AC_MSG_ERROR(Please specify location of java class library for jikes) ])
+
+AC_MSG_CHECKING(for collection classes)
+JODE_CHECK_CLASS(java.util.Set, $CLASSPATH:$CLASSLIB,
+ [ COLLECTIONS="java.util" ],
+ [ JODE_CHECK_CLASS(com.sun.java.util.collections.Set, $CLASSPATH:$CLASSLIB,
+     [ COLLECTIONS="com.sun.java.util.collections" ], 
+     [ AC_MSG_RESULT(no)
+       AC_MSG_ERROR(You need the Java 1.2 collection classes in your classpath)
+     ])
+ ] )
+AC_MSG_RESULT($COLLECTIONS)
+AC_SUBST(COLLECTIONS)
+
+AC_MSG_CHECKING(for gnu.getopt)
+JODE_CHECK_CLASS(gnu.getopt.Getopt, $CLASSPATH:$CLASSLIB,
+  [ AC_MSG_RESULT(yes) ],
+  [ AC_MSG_RESULT(no)
+    AC_MSG_ERROR(You need gnu getopt for java.) ])
+
+AC_MSG_CHECKING(for swing)
+JODE_CHECK_CLASS(javax.swing.JFrame, $CLASSPATH:$CLASSLIB,
+  [ JAVAX_SWING="javax.swing" ],
+  [ JODE_CHECK_CLASS(com.sun.swing.JFrame, $CLASSPATH:$CLASSLIB,
+      [ JAVAX_SWING="com.sun.java.swing" ],
+      [ JAVAX_SWING="no" ]) ] )
+AC_MSG_RESULT($JAVAX_SWING)
+AC_SUBST(JAVAX_SWING)
+if test x"$JAVAX_SWING" != x; then
+  SWING_CLASSES="jode/swingui/Main.class"
+else
+  AC_MSG_WARN(Swing is not in classpath ... skipping swingui)
+  SWING_CLASSES=""
+fi
+AC_SUBST(SWING_CLASSES)
+
+AC_SUBST(CLASSPATH)
+AC_SUBST(JAVAC)
+
+AC_OUTPUT(Makefile
+jode/Makefile
+doc/Makefile
+test/Makefile
+jode/GlobalOptions.java
+jode/swingui/Main.java
+jode/swingui/PackagesTreeModel.java)
+

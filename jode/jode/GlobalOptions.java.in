@@ -22,7 +22,7 @@ import java.io.PrintWriter;
 import java.util.StringTokenizer;
 
 public class GlobalOptions {
-    public final static String version = "1.0 snapshot 19990629";
+    public final static String version = "@VERSION@";
     public final static String email = "jochen@gnu.org";
     public final static String copyright = 
 	"Jode (c) 1998,1999 Jochen Hoenicke <"+email+">";
