@@ -41,9 +41,12 @@ public class Interpreter implements Opcodes {
     private final static int CMP_GE = 3;
     private final static int CMP_GT = 4;
     private final static int CMP_LE = 5;
-    private final static int CMP_GREATER_MASK = 1 << (CMP_GT|CMP_GE|CMP_NE);
-    private final static int CMP_LESS_MASK    = 1 << (CMP_LT|CMP_LE|CMP_NE);
-    private final static int CMP_EQUAL_MASK   = 1 << (CMP_GE|CMP_LE|CMP_EQ);
+    private final static int CMP_GREATER_MASK
+	= (1 << CMP_GT)|(1 << CMP_GE)|(1 << CMP_NE);
+    private final static int CMP_LESS_MASK
+	= (1 << CMP_LT)|(1 << CMP_LE)|(1 << CMP_NE);
+    private final static int CMP_EQUAL_MASK
+	= (1 << CMP_GE)|(1 << CMP_LE)|(1 << CMP_EQ);
 
     public static Object interpretMethod
 	(RuntimeEnvironment env, BytecodeInfo code, Value[] locals)
