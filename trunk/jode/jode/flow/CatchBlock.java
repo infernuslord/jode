@@ -48,8 +48,6 @@ public class CatchBlock extends StructuredBlock {
     public CatchBlock(Type type, LocalInfo local) {
         exceptionType = type;
         exceptionLocal = local;
-	if (local != null)
-	    used.addElement(exceptionLocal);
     }
 
     public Type getExceptionType() {
@@ -115,11 +113,17 @@ public class CatchBlock extends StructuredBlock {
     }
 
     public void removePush() {
-	if (pushedLocal != null) {
+	if (pushedLocal != null)
 	    exceptionLocal = pushedLocal;
-	    used.addElement(pushedLocal);
-	}
 	super.removePush();
+    }
+
+    public VariableSet propagateUsage() {
+	if (used == null)
+	    used = new VariableSet(); /*XXX*/
+	if (exceptionLocal != null)
+	    used.addElement(exceptionLocal);
+	return super.propagateUsage();
     }
 
     /**

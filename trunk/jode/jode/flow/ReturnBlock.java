@@ -60,7 +60,7 @@ public class ReturnBlock extends InstructionContainer {
 
     public void removePush() {
 	if (stack != null)
-	    instr = stack.mergeIntoExpression(instr, used);
+	    instr = stack.mergeIntoExpression(instr);
     }
 
     /**

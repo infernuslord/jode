@@ -98,12 +98,12 @@ public class VariableStack {
 	return first;
     }
 
-    public Expression mergeIntoExpression(Expression expr, VariableSet used) {
+    public Expression mergeIntoExpression(Expression expr) {
 	/* assert expr.getFreeOperandCount() == stackMap.length */
 
 	for (int i = stackMap.length-1; i >= 0; i--) {
-	    if (!used.contains(stackMap[i]))
-		used.addElement(stackMap[i]);
+//  	    if (!used.contains(stackMap[i]))
+//  		used.addElement(stackMap[i]);
 	    expr = expr.addOperand
 		(new LocalLoadOperator(stackMap[i].getType(), null, 
 				       stackMap[i]));
