@@ -18,7 +18,9 @@
  */
 
 package jode.obfuscator;
-import jode.jvm.*;
+import jode.jvm.Interpreter;
+import jode.jvm.SimpleRuntimeEnvironment;
+import jode.jvm.InterpreterException;
 import jode.bytecode.Reference;
 import jode.bytecode.BytecodeInfo;
 import jode.type.*;
@@ -213,8 +215,11 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	addWhite(Reference.getReference
 		 ("Ljava/lang/Math;", "PI", "D"));
     }
+
+    private Interpreter interpreter;
     
     public ConstantRuntimeEnvironment() {
+	interpreter = new Interpreter(this);
     }
 
     public Object getField(Reference ref, Object obj)
@@ -235,7 +240,7 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 
     public void putField(Reference ref, Object obj, Object value)
 	throws InterpreterException {
-	throw new InterpreterException("Modifiing Field " + ref + ".");
+	throw new InterpreterException("Modifying Field " + ref + ".");
     }
     
     public Object invokeConstructor(Reference ref, Object[] params)
@@ -255,20 +260,8 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	    = (MethodIdentifier) Main.getClassBundle().getIdentifier(ref);
 	if (mi != null) {
 	    BytecodeInfo code = mi.info.getBytecode();
-	    if (code != null) {
-		MethodType mt = (MethodType) Type.tType(ref.getType());
-		Value[] locals = new Value[code.getMaxLocals()];
-		for (int i=0; i< locals.length; i++)
-		    locals[i] = new Value();
-		int slot = 0;
-		if (cls != null)
-		    locals[slot++].setObject(cls);
-		for (int i = 0; i < params.length; i++) {
-		    locals[slot].setObject(params[i]);
-		    slot += mt.getParameterTypes()[i].stackSize();
-		}
-		return Interpreter.interpretMethod(this, code, locals);
-	    }
+	    if (code != null)
+		return interpreter.interpretMethod(code, cls, params);
 	}
 	throw new InterpreterException("Invoking library method " + ref + ".");
     }

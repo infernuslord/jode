@@ -342,26 +342,25 @@ public final class InvokeOperator extends Operator
 
     class Environment extends SimpleRuntimeEnvironment {
 
+	Interpreter interpreter;
+	String classSig;
+
+	public Environment(String interpretedClassSig) {
+	    classSig = interpretedClassSig.intern();
+	}
+
 	public Object invokeMethod(Reference ref, boolean isVirtual, 
 				   Object cls, Object[] params) 
 	    throws InterpreterException, InvocationTargetException {
-	    if (ref.getClazz().equals
-		("L"+methodAnalyzer.getClazz().getName().replace('.','/')+";")) {
-		MethodType mt = (MethodType) Type.tType(ref.getType());
-		BytecodeInfo info = methodAnalyzer.getClassAnalyzer()
-		    .getMethod(ref.getName(), mt).getBytecodeInfo();
-		Value[] locals = new Value[info.getMaxLocals()];
-		for (int i=0; i< locals.length; i++)
-		    locals[i] = new Value();
-		int param = params.length;
-		int slot = 0;
-		if (cls != null)
-		    locals[slot++].setObject(cls);
-		for (int i = 0; i < param; i++) {
-		    locals[slot].setObject(params[i]);
-		    slot += mt.getParameterTypes()[i].stackSize();
-		}
-		return Interpreter.interpretMethod(this, info, locals); 
+	    if (cls == null && ref.getClazz().equals(classSig)) {
+		BytecodeInfo info = 
+		    ClassInfo.forName(ref.getClazz())
+		    .findMethod(ref.getName(), ref.getType())
+		    .getBytecode();
+		if (info != null)
+		    return interpreter.interpretMethod(info, null, params); 
+		throw new InterpreterException
+		    ("Can't interpret static native method: "+ref);
 	    } else
 		return super.invokeMethod(ref, isVirtual, cls, params);
 	}
@@ -372,15 +371,15 @@ public final class InvokeOperator extends Operator
 	MethodAnalyzer ma = clazz.getMethod(methodName, methodType);
 	if (ma == null)
 	    return null;
-	Environment env = new Environment();
-	BytecodeInfo info = ma.getBytecodeInfo();
-	Value[] locals = new Value[info.getMaxLocals()];
-	for (int i=0; i< locals.length; i++)
-	    locals[i] = new Value();
-	locals[0].setObject(op.getValue());
+	Environment env = new Environment("L"+methodAnalyzer.getClazz()
+					  .getName().replace('.','/')+";");
+	Interpreter interpreter = new Interpreter(env);
+	env.interpreter = interpreter;
+
 	String result;
 	try {
-	    result = (String) Interpreter.interpretMethod(env, info, locals);
+	    result = (String) interpreter.interpretMethod
+		(ma.getBytecodeInfo(), null, new String[] { op.getValue() });
 	} catch (InterpreterException ex) {
 	    GlobalOptions.err.println("Warning: Can't interpret method "
 				      +methodName);
