@@ -1,14 +1,13 @@
 This is a list of features, that would be nice to have:
 
 Decompiler:
- - deinline inlined methods.
+ - outline inlined methods.
  - remove string decrypt method.
  - remove synthetic methods if and only if all calls to them are resolved.
  ~ handle try catch more thouroughly/safely.
  ~ decompile jode.jvm.Interpreter (hand optimized bytecode)
 
 Obfuscator:
- - read options from a script.
  - flow obfuscation/optimization.
  - warn about Class.forName and list occurences.
 
@@ -25,7 +24,8 @@ User Interface:
    - list fields/method of selected class.
    - show decompilation of selected method.
    - show usage of method/fields.
- - syntax highlighting, hyper links etc.  (look at java.swing.JEditorPane)
+ - syntax highlighting, hyper links etc.  
+	(look at java.swing.JEditorPane or at Java Insight)
  - visual obfuscation/deobfuscation (like klassmaster?, better?)
 
 Internal:
