@@ -19,7 +19,6 @@
 
 package jode;
 import java.util.Enumeration;
-import gnu.bytecode.CpoolUtf8;
 import gnu.bytecode.LocalVarsAttr;
 import gnu.bytecode.Variable;
 import gnu.bytecode.Spy;

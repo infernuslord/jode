@@ -35,24 +35,33 @@ public class ConstructorOperator extends Operator {
     }
 
     public int getOperandCount() {
-        return methodType.getArgumentTypes().length;
+        return methodType.getParameterTypes().length;
     }
 
     public int getOperandPriority(int i) {
         return 0;
     }
 
+    public Type getClassType() {
+        return classType;
+    }
+
     public Type getOperandType(int i) {
-        return methodType.getArgumentTypes()[i];
+        return methodType.getParameterTypes()[i];
     }
 
     public void setOperandType(Type types[]) {
     }
 
+    public Expression simplifyStringBuffer() {
+        return (getClassType() == Type.tStringBuffer)
+            ? EMPTYSTRING : null;
+    }
+
     public String toString(String[] operands) {
         StringBuffer result = 
             new StringBuffer("new ").append(classType.toString()).append("(");
-        for (int i=0; i < methodType.getArgumentTypes().length; i++) {
+        for (int i=0; i < methodType.getParameterTypes().length; i++) {
             if (i>0)
                 result.append(", ");
             result.append(operands[i]);

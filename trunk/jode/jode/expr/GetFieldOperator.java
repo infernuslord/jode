@@ -22,17 +22,17 @@ import gnu.bytecode.CpoolRef;
 
 public class GetFieldOperator extends Operator {
     boolean staticFlag;
-    CpoolRef field;
     CodeAnalyzer codeAnalyzer;
+    String fieldName;
     Type classType;
 
-    public GetFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag, 
-                            CpoolRef field) {
-        super(Type.tType(field.getNameAndType().getType().getString()), 0);
+    public GetFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag,
+                            Type classType, Type type, String fieldName) {
+        super(type, 0);
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
-        this.field = field;
-        classType = Type.tClass(field.getCpoolClass().getName().getString());
+        this.classType = classType;
+        this.fieldName = fieldName;
         if (staticFlag)
             classType.useType();
     }
@@ -57,7 +57,6 @@ public class GetFieldOperator extends Operator {
     }
 
     public String toString(String[] operands) {
-        String fieldName = field.getNameAndType().getName().getString();
         return staticFlag
             ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
                ? fieldName 
@@ -68,7 +67,8 @@ public class GetFieldOperator extends Operator {
     }
 
     public boolean equals(Object o) {
-	return (o instanceof GetFieldOperator) &&
-	    ((GetFieldOperator)o).field == field;
+	return o instanceof GetFieldOperator
+	    && ((GetFieldOperator)o).classType.equals(classType)
+	    && ((GetFieldOperator)o).fieldName.equals(fieldName);
     }
 }

@@ -23,23 +23,24 @@ import gnu.bytecode.CpoolRef;
 public class PutFieldOperator extends StoreInstruction {
     CodeAnalyzer codeAnalyzer;
     boolean staticFlag;
-    CpoolRef field;
+    String fieldName;
     Type classType;
 
     public PutFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag, 
-                            CpoolRef field) {
-        super(Type.tType(field.getNameAndType().getType().getString()), ASSIGN_OP);
+                            Type classType, Type type, String fieldName) {
+        super(type, ASSIGN_OP);
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
-        this.field = field;
-        classType = Type.tClass(field.getCpoolClass().getName().getString());
+        this.fieldName = fieldName;
+        this.classType = classType;
         if (staticFlag)
             classType.useType();
     }
 
     public boolean matches(Operator loadop) {
-        return loadop instanceof GetFieldOperator &&
-            ((GetFieldOperator)loadop).field == field;
+        return loadop instanceof GetFieldOperator
+	    && ((GetFieldOperator)loadop).classType.equals(classType)
+	    && ((GetFieldOperator)loadop).fieldName.equals(fieldName);
     }
 
     public int getLValueOperandCount() {
@@ -58,7 +59,6 @@ public class PutFieldOperator extends StoreInstruction {
     }
 
     public String getLValueString(String[] operands) {
-        String fieldName = field.getNameAndType().getName().getString();
         return staticFlag
             ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
                ? fieldName 
@@ -69,7 +69,8 @@ public class PutFieldOperator extends StoreInstruction {
     }
 
     public boolean equals(Object o) {
-	return (o instanceof PutFieldOperator) &&
-	    ((PutFieldOperator)o).field == field;
+	return o instanceof PutFieldOperator
+	    && ((PutFieldOperator)o).classType.equals(classType)
+	    && ((PutFieldOperator)o).fieldName.equals(fieldName);
     }
 }

@@ -65,6 +65,8 @@ public abstract class Expression {
      * conflict was found.  You may wish to check for >0.
      */
     public int canCombine(Expression e) {
+        if (!e.isVoid())
+            return 0;
         if (e instanceof IIncOperator
             && ((IIncOperator)e.getOperator()).matches(getOperator()))
             return 1;
@@ -84,18 +86,29 @@ public abstract class Expression {
      * @return The combined expression.
      */
     public Expression combine(Expression e) {
-        if (e.getOperator() instanceof IIncOperator)
-            ((IIncOperator)e.getOperator()).makeNonVoid();
-        else
-            ((StoreInstruction)e.getOperator()).makeNonVoid();
-        /* Do not call setType, we don't want to intersect. */
-        e.type = e.getOperator().getType();
-        return e;
+        if (e.getOperator() instanceof IIncOperator) {
+            if (((IIncOperator)e.getOperator()).matches(getOperator())) {
+                ((IIncOperator)e.getOperator()).makeNonVoid();
+                /* Do not call setType, we don't want to intersect. */
+                e.type = e.getOperator().getType();
+                return e;
+            }
+        } else {
+            if (((StoreInstruction)e.getOperator()).matches(getOperator())) {
+                ((StoreInstruction)e.getOperator()).makeNonVoid();
+                /* Do not call setType, we don't want to intersect. */
+                e.type = e.getOperator().getType();
+                return e;
+            }
+        }
+        return null;
     }
 
     public Expression simplify() {
         return this;
     }
+
+    static Expression EMPTYSTRING = new ConstOperator(Type.tString, "\"\"");
 
     public Expression simplifyStringBuffer() {
         return null;

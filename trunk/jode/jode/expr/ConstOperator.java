@@ -46,13 +46,17 @@ public class ConstOperator extends NoArgOperator {
                 return "false";
             else if (value.equals("1"))
                 return "true";
-        } if (type == Type.tChar) {
-            char i = (char) Integer.parseInt(value);
-            switch (i) {
+        } if (type.getBottom() == Type.tChar) {
+            char c = (char) Integer.parseInt(value);
+            switch (c) {
+            case '\0':
+                return "\'\\0\'";
             case '\t':
                 return "\'\\t\'";
             case '\n':
                 return "\'\\n\'";
+            case '\r':
+                return "\'\\r\'";
             case '\\':
                 return "\'\\\\\'";
             case '\"':
@@ -60,8 +64,16 @@ public class ConstOperator extends NoArgOperator {
             case '\'':
                 return "\'\\\'\'";
             }
-            if (i >= 32 && i <128)
-                return "\'"+i+"\'";
+            if (c < 32) {
+                String oct = Integer.toOctalString(c);
+                return "\'\\000".substring(0, 5-oct.length())+oct+"\'";
+            }
+            if (c >= 32 && c < 127)
+                return "\'"+c+"\'";
+            else {
+                String hex = Integer.toHexString(c);
+                return "\'\\u0000".substring(0, 7-hex.length())+hex+"\'";
+            }
         } else if (parent != null) {
             int opindex = parent.getOperator().getOperatorIndex();
             if (opindex >= OPASSIGN_OP + ADD_OP
