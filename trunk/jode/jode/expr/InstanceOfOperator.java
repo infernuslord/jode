@@ -23,20 +23,16 @@ import jode.Type;
 public class InstanceOfOperator extends SimpleOperator {
 
     Type instanceType;
+    /**
+     * There are special cases where a instanceof isn't allowed.  We must cast
+     * to the common super type before.  This cases always give a runtime
+     * error, but we want to decompile even bad programs.
+     */
+    Type superType = null;
+    
 
     public InstanceOfOperator(Type type) {
         super(Type.tBoolean, 0, 1);
-        /* The following is wrong.  The operand must not
-         * be a super type of the given type, but any type
-         * especially if type is an interface.
-         *
-         * If operand is of class type, it is probably a
-         * super type, but who knows?
-         *
-         * this.operandTypes[0] = Type.tSuperType(type);
-         *
-         * The forgiving solution:
-         */
         this.instanceType = type;
         this.operandTypes[0] = Type.tUnknown;
     }
@@ -52,7 +48,18 @@ public class InstanceOfOperator extends SimpleOperator {
         return getPriority();
     }
 
+    public void setOperandType(Type[] type) {
+	super.setOperandType(type);
+	superType = instanceType.getCastHelper(type[0]);
+    }
+
     public String toString(String[] operands) {
-        return operands[0] + " instanceof "+instanceType;
+        StringBuffer sb = new StringBuffer();
+	if (superType != null)
+	    sb.append("((").append(superType).append(")");
+	sb.append(operands[0]);
+	if (superType != null)
+	    sb.append(")");
+        return sb.append(" instanceof ").append(instanceType).toString();
     }
 }
