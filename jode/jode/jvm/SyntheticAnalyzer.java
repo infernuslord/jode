@@ -161,9 +161,16 @@ public class SyntheticAnalyzer implements Opcodes {
     }
 
     private final int modifierMask = (Modifier.PRIVATE | Modifier.PROTECTED | 
-				      Modifier.PUBLIC | Modifier.STATIC);
+				      Modifier.PUBLIC);
 
-    public boolean checkStaticAccess() {
+    /**
+     * Check if this is a field/method access method.  We have only
+     * very few checks: The parameter must be loaded in correct order,
+     * followed by an get/put/invoke-field/static/special consuming
+     * all loaded parameters.  The CodeVerifier has already checked
+     * that types of parameters are okay.  
+     */
+    private boolean checkAccess() {
 	BasicBlocks bb = method.getBasicBlocks();
 	Handler[] excHandlers = bb.getExceptionHandlers();
 	if (excHandlers != null && excHandlers.length != 0)
@@ -177,31 +184,11 @@ public class SyntheticAnalyzer implements Opcodes {
 	    (succBlocks.length == 1 && succBlocks[0] != null))
 	    return false;
 	Iterator iter = Arrays.asList(startBlock.getInstructions()).iterator();
+
 	if (!iter.hasNext())
 	    return false;
 	Instruction instr = (Instruction) iter.next();
-	if (instr.getOpcode() == opc_getstatic) {
-	    Reference ref = instr.getReference();
-	    String refClazz = ref.getClazz().substring(1);
-	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(classInfo.getName().replace('.','/'))))
-		return false;
-	    FieldInfo refField
-		= classInfo.findField(ref.getName(), ref.getType());
-	    if ((refField.getModifiers() & modifierMask) != 
-		(Modifier.PRIVATE | Modifier.STATIC))
-		return false;
-	    if (!iter.hasNext())
-		return false;
-	    instr = (Instruction) iter.next();
-	    if (instr.getOpcode() < opc_ireturn
-		|| instr.getOpcode() > opc_areturn)
-		return false;
-	    /* For valid bytecode the type matches automatically */
-	    reference = ref;
-	    kind = ACCESSGETSTATIC;
-	    return true;
-	}
+
 	int params = 0, slot = 0;
 	while (instr.getOpcode() >= opc_iload
 	       && instr.getOpcode() <= opc_aload
@@ -213,96 +200,14 @@ public class SyntheticAnalyzer implements Opcodes {
 		return false;
 	    instr = (Instruction) iter.next();
 	}
-	if (instr.getOpcode() == opc_putstatic) {
-	    if (params != 1)
-		return false;
-	    /* For valid bytecode the type of param matches automatically */
-	    Reference ref = instr.getReference();
-	    String refClazz = ref.getClazz().substring(1);
-	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(classInfo.getName().replace('.','/'))))
-		return false;
-	    FieldInfo refField
-		= classInfo.findField(ref.getName(), ref.getType());
-	    if ((refField.getModifiers() & modifierMask) != 
-		(Modifier.PRIVATE | Modifier.STATIC))
-		return false;
-	    if (!iter.hasNext())
-		return false;
-	    instr = (Instruction) iter.next();
-	    if (instr.getOpcode() != opc_return)
-		return false;
-	    reference = ref;
-	    kind = ACCESSPUTSTATIC;
-	    return true;
-	}
-	if (instr.getOpcode() == opc_invokestatic) {
-	    Reference ref = instr.getReference();
-	    String refClazz = ref.getClazz().substring(1);
-	    if (!(refClazz.substring(0, refClazz.length()-1)
-		  .equals(classInfo.getName().replace('.','/'))))
-		return false;
-	    MethodInfo refMethod
-		= classInfo.findMethod(ref.getName(), ref.getType());
-	    MethodType refType = Type.tMethod(classInfo.getClassPath(),
-					      ref.getType());
-	    if ((refMethod.getModifiers() & modifierMask) != 
-		(Modifier.PRIVATE | Modifier.STATIC)
-		|| refType.getParameterTypes().length != params)
-		return false;
-	    if (!iter.hasNext())
-		return false;
-	    instr = (Instruction) iter.next();
-	    if (refType.getReturnType() == Type.tVoid) {
-		if (iter.hasNext())
-		    return false;
-	    } else {
-		if (!iter.hasNext())
-		    return false;
-		instr = (Instruction) iter.next();
-		if (instr.getOpcode() < opc_ireturn
-		    || instr.getOpcode() > opc_areturn)
-		    return false;
-	    }
 
-	    /* For valid bytecode the types matches automatically */
-	    reference = ref;
-	    kind = ACCESSSTATICMETHOD;
-	    return true;
-	}
-	return false;
-    }
-
-    public boolean checkAccess() {
-	if (method.isStatic()) {
-	    if (checkStaticAccess())
-		return true;
-	}
-
-	BasicBlocks bb = method.getBasicBlocks();
-	Handler[] excHandlers = bb.getExceptionHandlers();
-	if (excHandlers != null && excHandlers.length != 0)
-	    return false;
-	Block[] blocks = bb.getBlocks();
-	Block startBlock = bb.getStartBlock();
-	if (startBlock == null)
-	    return false;
-	Block[] succBlocks = startBlock.getSuccs();
-	if (succBlocks.length > 1 || 
-	    (succBlocks.length == 1 && succBlocks[0] != null))
-	    return false;
-	Iterator iter = Arrays.asList(startBlock.getInstructions()).iterator();
-
-	if (!iter.hasNext())
-	    return false;
-	Instruction instr = (Instruction) iter.next();
-	if (instr.getOpcode() != opc_aload || instr.getLocalSlot() != 0)
-	    return false;
-	if (!iter.hasNext())
-	    return false;
-	instr = (Instruction) iter.next();
-
-	if (instr.getOpcode() == opc_getfield) {
+	if (instr.getOpcode() == opc_getstatic
+	    || instr.getOpcode() == opc_getfield) {
+	    boolean isStatic = instr.getOpcode() == opc_getstatic;
+	    if (!isStatic)
+		params--;
+	    if (params != 0)
+		return false;
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
@@ -320,21 +225,14 @@ public class SyntheticAnalyzer implements Opcodes {
 		return false;
 	    /* For valid bytecode the type matches automatically */
 	    reference = ref;
-	    kind = ACCESSGETFIELD;
+	    kind = (isStatic ? ACCESSGETSTATIC : ACCESSGETFIELD);
 	    return true;
 	}
-	int params = 0, slot = 1;
-	while (instr.getOpcode() >= opc_iload
-	       && instr.getOpcode() <= opc_aload
-	       && instr.getLocalSlot() == slot) {
-	    params++;
-	    slot += (instr.getOpcode() == opc_lload 
-		     || instr.getOpcode() == opc_dload) ? 2 : 1;
-	    if (!iter.hasNext())
-		return false;
-	    instr = (Instruction) iter.next();
-	}
-	if (instr.getOpcode() == opc_putfield) {
+	if (instr.getOpcode() == opc_putfield 
+	    || instr.getOpcode() == opc_putstatic) {
+	    boolean isStatic = instr.getOpcode() == opc_putstatic;
+	    if (!isStatic)
+		params--;
 	    if (params != 1)
 		return false;
 	    /* For valid bytecode the type of param matches automatically */
@@ -350,10 +248,14 @@ public class SyntheticAnalyzer implements Opcodes {
 	    if (iter.hasNext())
 		return false;
 	    reference = ref;
-	    kind = ACCESSPUTFIELD;
+	    kind = (isStatic ? ACCESSPUTSTATIC : ACCESSPUTFIELD);
 	    return true;
 	}
-	if (instr.getOpcode() == opc_invokespecial) {
+	if (instr.getOpcode() == opc_invokestatic
+	    || instr.getOpcode() == opc_invokespecial) {
+	    boolean isStatic = instr.getOpcode() == opc_invokestatic;
+	    if (!isStatic)
+		params--;
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)
@@ -380,13 +282,13 @@ public class SyntheticAnalyzer implements Opcodes {
 
 	    /* For valid bytecode the types matches automatically */
 	    reference = ref;
-	    kind = ACCESSMETHOD;
+	    kind = (isStatic ? ACCESSSTATICMETHOD : ACCESSMETHOD);
 	    return true;
 	}
 	return false;
     }
 
-    public boolean checkConstructorAccess() {
+    private boolean checkConstructorAccess() {
 	BasicBlocks bb = method.getBasicBlocks();
 	String[] paramTypes
 	    = TypeSignature.getParameterTypes(method.getType());
