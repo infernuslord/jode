@@ -7,6 +7,10 @@ won't work.
 This package was designed to use the GNU standard for configuration
 and makefiles.  To build and install do the following:
 
+0).  If you have downloaded the code from the CVS repository create
+configure and Makefile.in with autoconf-2.13 and automake-1.4.  Type
+"aclocal; automake -a; autoconf".
+
 1).  You need a java development kit (at least version 1.1), some unix
 tools and some java packages.  Make sure that you have all java
 packages that are needed in your classpath.  This are gnu.getopt, and
@@ -33,7 +37,7 @@ if you have JDK 1.1 you also need the collection classes and swing for
 various options you might want to pass to configure to control how the
 package is built.  "configure --help" will give a complete list.  
 
-Use the --with-jdk option to specify the install directory of the jdk.
+Use the --with-java option to specify the install directory of the jdk.
 
 If you have jikes, you should specify it with --with-jikes.  You can
 give a path to the directory where it resides, otherwise it is
