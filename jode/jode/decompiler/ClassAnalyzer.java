@@ -23,7 +23,6 @@ import jode.bytecode.ClassInfo;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.MethodInfo;
 import jode.bytecode.ConstantPool;
-import jode.bytecode.ClassFormatException;
 import jode.expr.Expression;
 import jode.flow.TransformConstructors;
 import java.util.NoSuchElementException;
@@ -172,10 +171,6 @@ public class ClassAnalyzer implements Analyzer {
 	writer.closeBrace();
     }
 
-    public ConstantPool getConstantPool() {
-        return clazz.getConstantPool();
-    }
-        
     public String getTypeString(Type type) {
         return type.toString();
     }
