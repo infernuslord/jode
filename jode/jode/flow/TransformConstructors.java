@@ -35,38 +35,113 @@ import java.util.Vector;
 import java.util.Enumeration;
 
 /**
+ * This class will transform the constructors.  This involves several
+ * steps:
+ *
+ * <ul><li>remove implicit super() call</li>
+ * <li>move constant field initializations that occur in all constructors
+ * (except those that start with a this() call) to the fields.</li>
+ * <li>For inner classes check if the this$0 field(s) is/are
+ * initialized corectly, remove the initializer and mark that
+ * field. </li>
+ * <li>For method scope classes also check the val$xx fields.</li>
+ * <li>For jikes class check for a constructor$xx call, and mark that
+ * as the real constructor, moving the super call of the original
+ * constructor</li>
+ * <li>For anonymous classes check that the constructor only contains
+ * a super call and mark it as default</li></ul>
+ *
+ * It will make use of the <code>outerValues</code> expression, that
+ * tell which parameters (this and final method variables) are always
+ * given to the constructor.
+ *
+ * You can debug this class with the <code>--debug=constructors</code>
+ * switch.
  * 
- * @author Jochen Hoenicke
- */
+ * @author Jochen Hoenicke 
+ * @see jode.decompiler.FieldAnalyzer#setInitializer
+ * @see jode.decompiler.ClassAnalyzer#getOuterValues */
 public class TransformConstructors {
+    /* What is sometimes confusing is the distinction between slot and
+     * parameter.  Most times parameter nr = slot nr, but double and
+     * long parameters take two slots, so the remaining parameters
+     * will shift.
+     */
+
+    ClassAnalyzer clazzAnalyzer;
+    boolean isStatic;
+    MethodAnalyzer[] cons;
+
+    Expression[] outerValues;
+    /**
+     * The minimal first slot number after the outerValues.  This is because
+     * the outerValues array may shrink to the desired size.  */
+    int ovMinSlots;
+    /**
+     * The maximal first slot number after the outerValues.  
+     */
+    int ovMaxSlots;
+
+    boolean jikesAnonInner = false;
+    
+    public TransformConstructors(ClassAnalyzer clazzAnalyzer,
+				 boolean isStatic, MethodAnalyzer[] cons) {
+	this.clazzAnalyzer = clazzAnalyzer;
+	this.isStatic = isStatic;
+	this.cons = cons;
+	this.outerValues = clazzAnalyzer.getOuterValues();
+	this.ovMinSlots = 1;
+	ovMaxSlots = 1;
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_CONSTRS) != 0)
+	    GlobalOptions.err.print("OuterValues: ");
+	if (outerValues != null) {
+	    for (int i=0; i< outerValues.length; i++) {
+		ovMaxSlots += outerValues[i].getType().stackSize();
+		if ((GlobalOptions.debuggingFlags
+		     & GlobalOptions.DEBUG_CONSTRS) != 0)
+		    GlobalOptions.err.print(outerValues[i]+", ");
+	    }
+	}
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_CONSTRS) != 0)
+	    GlobalOptions.err.println(" ["+ovMinSlots+","+ovMaxSlots+"]");
+    }
     
     public static boolean isThis(Expression thisExpr, ClassInfo clazz) {
 	return ((thisExpr instanceof ThisOperator)
 		&& (((ThisOperator)thisExpr).getClassInfo() == clazz));
     }
 
-    public static boolean checkImplicitAnonymousConstructor
-	(ClassAnalyzer clazzAnalyzer, MethodAnalyzer constr) {
+    /**
+     * Translate a slot into an index into the outerValues array.
+     * @return index into outerValues array or -1, if not matched.
+     */
+    public int getOuterValueIndex(int slot) {
+	int ovSlot = 1; // slot of first outerValue
+	for (int i=0; i< outerValues.length; i++) {
+	    if (ovSlot == slot)
+		return i;
+	    ovSlot += outerValues[i].getType().stackSize();
+	}
+	return -1;
+    }
+
+    public boolean checkAnonymousConstructor(MethodAnalyzer constr,
+					     InstructionBlock superBlock) {
 
 	if (clazzAnalyzer.getName() != null)
 	    return false;
 
-	int outerValuesLength = clazzAnalyzer.getOuterValues().length;
-	MethodType origType = constr.getType();
 	/**
 	 * Situation:
-	 * constructor(outerParams, params) {
+	 * constructor(outerValues, params) {
 	 *   super(params);
 	 * }
 	 *
 	 * Mark constructor as anonymous constructor.
 	 */
 
-	StructuredBlock sb = constr.getMethodHeader().block;
-	if (!(sb instanceof InstructionBlock))
-	    return false;
-
-	InstructionBlock superBlock = (InstructionBlock) sb;
 	if (!(superBlock.getInstruction() instanceof InvokeOperator))
 	    return false;
 	
@@ -84,23 +159,49 @@ public class TransformConstructors {
 	    return false;
 
 	Type[] constrParams = constr.getType().getParameterTypes();
-	if (subExpr.length - 1 !=  constrParams.length - outerValuesLength)
+
+	int ovLength = constrParams.length - (subExpr.length - 1);
+	int ovSlots = 1;
+	for (int i=0; i< ovLength; i++) {
+	    ovSlots += outerValues[i].getType().stackSize();
+	}
+
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_CONSTRS) != 0)
+	    GlobalOptions.err.println("anonymousConstructor:  slots expected: "
+				      +ovSlots+" possible: ["
+				      +ovMinSlots+","+ovMaxSlots+"]");
+	if (ovSlots < ovMinSlots || ovSlots > ovMaxSlots)
 	    return false;
-	for (int i = 1; i < subExpr.length; i++) {
+	int slot = ovSlots;
+	int start = jikesAnonInner ? 2 : 1;
+	for (int i = start; i < subExpr.length; i++) {
 	    if (!(subExpr[i] instanceof LocalLoadOperator))
 		return false;
 	    LocalLoadOperator llop = (LocalLoadOperator) subExpr[i];
-	    if (llop.getLocalInfo().getSlot() != i + outerValuesLength)
+	    
+	    if (llop.getLocalInfo().getSlot() != slot)
+		return false;
+	    slot += subExpr[i].getType().stackSize();
+	}
+	if (jikesAnonInner) {
+	    if (!(subExpr[1] instanceof LocalLoadOperator))
+		return false;
+	    LocalLoadOperator llop = (LocalLoadOperator) subExpr[1];
+	    
+	    if (llop.getLocalInfo().getSlot() != slot)
 		return false;
 	}
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_CONSTRS) != 0)
+	    GlobalOptions.err.println("anonymousConstructors succeeded");
+	ovMinSlots = ovMaxSlots = ovSlots;
 	constr.setAnonymousConstructor(true);
 	return true;
-
     }
 
-    public static boolean checkJikesSuperAndFillLoads(Expression expr,
-						      int outerValuesLength,
-						      Vector localLoads) {
+    public boolean checkJikesSuperAndFillLoads(Expression expr,
+					       Vector localLoads) {
 	if (expr instanceof LocalStoreOperator
 	    || expr instanceof IIncOperator)
 	    return false;
@@ -108,33 +209,41 @@ public class TransformConstructors {
 	if (expr instanceof LocalLoadOperator) {
 	    LocalLoadOperator llop = (LocalLoadOperator) expr;
 	    int slot = llop.getLocalInfo().getSlot();
-	    if (slot < outerValuesLength)
-		return false;
+	    if (slot != 1) {
+		/* slot 1 is outerValues[0], which is okay */
+		if (slot < ovMinSlots)
+		    return false;
+		if (slot < ovMaxSlots)
+		    ovMaxSlots = slot;
+	    }
 	    localLoads.addElement(llop);
 	}
 	if (expr instanceof Operator) {
 	    Expression subExpr[] = ((Operator)expr).getSubExpressions();
 	    for (int i=0; i< subExpr.length; i++) {
-		if (!checkJikesSuperAndFillLoads(subExpr[i], outerValuesLength,
-						 localLoads))
+		if (!checkJikesSuperAndFillLoads(subExpr[i], localLoads))
 		    return false;
 	    }
 	}
 	return true;
     }
 
-    public static boolean checkJikesContinuation
-	(ClassAnalyzer clazzAnalyzer, MethodAnalyzer constr) {
+    public boolean checkJikesContinuation(MethodAnalyzer constr) {
 
-	Expression[] oVs = clazzAnalyzer.getOuterValues();
-	int outerValuesLength = oVs == null ? 0 : oVs.length;
-	MethodType origType = constr.getType();
+	MethodType constrType = constr.getType();
 
-	/**
+	/*
 	 * Situation:
-	 * constructor(outerParams, params) {
-	 *   [optional: super(this, params, exprs)]
-	 *   constructor$?(Outer.this, params);
+	 * constructor(outerValues, params) {
+	 *   [optional: super(expressions builded of (outerValues[0], params))]
+	 *   constructor$?(outerValues[0], params);
+	 * }
+	 *
+	 * For anonymous classes that extends class/method scope classes
+	 * the situation is more unusal:
+	 * constructor(outerValues, params, outerClass) {
+	 *   outerClass.super(params);
+	 *   constructor$?(outerValues[0], params);
 	 * }
 	 *
 	 * Move optional super to method constructor$?
@@ -170,10 +279,25 @@ public class TransformConstructors {
 	    if (!isThis(thisExpr, clazzAnalyzer.getClazz()))
 		return false;
 
+	    ClassInfo superClazz = superCall.getClassInfo();
+	    if ((Decompiler.options & 
+		 (Decompiler.OPTION_ANON | Decompiler.OPTION_INNER)) != 0
+		&& clazzAnalyzer.getName() == null
+		&& superClazz.getOuterClasses() != null
+		&& subExpr[1] instanceof LocalLoadOperator) {
+		Type[] paramTypes = constrType.getParameterTypes();
+		int expectedSlot = 1;
+		for (int i=0; i< paramTypes.length-1; i++) {
+		    expectedSlot += paramTypes[i].stackSize();
+		}
+		if (((LocalLoadOperator) 
+		     subExpr[1]).getLocalInfo().getSlot() == expectedSlot)
+		    jikesAnonInner = true;
+	    }
+
 	    localLoads = new Vector();
-	    for (int i=1; i< subExpr.length; i++) {
-		if (!checkJikesSuperAndFillLoads(subExpr[i], outerValuesLength,
-						 localLoads))
+	    for (int i=2; i< subExpr.length; i++) {
+		if (!checkJikesSuperAndFillLoads(subExpr[i], localLoads))
 		    return false;
 	    }
 
@@ -195,18 +319,32 @@ public class TransformConstructors {
 	CodeAnalyzer codeAna = methodAna.getCode();
 	if (codeAna == null)
 	    return false;
-	MethodType type = methodAna.getType();
-	
-	if (!methodAna.getName().startsWith("constructor$")
-	    || (type.getParameterTypes().length - 1 
-		!= origType.getParameterTypes().length - outerValuesLength)
-	    || type.getReturnType() != Type.tVoid)
+	MethodType methodType = methodAna.getType();
+
+	int ovLength = constrType.getParameterTypes().length
+	    - (methodType.getParameterTypes().length - 1);
+	if (jikesAnonInner)
+	    ovLength--;
+	if (ovLength > outerValues.length)
 	    return false;
-	
+	int ovSlots = 1;
+	for (int i=0; i< ovLength; i++) {
+	    ovSlots += outerValues[i].getType().stackSize();
+	}
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_CONSTRS) != 0)
+	    GlobalOptions.err.println("jikesConstrCont:  slots expected: "
+				      +ovSlots+" possible: ["
+				      +ovMinSlots+","+ovMaxSlots+"]");
+
+	if (!methodAna.getName().startsWith("constructor$")
+	    || ovSlots < ovMinSlots || ovSlots > ovMaxSlots
+	    || methodType.getReturnType() != Type.tVoid)
+	    return false;
+
 	if (!isThis(invoke.getSubExpressions()[0], 
 		    clazzAnalyzer.getClazz()))
 	    return false;
-
 	ClassInfo parent;
 	if (clazzAnalyzer.getParent() instanceof ClassAnalyzer)
 	    parent = ((ClassAnalyzer) clazzAnalyzer.getParent())
@@ -216,18 +354,36 @@ public class TransformConstructors {
 		.getClazz();
 	else
 	    return false;
-	if (!isThis(invoke.getSubExpressions()[1], parent))
+	
+	Expression[] constrParams = invoke.getSubExpressions();
+	if (!isThis(outerValues[0], parent)
+	    || !(constrParams[1] instanceof LocalLoadOperator)
+	    || ((LocalLoadOperator) 
+		constrParams[1]).getLocalInfo().getSlot() != 1)
 	    return false;
-	for (int j = 1; j < type.getParameterTypes().length; j++) {
-	    if (!(invoke.getSubExpressions()[j+1]
-		  instanceof LocalLoadOperator))
-		return false;
-	    LocalLoadOperator llop
-		= (LocalLoadOperator) invoke.getSubExpressions()[j+1];
-	    if (llop.getLocalInfo().getSlot() != j + outerValuesLength)
-		return false;
+	{
+	    int slot = ovSlots;
+	    int start = 2;
+	    for (int j = start; j < constrParams.length; j++) {
+		if (!(constrParams[j] instanceof LocalLoadOperator))
+		    return false;
+		LocalLoadOperator llop
+		    = (LocalLoadOperator) constrParams[j];
+		if (llop.getLocalInfo().getSlot() != slot)
+		    return false;
+		slot += constrParams[j].getType().stackSize(); 
+	    }
 	}
+	if ((GlobalOptions.debuggingFlags
+	     & GlobalOptions.DEBUG_CONSTRS) != 0)
+	    GlobalOptions.err.println("jikesConstrCont succeded.");
 
+	ovMinSlots = ovMaxSlots = ovSlots;
+	if (superBlock != null
+	    && checkAnonymousConstructor(constr, superBlock)) {
+	    superBlock = null;
+	}
+	
 	constr.getMethodHeader().block.removeBlock();
 
 	/* Now move the constructor call.
@@ -238,22 +394,28 @@ public class TransformConstructors {
 	    while (enum.hasMoreElements()) {
 		LocalLoadOperator llop 
 		    = (LocalLoadOperator) enum.nextElement();
-		int newSlot = llop.getLocalInfo().getSlot()
-		    - outerValuesLength + 1;
+		int slot = llop.getLocalInfo().getSlot();
+		    
+		int newSlot = (slot == 1 
+			       ? 1 /* outerValues[0] */
+			       : slot - ovSlots + 2);
 		llop.setCodeAnalyzer(codeAna);
 		llop.setLocalInfo(codeAna.getLocalInfo(0, newSlot));
 	    }
 	    codeAna.insertStructuredBlock(superBlock);
 	}
+	clazzAnalyzer.setJikesAnonymousInner(jikesAnonInner);
 	constr.setJikesConstructor(true);
 	methodAna.setJikesConstructor(true);
+	codeAna.getParamInfo(1).setExpression(outerValues[0]);
 	methodAna.analyze();
-	checkImplicitAnonymousConstructor(clazzAnalyzer, methodAna);
+	if (constr.isAnonymousConstructor()
+	    && methodAna.getMethodHeader().block instanceof EmptyBlock)
+	    methodAna.setAnonymousConstructor(true);
 	return true;
     }
 
-    public static void transform(ClassAnalyzer clazzAnalyzer,
-                                 boolean isStatic, MethodAnalyzer[] cons) {
+    public void transform() {
         if (cons.length == 0)
             return;
 
@@ -299,7 +461,9 @@ public class TransformConstructors {
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_CONSTRS) != 0)
 			GlobalOptions.err.println("skipping this()");
+		    MethodAnalyzer temp = cons[i];
                     cons[i] = cons[--constrCount];
+		    cons[constrCount] = temp;
                     continue;
                 }
                 /* This constructor begins with a super call, as 
@@ -308,38 +472,6 @@ public class TransformConstructors {
 		InnerClassInfo outer = invoke.getOuterClassInfo();
 		/* If the super() has no parameters, we can remove it
 		 */
-//                  /* If this is an anonymous class, and the super() gets
-//  		 * the same parameters as this class, remove it, too
-//                   */
-//  		if (clazzAnalyzer.getName() == null
-//  		    && (Decompiler.options & Decompiler.OPTION_ANON) != 0
-//  		    && cons.length == 1) {
-//  		    int skipParams = 1;
-//  		    if (outer != null && outer.outer != null
-//  			&& outer.name != null
-//  			&& !Modifier.isStatic(outer.modifiers)
-//  			&& (Decompiler.options
-//  			    & Decompiler.OPTION_INNER) != 0
-//  			&& (invoke.getSubExpressions()[1]
-//  			    instanceof ThisOperator))
-//  			skipParams++;
-//  		    int length = invoke.getSubExpressions().length 
-//  			- skipParams;
-//  		    Type[] consType = cons[i].getMethodType()
-//  			.getParameterTypes();
-//  		    int outerValuesLength = 
-//  			clazzAnalyzer.getOuterValues().length;
-//  		    if (length == consType.length - outerValuesLength) {
-//  			for (int j=0; j< length; j++) {
-//  			    Expression expr = 
-//  				invoke.getSubExpressions()[skipParams+j];
-//  			    /*XXX*/
-//  			}
-//  		    }
-//  		    clazzAnalyzer.setSuperParams(params);
-//  		    ib.removeBlock();
-//  		}
-//  		else
 		if (outer != null && outer.outer != null
 			 && outer.name != null
 			 && !Modifier.isStatic(outer.modifiers)) {
@@ -416,7 +548,23 @@ public class TransformConstructors {
             }
 
             Expression expr =  store.getSubExpressions()[1];
-            if (!expr.isConstant()) {
+	    if (expr instanceof LocalLoadOperator
+		&& outerValues != null
+		&& (Decompiler.options & Decompiler.OPTION_CONTRAFO) != 0) {
+		int slot = ((LocalLoadOperator)expr).getLocalInfo().getSlot();
+		int pos = getOuterValueIndex(slot);
+		if (pos < 0 || slot >= ovMaxSlots) {
+		    if ((GlobalOptions.debuggingFlags
+			 & GlobalOptions.DEBUG_CONSTRS) != 0)
+			GlobalOptions.err.println("not outerValue: "+expr
+						  +" ["+ovMinSlots
+						  +","+ovMaxSlots+"]");
+		    break big_loop;
+		}
+		expr = outerValues[pos];
+		if (slot >= ovMinSlots)
+		    ovMinSlots = slot + expr.getType().stackSize();
+            } else if (!expr.isConstant()) {
 		if ((GlobalOptions.debuggingFlags
 		     & GlobalOptions.DEBUG_CONSTRS) != 0)
 		    GlobalOptions.err.println("not constant: "+expr);
@@ -428,7 +576,6 @@ public class TransformConstructors {
 		GlobalOptions.err.println("field " + pfo.getFieldName()
 					  + " = " + expr);
 
-
             for (int i=1; i< constrCount; i++) {
                 ib = (sb[i] instanceof SequentialBlock) 
                     ? sb[i].getSubBlocks()[0]
@@ -438,7 +585,8 @@ public class TransformConstructors {
 			 .equals(instr))) {
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_CONSTRS) != 0)
-			GlobalOptions.err.println("constr "+i+" differs: "+ib);
+			GlobalOptions.err.println("constr "+i+" differs: "+ib
+						  +((InstructionBlock)ib).getInstruction().simplify()+" <!=> "+instr);
                     break big_loop;
                 }
             }
@@ -452,7 +600,7 @@ public class TransformConstructors {
 		    GlobalOptions.err.println("setField failed");
                 break big_loop;
             }
-                                                   
+	    
             
             for (int i=0; i< constrCount; i++) {
                 if (sb[i] instanceof SequentialBlock)
@@ -461,7 +609,7 @@ public class TransformConstructors {
                     sb[i] = null; 
             }
         }
-
+	
 	for (int i=0; i< constrCount; i++) {
             if (start[i] != null) {
 		if (sb[i] == null)
@@ -470,11 +618,47 @@ public class TransformConstructors {
 		    sb[i].replace(start[i]);
 		    sb[i].simplify();
 		}
-		// Check for jikes continuation
-		checkJikesContinuation(clazzAnalyzer, cons[i]);
+		if ((Decompiler.options & Decompiler.OPTION_CONTRAFO) != 0)
+		    // Check for jikes continuation
+		    checkJikesContinuation(cons[i]);
 	    }
-	    checkImplicitAnonymousConstructor(clazzAnalyzer, cons[i]);
-        }
+	    if ((Decompiler.options & Decompiler.OPTION_CONTRAFO) != 0
+		&& (cons[i].getMethodHeader().block
+		    instanceof InstructionBlock)) {
+		checkAnonymousConstructor(cons[i],
+					  (InstructionBlock)
+					  cons[i].getMethodHeader().block);
+	    }
+	}
+	ovMaxSlots = ovMinSlots;
+	int ovLength = 0;
+	if (outerValues != null) {
+	    for (int slot=1; slot < ovMinSlots; ) {
+		slot += outerValues[ovLength++].getType().stackSize();
+	    }
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_CONSTRS) != 0)
+		GlobalOptions.err.println("shrinking outerValues from "
+					  + outerValues.length
+					  + " to " + ovLength);
+
+	    if (ovLength < outerValues.length) {
+		Expression[] newOuterValues = new Expression[ovLength];
+		System.arraycopy(outerValues, 0, newOuterValues, 0, ovLength);
+		clazzAnalyzer.setOuterValues(newOuterValues);
+	    }
+	}
+
+	/* Now tell _all_ constructors the value of outerValues-parameters
+	 * and simplify them again.
+	 */
+	for (int i=0; i< cons.length; i++) {
+	    CodeAnalyzer codeAna = cons[i].getCode();
+	    if (codeAna == null)
+		continue;
+	    for (int j=0; j< ovLength; j++)
+		codeAna.getParamInfo(j+1).setExpression(outerValues[j]);
+	    codeAna.getMethodHeader().simplify();
+	}	
     }
 }
-
