@@ -37,6 +37,7 @@ import jode.util.Map;
 ///import java.lang.ref.SoftReference;
 ///#endif
 import java.lang.reflect.Modifier;
+import java.util.BitSet;
 
 public class MethodIdentifier extends Identifier implements Opcodes {
     ClassIdentifier clazz;
@@ -44,20 +45,13 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     String name;
     String type;
 
+    boolean globalSideEffects;
+    BitSet localSideEffects;
+
     /**
      * The code analyzer of this method, or null if there isn't any.
      */
     CodeAnalyzer codeAnalyzer;
-
-    public CodeAnalyzer getCodeAnalyzer() {
-	if (codeAnalyzer != null)
-	    return codeAnalyzer;
-
-	BytecodeInfo code = info.getBytecode();
-	if (code != null)
-	    codeAnalyzer = new ConstantAnalyzer(code, this);
-	return codeAnalyzer;
-    }
 
     public MethodIdentifier(ClassIdentifier clazz, MethodInfo info) {
 	super(info.getName());
@@ -72,18 +66,13 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		info.getBytecode().setLocalVariableTable(null);
 	    if ((Main.stripping & Main.STRIP_LNT) != 0)
 		info.getBytecode().setLineNumberTable(null);
+	    codeAnalyzer = Main.createCodeAnalyzer();
 	}
+
     }
 
     public Iterator getChilds() {
 	return Collections.EMPTY_LIST.iterator();
-    }
-
-    public void applyPreserveRule(int preserveRule) {
-	if ((preserveRule & (info.getModifiers() ^ Modifier.PRIVATE)) != 0) {
-	    setReachable();
-	    setPreserved();
-	}
     }
 
     public void setSingleReachable() {
@@ -112,8 +101,9 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    .reachableIdentifier(exceptions[i], false);
 	}
 
-	if (getCodeAnalyzer() != null)
-	    getCodeAnalyzer().analyzeCode();
+	BytecodeInfo code = info.getBytecode();
+	if (code != null)
+	    codeAnalyzer.analyzeCode(this, code);
     }
 
     public void readTable(Map table) {
@@ -153,6 +143,22 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	return "MethodIdentifier "+getFullName()+"."+getType();
     }
 
+    public boolean hasGlobalSideEffects() {
+	return globalSideEffects;
+    }
+
+    public boolean getLocalSideEffects(int paramNr) {
+	return globalSideEffects || localSideEffects.get(paramNr);
+    }
+
+    public void setGlobalSideEffects() {
+	globalSideEffects = true;
+    }
+
+    public void setLocalSideEffects(int paramNr) {
+	localSideEffects.set(paramNr);
+    }
+
     /**
      * This method does the code transformation.  This include
      * <ul><li>new slot distribution for locals</li>
@@ -168,34 +174,21 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 	wasTransformed = true;
 	info.setName(getAlias());
 	info.setType(Main.getClassBundle().getTypeAlias(type));
-	if (getCodeAnalyzer() != null) {
-	    BytecodeInfo strippedBytecode = getCodeAnalyzer().stripCode();
-//  	    strippedBytecode.dumpCode(GlobalOptions.err);
-
-	    /* XXX This should be in a if (Obfuscator.distributeLocals) */
-	    LocalOptimizer localOpt = new LocalOptimizer(this, 
-							 strippedBytecode);
-	    localOpt.calcLocalInfo();
-	    if ((GlobalOptions.debuggingFlags 
-		 & GlobalOptions.DEBUG_LOCALS) != 0) {
-		GlobalOptions.err.println("Before Local Optimization: ");
-		localOpt.dumpLocals();
+	if (codeAnalyzer != null) {
+	    BytecodeInfo bytecode = info.getBytecode();
+	    try {
+		codeAnalyzer.transformCode(bytecode);
+		for (Iterator i = Main.getCodeTransformers().iterator(); 
+		     i.hasNext(); ) {
+		    CodeTransformer transformer = (CodeTransformer) i.next();
+		    transformer.transformCode(bytecode);
+		}
+	    } catch (RuntimeException ex) {
+		ex.printStackTrace(GlobalOptions.err);
+		bytecode.dumpCode(GlobalOptions.err);
 	    }
-	    localOpt.stripLocals();
-	    localOpt.distributeLocals();
 
-	    if ((GlobalOptions.debuggingFlags 
-		 & GlobalOptions.DEBUG_LOCALS) != 0) {
-		GlobalOptions.err.println("After Local Optimization: ");
-		localOpt.dumpLocals();
-	    }
-	    
-	    RemovePopAnalyzer remPop = 
-		new RemovePopAnalyzer(strippedBytecode, this);
-	    remPop.stripCode();
-//  	    strippedBytecode.dumpCode(GlobalOptions.err);
-
-	    for (Instruction instr = strippedBytecode.getFirstInstr(); 
+	    for (Instruction instr = bytecode.getFirstInstr(); 
 		 instr != null; instr = instr.nextByAddr) {
 		switch (instr.opcode) {
 		case opc_invokespecial:
@@ -226,7 +219,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		}
 	    }
 	
-	    Handler[] handlers = strippedBytecode.getExceptionHandlers();
+	    Handler[] handlers = bytecode.getExceptionHandlers();
 	    for (int i=0; i< handlers.length; i++) {
 		if (handlers[i].type != null) {
 		    ClassIdentifier ci = Main.getClassBundle()
@@ -235,7 +228,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		    handlers[i].type = ci.getFullAlias();
 		}
 	    }
-	    info.setBytecode(strippedBytecode);
+	    info.setBytecode(bytecode);
 	}
     }
 }
