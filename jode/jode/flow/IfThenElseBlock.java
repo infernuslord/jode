@@ -17,7 +17,7 @@
  */
 package jode.flow;
 import jode.TabbedPrintWriter;
-import jode.decompiler.Expression;
+import jode.expr.Expression;
 
 /**
  * An IfThenElseBlock is the structured block representing an if

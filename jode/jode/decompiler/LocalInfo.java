@@ -20,7 +20,7 @@
 package jode;
 import java.util.Enumeration;
 import java.util.Vector;
-import jode.decompiler.LocalVarOperator;
+import jode.expr.LocalVarOperator;
 
 /**
  * The LocalInfo represents a local variable of a method.

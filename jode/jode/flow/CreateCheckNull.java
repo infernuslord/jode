@@ -18,7 +18,7 @@
  */
 
 package jode.flow;
-import jode.decompiler.*;
+import jode.expr.*;
 import jode.Type;
 import jode.LocalInfo;
 

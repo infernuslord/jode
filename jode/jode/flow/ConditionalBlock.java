@@ -17,8 +17,8 @@
  */
 package jode.flow;
 import jode.TabbedPrintWriter;
-import jode.decompiler.Expression;
-import jode.decompiler.LocalVarOperator;
+import jode.expr.Expression;
+import jode.expr.LocalVarOperator;
 
 /**
  * An ConditionalBlock is the structured block representing an if

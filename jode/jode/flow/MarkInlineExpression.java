@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.Decompiler;
-import jode.decompiler.*;
+import jode.expr.*;
 
 /**
  * This handles inline methods.  When you compile with -O flag javac will

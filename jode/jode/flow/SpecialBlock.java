@@ -18,7 +18,7 @@
 package jode.flow;
 import jode.TabbedPrintWriter;
 import jode.Decompiler;
-import jode.decompiler.*;
+import jode.expr.*;
 
 /**
  * This is the structured block for atomic instructions.

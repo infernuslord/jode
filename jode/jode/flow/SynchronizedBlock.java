@@ -19,7 +19,7 @@
 package jode.flow;
 import jode.LocalInfo;
 import jode.TabbedPrintWriter;
-import jode.decompiler.Expression;
+import jode.expr.Expression;
 
 /**
  * This class represents a synchronized structured block.

@@ -20,8 +20,8 @@
 package jode.flow;
 import java.util.*;
 import jode.*;
-import jode.decompiler.Expression;
-import jode.decompiler.CombineableOperator;
+import jode.expr.Expression;
+import jode.expr.CombineableOperator;
 
 /**
  * A flow block is the structure of which the flow graph consists.  A

@@ -18,7 +18,7 @@
  */
 
 package jode.flow;
-import jode.decompiler.*;
+import jode.expr.*;
 
 public class CreateNewConstructor {
 

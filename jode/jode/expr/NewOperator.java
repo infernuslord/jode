@@ -17,7 +17,7 @@
  * $Id$
  */
 
-package jode.decompiler;
+package jode.expr;
 import jode.Type;
 
 public class NewOperator extends NoArgOperator {
