@@ -32,6 +32,8 @@ public class BinaryInfo {
     public static final int METHODS         = 0x04;
     public static final int CONSTANTS       = 0x08;
     public static final int ALL_ATTRIBUTES  = 0x10;
+    public static final int INNERCLASSES    = 0x20;
+    public static final int OUTERCLASSES    = 0x40;
     public static final int FULLINFO        = 0xff;
 
     protected SimpleDictionary unknownAttributes;
@@ -60,7 +62,8 @@ public class BinaryInfo {
 				 int howMuch) throws IOException {
 	byte[] data = new byte[length];
 	input.readFully(data);
-	unknownAttributes.put(name, data);
+	if ((howMuch & ALL_ATTRIBUTES) != 0)
+	    unknownAttributes.put(name, data);
     }
 
     class ConstrainedInputStream extends FilterInputStream {
@@ -117,22 +120,19 @@ public class BinaryInfo {
     protected void readAttributes(ConstantPool constantPool,
                                   DataInputStream input, 
                                   int howMuch) throws IOException {
-        if ((howMuch & ALL_ATTRIBUTES) != 0) {
-            int count = input.readUnsignedShort();
-	    unknownAttributes = new SimpleDictionary();
-            for (int i=0; i< count; i++) {
-		String attrName = 
-		    constantPool.getUTF8(input.readUnsignedShort());
-		final int attrLength = input.readInt();
-		ConstrainedInputStream constrInput = 
+	int count = input.readUnsignedShort();
+	unknownAttributes = new SimpleDictionary();
+	for (int i=0; i< count; i++) {
+	    String attrName = 
+		constantPool.getUTF8(input.readUnsignedShort());
+	    final int attrLength = input.readInt();
+	    ConstrainedInputStream constrInput = 
 		    new ConstrainedInputStream(attrLength, input);
-		readAttribute(attrName, attrLength, 
-			      constantPool, new DataInputStream(constrInput),
-			      howMuch);
-		constrInput.skipRemaining();
-            }
-	} else
-            skipAttributes(input);
+	    readAttribute(attrName, attrLength, 
+			  constantPool, new DataInputStream(constrInput),
+			  howMuch);
+	    constrInput.skipRemaining();
+	}
     }
 
     protected void prepareAttributes(GrowableConstantPool gcp) {
