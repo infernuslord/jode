@@ -63,11 +63,7 @@ public class SimpleSet
     public Object clone() {
         try {
             SimpleSet other = (SimpleSet) super.clone();
-            if (count > 0) {
-                other.elementObjects = new Object[count];
-                System.arraycopy(elementObjects, 0, 
-				 other.elementObjects, 0, count);
-            }
+	    other.elementObjects = (Object[]) elementObjects.clone();
             return other;
         } catch (CloneNotSupportedException ex) {
             throw new jode.AssertError("Clone?");
