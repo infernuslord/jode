@@ -511,16 +511,16 @@ public abstract class StructuredBlock {
     }
 
     /**
-     * Put all the successors of this block and all subblocks into
-     * the given vector.
+     * Add all the successors of this block and all subblocks to the
+     * flow block.
      * @param succs The vector, the successors should be stored to.
      */
-    public void fillSuccessors(java.util.Vector succs) {
+    public void fillSuccessors() {
         if (jump != null)
-            succs.addElement(jump);
+            flowBlock.addSuccessor(jump);
         StructuredBlock[] subs = getSubBlocks();
         for (int i=0; i<subs.length; i++) {
-            subs[i].fillSuccessors(succs);
+            subs[i].fillSuccessors();
         }
     }
 
