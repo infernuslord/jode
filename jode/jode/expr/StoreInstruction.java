@@ -84,6 +84,8 @@ public abstract class StoreInstruction extends Operator
         return 100;
     }
 
+    public abstract int getLValuePriority();
+
     public Type getOperandType(int i) {
         if (i == getLValueOperandCount()) {
 	    if (getOperatorIndex() == ASSIGN_OP)
