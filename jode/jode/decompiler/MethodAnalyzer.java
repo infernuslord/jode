@@ -20,7 +20,6 @@
 package jode.decompiler;
 import jode.bytecode.MethodInfo;
 import jode.bytecode.AttributeInfo;
-import jode.bytecode.CodeInfo;
 import jode.*;
 
 import java.lang.reflect.Modifier;
@@ -53,16 +52,7 @@ public class MethodAnalyzer implements Analyzer {
         
         AttributeInfo codeattr = minfo.findAttribute("Code");
         if (codeattr != null) {
-            DataInputStream stream = new DataInputStream
-                (new ByteArrayInputStream(codeattr.getContents()));
-            CodeInfo codeinfo = new CodeInfo();
-            try {
-                codeinfo.read(classAnalyzer.getConstantPool(), stream);
-                code = new CodeAnalyzer(this, codeinfo, env);
-            } catch (IOException ex) {
-                ex.printStackTrace(Decompiler.err);
-                code = null;
-            }
+	    code = new CodeAnalyzer(this, codeattr, env);
         }
         
         AttributeInfo excattr = minfo.findAttribute("Exceptions");
