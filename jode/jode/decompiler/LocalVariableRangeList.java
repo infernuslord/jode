@@ -24,14 +24,14 @@ import jode.type.Type;
 public class LocalVariableRangeList {
 
     class MyLocalInfo extends LocalInfo {
-        int start;
-        int length;
+        int startAddr;
+        int endAddr;
         MyLocalInfo next;
         
-        MyLocalInfo(int slot, int s, int l, String n, Type t) {
+        MyLocalInfo(int slot, int s, int e, String n, Type t) {
             super (slot);
-            start = s;
-            length = l;
+            startAddr = s;
+            endAddr = e;
             setName(n);
             setType(t);
             next = null;
@@ -46,48 +46,48 @@ public class LocalVariableRangeList {
     }
 
     private void add(MyLocalInfo li) {
-        MyLocalInfo before = null;
-        MyLocalInfo after = list;
-        while (after != null && after.start < li.start) {
-            before = after;
-            after = after.next;
+        MyLocalInfo prev = null;
+        MyLocalInfo next = list;
+        while (next != null && next.endAddr < li.startAddr) {
+            prev = next;
+            next = next.next;
         }
-        if (after != null && li.start + li.length > after.start) {
-	    if (after.getType().equals(li.getType())
-		&& after.getName().equals(li.getName())) {
+	/* prev.endAddr < li.startAddr <= next.endAddr
+	 */
+        if (next != null && li.endAddr >= next.startAddr) {
+	    if (next.getType().equals(li.getType())
+		&& next.getName().equals(li.getName())) {
 		/* Same type, same name and overlapping range.
-		 * This is the same local: extend after to the common
+		 * This is the same local: extend next to the common
 		 * range and don't add li.
 		 */
-		after.length += after.start - li.start;
-		after.start = li.start;
-		if (li.length > after.length)
-		    after.length = li.length;
+		next.startAddr = Math.min(next.startAddr, li.startAddr);
+		next.endAddr   = Math.max(next.endAddr, li.endAddr);
 		return;
 	    }
             Decompiler.err.println("warning: non disjoint locals");
 	}
-        li.next = after;
-        if (before == null)
+        li.next = next;
+        if (prev == null)
             list = li;
         else
-            before.next = li;
+            prev.next = li;
     }
 
     private LocalInfo find(int addr) {
         MyLocalInfo li = list;
-        while (li != null && addr >= li.start+li.length)
+        while (li != null && li.endAddr < addr)
             li = li.next;
-        if (li == null || li.start > addr+1 /* XXX weired XXX */) {
+        if (li == null || li.startAddr > addr /* XXX addr+1? weired XXX */) {
             LocalInfo temp = new LocalInfo(slot);
             return temp;
         }
         return li;
     }
 
-    public void addLocal(int start, int length,
+    public void addLocal(int startAddr, int endAddr,
                          String name, Type type) {
-        MyLocalInfo li = new MyLocalInfo(slot,start,length,name,type);
+        MyLocalInfo li = new MyLocalInfo(slot,startAddr,endAddr,name,type);
         add (li);
     }
 
