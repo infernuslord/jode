@@ -42,13 +42,14 @@ public class CreateAssignExpression {
          * sequBlock:
          *   dup (may be missing for static / local variables)
          * opBlock:
-         *   load(stack) * rightHandSide
+         *   (optional narrow) ((optional wide) load(stack) * rightHandSide)
          *   (optional dup_x)
          *   store(stack)
          *
          * We transform it to:
          *   (push loadstoreOps)
          *   rightHandSide
+	 *   (optional dup_x)
          *   store(stack) *= (stack)
          *
          * If the optional dup is present the store*= becomes non void.  */
