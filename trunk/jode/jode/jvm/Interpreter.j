@@ -83,9 +83,11 @@ big_loop:
 
 
 ; ========= DEBUGGING OUTPUT ===============================
-	getstatic jode/Decompiler/isDebugging Z
+	getstatic jode/GlobalOptions/debuggingFlags I
+	sipush 0x400
+	iand
 	ifeq skip_debugging
-	getstatic jode/Decompiler/err Ljava/io/PrintStream;
+	getstatic jode/GlobalOptions/err Ljava/io/PrintStream;
 	dup
 	aload 4
 	invokevirtual jode/bytecode/Instruction/getDescription()Ljava/lang/String;
