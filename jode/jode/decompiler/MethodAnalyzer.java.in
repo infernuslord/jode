@@ -833,10 +833,12 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    modifiedModifiers &= ~Modifier.ABSTRACT;
 
 	/* Don't ask me why, but jikes declares the static constructor
-	 * as final.
+	 * as final.  Another compiler or obfuscator seems to declare
+	 * it as public.  I remove every fancy modifier, now.
 	 */
 	if (isConstructor() && isStatic())
-	    modifiedModifiers &= ~Modifier.FINAL;
+	    modifiedModifiers &= ~(Modifier.FINAL | Modifier.PUBLIC
+				   | Modifier.PROTECTED | Modifier.PRIVATE);
 
 	writer.startOp(writer.NO_PAREN, 1);
 	String delim = "";
