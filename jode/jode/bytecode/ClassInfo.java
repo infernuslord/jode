@@ -60,6 +60,7 @@ public class ClassInfo extends BinaryInfo {
     private MethodInfo[] methods;
     private InnerClassInfo[] outerClasses;
     private InnerClassInfo[] innerClasses;
+    private InnerClassInfo[] extraClasses;
     private String sourceFile;
 
     public final static ClassInfo javaLangObject = forName("java.lang.Object");
@@ -162,7 +163,7 @@ public class ClassInfo extends BinaryInfo {
 	} else if ((howMuch & (OUTERCLASSES | INNERCLASSES)) != 0
 		   && name.equals("InnerClasses")) {
 	    int count = input.readUnsignedShort();
-	    int innerCount = 0, outerCount = 0;
+	    int innerCount = 0, outerCount = 0, extraCount = 0;
 	    InnerClassInfo[] innerClassInfo = new InnerClassInfo[count];
 	    for (int i=0; i< count; i++) {
 		int innerIndex = input.readUnsignedShort();
@@ -180,7 +181,21 @@ public class ClassInfo extends BinaryInfo {
 		if (outer != null && outer.equals(getName()))
 		    innerClassInfo[innerCount++] = ici;
 		else
-		    innerClassInfo[count - (++outerCount)] = ici;
+		    innerClassInfo[count - (++extraCount)] = ici;
+	    }
+	    {
+		String lastOuterName = getName();
+		for (int i = count - extraCount; i < count; i++) {
+		    InnerClassInfo ici = innerClassInfo[i];
+		    if (ici.inner.equals(lastOuterName)) {
+			for (int j = i; j > count - extraCount; j--)
+			    innerClassInfo[j] = innerClassInfo[j-1];
+			innerClassInfo[count-extraCount] = ici;
+			extraCount--;
+			outerCount++;
+			lastOuterName = ici.outer;
+		    }
+		}
 	    }
 	    if (innerCount > 0) {
 		innerClasses = new InnerClassInfo[innerCount];
@@ -193,17 +208,15 @@ public class ClassInfo extends BinaryInfo {
 		outerClasses = new InnerClassInfo[outerCount];
 		System.arraycopy(innerClassInfo, innerCount, 
 				 outerClasses, 0, outerCount);
-		if (!outerClasses[0].inner.equals(getName()))
-		    throw new ClassFormatException
-			("InnerClasses attribute has wrong format");
-		for (int i=1; i < outerCount; i++) {
-		    if (outerClasses[i-1].outer != null && 
-			!outerClasses[i].inner.equals(outerClasses[i-1].outer))
-			throw new ClassFormatException
-			    ("InnerClasses attribute has wrong format");
-		}
 	    } else 
 		outerClasses = null;
+
+	    if (extraCount > 0) {
+		extraClasses = new InnerClassInfo[extraCount];
+		System.arraycopy(innerClassInfo, innerCount + outerCount, 
+				 extraClasses, 0, extraCount);
+	    } else
+		extraClasses = null;
 
 	    if (length != 2 + 8 * count)
 		throw new ClassFormatException
@@ -304,7 +317,8 @@ public class ClassInfo extends BinaryInfo {
 	    gcp.putUTF8("SourceFile");
 	    gcp.putUTF8(sourceFile);
 	}
-	if (outerClasses != null || innerClasses != null) {
+	if (outerClasses != null || innerClasses != null
+	    || extraClasses != null) {
 	    gcp.putUTF8("InnerClasses");
 	    int outerCount = outerClasses != null ? outerClasses.length : 0;
 	    for (int i=outerCount; i-- > 0;) {
@@ -322,6 +336,14 @@ public class ClassInfo extends BinaryInfo {
 		if (innerClasses[i].name != null)
 		    gcp.putUTF8(innerClasses[i].name);
 	    }
+	    int extraCount = extraClasses != null ? extraClasses.length : 0;
+	    for (int i=0; i< extraCount; i++) {
+		gcp.putClassName(extraClasses[i].inner);
+		if (extraClasses[i].outer != null)
+		    gcp.putClassName(extraClasses[i].outer);
+		if (extraClasses[i].name != null)
+		    gcp.putUTF8(extraClasses[i].name);
+	    }
 	}
         prepareAttributes(gcp);
     }
@@ -330,7 +352,8 @@ public class ClassInfo extends BinaryInfo {
 	int count = 0;
 	if (sourceFile != null)
 	    count++;
-	if (innerClasses != null)
+	if (innerClasses != null || outerClasses != null
+	    || extraClasses != null)
 	    count++;
 	return count;
     }
@@ -343,11 +366,13 @@ public class ClassInfo extends BinaryInfo {
 	    output.writeInt(2);
 	    output.writeShort(gcp.putUTF8(sourceFile));
 	}
-	if (outerClasses != null || innerClasses != null) {
+	if (outerClasses != null || innerClasses != null
+	    || extraClasses != null) {
 	    output.writeShort(gcp.putUTF8("InnerClasses"));
 	    int outerCount = (outerClasses != null) ? outerClasses.length : 0;
 	    int innerCount = (innerClasses != null) ? innerClasses.length : 0;
-	    int count = outerCount + innerCount;
+	    int extraCount = (extraClasses != null) ? extraClasses.length : 0;
+	    int count = outerCount + innerCount + extraCount;
 	    output.writeInt(2 + count * 8);
 	    output.writeShort(count);
 	    for (int i=outerCount; i-- > 0; ) {
@@ -365,6 +390,14 @@ public class ClassInfo extends BinaryInfo {
 		output.writeShort(innerClasses[i].name != null ?
 				  gcp.putUTF8(innerClasses[i].name) : 0);
 		output.writeShort(innerClasses[i].modifiers);
+	    }
+	    for (int i=0; i< extraCount; i++) {
+		output.writeShort(gcp.putClassName(extraClasses[i].inner));
+		output.writeShort(extraClasses[i].outer != null ? 
+				  gcp.putClassName(extraClasses[i].outer) : 0);
+		output.writeShort(extraClasses[i].name != null ?
+				  gcp.putUTF8(extraClasses[i].name) : 0);
+		output.writeShort(extraClasses[i].modifiers);
 	    }
 	}
     }
@@ -637,6 +670,12 @@ public class ClassInfo extends BinaryInfo {
         return innerClasses;
     }
 
+    public InnerClassInfo[] getExtraClasses() {
+        if ((status & INNERCLASSES) == 0)
+            loadInfo(INNERCLASSES);
+        return extraClasses;
+    }
+
     public void setName(String newName) {
 	name = newName;
     }
@@ -667,6 +706,10 @@ public class ClassInfo extends BinaryInfo {
 
     public void setInnerClasses(InnerClassInfo[] ic) {
         innerClasses = ic;
+    }
+
+    public void setExtraClasses(InnerClassInfo[] ec) {
+        extraClasses = ec;
     }
 
     public boolean superClassOf(ClassInfo son) {
