@@ -10,6 +10,14 @@ public class JodeApplet extends Applet {
     public JodeApplet() {
 	jodeWin = new JodeWindow(this);
     }
+
+
+///#ifdef AWT10
+///    public boolean action(Event e, Object arg) {
+///	jodeWin.action(e);
+///	return true;
+///    }
+///#endif
     	
     public void init() {
 	String cp = getParameter("classpath");
@@ -20,3 +28,4 @@ public class JodeApplet extends Applet {
 	    jodeWin.setClass(cls);
     }
 }
+
