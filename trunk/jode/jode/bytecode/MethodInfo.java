@@ -27,6 +27,15 @@ public class MethodInfo extends BinaryInfo {
     String name;
     MethodType type;
 
+    public void read(ConstantPool constantPool, 
+                     DataInputStream input, int howMuch) throws IOException {
+	modifier   = input.readUnsignedShort();
+	name = constantPool.getUTF8(input.readUnsignedShort());
+        type = new MethodType(Modifier.isStatic(modifier), 
+                              constantPool.getUTF8(input.readUnsignedShort()));
+        readAttributes(constantPool, input, howMuch);
+    }
+
     public String getName() {
         return name;
     }
@@ -37,15 +46,6 @@ public class MethodInfo extends BinaryInfo {
 
     public int getModifiers() {
         return modifier;
-    }
-
-    public void read(ConstantPool constantPool, 
-                     DataInputStream input, int howMuch) throws IOException {
-	modifier   = input.readUnsignedShort();
-	name = constantPool.getUTF8(input.readUnsignedShort());
-        type = new MethodType(Modifier.isStatic(modifier), 
-                              constantPool.getUTF8(input.readUnsignedShort()));
-        readAttributes(constantPool, input, howMuch);
     }
 
     public String toString() {

@@ -188,6 +188,54 @@ public class ClassInfo extends BinaryInfo {
         }
     }
 
+    public void loadInfoReflection(int howMuch) {
+
+	try {
+	    Class clazz = Class.forName(name);
+	    modifiers = clazz.getModifiers();
+	    if ((howMuch & HIERARCHY) != 0) {
+		if (clazz.getSuperclass() == null)
+		    superclass = null;
+		else
+		    superclass = ClassInfo.forName
+			(clazz.getSuperclass().getName());
+		Class[] ifaces = clazz.getInterfaces();
+		interfaces = new ClassInfo[ifaces.length];
+		for (int i=0; i<ifaces.length; i++)
+		    interfaces[i] = ClassInfo.forName(ifaces[i].getName());
+		status |= HIERARCHY;
+	    }
+	    if ((howMuch & ~HIERARCHY) != 0) {
+                jode.Decompiler.err.println
+		    ("Can't find class " + name
+		     + " in classpath.  Bad things may or may not happen.");
+		status |= howMuch;
+	    } 
+	    
+	} catch (ClassNotFoundException ex) {
+	    // Nothing helped, ``guess'' the hierarchie
+            String message = ex.getMessage();
+            if ((howMuch & ~(METHODS|HIERARCHY)) == 0) {
+                jode.Decompiler.err.println
+		    ("Can't read class " + name + ", types may be incorrect. ("
+		     + ex.getClass().getName()
+		     + (message != null ? ": " + message : "") + ")");
+            } else
+                jode.Decompiler.err.println
+		    ("Can't read class " + name
+		     + "(" + ex.getClass().getName()
+		     + (message != null ? ": " + message : "") + ")");
+            
+            if (name.equals("java.lang.Object"))
+                superclass = null;
+            else
+                superclass = ClassInfo.forName("java.lang.Object");
+            interfaces = new ClassInfo[0];
+	    modifiers = Modifier.PUBLIC;
+            status = FULLINFO;
+	}
+    }
+
     public void loadInfo(int howMuch) {
         try {
             DataInputStream input = 
@@ -209,25 +257,10 @@ public class ClassInfo extends BinaryInfo {
             status |= howMuch;
 
         } catch (IOException ex) {
-            String message = ex.getLocalizedMessage();
-            if ((howMuch & ~(METHODS|HIERARCHY)) == 0)
-                jode.Decompiler.err.println
-		    ("Can't read class " + name + ", types may be incorrect. ("
-		     + ex.getClass().getName()
-		     + (message != null ? ": " + message : "") + ")");
-            else
-                jode.Decompiler.err.println
-		    ("Can't read class " + name
-		     + "(" + ex.getClass().getName()
-		     + (message != null ? ": " + message : "") + ")");
-            
-            if (name.equals("java.lang.Object"))
-                superclass = null;
-            else
-                superclass = ClassInfo.forName("java.lang.Object");
-            interfaces = new ClassInfo[0];
-	    modifiers = Modifier.PUBLIC;
-            status = FULLINFO;
+	    // Try getting the info through the reflection interface
+	    // instead.
+
+	    loadInfoReflection(howMuch);
         }
     }
 
