@@ -272,6 +272,20 @@ public abstract class StructuredBlock {
     }
 
     /**
+     * This function copies the jump to this block.  
+     * If the given jump is null, nothing bad happens.
+     * @param jump The jump that should be moved, may be null.
+     */
+    public void copyJump(Jump jump) {
+        if (this.jump != null)
+            throw new AssertError("overriding with moveJump()");
+        if (jump != null) {
+	    this.jump = new Jump(jump);
+	    this.jump.prev = this;
+        }
+    }
+
+    /**
      * Appends a block to this block.
      * @return the new combined block.
      */
@@ -309,12 +323,18 @@ public abstract class StructuredBlock {
     }
 
     /**
-     * Determines if there is a sub block, that flows through to the end
-     * of this block.  If this returns true, you know that jump is null.
+     * Determines if there is a path, that flows through the end
+     * of this block.  If there is such a path, it is forbidden to
+     * change the control flow in after this block and this method
+     * returns false.
      * @return true, if the jump may be safely changed.
      */
+    public boolean flowMayBeChanged() {
+	return jump != null || jumpMayBeChanged();
+    }
+
     public boolean jumpMayBeChanged() {
-        return false;
+	return false;
     }
 
     public VariableSet propagateUsage() {
@@ -501,7 +521,7 @@ public abstract class StructuredBlock {
         try {
             java.io.StringWriter strw = new java.io.StringWriter();
             jode.TabbedPrintWriter writer = 
-                new jode.TabbedPrintWriter(strw, "    ");
+                new jode.TabbedPrintWriter(strw);
             writer.println(super.toString());
             writer.tab();
             dumpSource(writer);
