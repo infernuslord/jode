@@ -70,6 +70,9 @@ public class FlowBlock {
      * This is a vector of flow blocks, which reference this block.
      * Only if this vector contains exactly one element, it can be
      * moved into the preceding flow block.
+     *
+     * If this vectors contains the null element, this is the first
+     * flow block in a method.
      */
     Vector predecessors;
 
@@ -436,10 +439,11 @@ public class FlowBlock {
 
     /**
      * Search for an apropriate successor.
-     * @return the successor with smallest address
-     *  or null if there isn't a successor at all.
+     * @param prevSucc The successor, that was previously tried.
+     * @return the successor with smallest address greater than prevSucc
+     *  or null if there isn't any further successor at all.
      */
-    public FlowBlock getSuccessor() {
+    public FlowBlock getSuccessor(FlowBlock prevSucc) {
         /* search successor with smallest addr. */
         Enumeration enum = successors.elements();
         FlowBlock succ = null;
@@ -448,11 +452,23 @@ public class FlowBlock {
             if (jump == null)
                 continue;
             FlowBlock fb = jump.destination;
+            if (prevSucc != null && fb.addr <= prevSucc.addr)
+                continue;
             if (succ == null || fb.addr < succ.addr) {
+                System.err.println("trying "+fb.getLabel());
                 succ = fb;
             }
         }
         return succ;
+    }
+
+    /**
+     * Search for an apropriate successor.
+     * @return the successor with smallest address
+     *  or null if there isn't a successor at all.
+     */
+    public FlowBlock getSuccessor() {
+        return getSuccessor(null);
     }
 
     public void checkConsistent() {
@@ -500,18 +516,21 @@ public class FlowBlock {
              succ.predecessors.elementAt(0) != this))
             return false;
 
-        try {
-            TabbedPrintWriter writer = 
-                new TabbedPrintWriter(System.err, "    ");
-            writer.tab();
+        try{
             System.err.println("doing T1 analysis on: "+getLabel());
-            block.dumpSource(writer);
             checkConsistent();
             System.err.println("and "+succ.getLabel());
-            succ.block.dumpSource(writer);
             succ.checkConsistent();
-        } catch (java.io.IOException ex) {}
-
+        } catch (RuntimeException ex) {
+            try {
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
+                block.dumpSource(writer);
+                succ.block.dumpSource(writer);
+            } catch (java.io.IOException ioex) {
+            }
+        }
 
         /* First find the innermost block that contains all jumps to this
          * successor and the last modified block.
@@ -599,29 +618,36 @@ public class FlowBlock {
         }
 
         try {
-            TabbedPrintWriter writer = 
-                new TabbedPrintWriter(System.err, "    ");
-            writer.tab();
             System.err.println("before optimizeJump: "+getLabel());
-            block.dumpSource(writer);
             checkConsistent();
-        } catch (java.io.IOException ex) {}
-            checkConsistent();
+        } catch (RuntimeException ex) {
+            try {
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
+                block.dumpSource(writer);
+            } catch (java.io.IOException ioex) {
+            }
+        }
+
         /* Try to eliminate as many jumps as possible.
          */
 
         appendBlock = optimizeJumps(succ, appendBlock);
 
         try {
-            TabbedPrintWriter writer = 
-                new TabbedPrintWriter(System.err, "    ");
-            writer.tab();
             System.err.println("after optimizeJump: "+getLabel());
-            block.dumpSource(writer);
             checkConsistent();
-        } catch (java.io.IOException ex) {}
-        System.err.println("XXX");
-            checkConsistent();
+        } catch (RuntimeException ex) {
+            try {
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
+                block.dumpSource(writer);
+            } catch (java.io.IOException ioex) {
+            }
+        }
+
         /* Now remove the jump of the appendBlock if it points to successor.
          */
         if (appendBlock.jump != null &&
@@ -687,34 +713,51 @@ public class FlowBlock {
 
         /* T1 transformation succeeded */
         try {
-            TabbedPrintWriter writer = 
-                new TabbedPrintWriter(System.err, "    ");
-            writer.tab();
             System.err.println("T1 succeeded:");
-            block.dumpSource(writer);
             checkConsistent();
-        } catch (java.io.IOException ex) {}
+        } catch (RuntimeException ex) {
+            try {
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
+                block.dumpSource(writer);
+            } catch (java.io.IOException ioex) {
+            }
+        }
         return true;
     }
 
     public boolean doT2() {
         /* If there are no jumps to the beginning of this flow block
-         * or if this block has other predecessors which weren't
-         * considered yet, return false.  The second condition make
-         * sure that the while isn't created up to the first continue.
-         */
-        if (!predecessors.contains(this)
-            /* || complicated second condition XXX */ )
+         * or if this block has other predecessors with a higher
+         * address, return false.  The second condition make sure that
+         * the while isn't created up to the first continue.  */
+        if (!predecessors.contains(this))
             return false;
 
+        Enumeration preds = predecessors.elements();
+        while (preds.hasMoreElements()) {
+            FlowBlock predFlow = (FlowBlock) preds.nextElement();
+            if (predFlow != null && predFlow.addr > addr) {
+                System.err.println("refusing T2 on: "+getLabel()+
+                                   " because of "+predFlow.getLabel());
+                /* XXX Is this enough to refuse T2 trafo ??? */
+                return false;
+            }
+        }
+
         try {
-            TabbedPrintWriter writer = 
-                new TabbedPrintWriter(System.err, "    ");
-            writer.tab();
             System.err.println("doing T2 analysis on: "+getLabel());
-            block.dumpSource(writer);
             checkConsistent();
-        } catch (java.io.IOException ex) {}
+        } catch (RuntimeException ex) {
+            try {
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
+                block.dumpSource(writer);
+            } catch (java.io.IOException ioex) {
+            }
+        }
 
         /* Update the in/out-Vectors now */
         updateInOut(this, false);
@@ -796,13 +839,17 @@ public class FlowBlock {
 
         /* T2 analysis succeeded */
         try {
-            TabbedPrintWriter writer = 
-                new TabbedPrintWriter(System.err, "    ");
-            writer.tab();
-            System.err.println("T2 succeded:");
-            block.dumpSource(writer);
+            System.err.println("T2 succeeded:");
             checkConsistent();
-        } catch (java.io.IOException ex) {}
+        } catch (RuntimeException ex) {
+            try {
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
+                block.dumpSource(writer);
+            } catch (java.io.IOException ioex) {
+            }
+        }
 
         return true;
     }
@@ -814,13 +861,22 @@ public class FlowBlock {
         Enumeration enum = successors.elements();
         while (enum.hasMoreElements()) {
             Jump jump = (Jump) enum.nextElement();
-            if (jump.destAddr == -1) 
-                jump.destination = END_OF_METHOD;
-            else
-                jump.destination = instr[jump.destAddr];
-            if (!jump.destination.predecessors.contains(this))
-                jump.destination.predecessors.addElement(this);
+            if (jump != null) {
+                if (jump.destAddr == -1) 
+                    jump.destination = END_OF_METHOD;
+                else
+                    jump.destination = instr[jump.destAddr];
+                if (!jump.destination.predecessors.contains(this))
+                    jump.destination.predecessors.addElement(this);
+            }
         }
+    }
+
+    /**
+     * Mark the flow block as first flow block in a method.
+     */
+    public void makeStartBlock() {
+        predecessors.addElement(null);
     }
 
     public void removeSuccessor(Jump jump) {
@@ -837,7 +893,8 @@ public class FlowBlock {
     public void dumpSource(TabbedPrintWriter writer)
         throws java.io.IOException
     {
-        if (label != null) {
+        if (predecessors.size() != 1 || 
+            predecessors.elementAt(0) != null) {
             writer.untab();
             writer.println(label+":");
             writer.tab();
@@ -864,7 +921,7 @@ public class FlowBlock {
      */
     public String getLabel() {
         if (label == null)
-            label = "flow_"+(serialno++)+"_";
+            label = "flow_"+addr+"_"+(serialno++)+"_";
         return label;
     }
 }
