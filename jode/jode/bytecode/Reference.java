@@ -99,17 +99,6 @@ public class Reference {
 	return className + " " + memberName + " " + memberType;
     }
 
-    public boolean equals(Object o) {
-	if (o instanceof Reference) {
-	    Reference other = (Reference) o;
-	    return other.cachedHashCode == cachedHashCode
-		&& other.className.equals(className)
-		&& other.memberName.equals(memberName)
-		&& other.memberType.equals(memberType);
-	}
-	return false;
-    }
-
     public int hashCode() {
 	return cachedHashCode;
     }
