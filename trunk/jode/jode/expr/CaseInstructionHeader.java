@@ -35,6 +35,9 @@ public class CaseInstructionHeader extends InstructionHeader {
              ih = ih.nextInstruction)
                 ih.dumpSource(writer);
         writer.untab();
+
+	if (Decompiler.isDebugging)
+            writer.untab();            
     }
 
     /** 

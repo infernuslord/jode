@@ -72,6 +72,7 @@ public class CodeAnalyzer implements Analyzer, Constants {
 
     static Transformation[] simplifyTrafos = { new SimplifyExpression() };
     static Transformation[] blockTrafos = { 
+        new CreateDoWhileStatements(),
         new CreateTryCatchStatements(),
         new CreateIfStatements(),
         new CreateBreakStatement(),
