@@ -321,10 +321,10 @@ public class Type {
      */
     public Type intersection(Type type) {
 	if (this == tError || type == tError)
-	    return type;
+	    return tError;
 	if (this == tUnknown)
 	    return type;
-	if (this == type)
+	if (type == tUnknown || this == type)
 	    return this;
 	Decompiler.err.println("intersecting "+ this +" and "+ type
 			       + " to <error>");
