@@ -167,7 +167,6 @@ public abstract class Operator extends Expression {
 	}
         for (int i=0; i< subExpressions.length; i++)
 	    subExpressions[i].fillInGenSet(in,gen);
-
     }
 
     /**
