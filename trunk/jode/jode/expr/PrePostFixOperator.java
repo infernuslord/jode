@@ -1,5 +1,5 @@
 /* 
- * AssignOperator (c) 1998 Jochen Hoenicke
+ * PrePostFixOperator (c) 1998 Jochen Hoenicke
  *
  * You may distribute under the terms of the GNU General Public License.
  *
@@ -19,41 +19,31 @@
 
 package jode;
 
-/**
- * This class represents an assign expression, i.e. an assignment,
- * whose return value is used further.
- *
- * It contains the underlying store instruction, which you can get
- * with <code>getStore</code>
- *
- * @author Jochen Hoenicke
- */
-public class AssignOperator extends Operator {
+public class PrePostFixOperator extends Operator {
     StoreInstruction store;
+    boolean postfix;
 
-    public AssignOperator(int op, StoreInstruction store) {
-        super(store.getLValueType(), op);
-        this.store = store;
-    }
-
-    public StoreInstruction getStore() {
-        return store;
-    }
-
-    public int getPriority() {
-	return store.getPriority();
+    public PrePostFixOperator(Type type, int op, 
+                              StoreInstruction store, boolean postfix) {
+        super(type, op);
+	this.store = store;
+        this.postfix = postfix;
     }
     
-    public int getOperandCount() {
-        return store.getOperandCount();
+    public int getPriority() {
+        return postfix ? 800 : 700;
     }
 
     public int getOperandPriority(int i) {
-        return store.getOperandPriority(i);
+        return getPriority();
     }
 
     public Type getOperandType(int i) {
-        return store.getOperandType(i);
+	return store.getLValueOperandType(i);
+    }
+
+    public int getOperandCount() {
+        return store.getLValueOperandCount();
     }
 
     /**
@@ -64,15 +54,14 @@ public class AssignOperator extends Operator {
         super.setType(store.getLValueType());
     }
 
-    /**
-     * Overload this method if the resulting type depends on the input types
-     */
     public void setOperandType(Type[] inputTypes) {
-        store.setOperandType(inputTypes);
-        this.type = store.getLValueType();
+        store.setLValueOperandType(inputTypes);
     }
-    
+
     public String toString(String[] operands) {
-        return store.toString(operands);
+        if (postfix)
+            return store.getLValueString(operands) + getOperatorString();
+        else
+            return getOperatorString() + store.getLValueString(operands);
     }
 }

@@ -56,7 +56,7 @@ public abstract class Expression extends Instruction {
     }
 
     Expression simplifyStringBuffer() {
-        return this;
+        return null;
     }
 
     public abstract Operator getOperator();
