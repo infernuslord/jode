@@ -164,7 +164,8 @@ public class ComplexExpression extends Expression {
                             (subExpressions[i].getType());
                     types[i] = 
                         types[i].intersection(operator.getOperandType(i));
-                    if (!types[i].equals(operator.getOperandType(i))) {
+                    if (types[i] != Type.tError
+                        && !types[i].equals(operator.getOperandType(i))) {
                         if (Decompiler.isTypeDebugging)
                             System.err.println("change in "+this+": "
                                                +operator.getOperandType(i)
