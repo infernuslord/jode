@@ -18,6 +18,7 @@
  */
 
 package jode.obfuscator;
+import @COLLECTIONS@.Iterator;
 
 public interface Renamer {
 
@@ -27,5 +28,5 @@ public interface Renamer {
      * @param lastName the last name generated for this identifier, or
      * null, if no name was generated yet.  
      */
-    public String generateName(Identifier ident, String lastName);
+    public Iterator generateNames(Identifier ident);
 }

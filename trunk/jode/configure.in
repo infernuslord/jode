@@ -161,6 +161,10 @@ jode/flow/IfThenElseBlock.java
 jode/flow/InstructionBlock.java
 jode/flow/FlowBlock.java
 jode/flow/TransformExceptionHandlers.java
+jode/obfuscator/Renamer.java
+jode/obfuscator/StrongRenamer.java
+jode/obfuscator/OptionHandler.java
+jode/obfuscator/ScriptParser.java
 jode/obfuscator/TranslationTable.java
 jode/obfuscator/Main.java
 jode/obfuscator/FieldIdentifier.java
@@ -172,6 +176,8 @@ jode/obfuscator/ConstantAnalyzer.java
 jode/obfuscator/LocalIdentifier.java
 jode/obfuscator/MethodIdentifier.java
 jode/obfuscator/ClassIdentifier.java
+jode/obfuscator/MultiIdentifierMatcher.java
+jode/obfuscator/WildCard.java
 jode/swingui/Main.java
 jode/swingui/PackagesTreeModel.java
 jode/util/SimpleSet.java

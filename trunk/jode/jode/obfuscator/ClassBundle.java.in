@@ -19,6 +19,7 @@
 
 package jode.obfuscator;
 import jode.GlobalOptions;
+import jode.bytecode.SearchPath;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.Reference;
 import java.io.*;
@@ -30,6 +31,7 @@ import @COLLECTIONS@.Set;
 import @COLLECTIONS@.HashSet;
 import @COLLECTIONS@.Map;
 import @COLLECTIONS@.TreeMap;
+import @COLLECTIONEXTRA@.UnsupportedOperationException;
 
 ///#ifdef JDK12
 ///import @COLLECTIONS@.WeakHashMap;
@@ -37,17 +39,34 @@ import @COLLECTIONS@.TreeMap;
 import @COLLECTIONS@.HashMap;
 ///#endif
 
-public class ClassBundle {
-
-    ModifierMatcher preserveRule = null;
+public class ClassBundle implements OptionHandler {
     PackageIdentifier basePackage;
+
     /**
      * the identifiers that must be analyzed.
      */
     Set toAnalyze = new HashSet();
 
+    String classPath;
+    String destDir;
+
+    String tableFile;
+    String toTableFile;
+
+    IdentifierMatcher loading;
+    IdentifierMatcher preserving;
+    IdentifierMatcher reaching;
+    CodeTransformer[] preTrafos;
+    CodeAnalyzer      analyzer;
+    CodeTransformer[] postTrafos;
+    Renamer           renamer;
+
+
     public ClassBundle() {
-	basePackage = new PackageIdentifier(this, null, "", false);
+	classPath = System.getProperty("java.class.path")
+	    .replace(File.pathSeparatorChar, SearchPath.pathSeparatorChar);
+	destDir = ".";
+	basePackage = new PackageIdentifier(this, null, "");
 	basePackage.setReachable();
 	basePackage.setPreserved();
     }
@@ -57,6 +76,102 @@ public class ClassBundle {
 ///#else
     private static final Map aliasesHash = new HashMap();
 ///#endif
+
+    public static void setStripOptions(Collection stripString) {
+    }
+    public void setOption(String option, Collection values) {
+	if (option.equals("classpath")) {
+	    Iterator i = values.iterator();
+	    StringBuffer sb = new StringBuffer((String) i.next());
+	    while (i.hasNext()) {
+		sb.append(SearchPath.pathSeparatorChar)
+		    .append((String)i.next());
+	    }
+	    ClassInfo.setClassPath(sb.toString());
+	    return;
+	}
+	    
+	if (option.equals("dest")) {
+	    if (values.size() != 1)
+		throw new IllegalArgumentException
+		    ("Only one destination path allowed");
+	    destDir = (String) values.iterator().next();
+	    return;
+	}
+
+	if (option.equals("strip")) {
+	next_token:
+	    for (Iterator iter = values.iterator(); iter.hasNext(); ) {
+		String token = (String) iter.next();
+		for (int i=0; i < Main.stripNames.length; i++) {
+		    if (token.equals(Main.stripNames[i])) {
+			Main.stripping |= 1 << i;
+			continue next_token;
+		    }
+		}
+		throw new IllegalArgumentException("Unknown strip option: `"
+						   +token+"'");
+	    }
+	    return;
+	}
+
+	if (option.equals("load")) {
+	    if (values.size() == 1)
+		loading = (IdentifierMatcher) values.iterator().next();
+	    else
+		loading = new MultiIdentifierMatcher
+		    (MultiIdentifierMatcher.OR, (IdentifierMatcher[])
+		     values.toArray(new IdentifierMatcher[values.size()]));
+	    return;
+	}
+
+	if (option.equals("preserve")) {
+	    if (values.size() == 1)
+		preserving = (IdentifierMatcher) values.iterator().next();
+	    else
+		preserving = new MultiIdentifierMatcher
+		    (MultiIdentifierMatcher.OR, (IdentifierMatcher[])
+		     values.toArray(new IdentifierMatcher[values.size()]));
+	    return;
+	}
+
+	if (option.equals("reach")) {
+	    // NOT IMPLEMENTED YET
+	    if (values.size() == 1)
+		reaching = (IdentifierMatcher) values.iterator().next();
+	    else
+		reaching = new MultiIdentifierMatcher
+		    (MultiIdentifierMatcher.OR, (IdentifierMatcher[])
+		     values.toArray(new IdentifierMatcher[values.size()]));
+	}
+
+	if (option.equals("pre")) {
+	    preTrafos = (CodeTransformer[])
+		values.toArray(new CodeTransformer[values.size()]);
+	    return;
+	}
+	if (option.equals("analyzer")) {
+	    if (values.size() != 1)
+		throw new IllegalArgumentException
+		    ("Only one analyzer is allowed");
+	    analyzer = (CodeAnalyzer) values.iterator().next();
+	    return;
+	}
+	if (option.equals("post")) {
+	    postTrafos = (CodeTransformer[])
+		values.toArray(new CodeTransformer[values.size()]);
+	    return;
+	}
+
+	if (option.equals("renamer")) {
+	    if (values.size() != 1)
+		throw new IllegalArgumentException
+		    ("Only one renamer allowed");
+	    renamer = (Renamer) values.iterator().next();
+	    return;
+	}
+	throw new IllegalArgumentException("Invalid option `"+option+"'.");
+    }
 
     public Reference getReferenceAlias(Reference ref) {
 	Reference alias = (Reference) aliasesHash.get(ref);
@@ -113,25 +228,8 @@ public class ClassBundle {
 	return ident.getIdentifier(ref.getName(), ref.getType());
     }
 
-    public void loadClasses(String wildcard) {
-	System.err.println("Loading: "+wildcard);
-	basePackage.loadMatchingClasses(new WildCard(wildcard));
-    }
-
     public void reachableIdentifier(String fqn, boolean isVirtual) {
 	basePackage.reachableIdentifier(fqn, isVirtual);
-    }
-
-    public void setPreserved(ModifierMatcher preserveRule, 
-			     Collection fullqualifiednames) {
-	this.preserveRule = preserveRule;
-
-	basePackage.applyPreserveRule(preserveRule);
-	for (Iterator i = fullqualifiednames.iterator(); i.hasNext(); ) {
-	    basePackage.preserveMatchingIdentifier
-		(new WildCard((String) i.next()));
-	}
-	analyze();
     }
 
     public void analyzeIdentifier(Identifier ident) {
@@ -147,33 +245,49 @@ public class ClassBundle {
 	    ident.analyze();
 	}
     }
+
+    public IdentifierMatcher getPreserveRule() {
+	return preserving;
+    }
+
+    public CodeAnalyzer getCodeAnalyzer() {
+	return analyzer;
+    }
+
+    public CodeTransformer[] getPreTransformers() {
+	return preTrafos;
+    }
+    
+    public CodeTransformer[] getPostTransformers() {
+	return postTrafos;
+    }
     
     public void buildTable(Renamer renameRule) {
 	basePackage.buildTable(renameRule);
     }
 
-    public void readTable(String filename) {
+    public void readTable() {
 	try {
 	    TranslationTable table = new TranslationTable();
-	    InputStream input = new FileInputStream(filename);
+	    InputStream input = new FileInputStream(tableFile);
 	    table.load(input);
 	    input.close();
 	    basePackage.readTable(table);
 	} catch (java.io.IOException ex) {
-	    GlobalOptions.err.println("Can't read rename table "+filename);
+	    GlobalOptions.err.println("Can't read rename table " + tableFile);
 	    ex.printStackTrace(GlobalOptions.err);
 	}
     }
 
-    public void writeTable(String filename) {
+    public void writeTable() {
 	TranslationTable table = new TranslationTable();
 	basePackage.writeTable(table);
 	try {
-	    OutputStream out = new FileOutputStream(filename);
+	    OutputStream out = new FileOutputStream(toTableFile);
 	    table.store(out);
 	    out.close();
 	} catch (java.io.IOException ex) {
-	    GlobalOptions.err.println("Can't write rename table "+filename);
+	    GlobalOptions.err.println("Can't write rename table "+toTableFile);
 	    ex.printStackTrace(GlobalOptions.err);
 	}
     }
@@ -182,28 +296,77 @@ public class ClassBundle {
 	basePackage.doTransformations();
     }
     
-    public void storeClasses(String destination) {
-	if (destination.endsWith(".jar") ||
-	    destination.endsWith(".zip")) {
+    public void storeClasses() {
+	if (destDir.endsWith(".jar") ||
+	    destDir.endsWith(".zip")) {
 	    try {
 		ZipOutputStream zip = new ZipOutputStream
-		    (new FileOutputStream(destination));
+		    (new FileOutputStream(destDir));
 		basePackage.storeClasses(zip);
 		zip.close();
 	    } catch (IOException ex) {
 		GlobalOptions.err.println
-		    ("Can't write zip file: "+destination);
+		    ("Can't write zip file: "+destDir);
 		ex.printStackTrace(GlobalOptions.err);
 	    }
 	} else {
-	    File directory = new File(destination);
+	    File directory = new File(destDir);
 	    if (!directory.exists()) {
 		GlobalOptions.err.println("Destination directory "
-				       +directory.getPath()
-				       +" doesn't exists.");
+					  +directory.getPath()
+					  +" doesn't exists.");
 		return;
 	    }
-	    basePackage.storeClasses(new File(destination));
+	    basePackage.storeClasses(new File(destDir));
 	}
+    }
+
+    public void run() {
+	if (analyzer == null)
+	    analyzer = new SimpleAnalyzer();
+	if (preTrafos == null)
+	    preTrafos = new CodeTransformer[0];
+	if (postTrafos == null)
+	    postTrafos = new CodeTransformer[0];
+	if (renamer == null)
+	    renamer = new Renamer() {
+		public Iterator generateNames(Identifier ident) {
+		    final String base = ident.getName();
+		    return new Iterator() {
+			int last = 0;
+			
+			public boolean hasNext() {
+			    return true;
+			}
+			
+			public Object next() {
+			    return (last++ == 1 ? base : base + last);
+			}
+			
+			public void remove() {
+			    throw new UnsupportedOperationException();
+			}
+		    };
+		}
+	    };
+	
+	GlobalOptions.err.println("Loading and preserving classes");
+	basePackage.loadMatchingClasses(loading);
+	basePackage.applyPreserveRule(preserving);
+
+	GlobalOptions.err.println("Computing reachable settings");
+	analyze();
+
+	GlobalOptions.err.println("Renaming methods");
+	if (tableFile != null)
+            readTable();
+	buildTable(renamer);
+        if (toTableFile != null)
+            writeTable();
+
+	GlobalOptions.err.println("Transforming the classes");
+	doTransformations();
+	GlobalOptions.err.println("Writing new classes");
+        storeClasses();
     }
 }

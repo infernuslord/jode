@@ -66,23 +66,6 @@ public class ClassIdentifier extends Identifier {
 	}
     }
 
-    public void preserveMatchingIdentifier(WildCard wildcard) {
-	String fullName = getFullName() + ".";
-	for (Iterator i = getChilds(); i.hasNext(); ) {
-	    Identifier ident = (Identifier) i.next();
-	    System.err.println("checking "+ident);
-	    if (wildcard.matches(fullName + ident.getName())
-		|| wildcard.matches(fullName + ident.getName()
-				    + "." +ident.getType())) {
-		if (GlobalOptions.verboseLevel > 0)
-		    GlobalOptions.err.println("Preserving "+ident);
-		setPreserved();
-		ident.setPreserved();
-		ident.setReachable();
-	    }		
-	}
-    }
-
     private FieldIdentifier findField(String name, String typeSig) {
 	for (Iterator i = fieldIdents.iterator(); i.hasNext(); ) {
 	    FieldIdentifier ident = (FieldIdentifier) i.next();

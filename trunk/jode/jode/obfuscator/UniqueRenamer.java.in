@@ -1,0 +1,21 @@
+package jode.obfuscator;
+
+import @COLLECTIONS@.Iterator;
+
+public class UniqueRenamer implements Renamer {
+    static int serialnr = 0;
+    public Iterator generateNames(Identifier ident) {
+	return new Iterator() {
+	    public boolean hasNext() {
+		return true;
+	    }
+	    
+	    public Object next() { 
+		return "xxx" + serialnr++;
+	    }
+	    public void remove() {
+		throw new UnsupportedOperationException();
+	    }
+	};
+    }
+}

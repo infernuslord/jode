@@ -100,6 +100,8 @@ public class Decompiler {
         err.println("Usage: java jode.Decompiler [OPTIONS]... [CLASSES]...");
 	err.println("  -h, --help           "+
 		    "show this information.");
+	err.println("  -V, --version        "+
+		    "output version information and exit.");
 	err.println("  -v, --verbose        "+
 		    "be verbose (multiple times means more verbose).");
 	err.println("  -c, --classpath <path> "+

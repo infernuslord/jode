@@ -21,14 +21,15 @@ package jode.obfuscator;
 import jode.bytecode.ClassInfo;
 import jode.bytecode.SearchPath;
 import jode.GlobalOptions;
-import java.util.Vector;
-import java.util.StringTokenizer;
+
+import gnu.getopt.LongOpt;
+import gnu.getopt.Getopt;
+
 import java.lang.reflect.Modifier;
 import java.io.PrintWriter;
-import java.io.File;
-import @COLLECTIONS@.Collection;
-import @COLLECTIONS@.Arrays;
-import @COLLECTIONS@.HashSet;
+import java.io.FileReader;
+import java.io.IOException;
+import @COLLECTIONS@.Collections;
 
 public class Main {
     public static boolean swapOrder   = false;
@@ -36,6 +37,16 @@ public class Main {
     public static final int OPTION_STRONGOVERLOAD  = 0x0001;
     public static final int OPTION_PRESERVESERIAL  = 0x0002;
     public static int options = OPTION_PRESERVESERIAL;
+
+    private static final LongOpt[] longOptions = new LongOpt[] {
+	new LongOpt("cp", LongOpt.REQUIRED_ARGUMENT, null, 'c'),
+	new LongOpt("classpath", LongOpt.REQUIRED_ARGUMENT, null, 'c'),
+	new LongOpt("destpath", LongOpt.REQUIRED_ARGUMENT, null, 'd'),
+	new LongOpt("help", LongOpt.NO_ARGUMENT, null, 'h'),
+	new LongOpt("version", LongOpt.NO_ARGUMENT, null, 'V'),
+	new LongOpt("verbose", LongOpt.OPTIONAL_ARGUMENT, null, 'v'),
+	new LongOpt("debug", LongOpt.OPTIONAL_ARGUMENT, null, 'D'),
+    };
 
     public static final String[] stripNames = {
 	"unreach", "inner", "lvt", "lnt", "source"
@@ -51,252 +62,118 @@ public class Main {
 
     public static void usage() {
 	PrintWriter err = GlobalOptions.err;
-        err.println("usage: jode.Obfuscator flags* [class | package]*");
-        err.println("\t-v                "+
-		    "Verbose output (allowed multiple times).");
-        err.println("\t--nostrip         "+
-		    "Don't strip not needed methods");
-        
-        err.println("\t--cp <classpath>  "+
-                           "The class path; should contain classes.zip");
-        err.println("\t-d,--dest <directory>  "+
-		    "Destination directory for output classes");
-        err.println("Preserve options: ");
-        err.println("\t--package         "+
-		    "Preserve all package members");
-        err.println("\t--protected       "+
-		    "Preserve all protected members");
-        err.println("\t--public          "+
-		    "Preserve all public members");
-        err.println("\t--preserve <name> "+
-		    "Preserve only the given name (allowed multiple times)");
-	err.println("\t--breakserial     "+
-		    "Allow the serialized form to change");
-        err.println("Obfuscating options: ");
-        err.println("\t--rename={strong|weak|unique|none} "+
-		    "Rename identifiers with given scheme");
-        err.println("\t--strip=...       "+
-		    "use --strip=help for more information.");
-        err.println("\t--table <file>    "+
-		    "Read (some) translation table from file");
-        err.println("\t--revtable <file> "+
-		    "Write reversed translation table to file");
-        err.println("\t--swaporder       "+
-		    "Swap the order of fields and methods.");
-	err.println("\t--debug=...       "+
+        err.println("usage: jode.Obfuscator flags* script");
+	err.println("  -h, --help           "+
+		    "show this information.");
+	err.println("  -V, --version        "+
+		    "output version information and exit.");
+	err.println("  -v, --verbose        "+
+		    "be verbose (multiple times means more verbose).");
+	err.println("  -c, --classpath <path> "+
+		    "search for classes in specified classpath.");
+	err.println("                       "+
+		    "The directories should be separated by ','.");
+	err.println("  -d, --dest <dir>     "+
+		    "write decompiled files to disk into directory destdir.");
+	err.println("  -D, --debug=...      "+
 		    "use --debug=help for more information.");
     }
 
-    public static void usageStrip() {
-	PrintWriter err = GlobalOptions.err;
-	err.println("Strip options: --strip=flag1,flag2,...");
-	err.println("possible flags:");
-	err.println("\tunreach      " +
-		    "strip all unreachable methods and classes.");
-	err.println("\tinner        " +
-		    "strip inner classes info.");
-	err.println("\tlvt          " +
-		    "strip local variable tables.");
-	err.println("\tlnt          " +
-		    "strip line number tables.");
-	err.println("\tsource       " +
-		    "strip the name of the source file.");
-	err.println("\tinout        " +
-		    "show T1/T2 in/out set analysis.");
-	err.println("\tlvt          " +
-		    "dump LocalVariableTable.");
-	err.println("\tcheck        " +
-		    "do time consuming sanity checks.");
-	err.println("\tlocals       " +
-		    "dump local merging information.");
-	err.println("\tconstructors " +
-		    "dump constructor simplification.");
-	err.println("\tinterpreter  " +
-		    "debug execution of interpreter.");
-	System.exit(0);
-    }
-
-    public static void setStripOptions(String stripString) {
-	if (stripString.length() == 0 || stripString.equals("help"))
-	    usageStrip();
-
-	StringTokenizer st = new StringTokenizer(stripString, ",");
-    next_token:
-	while (st.hasMoreTokens()) {
-	    String token = st.nextToken().intern();
-	    for (int i=0; i < stripNames.length; i++) {
-		if (token == stripNames[i]) {
-		    stripping |= 1 << i;
-		    continue next_token;
-		}
-	    }
-	    GlobalOptions.err.println("Illegal strip flag: "+token);
-	    usageStrip();
-	}
-    }
-
-    public static Renamer getRenamer(String option) {
-	if (option.equals("strong"))
-	    return new StrongRenamer
-	("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-	 "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
-	else if (option.equals("weak"))
-	    return new StrongRenamer
-		("abcdefghijklmnopqrstuvwxyz",
-		 "0123456789abcdefghijklmnopqrstuvwxyz");
-	else if (option.equals("unique")) {
-	    return new Renamer() {
-		static int serialnr = 0;
-		public String generateName(Identifier ident, String lastName) {
-		    return ("xxx" + serialnr++);
-		}
-	    };
-	} else if (option.equals("none")) {
-	    return new Renamer() {
-		public String generateName(Identifier ident, String lastName) {
-		    String name = ident.getName();
-		    if (lastName == null)
-			return name;
-
-		    int nr = 2;
-		    if (lastName.length() > name.length())
-			nr = 1 + Integer.parseInt
-			    (lastName.substring(name.length()));
-		    return name + nr;
-		}
-	    };
-	}
-	GlobalOptions.err.println("Incorrect value for --rename option: "
-				  + option);
-	usage();
-	System.exit(0);
-	return null;
-    }
 
     public static ClassBundle getClassBundle() {
 	return bundle;
     }
 
-    public static CodeAnalyzer createCodeAnalyzer() {
-	return new SimpleAnalyzer() /*XXX*/;
-    }
-
-    static CodeTransformer[] codeTransformers = {
-	new LocalOptimizer(),
-	new RemovePopAnalyzer()
-    };
-    
-    public static Collection getCodeTransformers() {
-	return Arrays.asList(codeTransformers);
-    }
-
     public static void main(String[] params) {
-        int i;
-        String sourcePath = System.getProperty("java.class.path")
-	    .replace(File.pathSeparatorChar, SearchPath.pathSeparatorChar);
-        String destPath = ".";
-
-        Collection preservedIdents = new HashSet();
-
-        ModifierMatcher preserveRule = ModifierMatcher.denyAll;
-        Renamer renamer = null;
-        String table = null;
-        String toTable = null;
-
-        for (i=0; i<params.length && params[i].startsWith("-"); i++) {
-            if (params[i].equals("-v"))
-                GlobalOptions.verboseLevel++;
-            else if (params[i].startsWith("--debug")) {
-		String flags;
-		if (params[i].startsWith("--debug=")) {
-		    flags = params[i].substring(8);
-		} else if (params[i].length() != 7) {
-		    usage();
-		    return;
-		} else {
-		    flags = params[++i];
+	if (params.length == 0) {
+	    usage();
+	    return;
+	}
+	String cp = null, dest = null;
+        
+	GlobalOptions.err.println(GlobalOptions.copyright);
+	bundle = new ClassBundle();
+	boolean errorInParams = false;
+	Getopt g = new Getopt("jode.obfuscator.Main", params, "hVvc:d:D:",
+			      longOptions, true);
+	for (int opt = g.getopt(); opt != -1; opt = g.getopt()) {
+	    switch(opt) {
+	    case 0:
+		break;
+	    case 'h':
+		usage();
+		errorInParams = true;
+		break;
+	    case 'V':
+		GlobalOptions.err.println(GlobalOptions.version);
+		break;
+	    case 'c':
+		cp = g.getOptarg();
+		break;
+	    case 'd':
+		dest = g.getOptarg();
+		break;
+	    case 'v': {
+		String arg = g.getOptarg();
+		if (arg == null)
+		    GlobalOptions.verboseLevel++;
+		else {
+		    try {
+			GlobalOptions.verboseLevel = Integer.parseInt(arg);
+		    } catch (NumberFormatException ex) {
+			GlobalOptions.err.println
+			    ("jode.Decompiler: Argument `"
+			     +arg+"' to --verbose must be numeric:");
+			errorInParams = true;
+		    }
 		}
-		GlobalOptions.setDebugging(flags);
-            } else if (params[i].equals("--strip"))
-		setStripOptions(params[++i]);
-	    else if (params[i].startsWith("--strip="))
-		setStripOptions(params[i].substring(8));
-            else if (params[i].equals("--sourcepath")
-		     || params[i].equals("--classpath")
-		     || params[i].equals("--cp"))
-                sourcePath = params[++i];
-            else if (params[i].equals("--dest")
-		     || params[i].equals("-d"))
-                destPath   = params[++i];
+		break;
+	    }
+	    case 'D': {
+		String arg = g.getOptarg();
+		if (arg == null)
+		    arg = "help";
+		errorInParams |= !GlobalOptions.setDebugging(arg);
+		break;
+	    }
+	    default:
+		errorInParams = true;
+		break;
+	    }
+	}
+	if (errorInParams)
+	    return;
 
-            /* Preserve options */
-            else if (params[i].equals("--package"))
-                preserveRule = ModifierMatcher.allowAll.forceAccess
-		    (0, true);
-            else if (params[i].equals("--protected"))
-                preserveRule = ModifierMatcher.allowAll.forceAccess
-		    (Modifier.PROTECTED, true);
-            else if (params[i].equals("--public"))
-                preserveRule = ModifierMatcher.allowAll.forceAccess
-		    (Modifier.PUBLIC, true);
-            else if (params[i].equals("--preserve")) {
-                String ident = params[++i];
-                preservedIdents.add(ident);
-            }
-            else if (params[i].equals("--breakserial"))
-		options &= ~OPTION_PRESERVESERIAL;
-
-            /* Obfuscate options */
-            else if (params[i].equals("--rename"))
-		renamer = getRenamer(params[++i]);
-	    else if (params[i].startsWith("--rename="))
-		renamer = getRenamer(params[i].substring(9));
-	    else if (params[i].equals("--table")) {
-                table  = params[++i];
-            }
-            else if (params[i].equals("--revtable")) {
-                toTable = params[++i];
-            } 
-            else if (params[i].equals("--swaporder"))
-		swapOrder = true;
-            else if (params[i].equals("--")) {
-                i++;
-                break;
-            } else {
-                if (!params[i].equals("-h") && !params[i].equals("--help"))
-                    GlobalOptions.err.println("Unknown option: "+params[i]);
-                usage();
-                return;
-            }
-        }
-	if (renamer == null)
-	    renamer = getRenamer("none");
-	
-        if (i == params.length) {
-            GlobalOptions.err.println("No package or classes specified.");
-            usage();
+        if (g.getOptind() != params.length - 1) {
+            GlobalOptions.err.println("You must specify exactly one script.");
             return;
         }
 
-	GlobalOptions.err.println("Loading classes");
-        ClassInfo.setClassPath(sourcePath);
-        bundle = new ClassBundle();
-        for (; i< params.length; i++)
-            bundle.loadClasses(params[i]);
 
-	GlobalOptions.err.println("Computing reachable / preserved settings");
-        bundle.setPreserved(preserveRule, preservedIdents);
+	try {
+	    ScriptParser parser = new ScriptParser
+		(new FileReader(params[g.getOptind()]));
+	    parser.parseOptions(bundle);
+	} catch (IOException ex) {
+	    GlobalOptions.err.println
+		("IOException while reading script file.");
+	    ex.printStackTrace(GlobalOptions.err);
+	    return;
+	} catch (ParseException ex) {
+	    GlobalOptions.err.println("Syntax error in script file: ");
+	    GlobalOptions.err.println(ex.getMessage());
+	    if (GlobalOptions.verboseLevel > 5)
+		ex.printStackTrace(GlobalOptions.err);
+	    return;
+	}
 
-	GlobalOptions.err.println("Renaming methods");
-	if (table != null)
-            bundle.readTable(table);
-	bundle.buildTable(renamer);
-        if (toTable != null)
-            bundle.writeTable(toTable);
+	// Command Line overwrites script options:
+	if (cp != null)
+	    bundle.setOption("classpath", Collections.singleton(cp));
+	if (dest != null)
+	    bundle.setOption("dest", Collections.singleton(dest));
 
-	GlobalOptions.err.println("Transforming the classes");
-	bundle.doTransformations();
-	GlobalOptions.err.println("Writing new classes");
-        bundle.storeClasses(destPath);
+	bundle.run();
     }
 }
+

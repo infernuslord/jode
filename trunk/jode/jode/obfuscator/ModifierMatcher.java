@@ -251,6 +251,14 @@ public class ModifierMatcher implements IdentifierMatcher, Cloneable {
 	return matches(modifiers);
     }
 
+    public final boolean matchesSub(Identifier ident, String name) {
+	return true;
+    }
+
+    public final String getNextComponent(Identifier ident) {
+	return null;
+    }
+
     public Object clone() {
 	try {
 	    return super.clone();

@@ -18,25 +18,40 @@
  */
 
 package jode.obfuscator;
+import @COLLECTIONS@.Collection;
 
-public class WildCard {
+public class WildCard implements IdentifierMatcher, OptionHandler {
 
     String wildcard;
     int firstStar;
+
+    public WildCard() {
+    }
 
     public WildCard(String wild) {
 	wildcard = wild;
 	firstStar = wildcard.indexOf('*');
     }
 
-    public String getNextComponent(String prefix) {
+    public void setOption(String option, Collection values) {
+	if (option.equals("value")) {
+	    if (values.size() != 1)
+		throw new IllegalArgumentException
+		    ("Wildcard supports only one value.");
+	    wildcard = (String) values.iterator().next();
+	    firstStar = wildcard.indexOf('*');
+	} else
+	    throw new IllegalArgumentException("Invalid option `"+option+"'.");
+    }
+
+    public String getNextComponent(Identifier ident) {
+	String prefix = ident.getFullName();
+	if (prefix.length() > 0)
+	    prefix += ".";
+
 	int lastDot = prefix.length();
 	if (!wildcard.startsWith(prefix))
 	    return null;
-	if (lastDot > 0) {
-	    if (wildcard.charAt(lastDot++) != '.')
-		return null;
-	}
 
 	int nextDot = wildcard.indexOf('.', lastDot);
 	if (nextDot > 0 
@@ -48,15 +63,25 @@ public class WildCard {
 	    return null;
     }
 
-    public boolean startsWith(String test) {
-	if (firstStar == -1 || firstStar >= test.length())
-	    return wildcard.startsWith(test);
-	return test.startsWith(wildcard.substring(0, firstStar));
+    public boolean matchesSub(Identifier ident, String subident) {
+	String prefix = ident.getFullName();
+	if (prefix.length() > 0)
+	    prefix += ".";
+	if (subident != null)
+	    prefix += subident;
+	if (firstStar == -1 || firstStar >= prefix.length())
+	    return wildcard.startsWith(prefix);
+	return prefix.startsWith(wildcard.substring(0, firstStar));
     }
 
-    public boolean matches(String test) {
-	if (firstStar == -1)
-	    return wildcard.equals(test);
+    public boolean matches(Identifier ident) {
+	String test = ident.getFullName();
+	if (firstStar == -1) {
+	    if (wildcard.equals(test)) {
+		return true;
+	    }
+	    return false;
+	}
 	if (!test.startsWith(wildcard.substring(0, firstStar)))
 	    return false;
 

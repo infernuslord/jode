@@ -60,9 +60,15 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		info.getBytecode().setLocalVariableTable(null);
 	    if ((Main.stripping & Main.STRIP_LNT) != 0)
 		info.getBytecode().setLineNumberTable(null);
-	    codeAnalyzer = Main.createCodeAnalyzer();
-	}
+	    codeAnalyzer = Main.getClassBundle().getCodeAnalyzer();
 
+	    CodeTransformer[] trafos
+		= Main.getClassBundle().getPreTransformers();
+	    for (int i = 0; i < trafos.length; i++) {
+		trafos[i].transformCode(bytecode);
+	    }
+	    info.setBytecode(bytecode);
+	}
     }
 
     public Iterator getChilds() {
@@ -105,8 +111,7 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     }
 
     public void writeTable(Map table) {
-	table.put(getFullAlias() + "."
-		  + Main.getClassBundle().getTypeAlias(getType()), getName());
+	table.put(getFullAlias(), getName());
     }
 
     public Identifier getParent() {
@@ -114,11 +119,12 @@ public class MethodIdentifier extends Identifier implements Opcodes {
     }
 
     public String getFullName() {
-	return clazz.getFullName() + "." + getName();
+	return clazz.getFullName() + "." + getName() + "." + getType();
     }
 
     public String getFullAlias() {
-	return clazz.getFullAlias() + "." + getAlias();
+	return clazz.getFullAlias() + "." + getAlias() + "."
+	    + Main.getClassBundle().getTypeAlias(getType());
     }
 
     public String getName() {
@@ -167,15 +173,15 @@ public class MethodIdentifier extends Identifier implements Opcodes {
 		("doTransformation called on transformed method");
 	wasTransformed = true;
 	info.setName(getAlias());
-	info.setType(Main.getClassBundle().getTypeAlias(type));
+	ClassBundle bundle = Main.getClassBundle();
+	info.setType(bundle.getTypeAlias(type));
 	if (codeAnalyzer != null) {
 	    BytecodeInfo bytecode = info.getBytecode();
 	    try {
 		codeAnalyzer.transformCode(bytecode);
-		for (Iterator i = Main.getCodeTransformers().iterator(); 
-		     i.hasNext(); ) {
-		    CodeTransformer transformer = (CodeTransformer) i.next();
-		    transformer.transformCode(bytecode);
+		CodeTransformer[] trafos = bundle.getPostTransformers();
+		for (int i = 0; i < trafos.length; i++) {
+		    trafos[i].transformCode(bytecode);
 		}
 	    } catch (RuntimeException ex) {
 		ex.printStackTrace(GlobalOptions.err);
