@@ -97,13 +97,18 @@ public class IfThenElseBlock extends StructuredBlock {
         throws java.io.IOException
     {
         boolean needBrace = thenBlock.needsBraces();
-        writer.println("if ("+cond.simplify().toString()+")"
-                       +(needBrace?" {":""));
+        writer.print("if ("+cond.simplify().toString()+")");
+	if (needBrace)
+	    writer.openBrace();
+	else
+	    writer.println();
         writer.tab();
         thenBlock.dumpSource(writer);
         writer.untab();
         if (elseBlock != null) {
-            writer.print(needBrace ? "} " : "");
+	    if (needBrace)
+		writer.closeBraceContinue();
+
             if (elseBlock instanceof IfThenElseBlock
                 && (elseBlock.declare == null 
                     || elseBlock.declare.isEmpty())) {
@@ -112,14 +117,18 @@ public class IfThenElseBlock extends StructuredBlock {
                 elseBlock.dumpSource(writer);
             } else {
                 needBrace = elseBlock.needsBraces();
-                writer.println("else" + (needBrace ? " {" : ""));
+                writer.print("else");
+		if (needBrace)
+		    writer.openBrace();
+		else
+		    writer.println();
                 writer.tab();
                 elseBlock.dumpSource(writer);
                 writer.untab();
             }
         }
         if (needBrace)
-            writer.println("}");
+	    writer.closeBrace();
     }
 
     /**
