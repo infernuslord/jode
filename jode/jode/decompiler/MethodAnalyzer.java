@@ -635,6 +635,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
             if (!li.isShadow())
                 imports.useType(li.getType());
         }
+
 	for (int i=0; i < param.length; i++) {
 	    param[i].guessName();
 	    Iterator doneIter = done.iterator();

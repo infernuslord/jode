@@ -232,7 +232,7 @@ public class ClassIdentifier extends Identifier {
 	    for (Iterator i = methods.iterator(); i.hasNext(); ) {
 		MethodIdentifier method = (MethodIdentifier) i.next();
 		modifiers = method.info.getModifiers();
-		if( Modifier.isPrivate(modifiers))
+		if (Modifier.isPrivate(modifiers))
 		    continue;
 		
 		out.writeUTF(method.getName());
