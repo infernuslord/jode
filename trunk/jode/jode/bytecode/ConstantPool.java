@@ -45,50 +45,74 @@ public class ConstantPool {
 
     Object[] constants;
 
+    void checkClassName(String clName) throws ClassFormatException {
+	boolean start = true;
+	for (int i=0; i< clName.length(); i++) {
+	    char c = clName.charAt(i);
+	    if (c == '/')
+		start = true;
+	    else if (start && Character.isJavaIdentifierStart(c)) 
+		start = false;
+	    else if ((start && false /*XXX*/)
+		     || !Character.isJavaIdentifierPart(c))
+		throw new ClassFormatException("Illegal java class name: "
+					       + clName);
+	}
+    }
+
     void checkTypeSig(String typesig, boolean isMethod) 
 	throws ClassFormatException {
-	if (typesig.indexOf('.') != -1)
-	    throw new ClassFormatException
-		("Type sig error: "+typesig);
-	int i = 0;
-	if (isMethod) {
-	    if (typesig.charAt(i++) != '(')
+	try {
+	    int i = 0;
+	    if (isMethod) {
+		if (typesig.charAt(i++) != '(')
 		throw new ClassFormatException
 		    ("Type sig doesn't match tag: "+typesig);
-	    for (; i< typesig.length(); i++) {
-		if (typesig.charAt(i) == ')')
-		    break;
-		while (typesig.charAt(i) == '[')
+		while (typesig.charAt(i) != ')') {
+		    while (typesig.charAt(i) == '[') {
+			i++;
+			if (i >= typesig.length())
+			    throw new ClassFormatException
+				("Type sig error: "+typesig);
+		    }
+		    if (typesig.charAt(i) == 'L') {
+			int end = typesig.indexOf(';', i);
+			if (end == -1)
+			    throw new ClassFormatException
+				("Type sig error: "+typesig);
+			checkClassName(typesig.substring(i+1, end));
+			i = end;
+		    } else {
+			if ("ZBSCIJFD".indexOf(typesig.charAt(i)) == -1)
+			throw new ClassFormatException
+			    ("Type sig error: "+typesig);
+		    }
 		    i++;
-		if (typesig.charAt(i) == 'L') {
-		    i = typesig.indexOf(';', i);
-		    if (i == -1)
-			throw new ClassFormatException
-			    ("Type sig error: "+typesig);
-		} else {
-		    if ("ZBSCIJFD".indexOf(typesig.charAt(i)) == -1)
-			throw new ClassFormatException
-			    ("Type sig error: "+typesig);
 		}
-	    }
+		i++;
+	    }   
+	    while (typesig.charAt(i) == '[')
 	    i++;
-	}   
-	while (typesig.charAt(i) == '[')
-	    i++;
-	if (typesig.charAt(i) == 'L') {
-	    i = typesig.indexOf(';', i);
-	    if (i == -1)
-		throw new ClassFormatException
-		    ("Type sig error: "+typesig);
-	} else {
-	    if ("ZBSCIJFD".indexOf(typesig.charAt(i)) == -1)
-		if (!isMethod || typesig.charAt(i) != 'V')
+	    if (typesig.charAt(i) == 'L') {
+		int end = typesig.indexOf(';', i);
+		if (i == -1)
 		    throw new ClassFormatException
 			("Type sig error: "+typesig);
-	}
-	if (i+1 != typesig.length())
+		checkClassName(typesig.substring(i+1, end));
+		i = end;
+	    } else {
+		if ("ZBSCIJFD".indexOf(typesig.charAt(i)) == -1)
+		    if (!isMethod || typesig.charAt(i) != 'V')
+			throw new ClassFormatException
+			    ("Type sig error: "+typesig);
+	    }
+	    if (i+1 != typesig.length())
+		throw new ClassFormatException
+		    ("Type sig error: "+typesig);
+	} catch (StringIndexOutOfBoundsException ex) {
 	    throw new ClassFormatException
-		("Type sig error: "+typesig);
+		("Incomplete type sig: "+typesig);
+	}
     }
 
     public ConstantPool () {
@@ -172,9 +196,9 @@ public class ConstantPool {
 		throw new ClassFormatException("Tag mismatch");
 	    String type = getUTF8(indices2[nameTypeIndex]);
 	    checkTypeSig(type, tags[i] != FIELDREF);
+	    String clName = getClassType(classIndex);
 	    constants[i] = new Reference
-		(getClassName(classIndex), 
-		 getUTF8(indices1[nameTypeIndex]), type);
+		(clName, getUTF8(indices1[nameTypeIndex]), type);
 	}
 	return (Reference) constants[i];
     }
@@ -194,12 +218,29 @@ public class ConstantPool {
         throw new ClassFormatException("Tag mismatch: "+tags[i]);
     }
 
+    public String getClassType(int i) throws ClassFormatException {
+        if (i == 0)
+            return null;
+        if (tags[i] != CLASS)
+            throw new ClassFormatException("Tag mismatch");
+	String clName = getUTF8(indices1[i]);
+	if (clName.charAt(0) == '[')
+	    checkTypeSig(clName, false);
+	else {
+	    checkClassName(clName);
+	    clName = "L"+clName+';';
+	}
+        return clName;
+    }
+
     public String getClassName(int i) throws ClassFormatException {
         if (i == 0)
             return null;
         if (tags[i] != CLASS)
             throw new ClassFormatException("Tag mismatch");
-        return getUTF8(indices1[i]).replace('/', '.');
+	String clName = getUTF8(indices1[i]);
+	checkClassName(clName);
+        return clName.replace('/','.');
     }
 
     public String toString(int i) {
