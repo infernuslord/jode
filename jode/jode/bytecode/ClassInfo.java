@@ -18,7 +18,7 @@
  */
 
 package jode.bytecode;
-import jode.Decompiler;
+import jode.GlobalOptions;
 import jode.type.Type;
 import java.io.*;
 import java.util.*;
@@ -450,7 +450,7 @@ public class ClassInfo extends BinaryInfo {
 		fs = clazz.getDeclaredFields();
 	    } catch (SecurityException ex) {
 		fs = clazz.getFields();
-		Decompiler.err.println
+		GlobalOptions.err.println
 		    ("Could only get public fields of class "
 		     + name + ".");
 	    }
@@ -467,7 +467,7 @@ public class ClassInfo extends BinaryInfo {
 		ms = clazz.getDeclaredMethods();
 	    } catch (SecurityException ex) {
 		ms = clazz.getMethods();
-		Decompiler.err.println
+		GlobalOptions.err.println
 		    ("Could only get public methods of class "
 		     + name + ".");
 	    }
@@ -493,9 +493,9 @@ public class ClassInfo extends BinaryInfo {
         } catch (IOException ex) {
 	    String message = ex.getMessage();
             if ((howMuch & ~(FIELDS|METHODS|HIERARCHY)) != 0) {
-		Decompiler.err.println
+		GlobalOptions.err.println
 		    ("Can't read class " + name + ".");
-		ex.printStackTrace(Decompiler.err);
+		ex.printStackTrace(GlobalOptions.err);
 		throw new NoClassDefFoundError(name);
 	    }
 	    // Try getting the info through the reflection interface
@@ -507,15 +507,16 @@ public class ClassInfo extends BinaryInfo {
 	    } catch (NoClassDefFoundError ex2) {
 	    }
 	    try {
-		loadInfoReflection(clazz, howMuch);
+		if (clazz != null)
+		    loadInfoReflection(clazz, howMuch);
 		return;
 	    } catch (SecurityException ex2) {
-		Decompiler.err.println
+		GlobalOptions.err.println
 		    (ex2+" while collecting info about class " + name + ".");
 	    }
 	    
 	    // Give a warning and ``guess'' the hierarchie, methods etc.
-	    Decompiler.err.println
+	    GlobalOptions.err.println
 		("Can't read class " + name + ", types may be incorrect. ("
 		 + ex.getClass().getName()
 		 + (message != null ? ": " + message : "") + ")");
