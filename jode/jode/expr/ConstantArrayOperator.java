@@ -97,9 +97,12 @@ public class ConstantArrayOperator extends NoArgOperator {
     public void dumpExpression(TabbedPrintWriter writer, 
 			       Expression[] operands)
 	throws java.io.IOException {
-	writer.print("new ");
-	writer.printType(type);
-	writer.println(" {");
+	if (!isInitializer) {
+	    writer.print("new ");
+	    writer.printType(type);
+	    writer.print(" ");
+	}
+	writer.println("{");
 	writer.tab();
         for (int i=0; i< values.length; i++) {
             if (i>0) {
@@ -108,7 +111,10 @@ public class ConstantArrayOperator extends NoArgOperator {
 		else
 		    writer.print(", ");
 	    }
-            values[i].dumpExpression(writer, 0);
+	    if (values[i] != null)
+		values[i].dumpExpression(writer, 0);
+	    else
+		empty.dumpExpression(writer, 0);
         }
 	writer.println();
 	writer.untab();
