@@ -61,9 +61,7 @@ public class CreateNewConstructor {
 		((ComplexExpression) constrExpr).getSubExpressions();
 	    if (!(subs[0] instanceof NopOperator))
 		return false;
-	    if (constrExpr.getOperandCount() == 2) {
-		if (!(subs[1] instanceof NopOperator))
-		    return false;
+	    if (constrExpr.getOperandCount() > 1) {
 		if (!(sequBlock.outer instanceof SequentialBlock)
 		    || !(sequBlock.subBlocks[0] instanceof SpecialBlock))
 		    return false;
@@ -73,6 +71,7 @@ public class CreateNewConstructor {
 		    || optDupX2.depth == 0)
 		    return false;
 		int count = optDupX2.count;
+		int opcount = constrExpr.getOperandCount() - 1;
 		do {
 		    if (!(sequBlock.outer instanceof SequentialBlock)
 			|| !(sequBlock.subBlocks[0] 
@@ -81,9 +80,15 @@ public class CreateNewConstructor {
 		    Expression expr = 
 			((InstructionBlock) 
 			 sequBlock.subBlocks[0]).getInstruction();
-		    count -= expr.getType().stackSize();
 		    sequBlock = (SequentialBlock) sequBlock.outer;
-		} while (count > 0);
+
+		    if (expr.isVoid())
+			continue;
+		    count -= expr.getType().stackSize();
+		    opcount--;
+		} while (count > 0 && opcount > 0);
+		if (opcount != 0 || count != 0)
+		    return false;
 	    } else if (constrExpr.getOperandCount() != 1)
 		return false;
 	} else if (constrExpr.getOperandCount() != 1)
