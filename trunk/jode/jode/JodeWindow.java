@@ -155,7 +155,7 @@ public class JodeWindow
     }
 	
 ///#ifdef AWT10
-///    public synchronized void action(Object target) {
+///    public synchronized void action(Event e, Object target) {
 ///#else
     public synchronized void actionPerformed(ActionEvent e) {
 	Object target = e.getSource();
