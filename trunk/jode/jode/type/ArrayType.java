@@ -175,6 +175,8 @@ public class ArrayType extends ReferenceType {
      * @return the middle type, or null if it is not necessary.
      */
     public Type getCastHelper(Type fromType) {
+	if (fromType.getTypeCode() == TC_NULL)
+	    return this;
 	Type hintType = fromType.getHint();
 	switch (hintType.getTypeCode()) {
 	case TC_ARRAY:
