@@ -1,18 +1,18 @@
-/* 
- * InvokeOperator (c) 1998 Jochen Hoenicke
+/* InvokeOperator Copyright (C) 1998-1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
@@ -29,23 +29,25 @@ import jode.jvm.*;
 public final class InvokeOperator extends Operator 
     implements MatchableOperator {
     CodeAnalyzer codeAnalyzer;
+    boolean staticFlag;
     boolean specialFlag;
     MethodType methodType;
     String methodName;
-    Type classType;
+    ClassInfo clazz;
 
     public InvokeOperator(CodeAnalyzer codeAnalyzer,
-                          boolean specialFlag, Type classType, 
-                          MethodType methodType, String methodName) {
+			  boolean staticFlag, boolean specialFlag, 
+			  Reference reference) {
         super(Type.tUnknown, 0);
-        this.methodType = methodType;
-        this.methodName = methodName;
-        this.classType = classType;
+        this.methodType = (MethodType) Type.tType(reference.getType());
+        this.methodName = reference.getName();
+        this.clazz = ClassInfo.forName(reference.getClazz());
         this.type = methodType.getReturnType();
         this.codeAnalyzer  = codeAnalyzer;
+	this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
-        if (methodType.isStatic())
-            classType.useType();
+        if (staticFlag)
+            Type.tClass(clazz.getName()).useType();
     }
 
     /**
@@ -67,8 +69,8 @@ public final class InvokeOperator extends Operator
 		|| loadop instanceof GetFieldOperator);
     }
 
-    public boolean isStatic() {
-        return methodType.isStatic();
+    public final boolean isStatic() {
+        return staticFlag;
     }
 
     public MethodType getMethodType() {
@@ -80,7 +82,7 @@ public final class InvokeOperator extends Operator
     }
 
     public Type getClassType() {
-        return classType;
+        return Type.tClass(clazz.getName());
     }
 
     public int getPriority() {
@@ -88,18 +90,18 @@ public final class InvokeOperator extends Operator
     }
 
     public int getOperandCount() {
-        return (methodType.isStatic()?0:1) 
+        return (isStatic()?0:1) 
             + methodType.getParameterTypes().length;
     }
 
     public int getOperandPriority(int i) {
-        if (!methodType.isStatic() && i == 0)
+        if (!isStatic() && i == 0)
             return 950;
         return 0;
     }
 
     public Type getOperandType(int i) {
-        if (!methodType.isStatic()) {
+        if (!isStatic()) {
             if (i == 0)
                 return getClassType();
             i--;
@@ -120,8 +122,7 @@ public final class InvokeOperator extends Operator
      * allow super class
      */
     public boolean isThis() {
-        return (classType.equals(Type.tClass(codeAnalyzer.getClazz().
-                                             getName())));
+        return (clazz == codeAnalyzer.getClazz());
     }
 
     /**
@@ -129,8 +130,7 @@ public final class InvokeOperator extends Operator
      * @XXX check, if its the first super class that implements the method.
      */
     public boolean isSuperOrThis() {
-        return ((jode.ClassInterfacesType)classType).getClazz().superClassOf
-            (codeAnalyzer.getClazz());
+        return clazz.superClassOf(codeAnalyzer.getClazz());
     }
 
     public String toString(String[] operands) {
@@ -140,13 +140,14 @@ public final class InvokeOperator extends Operator
                   isThis() ? "" : "super")
                : (/* XXX check if this is a private or final method. */
                   isThis() ? operands[0] : "NON VIRTUAL " + operands[0]))
-            : (methodType.isStatic()
-               ? (isThis() ? "" : classType.toString())
+            : (isStatic()
+               ? (isThis() ? "" : clazz.toString())
                : (operands[0].equals("this") ? "" 
-		  : operands[0].equals("null") ? "((" + classType + ") null)"
+		  : operands[0].equals("null") 
+		  ? "((" + clazz.getName() + ") null)"
 		  : operands[0]));
 
-        int arg = methodType.isStatic() ? 0 : 1;
+        int arg = isStatic() ? 0 : 1;
         String method = isConstructor() 
             ? (object.length() == 0 ? "this" : object)
             : (object.length() == 0 ? methodName : object + "." + methodName);
@@ -165,9 +166,8 @@ public final class InvokeOperator extends Operator
      * @return true if this is the magic class$ method, false otherwise.
      */
     public boolean isGetClass() {
-	if (!classType.equals(Type.tClass(codeAnalyzer.getClazz().getName())))
-	    return false;
-	return codeAnalyzer.getClassAnalyzer()
+	return isThis() 
+	    && codeAnalyzer.getClassAnalyzer()
 	    .getMethod(methodName, methodType).isGetClass();
     }
 
