@@ -37,17 +37,22 @@ import jode.flow.TransformExceptionHandlers;
 import jode.flow.Jump;
 import jode.jvm.CodeVerifier;
 import jode.jvm.VerifyException;
-import jode.util.SimpleDictionary;
+import jode.util.SimpleMap;
 
 import java.lang.reflect.Modifier;
 import java.util.BitSet;
 import java.util.Stack;
 import java.util.Vector;
-import java.util.Dictionary;
 import java.util.Enumeration;
 import java.io.DataInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+
+///#ifdef JDK12
+///import java.util.Map;
+///#else
+import jode.util.Map;
+///#endif
 
 public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     ImportHandler imports;
@@ -78,6 +83,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     boolean isJikesConstructor;
     boolean hasJikesOuterValue;
     boolean isImplicitAnonymousConstructor;
+    boolean isJikesBlockInitializer;
 
     /**
      * This dictionary maps an anonymous ClassInfo to the
@@ -192,6 +198,10 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 
     public final void setJikesConstructor(boolean value) {
 	isJikesConstructor = value;
+    }
+
+    public final void setJikesBlockInitializer(boolean value) {
+	isJikesBlockInitializer = value;
     }
 
     public final void setHasOuterValue(boolean value) {
@@ -463,7 +473,22 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 		&& classAnalyzer.outerValues.length > 0 ? 1 : 0;
 	}
 
+	if (isJikesBlockInitializer)
+	    return true;
+
 	if (declareAsConstructor
+	    /* The access rights of default constructor should
+	     * be public, iff the class is public, otherwise package.
+	     * But this rule doesn't necessarily apply for anonymous
+	     * classes...
+	     */
+	    && ((minfo.getModifiers() & Modifier.PUBLIC) 
+		== (getClazz().getModifiers() & Modifier.PUBLIC)
+		|| classAnalyzer.getName() == null)
+	    && (minfo.getModifiers()
+		& (Modifier.PRIVATE | Modifier.PROTECTED
+		   | Modifier.SYNCHRONIZED | Modifier.STATIC
+		   | Modifier.ABSTRACT | Modifier.NATIVE)) == 0
 	    && classAnalyzer.constructors.length == 1) {
 
 	    // If this is the only constructor and it is empty and
@@ -480,6 +505,11 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    if (isImplicitAnonymousConstructor)
 		return true;
 	}
+
+        if (isConstructor() && isStatic() 
+            && getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock)
+            return true;
+
 	return false;
     }
     
@@ -508,10 +538,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    analyzeCode();
 	}
 
-        if (isConstructor() && isStatic() 
-            && getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock)
-            return;
-
 	if (minfo.isDeprecated()) {
 	    writer.println("/**");
 	    writer.println(" * @deprecated");
@@ -536,10 +562,12 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	 * Every method declaration in the body of an interface is
 	 * implicitly public. It is permitted, but strongly
 	 * discouraged as a matter of style, to redundantly specify
-	 * the public modifier for interface methods.
+	 * the public modifier for interface methods.  We don't
+	 * follow this second rule and mark this method explicitly
+	 * as public.
 	 */
 	if (classAnalyzer.getClazz().isInterface())
-	    modifiedModifiers &= ~(Modifier.PUBLIC | Modifier.ABSTRACT);
+	    modifiedModifiers &= ~Modifier.ABSTRACT;
 	String modif = Modifier.toString(modifiedModifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
@@ -738,7 +766,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	 */
 
 	class ShrinkOnShrink implements OuterValueListener {
-	    Dictionary limits = new SimpleDictionary();
+	    Map limits = new SimpleMap();
 
 	    public void setLimit(ClassAnalyzer other, 
 				 int newLimit) {
@@ -993,6 +1021,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     }
 
     public String toString() {
-	return "MethodAnalyzer["+getClazz()+"."+getName()+"]";
+	return getClass().getName()+"["+getClazz()+"."+getName()+"]";
     }
 }
