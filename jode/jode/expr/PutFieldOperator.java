@@ -24,6 +24,7 @@ import jode.bytecode.Reference;
 import jode.decompiler.CodeAnalyzer;
 import jode.decompiler.FieldAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
+import jode.decompiler.Scope;
 
 public class PutFieldOperator extends StoreInstruction {
     CodeAnalyzer codeAnalyzer;
@@ -92,12 +93,7 @@ public class PutFieldOperator extends StoreInstruction {
 
     public void dumpLValue(TabbedPrintWriter writer, Expression[] operands)
 	throws java.io.IOException {
-	boolean opIsThis = 
-	    (!staticFlag
-	     && operands[0] instanceof LocalLoadOperator
-	     && (((LocalLoadOperator) operands[0]).getLocalInfo()
-		 .equals(codeAnalyzer.getParamInfo(0)))
-	     && !codeAnalyzer.getMethod().isStatic());
+	boolean opIsThis = !staticFlag && operands[0] instanceof ThisOperator;
 	String fieldName = ref.getName();
 	if (staticFlag) {
 	    if (!classType.equals(Type.tClass(codeAnalyzer.getClazz()))
@@ -114,7 +110,22 @@ public class PutFieldOperator extends StoreInstruction {
 	    writer.print(").");
 	    writer.print(fieldName);
 	} else {
-	    if (!opIsThis || codeAnalyzer.findLocal(fieldName) != null) {
+	    if (opIsThis) {
+		ThisOperator thisOp = (ThisOperator) operands[0];
+		Scope scope = writer.getScope(thisOp.getClassInfo(),
+					      Scope.CLASSSCOPE);
+		if (scope == null)
+		    writer.println("UNKNOWN ");
+
+		if (scope == null || writer.conflicts(fieldName, scope, 
+						      Scope.FIELDNAME)) {
+		    thisOp.dumpExpression(writer, 950);
+		    writer.print(".");
+		} else if (writer.conflicts(fieldName, scope, 
+					    Scope.AMBIGUOUSNAME)) {
+		    writer.print("this.");
+		}
+	    } else {
 		operands[0].dumpExpression(writer, 950);
 		writer.print(".");
 	    }
