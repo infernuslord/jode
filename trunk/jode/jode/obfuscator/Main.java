@@ -22,7 +22,7 @@ import jode.bytecode.ClassInfo;
 import jode.obfuscator.*;
 import java.util.Vector;
 import java.lang.reflect.Modifier;
-import java.io.PrintStream;
+import java.io.PrintWriter;
 
 public class Obfuscator {
     public static boolean shouldStrip = true;
@@ -42,7 +42,7 @@ public class Obfuscator {
     public static final int RENAME_NONE   = 3;
 
     public static void usage() {
-	PrintStream err = GlobalOptions.err;
+	PrintWriter err = GlobalOptions.err;
         err.println("usage: jode.Obfuscator flags* [class | package]*");
         err.println("\t-v                "+
 		    "Verbose output (allowed multiple times).");

@@ -87,7 +87,7 @@ public class MainWindow
 	rightPane.setDividerSize(4);
 	allPane.setDividerLocation(200);
 	allPane.setDividerSize(4);
-	GlobalOptions.err = new PrintStream(new AreaOutputStream(errorArea));
+	GlobalOptions.err = new PrintWriter(new AreaWriter(errorArea));
     }
 
     public synchronized void valueChanged(TreeSelectionEvent e) {
@@ -138,19 +138,30 @@ public class MainWindow
 	}
     }
 
-    public class AreaOutputStream extends OutputStream { 
+    public class AreaWriter extends Writer {
+	boolean initialized = false;
 	private JTextArea area;
 
-	public AreaOutputStream(JTextArea a) {
+	public AreaWriter(JTextArea a) {
 	    area = a;
 	}
 
-	public void write(int b) throws IOException {
-	    area.append(String.valueOf((byte)b));
+	public void write(char[] b, int off, int len) throws IOException {
+	    if (!initialized) {
+		area.setText("");
+		initialized = true;
+	    }
+///#ifdef AWT10
+///	    area.appendText(new String(b, off, len));
+///#else
+	    area.append(new String(b, off, len));
+///#endif
 	}
 
-	public void write(byte[] b, int off, int len) throws IOException {
-	    area.append(new String(b, off, len));
+	public void flush() {
+	}
+
+	public void close() {
 	}
     }
 
@@ -173,8 +184,7 @@ public class MainWindow
 	    
 	    sourcecodeArea.setText("");
 	    TabbedPrintWriter writer = 
-		new TabbedPrintWriter(new AreaOutputStream(sourcecodeArea)
-				      , imports);
+		new TabbedPrintWriter(new AreaWriter(sourcecodeArea), imports);
 
 	    imports.dumpHeader(writer);
 	    clazzAna.dumpSource(writer);

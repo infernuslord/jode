@@ -18,7 +18,7 @@
  */
 
 package jode;
-import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.StringTokenizer;
 
 public class GlobalOptions {
@@ -29,7 +29,7 @@ public class GlobalOptions {
     public final static String URL =
 	"http://www.informatik.uni-oldenburg.de/~delwi/jode/jode.html";
 
-    public static PrintStream err = System.err;
+    public static PrintWriter err = new PrintWriter(System.err);
     public static int verboseLevel   = 0;
     public static int debuggingFlags = 0;
 
