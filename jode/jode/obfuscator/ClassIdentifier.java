@@ -467,10 +467,6 @@ public class ClassIdentifier extends Identifier {
 	}
     }
 
-    public void buildTable(Renamer renameRule) {
-	super.buildTable(renameRule);
-    }
-
     /**
      * Add the ClassInfo objects of the interfaces of ancestor.  But if
      * an interface of ancestor is not reachable it will add its interfaces
