@@ -22,46 +22,119 @@ import java.io.*;
 
 public class TabbedPrintWriter {
     boolean atbol;
-    String tabstr;
-    StringBuffer indent;
+    int indentsize;
+    int currentIndent = 0;
+    String indentStr = "";
     PrintWriter pw;
 
-    public TabbedPrintWriter (OutputStream os, String tabstr) {
-	pw = new PrintWriter(os);
-	this.tabstr=tabstr;
-	indent = new StringBuffer();
+    public TabbedPrintWriter (OutputStream os) {
+	pw = new PrintWriter(os, true);
+	this.indentsize = (Decompiler.outputStyle & Decompiler.TAB_SIZE_MASK);
 	atbol = true;
     }
 
-    public TabbedPrintWriter (Writer os, String tabstr) {
-	pw = new PrintWriter(os);
-	this.tabstr=tabstr;
-	indent = new StringBuffer();
+    public TabbedPrintWriter (Writer os) {
+	pw = new PrintWriter(os, true);
+	this.indentsize = (Decompiler.outputStyle & Decompiler.TAB_SIZE_MASK);
 	atbol = true;
+    }
+
+    /**
+     * Convert the numeric indentation to a string.
+     */
+    public void makeIndentStr() {
+	int tabs = (currentIndent >> 3);
+	// This is a very fast implementation.
+	if (tabs <= 20)
+	    indentStr = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t       "
+		.substring(20 - tabs, 20 + (currentIndent&7));
+	else {
+	    /* the slow way */
+	    StringBuffer sb = new StringBuffer(tabs+7);
+	    while (tabs > 20) {
+		sb.append("\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t");
+		tabs -= 20;
+	    }
+	    sb.append("\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t       "
+		      .substring(20 - tabs, tabs + (currentIndent&7)));
+	    indentStr = sb.toString();
+	} 
     }
 
     public void tab() {
-	indent.append(tabstr);
+	currentIndent += indentsize;
+	makeIndentStr();
     }
 
     public void untab() {
-	indent.setLength(indent.length()-tabstr.length());
+	currentIndent -= indentsize;
+	makeIndentStr();
     }
 
-    public void println(String str) throws java.io.IOException {
-	if (atbol) {
-	    pw.print(indent);
-	}
+    private String newline = System.getProperty("line.separator");
+
+//     public void write(String str) {
+// 	if (atbol)
+// 	    super.write(indentStr);
+// 	super.write(str);
+// 	atbol = (str.equals(newline));
+//     }
+
+    public void println(String str) {
+	if (atbol)
+	    pw.print(indentStr);
 	pw.println(str);
-        pw.flush();
 	atbol = true;
     }
 
-    public void print(String str) throws java.io.IOException {
-	if (atbol) {
-	    pw.print(indent);
-	}
+    public void println() {
+	pw.println();
+	atbol = true;
+    }
+
+    public void print(String str) {
+	if (atbol)
+	    pw.print(indentStr);
 	pw.print(str);
 	atbol = false;
+    }
+
+    /**
+     * Print a opening brace with the current indentation style.
+     * Called at the end of the line of the instance that opens the
+     * brace.  It doesn't do a tab stop after opening the brace.
+     */
+    public void openBrace() {
+	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	    if (atbol)
+		println("{");
+	    else
+		println(" {");
+	else {
+	    println();
+	    if (currentIndent > 0)
+		tab();
+	    println("{");
+	}
+    }
+
+    public void closeBraceContinue() {
+	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	    print("} ");
+	else {
+	    println("}");
+	    if (currentIndent > 0)
+		untab();
+	}
+    }
+
+    public void closeBrace() {
+	if ((Decompiler.outputStyle & Decompiler.BRACE_AT_EOL) != 0)
+	    println("}");
+	else {
+	    println("}");
+	    if (currentIndent > 0)
+		untab();
+	}
     }
 }
