@@ -42,19 +42,222 @@ public class CodeVerifier implements Opcodes {
 
     String methodType;
     String returnType;
-    List jsrTargetList = new ArrayList();
+
+    static Type tNull    = Type.tType("0");
+    static Type tInt     = Type.tType("I");
+    static Type tLong    = Type.tType("J");
+    static Type tFloat   = Type.tType("F");
+    static Type tDouble  = Type.tType("D");
+    static Type tString  = Type.tType("Ljava/lang/String;");
+    static Type tNone    = Type.tType("?");
+    static Type tSecondPart = new Type("2");
+    static Type tObject  = new Type("Ljava/lang/Object;");
+
 
     /**
-     * We need some more types, than mentioned in jvm:
-     * "ZBCSIFJDL[" are the normal types.
-     * "?" stands for type error
-     * "*" stands for unknown type
-     * "L;" stands for unknown Object type.
-     * "N...;" stands for new uninitialized type.
-     * "n...;" stands for new uninitialized type that may call super.
-     * "R...;" stands for return address type.
-     * "2" stands for second half of a two word type.
+     * We need some more types, than mentioned in jvm.
      */
+    private static class Type {
+	/* "ZBCSIFJD" are the normal primitive types.
+	 * "L...;" is normal class type.
+	 * "[..." is normal array type
+	 * "?" stands for type error
+	 * "N...;" stands for new uninitialized type.  
+	 * "0" stands for null type.
+	 * "R" stands for return address type.
+	 * "2" stands for second half of a two word type.
+	 */
+	private String typeSig;
+
+	/**
+	 * The dependant instruction.  This has two usages:
+	 * <dl> <dt>"N...;"</dt> 
+	 * <dd> The new instruction, or null if this is the this param
+	 * of &lt;init&gt;.</dd>
+	 * <dt>"R"</dt> <dd>The <i>target</i> of the jsr.
+	 */
+	private Instruction instr;
+
+	public Type(String typeSig) {
+	    this.typeSig = typeSig;
+	}
+
+	public Type(String typeSig, Instruction instr) {
+	    this.typeSig = typeSig;
+	    this.instr = instr;
+	}
+
+	public static Type tType(String typeSig) {
+	    // unify them?
+	    return new Type(typeSig);
+	}
+
+	public static Type tType(String typeSig, Instruction instr) {
+	    // unify them?
+	    return new Type(typeSig, instr);
+	}
+
+	public String getTypeSig() {
+	    return typeSig;
+	}
+	
+	public Instruction getInstruction() {
+	    return instr;
+	}
+
+	/**
+	 * @param t2 the type signature of the type to check for.
+	 *   This may be one of the special signatures:
+	 *   <dl><dt>"[*"<dt><dd>array of something</dd>
+	 *   <dt>"+"</dt><dd>(uninitialized) object/returnvalue type</dd>
+	 *   <dt>"2", "R"</dt> <dd>as the typeSig parameter </dd>
+	 *   </dl>
+	 * @return true, iff this is castable to t2 by a
+	 * widening cast.  */
+	public boolean isOfType(String destSig) {
+	    String thisSig = typeSig;
+	    if ((GlobalOptions.debuggingFlags
+		 & GlobalOptions.DEBUG_VERIFIER) != 0)
+		GlobalOptions.err.println("isOfType("+thisSig+","+destSig+")");
+	    if (thisSig.equals(destSig))
+		return true;
+	    
+	    char c1 = thisSig.charAt(0);
+	    char c2 = destSig.charAt(0);
+	    switch (c2) {
+	    case 'Z': case 'B': case 'C': case 'S': case 'I':
+		/* integer type */
+		return ("ZBCSI".indexOf(c1) >= 0);
+	    case '+':
+		return ("L[nNR0".indexOf(c1) >= 0);
+
+	    case '[':
+		if (c1 == '0') 
+		    return true;
+		while (c1 == '[' && c2 == '[') {
+		    thisSig = thisSig.substring(1);
+		    destSig = destSig.substring(1);
+		    c1 = thisSig.charAt(0);
+		    c2 = destSig.charAt(0);
+		}
+
+		if (c2 == '*')
+		    /* destType is array of unknowns */
+		    return true;
+		/* Note that short[] is only compatible to short[],
+		 * therefore we only need to handle Object types specially.
+		 */
+
+		if (c2 != 'L')
+		    return false;
+		/* fall through*/
+	    case 'L':
+		if (c1 == '0') 
+		    return true;
+		if ("L[".indexOf(c1) < 0)
+		    return false;
+
+		ClassInfo wantedType = TypeSignature.getClassInfo(destSig);
+		if (wantedType.isInterface()
+		    || wantedType == ClassInfo.javaLangObject)
+		    return true;
+		if (c1 == 'L')
+		    return wantedType.superClassOf(TypeSignature
+						   .getClassInfo(thisSig));
+	    }
+	    return false;
+	}
+
+	/**
+	 * @return The common super type of this and type2.
+	 */
+	public Type mergeType(Type type2) {
+	    String sig1 = typeSig;
+	    String sig2 = type2.typeSig;
+	    
+	    if (this.equals(type2))
+		return this;
+	    
+	    char c1 = sig1.charAt(0);
+	    char c2 = sig2.charAt(0);
+	    if (c1 == '*')
+		return type2;
+	    if (c2 == '*')
+		return this;
+	    if ("ZBCSI".indexOf(c1) >= 0 && "ZBCSI".indexOf(c2) >= 0)
+		return this;
+	    
+	    if (c1 == '0')
+		return ("L[0".indexOf(c2) >= 0) ? type2 : tNone;
+	    if (c2 == '0')
+		return ("L[".indexOf(c1) >= 0) ? this : tNone;
+
+
+	    int dimensions = 0;
+	    /* Note that short[] is only compatible to short[],
+	     * therefore we make the array handling after the primitive
+	     * type handling.  Also note that we don't allow arrays of 
+	     * special types.
+	     */
+	    while (c1 == '[' && c2 == '[') {
+		sig1 = sig1.substring(1);
+		sig2 = sig2.substring(1);
+		c1 = sig1.charAt(0);
+		c2 = sig2.charAt(0);
+		dimensions++;
+	    }
+
+	    if (c1 == '[' || c2 == '[') {
+		// Only one of them is array now, the other must be an
+		// object, the common super is tObject
+		if (c1 == 'L' || c2 == 'L') {
+		    if (dimensions == 0)
+			return tObject;
+		    StringBuffer result = new StringBuffer(dimensions + 18);
+		    for (int i=0; i< dimensions; i++)
+			result.append("[");
+		    result.append("Ljava/lang/Object;");
+		    return tType(result.toString());
+		}
+		return tNone;
+	    }
+
+	    if (c1 == 'L' && c2 == 'L') {
+		ClassInfo clazz1 = TypeSignature.getClassInfo(sig1);
+		ClassInfo clazz2 = TypeSignature.getClassInfo(sig2);
+		if (clazz1.superClassOf(clazz2))
+		    return this;
+		if (clazz2.superClassOf(clazz1))
+		    return type2;
+		do {
+		    clazz1 = clazz1.getSuperclass();
+		} while (!clazz1.superClassOf(clazz2));
+		StringBuffer result = new StringBuffer
+		    (dimensions + clazz1.getName().length() + 2);
+		for (int i=0; i< dimensions; i++)
+		    result.append("[");
+		result.append("L")
+		    .append(clazz1.getName().replace('.', '/')).append(";");
+		return tType(result.toString());
+	    }
+	    return tNone;
+	}
+
+	public boolean equals(Object other) {
+	    if (other instanceof Type) {
+		Type type2 = (Type) other;
+		return typeSig.equals(type2.typeSig)
+		    && instr == type2.instr;
+	    }
+	    return false;
+	}
+
+	public String toString() {
+	    if (instr != null)
+		return typeSig+"@"+instr.getAddr();
+	    return typeSig;
+	}
+    }
 
     /**
      * JLS 4.9.6: Verifying code that contains a finally clause:
@@ -64,8 +267,8 @@ public class CodeVerifier implements Opcodes {
      */
 
     class VerifyInfo implements Cloneable {
-	String[] stack = new String[bi.getMaxStack()];
-	String[] locals = new String[bi.getMaxLocals()];
+	Type[] stack = new Type[bi.getMaxStack()];
+	Type[] locals = new Type[bi.getMaxLocals()];
 	Instruction[] jsrTargets = null;
 	BitSet[] jsrLocals = null;
 	int stackHeight = 0;
@@ -78,8 +281,8 @@ public class CodeVerifier implements Opcodes {
 	public Object clone() {
 	    try {
 		VerifyInfo result = (VerifyInfo) super.clone();
-		result.stack = (String[]) stack.clone();
-		result.locals = (String[]) locals.clone();
+		result.stack = (Type[]) stack.clone();
+		result.locals = (Type[]) locals.clone();
 		return result;
 	    } catch(CloneNotSupportedException ex) {
 		throw new AssertError("Clone not supported?");
@@ -99,12 +302,12 @@ public class CodeVerifier implements Opcodes {
 		throw new VerifyException("stack underflow");
 	}
 	
-	public final void push(String type) throws VerifyException {
+	public final void push(Type type) throws VerifyException {
 	    reserve(1);
 	    stack[stackHeight++] = type; 
 	}
 	
-	public final String pop() throws VerifyException {
+	public final Type pop() throws VerifyException {
 	    need(1);
 	    return stack[--stackHeight];
 	}
@@ -152,126 +355,21 @@ public class CodeVerifier implements Opcodes {
 	if (!mi.isStatic()) {
 	    String clazzName = ci.getName().replace('.','/');
 	    if (mi.getName().equals("<init>"))
-		info.locals[slot++] = "n"+ clazzName+";";
+		info.locals[slot++] = Type.tType("N"+ clazzName+";", null);
 	    else
-		info.locals[slot++] = "L"+ clazzName+";";
+		info.locals[slot++] = Type.tType("L"+ clazzName+";");
 	}
 	while (methodType.charAt(pos) != ')') {
 	    int start = pos;
 	    pos = TypeSignature.skipType(methodType, pos);
 	    String paramType = methodType.substring(start, pos);
-	    info.locals[slot++] = paramType;
+	    info.locals[slot++] = Type.tType(paramType);
 	    if (TypeSignature.getTypeSize(paramType) == 2)
-		info.locals[slot++] = "2";
+		info.locals[slot++] = tSecondPart;
 	}
 	while (slot < bi.getMaxLocals())
-	    info.locals[slot++] = "?";
+	    info.locals[slot++] = tNone;
 	return info;
-    }
-
-    /**
-     * @return true, iff t1 is castable to t2 by a widening cast.
-     */
-    public boolean isOfType(String t1, String t2) {
-	if ((GlobalOptions.debuggingFlags
-	     & GlobalOptions.DEBUG_VERIFIER) != 0)
-	    GlobalOptions.err.println("isOfType("+t1+","+t2+")");
-	if (t1.equals(t2))
-	    return true;
-
-	char c1 = t1.charAt(0);
-	char c2 = t2.charAt(0);
-	if (c2 == '*')
-	    return true;
-	if ("ZBCSI".indexOf(c1) >= 0 && "ZBCSI".indexOf(c2) >= 0)
-	    return true;
-	if (t1.equals("L;"))
-	    return ("L[".indexOf(c2) >= 0);
-	if (t2.equals("L;"))
-	    return ("L[nN".indexOf(c1) >= 0);
-	if (c1 == '[') {
-	    if (c2 == '[') {
-		String e1 = t1.substring(1);
-		String e2 = t2.substring(1);
-		char ec1 = e1.charAt(0);
-		char ec2 = e2.charAt(0);
-		if (ec2 == '*')
-		    return true;
-
-		/* Note that short[] is not compatible to int[],
-		 * therefore this extra check.
-		 */
-		if ("L[".indexOf(ec1) >= 0 && "L[".indexOf(ec2) >= 0)
-		    return isOfType(e1, e2);
-	    } else
-		return t2.equals("Ljava/lang/Object;");
-	}
-	if (c1 == 'L' && c2 == 'L') {
-	    ClassInfo wantedType = TypeSignature.getClassInfo(t2);
-	    return wantedType.isInterface()
-		|| wantedType.superClassOf(TypeSignature.getClassInfo(t1));
-	}
-	return false;
-    }
-
-    /**
-     * @return true, iff t1 is castable to t2 by a widening cast.
-     */
-    public String mergeType(String t1, String t2) {
-	if (t1.equals(t2))
-	    return t1;
-
-	char c1 = t1.charAt(0);
-	char c2 = t2.charAt(0);
-	if (c1 == '*')
-	    return t2;
-	if (c2 == '*')
-	    return t1;
-	if ("ZBCSI".indexOf(c1) >= 0 && "ZBCSI".indexOf(c2) >= 0)
-	    return t1;
-
-	if (t1.equals("L;"))
-	    return ("L[nN".indexOf(c2) >= 0) ? t2 : "?";
-	if (t2.equals("L;"))
-	    return ("L[nN".indexOf(c1) >= 0) ? t1 : "?";
-	if (c1 == '[') {
-	    if (c2 == '[') {
-		String e1 = t1.substring(1);
-		String e2 = t2.substring(1);
-		char ec1 = e1.charAt(0);
-		char ec2 = e2.charAt(0);
-		if (ec1 == '*')
-		    return t2;
-		if (ec2 == '*')
-		    return t1;
-
-		/* Note that short[] is not compatible to int[],
-		 * therefore this extra check.
-		 */
-		if ("L[".indexOf(ec1) >= 0 && "L[".indexOf(ec2) >= 0)
-		    return ("["+mergeType(e1, e2)).intern();
-		return "Ljava/lang/Object;";
-	    } else if (c2 == 'L')
-		return "Ljava/lang/Object;";
-	    return "?";
-	}
-	if (c1 == 'L') {
-	    if (c2 == '[')
-		return "Ljava/lang/Object;";
-	    if (c2 == 'L') {
-		ClassInfo clazz1 = TypeSignature.getClassInfo(t1);
-		ClassInfo clazz2 = TypeSignature.getClassInfo(t2);
-		if (clazz1.superClassOf(clazz2))
-		    return t1;
-		if (clazz2.superClassOf(clazz1))
-		    return t2;
-		do {
-		    clazz1 = clazz1.getSuperclass();
-		} while (!clazz1.superClassOf(clazz2));
-		return ("L"+clazz1.getName().replace('.', '/')+";").intern();
-	    }
-	}
-	return "?";
     }
 
     public boolean mergeInfo(Instruction instr, VerifyInfo info) 
@@ -286,9 +384,9 @@ public class CodeVerifier implements Opcodes {
 	    throw new VerifyException("Stack height differ at: "
 				      + instr.getDescription());
 	for (int i=0; i < oldInfo.stackHeight; i++) {
-	    String newType = mergeType(oldInfo.stack[i], info.stack[i]);
+	    Type newType = oldInfo.stack[i].mergeType(info.stack[i]);
 	    if (!newType.equals(oldInfo.stack[i])) {
-		if (newType == "?")
+		if (newType == tNone)
 		    throw new VerifyException("Type error while merging: "
 					      + oldInfo.stack[i]
 					      + " and " + info.stack[i]);
@@ -297,7 +395,7 @@ public class CodeVerifier implements Opcodes {
 	    }
 	}
 	for (int i=0; i < bi.getMaxLocals(); i++) {
-	    String newType = mergeType(oldInfo.locals[i], info.locals[i]);
+	    Type newType = oldInfo.locals[i].mergeType(info.locals[i]);
 	    if (!newType.equals(oldInfo.locals[i])) {
 		changed = true;
 		oldInfo.locals[i] = newType;
@@ -342,40 +440,46 @@ public class CodeVerifier implements Opcodes {
     }
 
 
-    String[] types = { "I", "L", "F", "D", "L;", "B", "C", "S" };
+    String[] types = { 
+	"I", "J", "F", "D", "+", "B", "C", "S"
+    };
+    String[] arrayTypes = {
+	"[I", "[J", "[F", "[D", "[Ljava/lang/Object;", "[B", "[C", "[S"
+    };
 
     public VerifyInfo modelEffect(Instruction instr, VerifyInfo prevInfo) 
 	throws VerifyException {
 	int jsrLength = 
 	    prevInfo.jsrTargets != null ? prevInfo.jsrTargets.length : 0;
 	VerifyInfo result = (VerifyInfo) prevInfo.clone();
-	switch (instr.getOpcode()) {
+	int opcode = instr.getOpcode();
+	switch (opcode) {
 	case opc_nop:
 	case opc_goto:
 	    break;
 	case opc_ldc: {
-	    String type;
+	    Type type;
 	    Object constant = instr.getConstant();
 	    if (constant == null)
-		type = "L;";
+		type = tNull;
 	    else if (constant instanceof Integer)
-		type = "I";
+		type = tInt;
 	    else if (constant instanceof Float)
-		type = "F";
+		type = tFloat;
 	    else
-		type = "Ljava/lang/String;";
+		type = tString;
 	    result.push(type);
 	    break;
 	}
 	case opc_ldc2_w: {
-	    String type;
+	    Type type;
 	    Object constant = instr.getConstant();
 	    if (constant instanceof Long)
-		type = "L";
+		type = tLong;
 	    else
-		type = "D";
+		type = tDouble;
 	    result.push(type);
-	    result.push("2");
+	    result.push(tSecondPart);
 	    break;
 	}
 	case opc_iload: 
@@ -385,108 +489,108 @@ public class CodeVerifier implements Opcodes {
 	case opc_aload: {
 	    if (jsrLength > 0
 		&& (!result.jsrLocals[jsrLength-1].get(instr.getLocalSlot())
-		    || ((instr.getOpcode() & 0x1) == 0
+		    || ((opcode & 0x1) == 0
 			&& !result.jsrLocals[jsrLength-1]
 			.get(instr.getLocalSlot()+1)))) {
 		result.jsrLocals = (BitSet[]) result.jsrLocals.clone();
 		result.jsrLocals[jsrLength-1]
 		    = (BitSet) result.jsrLocals[jsrLength-1].clone();
 		result.jsrLocals[jsrLength-1].set(instr.getLocalSlot());
-		if ((instr.getOpcode() & 0x1) == 0)
+		if ((opcode & 0x1) == 0)
 		    result.jsrLocals[jsrLength-1].set(instr.getLocalSlot() + 1);
 	    }
-	    if ((instr.getOpcode() & 0x1) == 0
-		&& result.locals[instr.getLocalSlot()+1] != "2")
+	    if ((opcode & 0x1) == 0
+		&& result.locals[instr.getLocalSlot()+1] != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    String type = result.locals[instr.getLocalSlot()];
-	    if (!isOfType(type, types[instr.getOpcode() - opc_iload]))
+	    Type type = result.locals[instr.getLocalSlot()];
+	    if (!type.isOfType(types[opcode - opc_iload]))
 		throw new VerifyException(instr.getDescription());
 	    result.push(type);
-	    if ((instr.getOpcode() & 0x1) == 0)
-		result.push("2");
+	    if ((opcode & 0x1) == 0)
+		result.push(tSecondPart);
 	    break;
 	}
 	case opc_iaload: case opc_laload: 
 	case opc_faload: case opc_daload: case opc_aaload:
 	case opc_baload: case opc_caload: case opc_saload: {
-	    if (!isOfType(result.pop(), "I"))
+	    if (!result.pop().isOfType("I"))
 		throw new VerifyException(instr.getDescription());
-	    String arrType = result.pop(); 
-	    if (!isOfType(arrType, 
-			  "["+types[instr.getOpcode() - opc_iaload])
-		&& (instr.getOpcode() != opc_baload
-		    || !isOfType(arrType, "[Z")))
+	    Type arrType = result.pop(); 
+	    if (!arrType.isOfType(arrayTypes[opcode - opc_iaload])
+		&& (opcode != opc_baload
+		    || !arrType.isOfType("[Z")))
 		throw new VerifyException(instr.getDescription());
 	    
-	    String elemType = (arrType.equals("L;") 
-			       ? types[instr.getOpcode() - opc_iaload]
-			       : TypeSignature.getElementType(arrType));
+	    String typeSig = arrType.getTypeSig();
+	    Type elemType = (typeSig.charAt(0) == '[' 
+			     ? Type.tType(typeSig.substring(1))
+			     : (opcode == opc_aaload ? tNull
+				: Type.tType(types[opcode - opc_iaload])));
 	    result.push(elemType);
-	    if (((1 << instr.getOpcode() - opc_iaload) & 0xa) != 0)
-		result.push("2");
+	    if (((1 << opcode - opc_iaload) & 0xa) != 0)
+		result.push(tSecondPart);
 	    break;
 	}
 	case opc_istore: case opc_lstore: 
 	case opc_fstore: case opc_dstore: case opc_astore: {
 	    if (jsrLength > 0
 		&& (!result.jsrLocals[jsrLength-1].get(instr.getLocalSlot())
-		    || ((instr.getOpcode() & 0x1) != 0
+		    || ((opcode & 0x1) != 0
 			&& !result.jsrLocals[jsrLength-1]
 			.get(instr.getLocalSlot()+1)))) {
 		result.jsrLocals = (BitSet[]) result.jsrLocals.clone();
 		result.jsrLocals[jsrLength-1]
 		    = (BitSet) result.jsrLocals[jsrLength-1].clone();
 		result.jsrLocals[jsrLength-1].set(instr.getLocalSlot());
-		if ((instr.getOpcode() & 0x1) != 0)
+		if ((opcode & 0x1) != 0)
 		    result.jsrLocals[jsrLength-1].set(instr.getLocalSlot() + 1);
 	    }
-	    if ((instr.getOpcode() & 0x1) != 0
-		&& result.pop() != "2")
+	    if ((opcode & 0x1) != 0
+		&& result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    String type = result.pop();
-	    if (instr.getOpcode() != opc_astore || type.charAt(0) != 'R')
-		if (!isOfType(type, types[instr.getOpcode() - opc_istore]))
+	    Type type = result.pop();
+	    if (!type.isOfType(types[opcode - opc_istore]))
+		if (opcode != opc_astore || !type.isOfType("R"))
 		    throw new VerifyException(instr.getDescription());
 	    result.locals[instr.getLocalSlot()] = type;
-	    if ((instr.getOpcode() & 0x1) != 0)
-		result.locals[instr.getLocalSlot()+1] = "2";
+	    if ((opcode & 0x1) != 0)
+		result.locals[instr.getLocalSlot()+1] = tSecondPart;
 	    break;
 	}
 	case opc_iastore: case opc_lastore:
 	case opc_fastore: case opc_dastore: case opc_aastore:
 	case opc_bastore: case opc_castore: case opc_sastore: {
-	    if (((1 << instr.getOpcode() - opc_iastore) & 0xa) != 0
-		&& result.pop() != "2")
+	    if (((1 << opcode - opc_iastore) & 0xa) != 0
+		&& result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    String type = result.pop();
-	    if (!isOfType(result.pop(), "I"))
+	    Type type = result.pop();
+	    if (!result.pop().isOfType("I"))
 		throw new VerifyException(instr.getDescription());
-	    String arrType = result.pop();
-	    if (!isOfType(arrType, "["+types[instr.getOpcode() - opc_iastore])
-		&& (instr.getOpcode() != opc_bastore 
-		    || !isOfType(arrType, "[Z")))
+	    Type arrType = result.pop();
+	    if (!arrType.isOfType(arrayTypes[opcode - opc_iastore])
+		&& (opcode != opc_bastore || !arrType.isOfType("[Z")))
 		throw new VerifyException(instr.getDescription());
-	    String elemType = instr.getOpcode() >= opc_bastore ? "I"
-		: types[instr.getOpcode() - opc_iastore];
-	    if (!isOfType(type, elemType))
+	    String elemType = opcode >= opc_bastore ? "I"
+		: types[opcode - opc_iastore];
+	    if (!type.isOfType(elemType))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
 	case opc_pop: case opc_pop2: {
-	    int count = instr.getOpcode() - (opc_pop-1);
+	    int count = opcode - (opc_pop-1);
 	    result.need(count);
 	    result.stackHeight -= count;
 	    break;
 	}
 	case opc_dup: case opc_dup_x1: case opc_dup_x2: {
-	    int depth = instr.getOpcode() - opc_dup;
+	    int depth = opcode - opc_dup;
 	    result.reserve(1);
 	    result.need(depth+1);
-	    if (result.stack[result.stackHeight-1] == "2")
+	    if (result.stack[result.stackHeight-1] == tSecondPart)
 		throw new VerifyException(instr.getDescription());
 	    
 	    int stackdepth = result.stackHeight - (depth + 1);
-	    if (result.stack[stackdepth] == "2")
+	    if (result.stack[stackdepth] == tSecondPart)
 		throw new VerifyException(instr.getDescription()
 					  + " on long or double");
 	    for (int i=result.stackHeight; i > stackdepth; i--)
@@ -495,15 +599,15 @@ public class CodeVerifier implements Opcodes {
 	    break;
 	}
 	case opc_dup2: case opc_dup2_x1: case opc_dup2_x2: {
-	    int depth = instr.getOpcode() - opc_dup2;
+	    int depth = opcode - opc_dup2;
 	    result.reserve(2);
 	    result.need(depth+2);
-	    if (result.stack[result.stackHeight-2] == "2")
+	    if (result.stack[result.stackHeight-2] == tSecondPart)
 		throw new VerifyException(instr.getDescription()
 					  + " on misaligned long or double");
 	    int stacktop = result.stackHeight;
 	    int stackdepth = stacktop - (depth + 2);
-	    if (result.stack[stackdepth] == "2")
+	    if (result.stack[stackdepth] == tSecondPart)
 		throw new VerifyException(instr.getDescription()
 					  + " on long or double");
 	    for (int i=stacktop; i > stackdepth; i--)
@@ -515,11 +619,11 @@ public class CodeVerifier implements Opcodes {
 	}
 	case opc_swap: {
 	    result.need(2);
-	    if (result.stack[result.stackHeight-2] == "2"
-		|| result.stack[result.stackHeight-1] == "2")
+	    if (result.stack[result.stackHeight-2] == tSecondPart
+		|| result.stack[result.stackHeight-1] == tSecondPart)
 		throw new VerifyException(instr.getDescription()
 					  + " on misaligned long or double");
-	    String tmp = result.stack[result.stackHeight-1];
+	    Type tmp = result.stack[result.stackHeight-1];
 	    result.stack[result.stackHeight-1] = 
 		result.stack[result.stackHeight-2];
 	    result.stack[result.stackHeight-2] = tmp;
@@ -530,34 +634,34 @@ public class CodeVerifier implements Opcodes {
         case opc_imul: case opc_lmul: case opc_fmul: case opc_dmul:
         case opc_idiv: case opc_ldiv: case opc_fdiv: case opc_ddiv:
         case opc_irem: case opc_lrem: case opc_frem: case opc_drem: {
-	    String type = types[(instr.getOpcode() - opc_iadd) & 3];
-	    if ((instr.getOpcode() & 1) != 0
-		&& result.pop() != "2")
+	    String type = types[(opcode - opc_iadd) & 3];
+	    if ((opcode & 1) != 0
+		&& result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (!isOfType(result.pop(), type))
+	    if (!result.pop().isOfType(type))
 		throw new VerifyException(instr.getDescription());
-	    if ((instr.getOpcode() & 1) != 0) {
+	    if ((opcode & 1) != 0) {
 		result.need(2);
-		if (result.stack[result.stackHeight-1] != "2"
-		    || !isOfType(result.stack[result.stackHeight-2], type))
+		if (result.stack[result.stackHeight-1] != tSecondPart
+		    || !result.stack[result.stackHeight-2].isOfType(type))
 		    throw new VerifyException(instr.getDescription());
 	    } else {
 		result.need(1);
-		if (!isOfType(result.stack[result.stackHeight-1], type))
+		if (!result.stack[result.stackHeight-1].isOfType(type))
 		    throw new VerifyException(instr.getDescription());
 	    }
 	    break;
 	}
         case opc_ineg: case opc_lneg: case opc_fneg: case opc_dneg: {
-	    String type = types[(instr.getOpcode() - opc_ineg) & 3];
-	    if ((instr.getOpcode() & 1) != 0) {
+	    String type = types[(opcode - opc_ineg) & 3];
+	    if ((opcode & 1) != 0) {
 		result.need(2);
-		if (result.stack[result.stackHeight-1] != "2"
-		    || !isOfType(result.stack[result.stackHeight-2], type))
+		if (result.stack[result.stackHeight-1] != tSecondPart
+		    || !result.stack[result.stackHeight-2].isOfType(type))
 		    throw new VerifyException(instr.getDescription());
 	    } else {
 		result.need(1);
-		if (!isOfType(result.stack[result.stackHeight-1], type))
+		if (!result.stack[result.stackHeight-1].isOfType(type))
 		    throw new VerifyException(instr.getDescription());
 	    }
 	    break;
@@ -565,17 +669,17 @@ public class CodeVerifier implements Opcodes {
         case opc_ishl: case opc_lshl:
         case opc_ishr: case opc_lshr:
         case opc_iushr: case opc_lushr:
-	    if (!isOfType(result.pop(), "I"))
+	    if (!result.pop().isOfType("I"))
 		throw new VerifyException(instr.getDescription());
 	    
-	    if ((instr.getOpcode() & 1) != 0) {
+	    if ((opcode & 1) != 0) {
 		result.need(2);
-		if (result.stack[result.stackHeight-1] != "2" ||
-		    !isOfType(result.stack[result.stackHeight-2],"L"))
+		if (result.stack[result.stackHeight-1] != tSecondPart ||
+		    !result.stack[result.stackHeight-2].isOfType("J"))
 		    throw new VerifyException(instr.getDescription());
 	    } else {
 		result.need(1);
-		if (!isOfType(result.stack[result.stackHeight-1],"I"))
+		if (!result.stack[result.stackHeight-1].isOfType("I"))
 		    throw new VerifyException(instr.getDescription());
 	    }
 	    break;
@@ -583,83 +687,80 @@ public class CodeVerifier implements Opcodes {
         case opc_iand: case opc_land:
         case opc_ior : case opc_lor :
         case opc_ixor: case opc_lxor:
-	    if ((instr.getOpcode() & 1) != 0
-		&& result.pop() != "2")
+	    if ((opcode & 1) != 0
+		&& result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (!isOfType(result.pop(),
-			  types[instr.getOpcode() & 1]))
+	    if (!result.pop().isOfType(types[opcode & 1]))
 		throw new VerifyException(instr.getDescription());
-	    if ((instr.getOpcode() & 1) != 0) {
+	    if ((opcode & 1) != 0) {
 		result.need(2);
-		if (result.stack[result.stackHeight-1] != "2"
-		    || !isOfType(result.stack[result.stackHeight-2],
-				 "L"))
+		if (result.stack[result.stackHeight-1] != tSecondPart
+		    || !result.stack[result.stackHeight-2].isOfType("J"))
 		    throw new VerifyException(instr.getDescription());
 	    } else {
 		result.need(1);
-		if (!isOfType(result.stack[result.stackHeight-1], 
-			      "I"))
+		if (!result.stack[result.stackHeight-1].isOfType("I"))
 		    throw new VerifyException(instr.getDescription());
 	    }
 	    break;
 
 	case opc_iinc:
-	    if (!isOfType(result.locals[instr.getLocalSlot()], "I"))
+	    if (!result.locals[instr.getLocalSlot()].isOfType("I"))
 		throw new VerifyException(instr.getDescription());
 	    break;
         case opc_i2l: case opc_i2f: case opc_i2d:
         case opc_l2i: case opc_l2f: case opc_l2d:
         case opc_f2i: case opc_f2l: case opc_f2d:
         case opc_d2i: case opc_d2l: case opc_d2f: {
-            int from = (instr.getOpcode()-opc_i2l)/3;
-            int to   = (instr.getOpcode()-opc_i2l)%3;
+            int from = (opcode-opc_i2l)/3;
+            int to   = (opcode-opc_i2l)%3;
             if (to >= from)
                 to++;
 	    if ((from & 1) != 0
-		&& result.pop() != "2")
+		&& result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (!isOfType(result.pop(), types[from]))
+	    if (!result.pop().isOfType(types[from]))
 		throw new VerifyException(instr.getDescription());
 		
-	    result.push(types[to]);
+	    result.push(Type.tType(types[to]));
 	    if ((to & 1) != 0)
-		result.push("2");
+		result.push(tSecondPart);
 	    break;
 	}
         case opc_i2b: case opc_i2c: case opc_i2s:
 	    result.need(1);
-	    if (!isOfType(result.stack[result.stackHeight-1], "I"))
+	    if (!result.stack[result.stackHeight-1].isOfType("I"))
 		throw new VerifyException(instr.getDescription());
 	    break;
 
 	case opc_lcmp:
-	    if (result.pop() != "2")
+	    if (result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != "L")
+	    if (result.pop() != tLong)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != "2")
+	    if (result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != "L")
+	    if (result.pop() != tLong)
 		throw new VerifyException(instr.getDescription());
-	    result.push("I");
+	    result.push(tInt);
 	    break;
 	case opc_dcmpl: case opc_dcmpg:
-	    if (result.pop() != "2")
+	    if (result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != "D")
+	    if (result.pop() != tDouble)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != "2")
+	    if (result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != "D")
+	    if (result.pop() != tDouble)
 		throw new VerifyException(instr.getDescription());
-	    result.push("I");
+	    result.push(tInt);
 	    break;
 	case opc_fcmpl: case opc_fcmpg:
-	    if (result.pop() != "F")
+	    if (result.pop() != tFloat)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != "F")
+	    if (result.pop() != tFloat)
 		throw new VerifyException(instr.getDescription());
-	    result.push("I");
+	    result.push(tInt);
 	    break;
 
 	case opc_ifeq: case opc_ifne: 
@@ -667,48 +768,43 @@ public class CodeVerifier implements Opcodes {
 	case opc_ifgt: case opc_ifle:
 	case opc_tableswitch:
 	case opc_lookupswitch:
-	    if (!isOfType(result.pop(), "I"))
+	    if (!result.pop().isOfType("I"))
 		throw new VerifyException(instr.getDescription());
 	    break;
 
 	case opc_if_icmpeq: case opc_if_icmpne:
 	case opc_if_icmplt: case opc_if_icmpge: 
 	case opc_if_icmpgt: case opc_if_icmple: 
-	    if (!isOfType(result.pop(), "I"))
+	    if (!result.pop().isOfType("I"))
 		throw new VerifyException(instr.getDescription());
-	    if (!isOfType(result.pop(), "I"))
+	    if (!result.pop().isOfType("I"))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	case opc_if_acmpeq: case opc_if_acmpne:
-	    if (!isOfType(result.pop(), "L;"))
+	    if (!result.pop().isOfType("+"))
 		throw new VerifyException(instr.getDescription());
-	    if (!isOfType(result.pop(), "L;"))
+	    if (!result.pop().isOfType("+"))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	case opc_ifnull: case opc_ifnonnull:
-	    if (!isOfType(result.pop(), "L;"))
+	    if (!result.pop().isOfType("+"))
 		throw new VerifyException(instr.getDescription());
 	    break;
 
 	case opc_ireturn: case opc_lreturn: 
 	case opc_freturn: case opc_dreturn: case opc_areturn: {
-	    if (((1 << instr.getOpcode() - opc_ireturn) & 0xa) != 0
-		&& result.pop() != "2")
+	    if (((1 << opcode - opc_ireturn) & 0xa) != 0
+		&& result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    String type = result.pop();
-	    if (!isOfType(type, types[instr.getOpcode() - opc_ireturn])
-		|| !isOfType(type, TypeSignature.getReturnType(methodType)))
+	    Type type = result.pop();
+	    if (!type.isOfType(types[opcode - opc_ireturn])
+		|| !type.isOfType(TypeSignature.getReturnType(methodType)))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
 	case opc_jsr: {
 	    Instruction jsrTarget = instr.getSingleSucc();
-	    int index = jsrTargetList.indexOf(jsrTarget);
-	    if (index < 0) {
-		index = jsrTargetList.size();
-		jsrTargetList.add(jsrTarget);
-	    }
-	    result.stack[result.stackHeight++] = "R"+index;
+	    result.stack[result.stackHeight++] = Type.tType("R", jsrTarget);
 	    result.jsrTargets = new Instruction[jsrLength+1];
 	    result.jsrLocals = new BitSet[jsrLength+1];
 	    if (jsrLength > 0) {
@@ -732,29 +828,29 @@ public class CodeVerifier implements Opcodes {
 	case opc_getstatic: {
 	    Reference ref = instr.getReference();
 	    String type = ref.getType();
-	    result.push(type);
+	    result.push(Type.tType(type));
 	    if (TypeSignature.getTypeSize(type) == 2)
-		result.push("2");
+		result.push(tSecondPart);
 	    break;
 	}
 	case opc_getfield: {
 	    Reference ref = instr.getReference();
 	    String classType = ref.getClazz();
-	    if (!isOfType(result.pop(), classType))
+	    if (!result.pop().isOfType(classType))
 		throw new VerifyException(instr.getDescription());
 	    String type = ref.getType();
-	    result.push(type);
+	    result.push(Type.tType(type));
 	    if (TypeSignature.getTypeSize(type) == 2)
-		result.push("2");
+		result.push(tSecondPart);
 	    break;
 	}
 	case opc_putstatic: {
 	    Reference ref = instr.getReference();
 	    String type = ref.getType();
 	    if (TypeSignature.getTypeSize(type) == 2
-		&& result.pop() != "2")
+		&& result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (!isOfType(result.pop(), type))
+	    if (!result.pop().isOfType(type))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
@@ -762,12 +858,12 @@ public class CodeVerifier implements Opcodes {
 	    Reference ref = instr.getReference();
 	    String type = ref.getType();
 	    if (TypeSignature.getTypeSize(type) == 2
-		&& result.pop() != "2")
+		&& result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (!isOfType(result.pop(), type))
+	    if (!result.pop().isOfType(type))
 		throw new VerifyException(instr.getDescription());
 	    String classType = ref.getClazz();
-	    if (!isOfType(result.pop(), classType))
+	    if (!result.pop().isOfType(classType))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
@@ -780,92 +876,94 @@ public class CodeVerifier implements Opcodes {
 	    String[] paramTypes = TypeSignature.getParameterTypes(refmt);
 	    for (int i=paramTypes.length - 1; i >= 0; i--) {
 		if (TypeSignature.getTypeSize(paramTypes[i]) == 2
-		    && result.pop() != "2")
+		    && result.pop() != tSecondPart)
 		    throw new VerifyException(instr.getDescription());
-		if (!isOfType(result.pop(), paramTypes[i]))
+		if (!result.pop().isOfType(paramTypes[i]))
 		    throw new VerifyException(instr.getDescription());
 	    }
 	    if (ref.getName().equals("<init>")) {
-	        String clazz = result.pop();
+	        Type clazz = result.pop();
+		String typeSig = clazz.getTypeSig();
 		String refClazz = ref.getClazz();
-		if (instr.getOpcode() != opc_invokespecial
-		    || "Nn".indexOf(clazz.charAt(0)) < 0
+		if (opcode != opc_invokespecial
+		    || typeSig.charAt(0) != 'N'
 		    || refClazz.charAt(0) != 'L')
 		    throw new VerifyException(instr.getDescription());
-		if (!clazz.substring(1).equals(refClazz.substring(1))) {
+		if (!typeSig.substring(1).equals(refClazz.substring(1))) {
 		    ClassInfo uci = ClassInfo.forName
-			(clazz.substring(1, clazz.length()-1)
+			(typeSig.substring(1, typeSig.length()-1)
 			 .replace('/', '.'));
 		    if (uci.getSuperclass()
 			!= TypeSignature.getClassInfo(refClazz)
-			|| clazz.charAt(0) == 'N')
+			|| clazz.getInstruction() != null)
 			throw new VerifyException(instr.getDescription());
 		}
-		String newType = "L" + clazz.substring(1);
+		Type newType = Type.tType("L" + typeSig.substring(1));
 		for (int i=0; i< result.stackHeight; i++)
 		    if (result.stack[i] == clazz)
 			result.stack[i] = newType;
 		for (int i=0; i< result.locals.length; i++)
 		    if (result.locals[i] == clazz)
 			result.locals[i] = newType;
-	    } else if (instr.getOpcode() != opc_invokestatic) {
+	    } else if (opcode != opc_invokestatic) {
 		String classType = ref.getClazz();
-		if (!isOfType(result.pop(), classType))
+		if (!result.pop().isOfType(classType))
 		    throw new VerifyException(instr.getDescription());
 	    }
 	    String type = TypeSignature.getReturnType(refmt);
 	    if (!type.equals("V")) {
-		result.push(type);
+		result.push(Type.tType(type));
 		if (TypeSignature.getTypeSize(type) == 2)
-		    result.push("2");
+		    result.push(tSecondPart);
 	    }
 	    break;
 	}
 	case opc_new: {
 	    String clName = instr.getClazzType();
-	    result.stack[result.stackHeight++] = "N" + clName.substring(1);
+	    result.stack[result.stackHeight++] = 
+		Type.tType("N" + clName.substring(1), instr);
 	    break;
 	}
 	case opc_arraylength: {
-	    if (!isOfType(result.pop(), "[*"))
+	    if (!result.pop().isOfType("[*"))
 		throw new VerifyException(instr.getDescription());
-	    result.push("I");
+	    result.push(tInt);
 	    break;
 	}
 	case opc_athrow: {
-	    if (!isOfType(result.pop(), "Ljava/lang/Throwable;"))
+	    if (!result.pop().isOfType("Ljava/lang/Throwable;"))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	}
 	case opc_checkcast: {
 	    String classType = instr.getClazzType();
-	    if (!isOfType(result.pop(), "L;"))
+	    if (!result.pop().isOfType("+"))
 		throw new VerifyException(instr.getDescription());
-	    result.push(classType);
+	    result.push(Type.tType(classType));
 	    break;
 	}
 	case opc_instanceof: {
-	    if (!isOfType(result.pop(), "Ljava/lang/Object;"))
+	    if (!result.pop().isOfType("Ljava/lang/Object;"))
 		throw new VerifyException(instr.getDescription());
-	    result.push("I");
+	    result.push(tInt);
 	    break;
 	}
 	case opc_monitorenter:
 	case opc_monitorexit:
-	    if (!isOfType(result.pop(), "Ljava/lang/Object;"))
+	    if (!result.pop().isOfType("Ljava/lang/Object;"))
 		throw new VerifyException(instr.getDescription());
 	    break;
 	case opc_multianewarray: {
 	    int dimension = instr.getDimensions();
 	    for (int i=dimension - 1; i >= 0; i--)
-		if (!isOfType(result.pop(), "I"))
+		if (!result.pop().isOfType("I"))
 		    throw new VerifyException(instr.getDescription());
 	    String classType = instr.getClazzType();
-	    result.push(classType);
+	    result.push(Type.tType(classType));
 	    break;
 	}
 	default:
-	    throw new AssertError("Invalid opcode "+instr.getOpcode());
+	    throw new AssertError("Invalid opcode "+opcode);
 	}
 	return result;
     }
@@ -885,14 +983,14 @@ public class CodeVerifier implements Opcodes {
 		throw new VerifyException("Flow can fall off end of method");
 
 	    VerifyInfo prevInfo = (VerifyInfo) instr.getTmpInfo();
-	    if (instr.getOpcode() == opc_ret) {
-		String retVarType = prevInfo.locals[instr.getLocalSlot()];
+	    int opcode = instr.getOpcode();
+	    if (opcode == opc_ret) {
+		Type retVarType = prevInfo.locals[instr.getLocalSlot()];
 		if (prevInfo.jsrTargets == null
-		    || retVarType.charAt(0) != 'R')
+		    || !retVarType.isOfType("R"))
 		    throw new VerifyException(instr.getDescription());
 		int jsrLength = prevInfo.jsrTargets.length - 1;
-		Instruction jsrTarget = (Instruction) jsrTargetList.get
-		    (Integer.parseInt(retVarType.substring(1)));
+		Instruction jsrTarget = retVarType.getInstruction();
 		while (jsrTarget != prevInfo.jsrTargets[jsrLength])
 		    if (--jsrLength < 0) 
 			throw new VerifyException(instr.getDescription());
@@ -926,7 +1024,7 @@ public class CodeVerifier implements Opcodes {
 		if (!instr.doesAlwaysJump())
 		    if (mergeInfo(instr.getNextByAddr(), info))
 			todoSet.add(instr.getNextByAddr());
-		if (instr.getOpcode() == opc_jsr) {
+		if (opcode == opc_jsr) {
 		    VerifyInfo targetInfo = 
 			(VerifyInfo) instr.getSingleSucc().getTmpInfo();
 		    if (targetInfo != null && targetInfo.retInstr != null) {
@@ -949,14 +1047,14 @@ public class CodeVerifier implements Opcodes {
 			if (instr.getSuccs()[i].getAddr() < instr.getAddr()) {
 			    /* This is a backwards branch */
 			    for (int j = 0; j < prevInfo.locals.length; j++) {
-				if ("Nn".indexOf(prevInfo.locals[j].charAt(0))
-				    >= 0)
+				if (prevInfo.locals[j]
+				    .getTypeSig().charAt(0) == 'N')
 				    throw new VerifyException
 					("Uninitialized local in back-branch");
 			    }
 			    for (int j = 0; j < prevInfo.stackHeight; j++) {
-				if ("Nn".indexOf(prevInfo.stack[j].charAt(0))
-				    >= 0)
+				if (prevInfo.stack[j]
+				    .getTypeSig().charAt(0) == 'N')
 				    throw new VerifyException
 					("Uninitialized stack in back-branch");
 			    }
@@ -970,8 +1068,8 @@ public class CodeVerifier implements Opcodes {
 		    if (handlers[i].start.compareTo(instr) <= 0
 			&& handlers[i].end.compareTo(instr) >= 0) {
 			for (int j = 0; j < prevInfo.locals.length; j++) {
-			    if ("Nn".indexOf(prevInfo.locals[j].charAt(0))
-				>= 0)
+			    if (prevInfo.locals[j]
+				.getTypeSig().charAt(0) == 'N')
 				throw new VerifyException
 				    ("Uninitialized local in try block");
 			}
@@ -979,9 +1077,11 @@ public class CodeVerifier implements Opcodes {
 			excInfo.stackHeight = 1;
 			if (handlers[i].type != null)
 			    excInfo.stack[0] = 
-				"L" + handlers[i].type.replace('.', '/') + ";";
+				Type.tType("L" + handlers[i].type
+					   .replace('.', '/') + ";");
 			else
-			    excInfo.stack[0] = "Ljava/lang/Throwable;";
+			    excInfo.stack[0]
+				= Type.tType("Ljava/lang/Throwable;");
 			if (mergeInfo(handlers[i].catcher, excInfo))
 			    todoSet.add(handlers[i].catcher);
 		    }
