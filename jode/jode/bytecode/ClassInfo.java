@@ -18,8 +18,8 @@
  */
 
 package jode.bytecode;
-import jode.Type;
-import jode.MethodType;
+import jode.type.Type;
+import jode.type.MethodType;
 import java.io.*;
 import java.util.*;
 ///#ifdef JDK12
@@ -169,9 +169,9 @@ public class ClassInfo extends BinaryInfo {
                                   DataInputStream input, int howMuch)
 	throws IOException {
 	modifiers = input.readUnsignedShort();
-        String name = cpool.getClassName(input.readUnsignedShort());
-        if (!this.name.equals(name))
-            new ClassFormatException("Class has wrong name: "+name);
+        String className = cpool.getClassName(input.readUnsignedShort());
+        if (!name.equals(className))
+            throw new ClassFormatException("wrong name " + className);
 	String superName = cpool.getClassName(input.readUnsignedShort());
         superclass = superName != null ? ClassInfo.forName(superName) : null;
     }
@@ -229,9 +229,8 @@ public class ClassInfo extends BinaryInfo {
         }
     }
 
-    public void loadInfoReflection(int howMuch) {
+    public void loadInfoReflection(Class clazz, int howMuch) {
 	try {
-	    Class clazz = Class.forName(name);
 	    modifiers = clazz.getModifiers();
 	    if ((howMuch & HIERARCHY) != 0) {
 		if (clazz.getSuperclass() == null)
@@ -282,8 +281,9 @@ public class ClassInfo extends BinaryInfo {
 	    }
             if ((howMuch & ~(FIELDS|METHODS|HIERARCHY)) != 0) {
                 jode.Decompiler.err.println
-		    ("Can't find class " + name + " in classpath.  "+
-		     "Can't load everything from reflection: "+howMuch);
+		    ("Can't find class " + name
+		     + " in classpath, and couldn't load everything"
+		     + " from reflection.");
 		status |= howMuch;
 	    } 
 	    
@@ -291,27 +291,6 @@ public class ClassInfo extends BinaryInfo {
 	    jode.Decompiler.err.println
 		(ex+" while collecting info about class " + name + ".");
 	    jode.Decompiler.err.println("Bad things may happen?");
-	} catch (ClassNotFoundException ex) {
-	    // Nothing helped, ``guess'' the hierarchie
-            String message = ex.getMessage();
-            if ((howMuch & ~(METHODS|HIERARCHY)) == 0) {
-                jode.Decompiler.err.println
-		    ("Can't read class " + name + ", types may be incorrect. ("
-		     + ex.getClass().getName()
-		     + (message != null ? ": " + message : "") + ")");
-            } else
-                jode.Decompiler.err.println
-		    ("Can't read class " + name
-		     + "(" + ex.getClass().getName()
-		     + (message != null ? ": " + message : "") + ")");
-            
-            if (name.equals("java.lang.Object"))
-                superclass = null;
-            else
-                superclass = ClassInfo.forName("java.lang.Object");
-            interfaces = new ClassInfo[0];
-	    modifiers = Modifier.PUBLIC;
-            status = FULLINFO;
 	}
     }
 
@@ -338,8 +317,36 @@ public class ClassInfo extends BinaryInfo {
         } catch (IOException ex) {
 	    // Try getting the info through the reflection interface
 	    // instead.
-
-	    loadInfoReflection(howMuch);
+	    Class clazz = null;
+	    try {
+		clazz = Class.forName(name);
+	    } catch (ClassNotFoundException ex2) {
+	    } catch (NoClassDefFoundError ex2) {
+	    }
+	    if (clazz != null)
+		loadInfoReflection(clazz, howMuch);
+	    else {
+		// Nothing helped, ``guess'' the hierarchie
+		String message = ex.getMessage();
+		if ((howMuch & ~(METHODS|HIERARCHY)) == 0) {
+		    jode.Decompiler.err.println
+		    ("Can't read class " + name + ", types may be incorrect. ("
+		     + ex.getClass().getName()
+		     + (message != null ? ": " + message : "") + ")");
+		} else
+		    jode.Decompiler.err.println
+			("Can't read class " + name
+			 + " (" + ex.getClass().getName()
+			 + (message != null ? ": " + message : "") + ")");
+		
+		if (name.equals("java.lang.Object"))
+		    superclass = null;
+		else
+		    superclass = ClassInfo.forName("java.lang.Object");
+		interfaces = new ClassInfo[0];
+		modifiers = Modifier.PUBLIC;
+		status = FULLINFO;
+	    }
         }
     }
 
