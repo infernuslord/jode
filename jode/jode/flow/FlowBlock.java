@@ -23,6 +23,7 @@ import jode.GlobalOptions;
 import jode.AssertError;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
 import jode.expr.CombineableOperator;
 import jode.util.SimpleDictionary;
@@ -1488,6 +1489,9 @@ public class FlowBlock {
 	in.merge(param);
 	in.subtract(param);
 	block.propagateUsage();
+	Enumeration enum = param.elements();
+	while (enum.hasMoreElements())
+	    ((LocalInfo) enum.nextElement()).guessName();
 	block.makeDeclaration(param);
     }
 
