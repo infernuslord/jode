@@ -169,34 +169,34 @@ public class ArrayType extends ReferenceType {
 	return tError;
     }
 
-//      /**
-//       * Checks if we need to cast to a middle type, before we can cast from
-//       * fromType to this type.
-//       * @return the middle type, or null if it is not necessary.
-//       */
-//      public Type getCastHelper(Type fromType) {
-//  	Type topType = fromType.getTop();
-//  	switch (topType.getTypeCode()) {
-//  	case TC_ARRAY:
-//  	    if (!elementType.isClassType()
-//  		|| !((ArrayType)topType).elementType.isClassType())
-//  		return tObject;
-//  	    Type middleType = elementType.getCastHelper
-//  		(((ArrayType)topType).elementType);
-//  	    if (middleType != null)
-//  		return tArray(middleType);
-//  	    return null;
-//  	case TC_CLASS:
-//  	    ClassInterfacesType top = (ClassInterfacesType) topType;
-//  	    if (top.clazz == null
-//  		&& implementsAllIfaces(top.ifaces))
-//  		return null;
-//  	    return tObject;
-//  	case TC_UNKNOWN:
-//  	    return null;
-//  	}
-//  	return tObject;
-//      }
+    /**
+     * Checks if we need to cast to a middle type, before we can cast from
+     * fromType to this type.
+     * @return the middle type, or null if it is not necessary.
+     */
+    public Type getCastHelper(Type fromType) {
+	Type hintType = fromType.getHint();
+	switch (hintType.getTypeCode()) {
+	case TC_ARRAY:
+	    if (!elementType.isClassType()
+		|| !((ArrayType)hintType).elementType.isClassType())
+		return tObject;
+	    Type middleType = elementType.getCastHelper
+		(((ArrayType)hintType).elementType);
+	    if (middleType != null)
+		return tArray(middleType);
+	    return null;
+	case TC_CLASS:
+	    ClassInterfacesType hint = (ClassInterfacesType) hintType;
+	    if (hint.clazz == null
+		&& implementsAllIfaces(null, arrayIfaces, hint.ifaces))
+		return null;
+	    return tObject;
+	case TC_UNKNOWN:
+	    return null;
+	}
+	return tObject;
+    }
 
     /**
      * Checks if this type represents a valid type instead of a list
