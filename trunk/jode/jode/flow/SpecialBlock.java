@@ -1,20 +1,22 @@
-/* SpecialBlock (c) 1998 Jochen Hoenicke
+/* SpecialBlock Copyright (C) 1998-1999 Jochen Hoenicke.
  *
- * You may distribute under the terms of the GNU General Public License.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
  *
- * IN NO EVENT SHALL JOCHEN HOENICKE BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF
- * THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JOCHEN HOENICKE 
- * HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * JOCHEN HOENICKE SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
- * BASIS, AND JOCHEN HOENICKE HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
- * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Id$
  */
+
 package jode.flow;
 import jode.decompiler.TabbedPrintWriter;
 import jode.Decompiler;
@@ -201,37 +203,44 @@ public class SpecialBlock extends StructuredBlock {
 		    last.replace(last.outer);
 		}
 		return true;
-	    } else if (last.outer.outer instanceof SequentialBlock
-		       && (last.outer.outer.getSubBlocks()[0] 
-			   instanceof InstructionBlock)) {
-		InstructionBlock prevprev
-		    = (InstructionBlock) last.outer.outer.getSubBlocks()[0];
-		Expression previnstr = prevprev.getInstruction();
-		if (previnstr.getType().stackSize() == 1 
-		    && instr.getType().stackSize() == 1
-		    && (previnstr.getType().getSuperType()
-			.isOfType(instr.getType().getSuperType()))
-		    && count == 2) {
-		    /* compare two objects */
-
-		    ComplexExpression newCond = new ComplexExpression
-			(new CompareBinaryOperator(instr.getType(), 
-						   Operator.EQUALS_OP), 
-			 new Expression[] { previnstr, instr });
-		    IfThenElseBlock newIfThen = new IfThenElseBlock(newCond);
-		    newIfThen.setThenBlock(new EmptyBlock());
-		    newIfThen.moveJump(jump);
-		    if (this == last) {
-			newIfThen.replace(last.outer.outer);
-			flowBlock.lastModified = newIfThen;
-		    } else {
-			newIfThen.replace(this);
-			last.replace(last.outer.outer);
-		    }
-		    return true;
-		}
 	    }
+	    /* The following was another possibility to resolve pops,
+	     * but it turned out to lead to stupid type errors, and
+	     * it is obsolete due to the new stack analysis, now
+	     */
+//  	    } else if (last.outer.outer instanceof SequentialBlock
+//  		       && (last.outer.outer.getSubBlocks()[0] 
+//  			   instanceof InstructionBlock)) {
+//  		InstructionBlock prevprev
+//  		    = (InstructionBlock) last.outer.outer.getSubBlocks()[0];
+//  		Expression previnstr = prevprev.getInstruction();
+//  		if (previnstr.getType().stackSize() == 1 
+//  		    && instr.getType().stackSize() == 1
+//  		    && count == 2
+//  		    && (previnstr.getType().getSuperType()
+//  			.isOfType(instr.getType())
+//  			|| instr.getType().getSuperType()
+//  			.isOfType(previnstr.getType()))) {
+//  		    /* compare two objects */
+
+//  		    ComplexExpression newCond = new ComplexExpression
+//  			(new CompareBinaryOperator(instr.getType(), 
+//  						   Operator.EQUALS_OP), 
+//  			 new Expression[] { previnstr, instr });
+//  		    IfThenElseBlock newIfThen = new IfThenElseBlock(newCond);
+//  		    newIfThen.setThenBlock(new EmptyBlock());
+//  		    newIfThen.moveJump(jump);
+//  		    if (this == last) {
+//  			newIfThen.replace(last.outer.outer);
+//  			flowBlock.lastModified = newIfThen;
+//  		    } else {
+//  			newIfThen.replace(this);
+//  			last.replace(last.outer.outer);
+//  		    }
+//  		    return true;
+//  		}
         }
         return false;
     }
 }
+
