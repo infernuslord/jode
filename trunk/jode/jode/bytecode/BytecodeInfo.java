@@ -1,5 +1,26 @@
+/* BytecodeInfo Copyright (C) 1999 Jochen Hoenicke.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ * $Id$
+ */
+
 package jode.bytecode;
 import jode.Decompiler/*XXX*/;
+import jode.Type;
+import jode.MethodType;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.ByteArrayInputStream;
@@ -7,11 +28,21 @@ import java.io.InputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.Vector;
+import java.util.Enumeration;
 
+/**
+ * This class represents the byte code of a method.  Each instruction is
+ * stored in an Instruction instance.
+ *
+ * We canocalize some opcodes:  wide opcodes are mapped to short ones,
+ * opcodes that load a constant are mapped to opc_ldc or opc_ldc2_w, and
+ * opc_xload_x / opc_xstore_x opcodes are mapped to opc_xload / opc_xstore.
+ */
 public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
     ConstantPool cp;
     int maxStack, maxLocals;
+    int codeLength;
     Instruction firstInstr = null;
     Handler[] exceptionHandlers;
 
@@ -29,14 +60,14 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	this.cp = cp;
         maxStack = input.readUnsignedShort();
         maxLocals = input.readUnsignedShort();
-        int codeLength = input.readInt();
+        codeLength = input.readInt();
 	Instruction[] instrs = new Instruction[codeLength];
 	int[][] succAddrs = new int[codeLength][];
 	{
 	    int addr = 0;
 	    Instruction lastInstr = null;
 	    while (addr < codeLength) {
-		Instruction instr = new Instruction();
+		Instruction instr = new Instruction(this);
 		if (lastInstr != null) {
 		    lastInstr.nextByAddr = instr;
 		    instr.prevByAddr = lastInstr;
@@ -47,7 +78,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
 		int opcode = input.readUnsignedByte();
 		if (Decompiler.isDebugging)/*XXX*/
-		    Decompiler.err.println(addr+": "+opcodeString[opcode]);
+		    Decompiler.err.print(addr+": "+opcodeString[opcode]);
 
 		instr.opcode = opcode;
 		switch (opcode) {
@@ -61,17 +92,25 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    case opc_fstore: case opc_dstore: case opc_astore:
 			instr.localSlot = input.readUnsignedShort();
 			instr.length = 4;
+			if (Decompiler.isDebugging)/*XXX*/
+			    Decompiler.err.print(" "+opcodeString[wideopcode]
+						 +" "+instr.localSlot);
 			break;
 		    case opc_ret:
 			instr.localSlot = input.readUnsignedShort();
 			instr.length = 4;
 			instr.alwaysJumps = true;
+			if (Decompiler.isDebugging)/*XXX*/
+			    Decompiler.err.print(" ret "+instr.localSlot);
 			break;
 			
 		    case opc_iinc:
 			instr.localSlot = input.readUnsignedShort();
 			instr.intData = input.readShort();
 			instr.length = 6;
+			if (Decompiler.isDebugging)/*XXX*/
+			    Decompiler.err.print(" iinc "+instr.localSlot
+						 +" "+instr.intData);
 			break;
 		    default:
 			throw new ClassFormatError("Invalid wide opcode "
@@ -113,29 +152,40 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		case opc_fstore: case opc_dstore: case opc_astore:
 		    instr.localSlot = input.readUnsignedByte();
 		    instr.length = 2;
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+instr.localSlot);
 		    break;
 
 		case opc_ret:
 		    instr.localSlot = input.readUnsignedByte();
 		    instr.alwaysJumps = true;
 		    instr.length = 2;
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+instr.localSlot);
 		    break;
 
 		case opc_aconst_null:
 		case opc_iconst_m1: 
 		case opc_iconst_0: case opc_iconst_1: case opc_iconst_2:
 		case opc_iconst_3: case opc_iconst_4: case opc_iconst_5:
-		case opc_lconst_0: case opc_lconst_1:
 		case opc_fconst_0: case opc_fconst_1: case opc_fconst_2:
+		    instr.objData = constants[instr.opcode - opc_aconst_null];
+		    instr.opcode = opc_ldc;
+		    instr.length = 1;
+		    break;
+		case opc_lconst_0: case opc_lconst_1:
 		case opc_dconst_0: case opc_dconst_1:
 		    instr.objData = constants[instr.opcode - opc_aconst_null];
+		    instr.opcode = opc_ldc2_w;
 		    instr.length = 1;
 		    break;
 		case opc_bipush:
+		    instr.opcode = opc_ldc;
 		    instr.objData = new Integer(input.readByte());
 		    instr.length = 2;
 		    break;
 		case opc_sipush:
+		    instr.opcode = opc_ldc;
 		    instr.objData = new Integer(input.readShort());
 		    instr.length = 3;
 		    break;
@@ -155,6 +205,9 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    instr.localSlot = input.readUnsignedByte();
 		    instr.intData = input.readByte();
 		    instr.length = 3;
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+instr.localSlot
+					     +" "+instr.intData);
 		    break;
 
 		case opc_goto:
@@ -172,6 +225,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    succAddrs[addr] = new int[1];
 		    succAddrs[addr][0] = addr+input.readShort();
 		    instr.length = 3;
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+succAddrs[addr][0]);
 		    break;
 
 		case opc_goto_w:
@@ -182,6 +237,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    succAddrs[addr] = new int[1];
 		    succAddrs[addr][0] = addr+input.readInt();
 		    instr.length = 5;
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+succAddrs[addr][0]);
 		    break;
 
 		case opc_tableswitch: {
@@ -232,15 +289,23 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		case opc_putfield:
 		case opc_invokespecial:
 		case opc_invokestatic:
-		case opc_invokevirtual:
-		    instr.objData = cp.getRef(input.readUnsignedShort());
+		case opc_invokevirtual: {
+		    Reference ref = cp.getRef(input.readUnsignedShort());
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+ref);
+		    instr.objData = ref;
 		    instr.length = 3;
 		    break;
-		case opc_invokeinterface:
-		    instr.objData = cp.getRef(input.readUnsignedShort());
+		}
+		case opc_invokeinterface: {
+		    Reference ref = cp.getRef(input.readUnsignedShort());
+		    if (Decompiler.isDebugging)/*XXX*/
+			Decompiler.err.print(" "+ref);
+		    instr.objData = ref;
 		    instr.intData = input.readUnsignedShort();
 		    instr.length = 5;
 		    break;
+		}
 
 		case opc_new:
 		case opc_anewarray:
@@ -269,6 +334,8 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 			instr.length = 1;
 		}
 		addr += lastInstr.length;
+		if (Decompiler.isDebugging)/*XXX*/
+		    Decompiler.err.println();
 	    }
 	}
 	firstInstr = instrs[0];
@@ -310,67 +377,72 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	readAttributes(cp, input, FULLINFO);
     }
 
-
-    public void writeCode(GrowableConstantPool gcp, 
-			  jode.obfuscator.ClassBundle bundle,
-			  DataOutputStream output) throws IOException {
-	/* Recalculate addr and length */
-	int addr = 0;
+    public void dumpCode(java.io.PrintStream output) {
 	for (Instruction instr = firstInstr; 
 	     instr != null; instr = instr.nextByAddr) {
+	    output.println(instr+ ": " + opcodeString[instr.opcode]);
+	    if (instr.succs != null) {
+		output.print("\tsuccs: "+instr.succs[0]);
+		for (int i = 1; i < instr.succs.length; i++)
+		    output.print(", "+instr.succs[i]);
+		output.println();
+	    }
+	    if (instr.preds.size() > 0) {
+		Enumeration enum = instr.preds.elements();
+		output.print("\tpreds: " + enum.nextElement());
+		while (enum.hasMoreElements())
+		    output.print(", " + enum.nextElement());
+		output.println();
+	    }
+	}
+    }
+
+    public void prepareWriting(GrowableConstantPool gcp) {
+	/* Recalculate addr and length */
+	int addr = 0;
+    next_instr:
+	for (Instruction instr = firstInstr; 
+	     instr != null; addr += instr.length, instr = instr.nextByAddr) {
 	    instr.addr = addr;
-	    if (instr.opcode == opc_ldc) {
-		if (gcp.reserveConstant(instr.objData) < 256)
-		    instr.length = 2;
-		else
+	    if (instr.opcode == opc_ldc
+		|| instr.opcode == opc_ldc2_w) {
+		if (instr.objData == null) {
+		    instr.opcode = opc_aconst_null;
+		    instr.length = 1;
+		    continue next_instr;
+		}
+		for (int i=1; i < constants.length; i++) {
+		    if (instr.objData.equals(constants[i])) {
+			instr.opcode = opc_aconst_null+i;
+			instr.length = 1;
+			continue next_instr;
+		    }
+		}
+		if (instr.opcode == opc_ldc2_w) {
 		    instr.length = 3;
-//  		if (instr.objData == null) {
-//  		    instr.length = 1;
-
-//  		} else if (instr.objData instanceof Integer) {
-//  		    int value = ((Integer) instr.objData).intValue();
-//  		    if (value >= -1 && value <= 5)
-//  			instr.length = 1;
-//  		    else if (value >= -Byte.MIN_VALUE
-//  			     && value <= Byte.MAX_VALUE)
-//  			instr.length = 2;
-//  		    else if (value >= -Short.MIN_VALUE
-//  			&& value <= Short.MAX_VALUE)
-//  			instr.length = 3;
-//  		    else if (gcp.reserveConstant(instr.objData) < 256)
-//  			instr.length = 2;
-//  		    else
-//  			instr.length = 3;
-		   
-//  		} else if (instr.objData instanceof Long) {
-//  		    long value = ((Long) instr.objData).longValue();
-//  		    if (value == 0L || value == 1L)
-//  			instr.length = 1;
-//  		    else
-//  			instr.length = 3;
-
-//  		} else if (instr.objData instanceof Float) {
-//  		    float value = ((Float) instr.objData).floatValue();
-//  		    if (value == 0.0F || value == 1.0F)
-//  			instr.length = 1;
-//  		    else if (gcp.reserveConstant(instr.objData) < 256)
-//  			instr.length = 2;
-//  		    else
-//  			instr.length = 3;
-
-//  		} else if (instr.objData instanceof Double) {
-//  		    double value = ((Double) instr.objData).doubleValue();
-//  		    if (value == 0.0 || value == 1.0)
-//  			instr.length = 1;
-//  		    else
-//  			instr.length = 3;
-
-//  		} else {
-//  		    if (gcp.reserveConstant(instr.objData) < 256)
-//  			instr.length = 2;
-//  		    else
-//  			instr.length = 3;
-//  		}
+		    continue;
+		}
+		if (instr.objData instanceof Integer) {
+		    int value = ((Integer) instr.objData).intValue();
+		    if (value >= -Byte.MIN_VALUE
+			&& value <= Byte.MAX_VALUE) {
+			instr.opcode = opc_bipush;
+			instr.length = 2;
+			continue;
+		    } else if (value >= -Short.MIN_VALUE
+			       && value <= Short.MAX_VALUE) {
+			instr.opcode = opc_bipush;
+			instr.length = 2;
+			continue;
+		    }
+		}
+		if (gcp.reserveConstant(instr.objData) < 256) {
+		    instr.opcode = opc_ldc;
+		    instr.length = 2;
+		} else {
+		    instr.opcode = opc_ldc_w;
+		    instr.length = 3;
+		}
 	    } else if (instr.localSlot != -1) {
 		if (instr.opcode == opc_iinc) {
 		    if (instr.localSlot < 256 
@@ -380,7 +452,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    else
 			instr.length = 6;
 		} else {
-		    if (instr.localSlot < 4)
+		    if (instr.opcode != opc_ret && instr.localSlot < 4)
 			instr.length = 1;
 		    else if (instr.localSlot < 256)
 			instr.length = 2;
@@ -401,13 +473,16 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		} else
 		    instr.length = 3;
 	    }
-	    addr += instr.length;
 	}
+	codeLength = addr;
+    }
 
-	/* Now output the code */
+    public void writeCode(GrowableConstantPool gcp, 
+			  jode.obfuscator.ClassBundle bundle,
+			  DataOutputStream output) throws IOException {
 	output.writeShort(maxStack);
 	output.writeShort(maxLocals);
-	output.writeInt(addr);
+	output.writeInt(codeLength);
 	for (Instruction instr = firstInstr; 
 	     instr != null; instr = instr.nextByAddr) {
 	    switch (instr.opcode) {
@@ -446,47 +521,12 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		break;
 
 	    case opc_ldc:
-//  		if (instr.objData == null)
-//  		    output.writeByte(opc_aconst_null);
-
-//  		else if (instr.length == 1) {
-//  		    int value = ((Number) instr.objData).intValue();
-//  		    if (instr.objData instanceof Integer)
-//  			output.writeByte(opc_iconst_0+value);
-//  		    else if (instr.objData instanceof Long)
-//  			output.writeByte(opc_lconst_0+value);
-//  		    else if (instr.objData instanceof Float)
-//  			output.writeByte(opc_fconst_0+value);
-//  		    else if (instr.objData instanceof Double)
-//  			output.writeByte(opc_dconst_0+value);
-
-//  		} else if (instr.objData instanceof Long
-//  			   || instr.objData instanceof Double) {
-//  		    output.writeByte(opc_ldc2_w);
-//  		    output.writeShort(gcp.putConstant(instr.objData));
-
-//  		} else {
-//  		    if (instr.objData instanceof Integer) {
-//  			int value = ((Integer) instr.objData).intValue();
-//  			if (value >= -Byte.MIN_VALUE
-//  			    && value <= Byte.MAX_VALUE) {
-//  			    output.writeByte(opc_bipush);
-//  			    output.writeByte(value);
-//  			    break;
-//  			} else if (value >= -Short.MIN_VALUE
-//  				   && value <= Short.MAX_VALUE) {
-//  			    output.writeByte(opc_sipush);
-//  			    output.writeShort(value);
-//  			    break;
-//  			}
-//  		    }
-		if (instr.length == 2) {
-		    output.writeByte(opc_ldc);
-		    output.writeByte(gcp.putConstant(instr.objData));
-		} else {
-		    output.writeByte(opc_ldc_w);
-		    output.writeShort(gcp.putConstant(instr.objData));
-		}
+		output.writeByte(opc_ldc);
+		output.writeByte(gcp.putConstant(instr.objData));
+		break;
+	    case opc_ldc_w:
+		output.writeByte(opc_ldc_w);
+		output.writeShort(gcp.putConstant(instr.objData));
 		break;
 	    case opc_ldc2_w:
 		output.writeByte(instr.opcode);
@@ -571,7 +611,7 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    case opc_putfield:
 		output.writeByte(instr.opcode);
 		output.writeShort(gcp.putRef(gcp.FIELDREF, 
-					     (String[]) instr.objData));
+					     (Reference) instr.objData));
 		break;
 
 	    case opc_invokespecial:
@@ -581,11 +621,11 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		output.writeByte(instr.opcode);
 		if (instr.opcode == opc_invokeinterface) {
 		    output.writeShort(gcp.putRef(gcp.INTERFACEMETHODREF, 
-						 (String[]) instr.objData));
+						 (Reference) instr.objData));
 		    output.writeShort(instr.intData);
 		} else 
 		    output.writeShort(gcp.putRef(gcp.METHODREF, 
-						 (String[]) instr.objData));
+						 (Reference) instr.objData));
 		break;
 	    case opc_new:
 	    case opc_anewarray:
@@ -607,6 +647,10 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		if (instr.opcode == opc_xxxunusedxxx
 		    || instr.opcode >= opc_breakpoint)
 		    throw new ClassFormatError("Invalid opcode "+instr.opcode);
+		else if (instr.length != 1)
+		    throw new ClassFormatError("Length differs at "
+					       + instr.addr + " opcode "
+					       + opcodeString[instr.opcode]);
 		else
 		    output.writeByte(instr.opcode);
 	    }
