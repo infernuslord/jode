@@ -109,6 +109,10 @@ public class MethodAnalyzer implements Analyzer {
 	isImplicitAnonymousConstructor = value;
     }
 
+    public final boolean isAnonymousConstructor() {
+	return isImplicitAnonymousConstructor;
+    }
+
     public final SyntheticAnalyzer getSynthetic() {
 	return synth;
     }
@@ -131,14 +135,14 @@ public class MethodAnalyzer implements Analyzer {
 	    offset++;
 	}
 
-	if (isConstructor() && !isStatic()
-	    && classAnalyzer.outerValues != null) {
-	    Expression[] outerValues = classAnalyzer.outerValues;
-	    for (int i=0; i< outerValues.length; i++) {
-		LocalInfo local = code.getParamInfo(offset+i);
-		local.setExpression(outerValues[i]);
-	    }
-	}
+//  	if (isConstructor() && !isStatic()
+//  	    && classAnalyzer.outerValues != null) {
+//  	    Expression[] outerValues = classAnalyzer.outerValues;
+//  	    for (int i=0; i< outerValues.length; i++) {
+//  		LocalInfo local = code.getParamInfo(offset+i);
+//  		local.setExpression(outerValues[i]);
+//  	    }
+//  	}
         
 	Type[] paramTypes = methodType.getParameterTypes();
 	for (int i=0; i< paramTypes.length; i++) {
@@ -231,6 +235,7 @@ public class MethodAnalyzer implements Analyzer {
 	boolean declareAsConstructor = isConstructor;
 	int skipParams = 0;
 	if (isConstructor() && !isStatic()
+	    && (Decompiler.options & Decompiler.OPTION_CONTRAFO) != 0
 	    && classAnalyzer.outerValues != null)
 	    skipParams = classAnalyzer.outerValues.length;
 
