@@ -7,11 +7,9 @@ won't work.
 This package was designed to use the GNU standard for configuration
 and makefiles.  To build and install do the following:
 
-0).  Make sure that you have all libraries that are needed in you
+1).  Make sure that you have all libraries that are needed in you
 classpath.  You need gnu.getopt, and if you have JDK 1.1 you also need
 the collection classes and swing for 1.1.
-
-1).  Run "aclocal && autoconf && automake --add-missing".
 
 2).  Run the "configure" script to configure the package.  There are
 various options you might want to pass to configure to control how the
@@ -30,4 +28,3 @@ resolved.
 The created jar file is stored in the share directory.
 
   Jochen
-
