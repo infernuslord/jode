@@ -685,6 +685,9 @@ public class Interpreter implements Opcodes {
 		}
 		case opc_arraylength: {
 		    Object array = stack[--stacktop].objectValue();
+		    if (array == null)
+			throw new InvocationTargetException
+			    (new NullPointerException());
 		    stack[stacktop++].setInt(Array.getLength(array));
 		    break;
 		}

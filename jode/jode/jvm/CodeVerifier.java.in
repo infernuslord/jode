@@ -736,29 +736,29 @@ public class CodeVerifier implements Opcodes {
 	case opc_lcmp:
 	    if (result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != tLong)
+	    if (!result.pop().isOfType("J"))
 		throw new VerifyException(instr.getDescription());
 	    if (result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != tLong)
+	    if (!result.pop().isOfType("J"))
 		throw new VerifyException(instr.getDescription());
 	    result.push(tInt);
 	    break;
 	case opc_dcmpl: case opc_dcmpg:
 	    if (result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != tDouble)
+	    if (!result.pop().isOfType("D"))
 		throw new VerifyException(instr.getDescription());
 	    if (result.pop() != tSecondPart)
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != tDouble)
+	    if (!result.pop().isOfType("D"))
 		throw new VerifyException(instr.getDescription());
 	    result.push(tInt);
 	    break;
 	case opc_fcmpl: case opc_fcmpg:
-	    if (result.pop() != tFloat)
+	    if (!result.pop().isOfType("F"))
 		throw new VerifyException(instr.getDescription());
-	    if (result.pop() != tFloat)
+	    if (!result.pop().isOfType("F"))
 		throw new VerifyException(instr.getDescription());
 	    result.push(tInt);
 	    break;
