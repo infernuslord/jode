@@ -62,6 +62,8 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 		 ("Ljava/lang/StringBuffer;", "<init>", 
 		  "(Ljava/lang/String;)V"));
 	addWhite(Reference.getReference
+		 ("Ljava/lang/StringBuffer;", "<init>", "()V"));
+	addWhite(Reference.getReference
 		 ("Ljava/lang/StringBuffer;", "append", 
 		  "(Ljava/lang/String;)Ljava/lang/StringBuffer;"));
 	addWhite(Reference.getReference
@@ -282,15 +284,16 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	    throw new InterpreterException
 		("Class "+ex.getMessage()+" not found");
 	}
-	return obj != null && !clazz.isInstance(obj);
+	return obj != null && clazz.isInstance(obj);
     }
 
     public Object newArray(String type, int[] dimensions)
 	throws InterpreterException, NegativeArraySizeException {
-	if (type.length() == 1) {
+	if (type.length() == dimensions.length + 1) {
 	    Class clazz;
 	    try {
-		clazz = Class.forName(type);
+		clazz = Type.tType(type.substring(dimensions.length))
+		    .getTypeClass();
 	    } catch (ClassNotFoundException ex) {
 		throw new InterpreterException
 		    ("Class "+ex.getMessage()+" not found");
