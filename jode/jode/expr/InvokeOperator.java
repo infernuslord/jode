@@ -18,7 +18,9 @@
  */
 
 package jode.expr;
+import jode.Decompiler;
 import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
 import jode.GlobalOptions;
@@ -26,6 +28,7 @@ import jode.bytecode.*;
 import jode.jvm.*;
 import jode.type.*;
 import java.lang.reflect.InvocationTargetException;
+import jode.decompiler.Scope;
 
 public final class InvokeOperator extends Operator 
     implements MatchableOperator {
@@ -34,7 +37,7 @@ public final class InvokeOperator extends Operator
     boolean specialFlag;
     MethodType methodType;
     String methodName;
-    Type clazz;
+    Type classType;
 
     public InvokeOperator(CodeAnalyzer codeAnalyzer,
 			  boolean staticFlag, boolean specialFlag, 
@@ -42,13 +45,13 @@ public final class InvokeOperator extends Operator
         super(Type.tUnknown, 0);
         this.methodType = (MethodType) Type.tType(reference.getType());
         this.methodName = reference.getName();
-        this.clazz = Type.tType(reference.getClazz());
+        this.classType = Type.tType(reference.getClazz());
         this.type = methodType.getReturnType();
         this.codeAnalyzer  = codeAnalyzer;
 	this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
         if (staticFlag)
-            codeAnalyzer.useType(clazz);
+            codeAnalyzer.useType(classType);
     }
 
     /**
@@ -83,7 +86,7 @@ public final class InvokeOperator extends Operator
     }
 
     public Type getClassType() {
-        return clazz;
+        return classType;
     }
 
     public int getPriority() {
@@ -111,17 +114,80 @@ public final class InvokeOperator extends Operator
         return methodName.equals("<init>");
     }
 
+    public ClassInfo getClassInfo() {
+	if (classType instanceof ClassInterfacesType)
+	    return ((ClassInterfacesType) classType).getClassInfo();
+	return null;
+    }
+
     /**
      * Checks, whether this is a call of a method from this class.
      * @XXX check, if this class implements the method and if not
      * allow super class
      */
     public boolean isThis() {
-	if (clazz instanceof ClassInterfacesType) {
-	    return ((ClassInterfacesType) clazz).getClassInfo()
-		== codeAnalyzer.getClazz();
+	return getClassInfo() == codeAnalyzer.getClazz();
+    }
+
+    public ClassInfo getOuterClass() {
+	ClassInfo clazz = getClassInfo();
+	if (clazz != null) {
+	    InnerClassInfo[] outers = clazz.getOuterClasses();
+	    if (outers != null && outers[0].outer != null
+		&& (Decompiler.options & Decompiler.OPTION_INNER) != 0)
+		return ClassInfo.forName(outers[0].outer);
+	}
+	return null;
+    }
+
+    /**
+     * Checks, whether this is a call of a method from this class or an
+     * outer instance.
+     */
+    public boolean isOuter() {
+	if (classType instanceof ClassInterfacesType) {
+	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
+	    while (true) {
+		if (((ClassInterfacesType) classType).getClassInfo() 
+		    == ana.getClazz())
+		    return true;
+		if (ana.getParent() instanceof CodeAnalyzer
+		    && (Decompiler.options & Decompiler.OPTION_ANON) != 0)
+		    ana = ((CodeAnalyzer) ana.getParent())
+			.getClassAnalyzer();
+		else if (ana.getParent() instanceof ConstructorOperator
+			 && (Decompiler.options & Decompiler.OPTION_ANON) != 0)
+		    ana = ((ConstructorOperator) ana.getParent())
+			.getCodeAnalyzer().getClassAnalyzer();
+		else if (ana.getParent() instanceof ClassAnalyzer
+			 && (Decompiler.options 
+			     & Decompiler.OPTION_INNER) != 0)
+		    ana = (ClassAnalyzer) ana.getParent();
+		else
+		    return false;
+	    }
 	}
 	return false;
+    }
+
+    public MethodAnalyzer getMethodAnalyzer() {
+	if (classType instanceof ClassInterfacesType) {
+	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
+	    while (true) {
+		if (((ClassInterfacesType) classType).getClassInfo() 
+		    == ana.getClazz()) {
+		    return ana.getMethod(methodName, methodType);
+		}
+		if (ana.getParent() instanceof MethodAnalyzer)
+		    ana = ((MethodAnalyzer) ana.getParent())
+			.getClassAnalyzer();
+		else if (ana.getParent() instanceof ClassAnalyzer)
+		    ana = (ClassAnalyzer) ana.getParent();
+		else
+		    return null;
+	    }
+	}
+	return null;
     }
 
     /**
@@ -129,8 +195,8 @@ public final class InvokeOperator extends Operator
      * @XXX check, if its the first super class that implements the method.
      */
     public boolean isSuperOrThis() {
-	if (clazz instanceof ClassInterfacesType) {
-	    return ((ClassInterfacesType) clazz).getClassInfo()
+	if (classType instanceof ClassInterfacesType) {
+	    return ((ClassInterfacesType) classType).getClassInfo()
 		.superClassOf(codeAnalyzer.getClazz());
 	}
 	return false;
@@ -139,16 +205,20 @@ public final class InvokeOperator extends Operator
     public void dumpExpression(TabbedPrintWriter writer, 
 			       Expression[] operands) 
 	throws java.io.IOException {
-	boolean opIsThis = 
-	    (!staticFlag
-	     && operands[0] instanceof LocalLoadOperator
-	     && !codeAnalyzer.getMethod().isStatic()
-	     && (((LocalLoadOperator) operands[0]).getLocalInfo()
-		 .equals(codeAnalyzer.getParamInfo(0))));
+	boolean opIsThis = !staticFlag && operands[0] instanceof ThisOperator;
         int arg = 1;
 
+	if (isConstructor()) {
+	    ClassInfo outer = getOuterClass();
+	    if (outer != null) {
+		operands[arg++].dumpExpression(writer, 0);
+		writer.print(".");
+	    }
+	}
 	if (specialFlag) {
-	    if (opIsThis) {
+	    if (opIsThis
+		&& (((ThisOperator)operands[0]).getClassInfo()
+		    == codeAnalyzer.getClazz())) {
 		if (isThis()) {
 		    /* XXX check if this is a private or final method. */
 		} else {
@@ -159,29 +229,42 @@ public final class InvokeOperator extends Operator
 		}
 	    } else {
 		/* XXX check if this is a private or final method. */
+		int minPriority = 950; /* field access */
 		if (!isThis()) {
 		    writer.print("(NON VIRTUAL ");
-		    writer.printType(clazz);
+		    writer.printType(classType);
 		    writer.print(")");
-		}
-		operands[0].dumpExpression(writer, 950);
-	    }
-	} else if (staticFlag) {
-	    arg = 0;
-	    if (isThis())
-		opIsThis = true;
-	    else
-		writer.printType(clazz);
-	} else {
-	    if (!opIsThis) {
-		int minPriority = 950; /* field access */
-		if (operands[0].getType() instanceof NullType) {
-		    writer.print("(");
-		    writer.printType(clazz);
-		    writer.print(") ");
 		    minPriority = 700;
 		}
 		operands[0].dumpExpression(writer, minPriority);
+	    }
+	} else if (staticFlag) {
+	    arg = 0;
+	    Scope scope = writer.getScope(getClassInfo(),
+					  Scope.CLASSSCOPE);
+	    if (scope != null
+		&& !writer.conflicts(methodName, scope, Scope.METHODNAME))
+		opIsThis = true;
+	    else
+		writer.printType(classType);
+	} else {
+	    if (opIsThis) {
+		ThisOperator thisOp = (ThisOperator) operands[0];
+		Scope scope = writer.getScope(thisOp.getClassInfo(),
+					      Scope.CLASSSCOPE);
+		if (writer.conflicts(methodName, scope, Scope.METHODNAME)) {
+		    thisOp.dumpExpression(writer, 950);
+		    writer.print(".");
+		}
+	    } else {
+		if (operands[0].getType() instanceof NullType) {
+		    writer.print("((");
+		    writer.printType(classType);
+		    writer.print(") ");
+		    operands[0].dumpExpression(writer, 700);
+		    writer.print(")");
+		} else 
+		    operands[0].dumpExpression(writer, 950);
 	    }
 	}
 
@@ -194,9 +277,12 @@ public final class InvokeOperator extends Operator
 	    writer.print(methodName);
 	}
 	writer.print("(");
-        for (int i=0; i < methodType.getParameterTypes().length; i++) {
-            if (i>0)
+	boolean first = true;
+	while (arg < operands.length) {
+            if (!first)
 		writer.print(", ");
+	    else
+		first = false;
             operands[arg++].dumpExpression(writer, 0);
         }
         writer.print(")");
@@ -207,9 +293,12 @@ public final class InvokeOperator extends Operator
      * @return true if this is the magic class$ method, false otherwise.
      */
     public boolean isGetClass() {
-	return isThis() 
-	    && codeAnalyzer.getClassAnalyzer()
-	    .getMethod(methodName, methodType).isGetClass();
+	if (isThis()) {
+	    SyntheticAnalyzer synth = getMethodAnalyzer().getSynthetic();
+	    if (synth != null && synth.getKind() == SyntheticAnalyzer.GETCLASS)
+		return true;
+	}
+	return false;
     }
 
     class Environment extends SimpleRuntimeEnvironment {
@@ -271,6 +360,56 @@ public final class InvokeOperator extends Operator
 	}
 	return new ConstOperator(result);
     }
+
+    public Expression simplifyAccess(Expression[] subs) {
+	if (isOuter()) {
+	    SyntheticAnalyzer synth = getMethodAnalyzer().getSynthetic();
+	    if (synth != null) {
+		Operator op = null;
+		switch (synth.getKind()) {
+		case SyntheticAnalyzer.ACCESSGETFIELD:
+		    op = new GetFieldOperator(codeAnalyzer, false,
+					      synth.getReference());
+		    break;
+		case SyntheticAnalyzer.ACCESSGETSTATIC:
+		    op = new GetFieldOperator(codeAnalyzer, true,
+					      synth.getReference());
+		    break;
+		case SyntheticAnalyzer.ACCESSPUTFIELD:
+		    op = new PutFieldOperator(codeAnalyzer, false,
+					      synth.getReference());
+		    break;
+		case SyntheticAnalyzer.ACCESSPUTSTATIC:
+		    op = new PutFieldOperator(codeAnalyzer, true,
+					      synth.getReference());
+		    break;
+		case SyntheticAnalyzer.ACCESSMETHOD:
+		    op = new InvokeOperator(codeAnalyzer, false, 
+					    false, synth.getReference());
+		    break;
+		case SyntheticAnalyzer.ACCESSSTATICMETHOD:
+		    op = new InvokeOperator(codeAnalyzer, true, 
+					    false, synth.getReference());
+		    break;
+		}
+
+		if (op != null) {
+		    if (subs == null)
+			return op;
+		    return new ComplexExpression(op, subs);
+		}
+	    }
+	}
+	return null;
+    }
+
+    public Expression simplify() {
+	Expression expr = simplifyAccess(null);
+	if (expr != null)
+	    return expr.simplify();
+	return super.simplify();
+    }
+
 
     /* Invokes never equals: they may return different values even if
      * they have the same parameters.
