@@ -110,7 +110,7 @@ public class TransformConstructors {
                 .getSubExpressions()[isStatic ? 0 : 1];
 
 
-            if (!expr.isConstant()) {
+            if (!pfo.isThis() || !expr.isConstant()) {
 //                 Decompiler.err.println("not constant: "+expr);
                 break big_loop;
             }
