@@ -69,13 +69,6 @@ public abstract class Operator extends Expression {
         operator = op;
     }
 
-    /**
-     * Sets the return type of this operator.
-     */
-    public void setType(Type type) {
-        this.type = type;
-    }
-
     public String getOperatorString() {
         return opString[operator];
     }

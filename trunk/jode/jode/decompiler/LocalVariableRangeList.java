@@ -18,7 +18,6 @@
  */
 
 package jode;
-import sun.tools.java.*;
 
 public class LocalVariableRangeList {
 
@@ -27,7 +26,7 @@ public class LocalVariableRangeList {
         int length;
         MyLocalInfo next;
         
-        MyLocalInfo(int slot, int s, int l, Identifier n, Type t) {
+        MyLocalInfo(int slot, int s, int l, String n, Type t) {
             super (slot);
             start = s;
             length = l;
@@ -72,7 +71,7 @@ public class LocalVariableRangeList {
     }
 
     public void addLocal(int start, int length, 
-                         Identifier name, Type type) {
+                         String name, Type type) {
         MyLocalInfo li = new MyLocalInfo(slot,start,length,name,type);
         add (li);
     }

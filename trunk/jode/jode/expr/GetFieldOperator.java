@@ -18,16 +18,16 @@
  */
 
 package jode;
-import sun.tools.java.*;
+import gnu.bytecode.CpoolRef;
 
 public class GetFieldOperator extends Operator {
     boolean staticFlag;
-    FieldDefinition field;
+    CpoolRef field;
     CodeAnalyzer codeAnalyzer;
 
     public GetFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag, 
-                            FieldDefinition field) {
-        super(Type.tType(field.getType()), 0);
+                            CpoolRef field) {
+        super(Type.tType(field.getNameAndType().getType().getString()), 0);
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
         this.field = field;
@@ -54,8 +54,8 @@ public class GetFieldOperator extends Operator {
             /* shouldn't be called */
             throw new RuntimeException("Field is static");
         }
-        return Type.tSubType(Type.tClass(field.getClassDeclaration()
-                                         .getName().toString()));
+        return Type.tSubType(Type.tClass(field.getCpoolClass()
+                                         .getName().getString()));
     }
 
     public void setOperandType(Type types[]) {
@@ -64,18 +64,19 @@ public class GetFieldOperator extends Operator {
     public String toString(String[] operands) {
         String object;
         if (staticFlag) {
-            if (field.getClassDefinition() == codeAnalyzer.getClassDefinition())
-                return field.getName().toString();
+            if (field.getCpoolClass().getName().getString()
+                .equals(codeAnalyzer.getClazz().getName()))
+                return field.getNameAndType().getName().getString();
             object = 
                 codeAnalyzer.getTypeString
-                (Type.tClass(field.getClassDeclaration()
-                             .getName().toString())); 
+                (Type.tClass(field.getCpoolClass()
+                             .getName().getString())); 
         } else {
             if (operands[0].equals("this"))
-                return field.getName().toString();
+                return field.getNameAndType().getName().getString();
             object = operands[0];
         }
-        return object + "." + field.getName();
+        return object + "." + field.getNameAndType().getName().getString();
     }
 
     public boolean equals(Object o) {

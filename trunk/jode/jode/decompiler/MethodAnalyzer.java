@@ -18,32 +18,76 @@
  */
 
 package jode;
-import sun.tools.java.*;
-import java.lang.reflect.Modifier;
-import java.io.*;
+import java.lang.reflect.*;
+import gnu.bytecode.Attribute;
+import gnu.bytecode.CodeAttr;
 
-public class MethodAnalyzer implements Analyzer, Constants {
-    FieldDefinition mdef;
+public class MethodAnalyzer implements Analyzer {
     JodeEnvironment env;
     CodeAnalyzer code = null;
+    ClassAnalyzer classAnalyzer;
+    boolean isConstructor;
+    Method method;
+    Constructor constr;
     
-    public MethodAnalyzer(FieldDefinition fd, JodeEnvironment e)
+    private MethodAnalyzer(ClassAnalyzer cla, Method m, Constructor c,
+                          JodeEnvironment e)
     {
-        mdef = fd;
+        classAnalyzer = cla;
+        method = m;
+        constr = c;
+        isConstructor = (c != null);
         env  = e;
-        byte bytecode[] = ((BinaryField) mdef).getAttribute(Constants.idCode);
-        if (bytecode != null) {
-            BinaryCode bc = 
-                new BinaryCode(bytecode, 
-                               env.getConstantPool(),
-                               env);
-            code = new CodeAnalyzer(this, bc, env);
+
+        String name = isConstructor ? "<init>" : m.getName();
+        Class[] paramTypes = (isConstructor 
+                              ? c.getParameterTypes()
+                              : m.getParameterTypes());
+
+        gnu.bytecode.Method mdef = cla.classType.getMethods();
+        while (mdef != null) {
+            if (mdef.getName().equals(name)) {
+                gnu.bytecode.Type[] argtypes = mdef.getParameterTypes();
+                if (argtypes.length == paramTypes.length) {
+                    int i;
+                    for (i=0; i<argtypes.length; i++) {
+                        if (!Type.tType(paramTypes[i]).equals(Type.tType(argtypes[i].getSignature())))
+                            break;
+                    }
+                    if (i == argtypes.length) 
+                        break;
+                }
+            }
+            mdef = mdef.getNext();
         }
+        
+        Attribute attr = Attribute.get(mdef, "Code");
+        if (attr != null && attr instanceof CodeAttr)
+            code = new CodeAnalyzer(this, (CodeAttr) attr, env);
+    }
+
+    public MethodAnalyzer(ClassAnalyzer cla, Method method,
+                          JodeEnvironment env)
+    {
+        this(cla, method, null, env);
+    }
+
+    public MethodAnalyzer(ClassAnalyzer cla, Constructor constr,
+                          JodeEnvironment env)
+    {
+        this(cla, null, constr, env);
     }
 
     public int getParamCount() {
-	return (mdef.isStatic()?0:1)+
-	    mdef.getType().getArgumentTypes().length;
+	return isConstructor 
+            ? (constr.getParameterTypes().length + 1)
+            : ((Modifier.isStatic(method.getModifiers()) ? 0 : 1)
+               + method.getParameterTypes().length);
+    }
+
+    public Type getReturnType() {
+        return isConstructor 
+            ? Type.tVoid : Type.tType(method.getReturnType());
     }
 
     public void analyze() 
@@ -53,17 +97,16 @@ public class MethodAnalyzer implements Analyzer, Constants {
 	    return;
 
 	int offset = 0;
-	if (!mdef.isStatic()) {
+	if (isConstructor || !Modifier.isStatic(method.getModifiers())) {
 	    LocalInfo clazz = code.getParamInfo(0);
-	    clazz.setType(Type.tClass(mdef.getClassDefinition()
-                                      .getName().toString()));
-	    clazz.setName(Constants.idThis);
+	    clazz.setType(Type.tType(this.classAnalyzer.clazz));
+	    clazz.setName("this");
 	    offset++;
 	}
-	sun.tools.java.Type[] paramTypes = mdef.getType().getArgumentTypes();
+	Class[] paramTypes = isConstructor 
+            ? constr.getParameterTypes() : method.getParameterTypes();
 	for (int i=0; i< paramTypes.length; i++)
-	    code.getParamInfo(offset+i).setType
-                (Type.tType(paramTypes[i].getTypeSignature()));
+	    code.getParamInfo(offset+i).setType(Type.tType(paramTypes[i]));
 	
 	// We do the code.analyze() in dumpSource, to get 
 	// immediate output.
@@ -74,41 +117,47 @@ public class MethodAnalyzer implements Analyzer, Constants {
     {
 	if (code != null) {
 	    if (Decompiler.isVerbose)
-		System.err.print(mdef.getName().toString()+": ");
+		System.err.print((isConstructor 
+                                  ? "<init>" : method.getName())+": ");
 	    code.analyze();
 	    if (Decompiler.isVerbose)
 		System.err.println("");
 	}
 
         writer.println("");
-	String modif = Modifier.toString(mdef.getModifiers());
+	String modif = Modifier.toString(isConstructor 
+                                         ? constr.getModifiers()
+                                         : method.getModifiers());
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
-        if (mdef.isInitializer()) {
+        if (isConstructor && Modifier.isStatic(constr.getModifiers()))
             writer.print(""); /* static block */
-        } else { 
-            if (mdef.isConstructor())
-                writer.print(mdef.getClassDeclaration().getName().toString());
+        else { 
+            if (isConstructor)
+                writer.print(env.classString(classAnalyzer.clazz));
             else
-                writer.print(env.getTypeString
-                             (Type.tType(mdef.getType().getReturnType()))
-			     + " " + mdef.getName().toString());
+                writer.print(Type.tType(method.getReturnType()).toString()
+			     + " " + method.getName());
             writer.print("(");
-            sun.tools.java.Type[] paramTypes = 
-                mdef.getType().getArgumentTypes();
-            int offset = mdef.isStatic()?0:1;
+            Class[] paramTypes = isConstructor 
+                 ? constr.getParameterTypes() : method.getParameterTypes();
+            int offset = (!isConstructor 
+                          && Modifier.isStatic(method.getModifiers()))?0:1;
             for (int i=0; i<paramTypes.length; i++) {
                 if (i>0)
                     writer.print(", ");
-		writer.print
-		    ((code == null)?
-		     env.getTypeString(Type.tType(paramTypes[i])):
-                     env.getTypeString(Type.tType(paramTypes[i]), 
-                                       code.getParamInfo(i+offset).getName()));
+                if (code == null) {
+                    writer.print(classAnalyzer.getTypeString
+                                 (Type.tType(paramTypes[i])));
+                } else {
+                    LocalInfo li = code.getParamInfo(i+offset);
+                    writer.print(li.getType().toString()+" "+li.getName());
+                }
             }
             writer.print(")");
         }
-        IdentifierToken[] exceptions = mdef.getExceptionIds();
+        Class[] exceptions = isConstructor
+            ? constr.getExceptionTypes() : method.getExceptionTypes();
         if (exceptions != null && exceptions.length > 0) {
             writer.println("");
             writer.print("throws ");
@@ -116,7 +165,7 @@ public class MethodAnalyzer implements Analyzer, Constants {
                 if (exceptions[i] != null) {
                     if (i > 0)
                         writer.print(", ");
-                    writer.print(env.getTypeString(exceptions[i].getName()));
+                    writer.print(env.classString(exceptions[i]));
                 }
             }
         }
@@ -129,13 +178,4 @@ public class MethodAnalyzer implements Analyzer, Constants {
         } else
             writer.println(";");
     }
-
-    /*
-    public byte[] getAttribute(Identifier identifier)
-    {
-        if (mdef instanceof BinaryField)
-            return ((BinaryField)mdef).getAttribute(identifier);
-        return null;
-    }
-    */
 }

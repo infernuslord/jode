@@ -18,13 +18,17 @@
  */
 
 package jode;
-import sun.tools.java.FieldDefinition;
+import gnu.bytecode.CpoolRef;
 
 public class ConstructorOperator extends Operator {
-    FieldDefinition field;
+    CpoolRef field;
+    MethodType methodType;
+    Type classType;
 
-    public ConstructorOperator(Type type, FieldDefinition field) {
+    public ConstructorOperator(Type type, CpoolRef field) {
         super(type, 0);
+        methodType = new MethodType(field.getNameAndType().
+                                    getType().getString());
         this.field = field;
     }
 
@@ -33,7 +37,7 @@ public class ConstructorOperator extends Operator {
     }
 
     public int getOperandCount() {
-        return 1 + field.getType().getArgumentTypes().length;
+        return 1 + methodType.getArgumentTypes().length;
     }
 
     public int getOperandPriority(int i) {
@@ -44,10 +48,8 @@ public class ConstructorOperator extends Operator {
 
     public Type getOperandType(int i) {
         if (i == 0)
-            return Type.tSubType(Type.tClass(field.getClassDeclaration()
-                                             .getName().toString()));
-        return Type.tSubType(Type.tType(field.getType()
-                                        .getArgumentTypes()[i-1]));
+            return Type.tSubType(type);
+        return Type.tSubType(methodType.getArgumentTypes()[i-1]);
     }
 
     public void setOperandType(Type types[]) {
@@ -55,7 +57,7 @@ public class ConstructorOperator extends Operator {
 
     public String toString(String[] operands) {
         StringBuffer result = new StringBuffer(operands[0]).append("(");
-        for (int i=0; i < field.getType().getArgumentTypes().length; i++) {
+        for (int i=0; i < methodType.getArgumentTypes().length; i++) {
             if (i>0)
                 result.append(", ");
             result.append(operands[i+1]);

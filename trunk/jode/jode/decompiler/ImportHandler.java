@@ -18,72 +18,45 @@
  */
 
 package jode;
-import sun.tools.java.*;
-import sun.tools.util.*;
 import java.util.*;
 
-public class JodeEnvironment extends LoadEnvironment {
+public class JodeEnvironment {
     Hashtable imports = new Hashtable();
-    BinaryClass main;
-    Identifier pkg;
+    ClassAnalyzer main;
+    String className;
+    String pkg;
+
+    SearchPath classPath;
 
     JodeEnvironment() {
-        super(null);
 	Type.setEnvironment(this);
-        path = new ClassPath(System.getProperty("java.class.path"));
+        classPath = new SearchPath(System.getProperty("java.class.path"));
     }
 
-    public BinaryConstantPool getConstantPool() {
-        return main.getConstants();
-    }
-
-    public Object getConstant(int i) {
-        return main.getConstants().getConstant(i, this);
-    }
-
-    public Type getConstantType(int i) 
-         throws ClassFormatError
-    {
-        int t = main.getConstants().getConstantType(i);
-        switch(t) {
-        case 3: return Type.tInt   ;
-        case 4: return Type.tFloat ;
-        case 5: return Type.tLong  ;
-        case 6: return Type.tDouble;
-        case 8: return Type.tString;
-        default:
-            throw new ClassFormatError("invalid constant type: "+t);
-        }
-    }
-
-    public String getTypeString(Type type) {
-        return type.toString();
-    }
-
-    public String getTypeString(Identifier clazz) {
-        return clazz.toString();
-    }
-
-    public String getTypeString(Type type, Identifier name) {
-        return type.toString() + " " + name.toString();
-    }
-
-    public ClassDefinition getClassDefinition() {
-        return main;
+    public java.io.InputStream getClassStream(Class clazz) 
+        throws java.io.IOException {
+        return classPath.getFile(clazz.getName().
+                                 replace('.', java.io.File.separatorChar)
+                                 +".class");
+        
     }
 
     public void dumpHeader(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
-        writer.println("/* Decompiled by JoDe (Jochen's Decompiler) */");
-        if (pkg != null && pkg != Constants.idNull)
+        writer.println("/* "+ className + " - Decompiled by JoDe (Jochen's Decompiler)\n * Send comments or bug reports to Jochen Hoenicke <jochenh@bigfoot.com>\n */");
+        if (pkg.length() != 0)
             writer.println("package "+pkg+";");
+
         Enumeration enum = imports.keys();
         while (enum.hasMoreElements()) {
-            Identifier packageName = (Identifier) enum.nextElement();
-            Integer vote = (Integer) imports.get(packageName);
-            if (vote.intValue() > 3)
-                writer.println("import "+packageName+";");
+            String importName = (String) enum.nextElement();
+            Integer vote = (Integer) imports.get(importName);
+            if (vote.intValue() >=
+                (importName.endsWith(".*")
+                 ? Decompiler.importPackageLimit
+                 : Decompiler.importClassLimit))
+                writer.println("import "+importName+";");
         }
         writer.println("");
     }
@@ -94,25 +67,85 @@ public class JodeEnvironment extends LoadEnvironment {
 
     public void doClass(String className) 
     {
+        Class clazz;
         try {
-            Identifier ident = Identifier.lookup(className);
-            error(ident.toString());
-            if (!classExists(ident)) {
-                error("`"+ident+"' not found");
-                return;
-            }
-            pkg = ident.getQualifier();
-            main = (BinaryClass)getClassDefinition(ident);
-            ClassAnalyzer a = new ClassAnalyzer(main, this);
-            a.analyze();
-            TabbedPrintWriter writer = 
-                new TabbedPrintWriter(System.out, "    ");
-            a.dumpSource(writer);
-        } catch (ClassNotFound e) {
-            error(e.toString());
-        } catch (java.io.IOException e) {
-            error(e.toString());
+            clazz = Class.forName(className);
+        } catch (ClassNotFoundException ex) {
+            System.err.println("Class `"+className+"' not found");
+            return;
+        } catch (IllegalArgumentException ex) {
+            System.err.println("`"+className+"' is not a class name");
+            return;
         }
+
+        System.err.println(className);
+        
+        int pkgdelim = className.lastIndexOf('.');
+        pkg = (pkgdelim == -1)? "" : className.substring(0, pkgdelim);
+        this.className = (pkgdelim == -1) ? className
+            : className.substring(pkgdelim+1);
+
+        main = new ClassAnalyzer(null, clazz, this);
+        main.analyze();
+
+        TabbedPrintWriter writer = 
+            new TabbedPrintWriter(System.out, "    ");
+        try {
+            dumpHeader(writer);
+            main.dumpSource(writer);
+        } catch (java.io.IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /* Marks the clazz as used, so that it will be imported if used often
+     * enough.
+     */
+    public void useClass(Class clazz) {
+        String name = clazz.getName();
+        int pkgdelim = name.lastIndexOf('.');
+        if (pkgdelim != -1) {
+            String pkgName = name.substring(0, pkgdelim);
+            if (pkgName.equals(pkg)
+                || pkgName.equals("java.lang"))
+                return;
+            Integer i = (Integer) imports.get(pkgName+".*");
+            i = (i == null)? new Integer(1): new Integer(i.intValue()+1);
+            imports.put(pkgName+".*", i);
+            if (i.intValue() >= Decompiler.importPackageLimit)
+                return;
+            
+            i = (Integer) imports.get(name);
+            i = (i == null)? new Integer(1): new Integer(i.intValue()+1);
+            imports.put(name, i);
+        }
+    }
+
+    /**
+     * Check if clazz is imported and maybe remove package delimiter from
+     * full qualified class name.
+     * <p>
+     * Known Bug: If the same class name is in more than one imported package
+     * the name should be qualified, but isn't.
+     * @return a legal string representation of clazz.  
+     */
+    public String classString(Class clazz) {
+        String name = clazz.getName();
+        int pkgdelim = name.lastIndexOf('.');
+        if (pkgdelim != -1) {
+            String pkgName = name.substring(0, pkgdelim);
+
+            Integer i;
+            if (pkgName.equals(pkg) 
+                || pkgName.equals("java.lang")
+                || ( (i = (Integer)imports.get(pkgName+".*")) != null
+                     && i.intValue() >= Decompiler.importPackageLimit )
+                || ( (i = (Integer)imports.get(name)) != null
+                     && i.intValue() >= Decompiler.importClassLimit )) {
+                return  name.substring(pkgdelim+1);
+            }
+        }
+        return name;
     }
 
     protected int loadFileFlags()

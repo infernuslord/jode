@@ -18,19 +18,24 @@
  */
 
 package jode;
-import sun.tools.java.*;
+import gnu.bytecode.CpoolRef;
 
-public class InvokeOperator extends Operator {
+public final class InvokeOperator extends Operator {
     CodeAnalyzer codeAnalyzer;
     boolean staticFlag;
     boolean specialFlag;
-    FieldDefinition field;
+    MethodType methodType;
+    Type classType;
+    CpoolRef field;
 
     public InvokeOperator(CodeAnalyzer codeAnalyzer,
                           boolean staticFlag, boolean specialFlag, 
-                          FieldDefinition field) {
-        super(Type.tType(field.getType().getReturnType().getTypeSignature()), 
-              0);
+                          CpoolRef field) {
+        super(Type.tError, 0);
+        methodType = new MethodType(field.getNameAndType().
+                                    getType().getString());
+        classType = Type.tClass(field.getCpoolClass().getName().getString());
+        setType(methodType.getReturnType());
         this.codeAnalyzer  = codeAnalyzer;
         this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
@@ -41,12 +46,16 @@ public class InvokeOperator extends Operator {
         return staticFlag;
     }
 
-    public FieldDefinition getField() {
+    public CpoolRef getField() {
         return field;
     }
 
+    public MethodType getMethodType() {
+        return methodType;
+    }
+
     public Type getClassType() {
-        return Type.tClass(field.getClassDeclaration().getName().toString());
+        return classType;
     }
 
     public int getPriority() {
@@ -54,7 +63,7 @@ public class InvokeOperator extends Operator {
     }
 
     public int getOperandCount() {
-        return (staticFlag?0:1) + field.getType().getArgumentTypes().length;
+        return (staticFlag?0:1) + methodType.getArgumentTypes().length;
     }
 
     public int getOperandPriority(int i) {
@@ -69,65 +78,49 @@ public class InvokeOperator extends Operator {
                 return Type.tSubType(getClassType());
             i--;
         }
-        return Type.tSubType(Type.tType(field.getType().
-                                        getArgumentTypes()[i].
-                                        getTypeSignature()));
+        return Type.tSubType(methodType.getArgumentTypes()[i]);
     }
 
     public void setOperandType(Type types[]) {
     }
 
     public boolean isConstructor() {
-        return field.isConstructor();
+        return field.getNameAndType().getName().getString().equals("<init>");
     }
 
     public String toString(String[] operands) {
-        String object;
-        int arg = 0;
-        if (staticFlag) {
-            if (field.getClassDefinition() == codeAnalyzer.getClassDefinition())
-                object = "";
-            else
-                object = codeAnalyzer.
-                    getTypeString(getClassType());
-        } else {
-            if (operands[arg].equals("this")) {
-                if (specialFlag
-                    && (field.getClassDeclaration()
-                        == codeAnalyzer.getClassDefinition().getSuperClass()))
-//                         || (field.getClassDeclaration().getName() 
-//                             == Constants.idJavaLangObject 
-//                             && codeAnalyzer.getClassDefinition()
-//                             .getSuperClass() == null)))
-                    object = "super";
-                else if (specialFlag)
-                    object = "(("+codeAnalyzer.getTypeString(getClassType())
-                        + ") this)";
-                else
-                    object = "";
-            } else {
-                if (specialFlag)
-                    object = "((" + codeAnalyzer.getTypeString(getClassType())
-                        + ") " + operands[arg]+")";
-                else
-                    object = operands[arg];
-            }
-            arg++;
-        }
+        String object = 
+            staticFlag
+            ? ((field.getCpoolClass().getName().getString()
+                .replace(java.io.File.separatorChar, '.')
+                .equals(codeAnalyzer.getClazz().getName()))
+               ? ""
+               : codeAnalyzer.getTypeString(getClassType()))
+            : (operands[0].equals("this") 
+               ? (specialFlag
+                  ? ( (field.getCpoolClass().getName().getString()
+                       .replace(java.io.File.separatorChar, '.')
+                       .equals(codeAnalyzer.getClazz()
+                                .getSuperclass().getName()))
+                      ? "super"
+                      : "((" + codeAnalyzer.getTypeString(getClassType())
+                      + ") this)" )
+                   : "")
+               : (specialFlag
+                  ? "((" + codeAnalyzer.getTypeString(getClassType())
+                  + ") " + operands[0]+")"
+                  : operands[0] ));
+
+        int arg = staticFlag ? 0 : 1;
         String method;
-        if (isConstructor()) {
-            if (object.length() == 0)
-                method = "this";
-            else
-                method = object;
-        } else {
-            if (object.length() == 0)
-                method = field.getName().toString();
-            else
-                method = object+"."+field.getName().toString();
-        }
+        if (isConstructor())
+            method = (object.length() == 0 ? "this" : object);
+        else
+            method = (object.length() == 0 ? "" : object + ".")
+                + field.getNameAndType().getName().getString();
+
         StringBuffer params = new StringBuffer();
-        for (int i=0; i < field.getType().getArgumentTypes().length; i++) {
+        for (int i=0; i < methodType.getArgumentTypes().length; i++) {
             if (i>0)
                 params.append(", ");
             params.append(operands[arg++]);

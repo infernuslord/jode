@@ -19,7 +19,6 @@
 package jode.flow;
 import jode.Type;
 import jode.LocalInfo;
-import sun.tools.java.Identifier;
 
 /**
  * 
@@ -72,8 +71,7 @@ public class CatchBlock extends StructuredBlock {
 
             if (instr instanceof jode.PopOperator) {
                 exceptionLocal = new LocalInfo(-1);
-                exceptionLocal.setName
-                    (Identifier.lookup("exception_"+(serialno++)+"_"));
+                exceptionLocal.setName("exception_"+(serialno++)+"_");
                 exceptionLocal.setType(exceptionType);
             } else if (instr instanceof jode.LocalStoreOperator) {
                 exceptionLocal = 
@@ -92,7 +90,7 @@ public class CatchBlock extends StructuredBlock {
         }
         if (exceptionLocal == null) { 
             exceptionLocal = new LocalInfo(-1);
-            exceptionLocal.setName(Identifier.lookup("ERROR!!!"));
+            exceptionLocal.setName("ERROR!!!");
             exceptionLocal.setType(exceptionType);
         }
         used.addElement(exceptionLocal);
