@@ -144,9 +144,9 @@ public class LocalInfo {
         }
         if (name == null) {
             if (jode.Decompiler.prettyLocals && type != null) {
-                name = type.getDefaultName();
+                name = type.getHint().getDefaultName();
             } else {
-                name = type.getDefaultName()
+                name = type.getHint().getDefaultName()
 		    + (slot >= 0 ? "_" + slot : "") + "_" + serialnr++ + "_";
                 isUnique = true;
             }
@@ -158,8 +158,8 @@ public class LocalInfo {
      * Get the slot of this local.
      */
     public int getSlot() {
-        /* The slot does not change when shadowing */
-        return slot;
+        /* The slot may change when shadowing for anonymous locals */
+        return getLocalInfo().slot;
     }
 
     /**
