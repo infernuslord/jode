@@ -482,11 +482,13 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	     * But this rule doesn't necessarily apply for anonymous
 	     * classes...
 	     */
-	    && ((minfo.getModifiers() & Modifier.PUBLIC) 
-		== (getClazz().getModifiers() & Modifier.PUBLIC)
+	    && ((minfo.getModifiers()
+		 & (Modifier.PROTECTED | Modifier.PUBLIC))
+		== (getClassAnalyzer().getModifiers()
+		    & (Modifier.PROTECTED | Modifier.PUBLIC))
 		|| classAnalyzer.getName() == null)
 	    && (minfo.getModifiers()
-		& (Modifier.PRIVATE | Modifier.PROTECTED
+		& (Modifier.PRIVATE
 		   | Modifier.SYNCHRONIZED | Modifier.STATIC
 		   | Modifier.ABSTRACT | Modifier.NATIVE)) == 0
 	    && classAnalyzer.constructors.length == 1) {
