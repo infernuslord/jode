@@ -73,13 +73,13 @@ public class CreateClassField {
 	    && param instanceof ConstOperator
 	    && param.getType().equals(Type.tString)) {
 	    String clazz = ((ConstOperator)param).getValue();
-	    clazz = clazz.substring(1, clazz.length()-1);
 	    if (put.getFieldName()
 		.equals("class$" + clazz.replace('.', '$'))
 		|| put.getFieldName()
 		.equals("class$L" + clazz.replace('.', '$'))) {
 		cmp.setSubExpressions
 		    (0, new ClassFieldOperator(Type.tClass(clazz)));
+		put.getField().analyzedSynthetic();
 		EmptyBlock empty = new EmptyBlock();
 		empty.moveJump(ifBlock.thenBlock.jump);
 		ifBlock.setThenBlock(empty);
