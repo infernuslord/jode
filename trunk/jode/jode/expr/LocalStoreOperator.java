@@ -59,8 +59,8 @@ implements LocalVarOperator {
 
     public boolean matches(Operator loadop) {
         return loadop instanceof LocalLoadOperator && 
-            ((LocalLoadOperator)loadop).getLocalInfo().getLocalInfo()
-            == local.getLocalInfo();
+            ((LocalLoadOperator)loadop).getLocalInfo().getSlot()
+            == local.getSlot();
     }
 
     public int getLValueOperandCount() {
