@@ -14,6 +14,7 @@ import sun.tools.java.*;
  */
 public class LocalInfo {
     private static int serialnr = 0;
+    private int slot;
     private Identifier name;
     private Type type;
     private LocalInfo shadow;
@@ -25,9 +26,9 @@ public class LocalInfo {
      * @param slot  The slot of this variable.
      */
     public LocalInfo(int slot) {
-        name = Identifier.lookup("local_"+slot+"__"+serialnr);
+        name = null;
         type = MyType.tUnknown;
-        serialnr++;
+        this.slot = slot;
     }
 
     /**
@@ -39,11 +40,11 @@ public class LocalInfo {
      * @param li the local info that we want to shadow.
      */
     public void combineWith(LocalInfo li) {
-        if (this == li)
-            return;
         if (shadow != null)
             shadow.combineWith(li);
-        shadow = li;
+        li = li.getLocalInfo();
+        if (this != li)
+            shadow = li;
     }
 
     /**
@@ -62,6 +63,8 @@ public class LocalInfo {
     public Identifier getName() {
         if (shadow != null) 
             return shadow.getName();
+        if (name == null)
+            name = Identifier.lookup("local_"+slot+"__"+serialnr++);
         return name;
     }
 

@@ -61,14 +61,28 @@ public class LocalVariableAnalyzer {
     }
 
     public void analyze(MethodInstructionHeader mih) {
-	
+        {
+            Type[] paramTypes = mdef.getType().getArgumentTypes();
+            int length = (mdef.isStatic() ? 0 : 1) + paramTypes.length;
+            argLocals = new LocalInfo[length];
+            int offset = 0;
+            if (!mdef.isStatic()) {
+                argLocals[0] = new LocalInfo(0);
+                argLocals[0].setType(mdef.getClassDefinition().getType());
+                offset++;
+            }
+            for (int i=0; i< paramTypes.length; i++) {
+                argLocals[offset+i] = new LocalInfo(i+offset);
+                argLocals[offset+i].setType(paramTypes[i]);
+            }
+        }
+
 	Hashtable done = new Hashtable();
 	Stack instrStack = new Stack();
 	Stack readsStack = new Stack();
+        LocalInfo[] reads = new LocalInfo[maxlocals];
 
-	LocalInfo[] reads = new LocalInfo[maxlocals];
-
-	Enumeration predec = mih.getPredecessors().elements();
+	Enumeration predec = mih.getReturns().elements();
 	while (predec.hasMoreElements()) {
 	    instrStack.push(predec.nextElement());
 	    readsStack.push(reads);
@@ -81,8 +95,6 @@ public class LocalVariableAnalyzer {
 		(LocalInfo[]) done.get(instr);
 	    reads = (LocalInfo[]) readsStack.pop();
 
-	    if (env.isVerbose)
-		System.err.print(".");
 //             System.err.println("");
 //             System.err.print("Addr: "+instr.getAddress()+ " [");
 //             for (int i=0; i< maxlocals; i++) {
@@ -108,60 +120,49 @@ public class LocalVariableAnalyzer {
 		    continue;
 	    }
             
-            if (!(instr instanceof MethodInstructionHeader)) {
-                if (instr.getInstruction() instanceof LocalVarOperator) {
-                    LocalVarOperator op = 
-                        (LocalVarOperator)instr.getInstruction();
-                    int slot = op.getSlot();
-                    
-                    LocalInfo li = combine(slot, op.getLocalInfo(), 
-                                           reads[slot]);
+            if (instr.getInstruction() instanceof LocalVarOperator) {
 
-		    LocalInfo[] newReads = new LocalInfo[maxlocals];
-		    System.arraycopy(reads, 0, newReads, 0, maxlocals);
+                if (Decompiler.isVerbose)
+                    System.err.print(".");
 
-                    op.setLocalInfo(li);
-                    if (op.isRead())
-                        newReads[slot] = li;
-                    else
-                        newReads[slot] = null;
-
-		    reads = newReads;
-                }
-
-                predec = instr.getPredecessors().elements();
+                LocalVarOperator op = 
+                    (LocalVarOperator)instr.getInstruction();
+                int slot = op.getSlot();
+                
+                LocalInfo li = combine(slot, op.getLocalInfo(), 
+                                       reads[slot]);
+                
+                LocalInfo[] newReads = new LocalInfo[maxlocals];
+                System.arraycopy(reads, 0, newReads, 0, maxlocals);
+                
+                op.setLocalInfo(li);
+                if (op.isRead())
+                    newReads[slot] = li;
+                else
+                    newReads[slot] = null;
+                
+                reads = newReads;
+                done.put(instr, reads);
+            }
+            
+            predec = instr.getPredecessors().elements();
+            if (predec.hasMoreElements()) {
                 while (predec.hasMoreElements()) {
                     instrStack.push(predec.nextElement());
                     readsStack.push(reads);
                 }
+            } else {
+                /* This is the first instruction 
+                 */
+                for (int i=0; i < argLocals.length; i++) {
+                    if (reads[i] != null)
+                        argLocals[i].combineWith(reads[i]);
+                }
             }
-            done.put(instr, reads);
 	}
-        // System.err.println("");
-        
-        reads = (LocalInfo[]) done.get(mih);
-
-
-        Type[] paramTypes = mdef.getType().getArgumentTypes();
-	int length = (mdef.isStatic() ? 0 : 1) + paramTypes.length;
-	argLocals = new LocalInfo[length];
-        int offset = 0;
-        if (!mdef.isStatic()) {
-            LocalInfo li = reads[0];
-            if (li == null)
-                li = new LocalInfo(0);
-            li.setName(Constants.idThis);
-            li.setType(mdef.getClassDefinition().getType());
-            argLocals[0] = li.getLocalInfo();
-            offset++;
-        }
-        for (int i=0; i< paramTypes.length; i++) {
-            LocalInfo li = reads[i+offset];
-            if (li == null)
-                li = new LocalInfo(i+offset);
-            li.setType(paramTypes[i]);
-            argLocals[offset+i] = li.getLocalInfo();
-        }
+        if (!mdef.isStatic())
+            argLocals[0].setName(Constants.idThis);
+//         System.err.println("done!");
     }
 
     public void createLocalInfo(CodeAnalyzer code) {
@@ -175,13 +176,14 @@ public class LocalVariableAnalyzer {
 	    argLocals = new LocalInfo[length];
             for (int i=0; i < length; i++)
                 argLocals[i] = lvt.getLocal(i).getInfo(-1);
-            for (InstructionHeader ih = mih.getNextInstruction(); 
+            for (InstructionHeader ih = mih.getFirst(); 
                  ih != null; ih = ih.getNextInstruction()) {
                 if (ih.getInstruction() instanceof LocalVarOperator) {
                     LocalVarOperator op = 
                         (LocalVarOperator)ih.getInstruction();
                     int slot = op.getSlot();
-                    LocalInfo li = lvt.getLocal(slot).getInfo(ih.getAddress());
+                    LocalInfo li = 
+                        lvt.getLocal(slot).getInfo(ih.getAddress());
                     op.setLocalInfo(li);
                 } 
             }

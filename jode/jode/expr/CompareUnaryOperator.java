@@ -2,9 +2,12 @@ package jode;
 import sun.tools.java.Type;
 
 public class CompareUnaryOperator extends SimpleOperator {
+    boolean objectType;
+
     public CompareUnaryOperator(Type type, int op) {
         super(Type.tBoolean, op, 1);
         operandTypes[0] = type;
+        objectType = (type == MyType.tUObject);
     }
 
     public int getPriority() {
@@ -31,8 +34,6 @@ public class CompareUnaryOperator extends SimpleOperator {
     }
 
     public String toString(String[] operands) {
-        return operands[0] + getOperatorString() + 
-            (MyType.isOfType(operandTypes[0], 
-                                  MyType.tObject)?"null":"0");
+        return operands[0] + getOperatorString() + (objectType?"null":"0");
     }
 }

@@ -11,50 +11,131 @@ import sun.tools.java.Type;
  * @author Jochen Hoenicke
  */
 public class InstructionHeader {
-    int addr, length;
-    Instruction  instr;
-    InstructionHeader nextInstruction;
+    public final static int METHOD   =-1;
+    public final static int NORMAL   = 0;
+    public final static int GOTO     = 1;
+    public final static int IFGOTO   = 2;
+    public final static int SWITCH   = 3;
+    public final static int JSR      = 4;
+    public final static int RET      = 5;
+    public final static int RETURN   = 6;
+    public final static int TRY      = 7;
+    public final static int CATCH    = 8;
+    public final static int IFSTATEMENT      = 10;
+    public final static int WHILESTATEMENT   = 11;
+    public final static int DOWHILESTATEMENT = 12;
+    public final static int FORSTATEMENT     = 13;
+    public final static int TRYCATCHBLOCK    = 14;
 
-    Type switchType;
-    int[] cases;
-    int[] succs;
-    InstructionHeader[] successors;
+    public final static int EMPTY    = 99;
 
-    Vector predecessors = new Vector();
-   
-    /**
-     * Create a new InstructionHeader.
-     * @param addr   The address of this Instruction.
-     * @param length The length of this Instruction.
-     * @param instr  The underlying Instruction.
+    /** 
+     * The flow type of the instruction header, this is one of the
+     * above constants.  
      */
-    public InstructionHeader(int addr, int length, Instruction instr) {
-        int[] succs = { addr + length }; 
+    int flowType;
+    /**
+     * The address of this and the following instruction header.
+     */
+    int addr, nextAddr;
+    /**
+     * The underlying instruction.  This is null for some special
+     * instructions (depends on flowType).
+     */
+    Instruction  instr;
+    /**
+     * The instruction header representing the surrounding block.
+     */
+    InstructionHeader outer = null;
+    /**
+     * A simple doubly linked list of instructions in code order
+     * (without caring about jump instructions).
+     */
+    InstructionHeader nextInstruction, prevInstruction;
+    /**
+     * The first instruction after this block.  This should be only
+     * set for blocks, that is headers which are outer of other headers.    
+     * This gives the instruction where the control flows after this
+     * block.  
+     */
+    InstructionHeader endBlock;
+
+    /**
+     * A more complex doubly linked list of instructions.  The
+     * successors are the possible destinations of jump and switch
+     * instructions.  The predecessors are the reverse things.
+     * The predeccors sits in a vector to make it easier to add
+     * or remove one, when creating or manipulating other instruction
+     * headers.
+     */
+    InstructionHeader[] successors;
+    Vector predecessors = new Vector();
+
+    /**
+     * The addresses of the successors of this header.  This are
+     * resolved by resolveSuccessors and then deleted.  
+     */
+    int[] succs = null;
+
+    /**
+     * Create a new InstructionHeader, that must be resolved later.
+     * @param flowType The type of this instruction header.
+     * @param addr     The address of this instruction header.
+     * @param nextAddr The address of the next instruction header.
+     * @param instr    The underlying Instruction.
+     * @param succs    The successors of this instruction header 
+     *                 (the addresses, are resolved later).
+     */
+    protected InstructionHeader(int flowType, int addr, int nextAddr, 
+                                Instruction instr, int[] succs) {
+        this.flowType = flowType;
 	this.addr = addr;
-	this.length = length;
+	this.nextAddr = nextAddr;
 	this.instr = instr;
-        switchType = MyType.tVoid;
-        this.cases = new int[0];
         this.succs = succs;
     }
 
     /**
      * Create a new InstructionHeader.
-     * @param addr   The address of this Instruction.
-     * @param length The length of this Instruction.
-     * @param instr  The underlying Instruction.
-     * @param type   The type of the switch
-     * @param cases  The possible cases
-     * @param succs  The destinations (one longer for default)
+     * @param flowType The type of this instruction header.
+     * @param addr     The address of this instruction header.
+     * @param nextAddr The address of the next instruction header.
+     * @param successors The successors of this instruction header.
+     * @param outer    The instruction header of the surrounding block.
      */
-    public InstructionHeader(int addr, int length, Instruction instr,
-                             Type type, int[] cases, int[] succs) {
+    protected InstructionHeader(int flowType, int addr, int nextAddr, 
+                                InstructionHeader[] successors,
+                                InstructionHeader outer) {
+        this.flowType = flowType;
 	this.addr = addr;
-	this.length = length;
+	this.nextAddr = nextAddr;
 	this.instr = instr;
-        switchType = type;
-        this.cases = cases;
-        this.succs = succs;
+        this.successors = successors;
+        this.outer = outer;
+    }
+
+    /**
+     * Create a new InstructionHeader of zero length.
+     * @param flowType The type of this instruction header.
+     * @param addr     The address of this Instruction.
+     * @param outer    The instruction header of the surrounding block.
+     */
+    protected InstructionHeader(int flowType, int addr, 
+                                InstructionHeader outer) {
+        this(flowType, addr, addr, new InstructionHeader[0], outer);
+    }
+
+    /**
+     * Create an InstructionHeader for a normal instruction.
+     * @param addr   The address of this instruction.
+     * @param length The length of this instruction.
+     * @param instr  The underlying Instruction.
+     */
+    public static InstructionHeader createNormal(int addr, int length, 
+                                                 Instruction instr) {
+        int[] succs = { addr + length };
+        return new InstructionHeader(NORMAL, addr, addr + length, 
+                                     instr, succs);
     }
 
     /**
@@ -63,10 +144,10 @@ public class InstructionHeader {
      * @param length The length of this instruction.
      * @param instr  The underlying Instruction.
      */
-    public static InstructionHeader ret(int addr, int length, 
-                                        Instruction instr) {
-         return new InstructionHeader (addr, length, instr, 
-                                       MyType.tVoid, new int[0], new int[0]);
+    public static InstructionHeader createReturn(int addr, int length, 
+                                                 Instruction instr) {
+         return new InstructionHeader(RETURN, addr, addr + length, 
+                                      instr, new int[0]);
     }
 
     /**
@@ -76,11 +157,11 @@ public class InstructionHeader {
      * @param instr  The underlying Instruction.
      * @param dest   The destination address of the jump.
      */
-    public static InstructionHeader jump(int addr, int length, int dest,
-                                         Instruction instr) {
+    public static InstructionHeader createGoto(int addr, int length, int dest,
+                                               Instruction instr) {
          int [] succs = { dest };
-         return new InstructionHeader (addr, length, instr, 
-                                       MyType.tVoid, new int[0], succs);
+         return new InstructionHeader (GOTO, addr, addr + length, 
+                                       instr, succs);
     }
 
     /**
@@ -90,21 +171,80 @@ public class InstructionHeader {
      * @param instr  The underlying Instruction.
      * @param dest   The destination address of the jump.
      */
-    public static InstructionHeader conditional(int addr, int length, int dest,
-                                                Instruction instr) {
-        int[] cases = { 0 };
+    public static InstructionHeader createIfGoto(int addr, int length, 
+                                                 int dest, Instruction instr) {
         int[] succs = { addr+length , dest };
-        return new InstructionHeader (addr, length, instr, 
-                                      MyType.tBoolean, cases, succs);
-    }
-
-    public String toString() {
-        return instr.toString();
+        return new InstructionHeader (IFGOTO, addr, addr + length, 
+                                      instr, succs);
     }
 
     /**
-     * Get the address of this instruction.
-     * @return The address.
+     * Create an InstructionHeader for a switch.
+     * @param addr   The address of this Instruction.
+     * @param length The length of this Instruction.
+     * @param instr  The underlying Instruction.
+     * @param cases  The possible cases
+     * @param succs  The destinations (one longer for default)
+     */
+    public static InstructionHeader createSwitch(int addr, int length, 
+                                                 Instruction instr,
+                                                 int[] cases, int[] succs) {
+        InstructionHeader ih = 
+            new SimpleSwitchInstructionHeader(addr, addr+length, instr, 
+                                              cases, succs);
+        return ih;
+    }
+
+    static int ids =0;
+    int id = -1;
+    public String toString() {
+        if (id == -1) id = ids++;
+        return addr+"__"+id;
+    }
+
+    /**
+     * Returns the InstructionHeader where a break of this instruction
+     * would jump to. Does only make sense for do/while/for-loops and
+     * switch instructions.
+     */
+    public InstructionHeader getBreak() {
+        return null;
+    }
+
+    /**
+     * Returns the InstructionHeader where a continue of this instruction
+     * would jump to. Does only make sense for do/while/for-loops.
+     */
+    public InstructionHeader getContinue() {
+        return null;
+    }
+
+    /**
+     * Get the flow type of this instruction.
+     * @return the flow type.
+     */
+    public int getFlowType() {
+        return flowType;
+    }
+
+    static int serialnr = 0;
+    String label = null;
+
+    /**
+     * Get the label of this instruction.  It is created on the fly
+     * if it didn't exists before.
+     * @return the label.
+     */
+    public String getLabel() {
+        if (label == null)
+            label = "label_" + serialnr++;
+        return label;
+    }
+
+    /**
+     * Get the address of this instruction.  This is probably only useful
+     * for debugging purposes.
+     * @return the address.
      */
     public int getAddress() {
         return addr;
@@ -112,25 +252,33 @@ public class InstructionHeader {
 
     /**
      * Get the next address in code order.
-     * @return The next instruction
+     * @return the next instruction
      */
     public int getNextAddr() {
-	return addr+length;
+	return nextAddr;
     }
 
     /**
      * Get the underlying instruction.
-     * @return The underlying instruction.
+     * @return the underlying instruction.
      */
     public Instruction getInstruction() {
 	return instr;
     }
 
     /**
+     * Set the underlying instruction.
+     * @param instr the underlying instruction.
+     */
+    public void setInstruction(Instruction instr) {
+	this.instr = instr;
+    }
+
+    /**
      * Get the next instruction in code order.  This function mustn't
      * be called before resolveSuccessors is executed for this
      * InstructionHeaders.  
-     * @return The next instruction
+     * @return the next instruction
      */
     public InstructionHeader getNextInstruction() {
 	return nextInstruction;
@@ -146,10 +294,22 @@ public class InstructionHeader {
 	return successors;
     }
 
-    public boolean hasDirectPredecessor() {
-	return predecessors.size() == 1 &&
-	    ((InstructionHeader)predecessors.elementAt(0)).
-	    getNextInstruction() == this;
+    /**
+     * Returns true if this instruction header needs a label.
+     */
+    protected boolean needsLabel() {
+        /* An instruction my have only one prevInstruction, but
+         * may have more then one predecessor that has its
+         * nextInstruction pointing to us.
+         */
+        for (int i=0; i<predecessors.size(); i++) {
+            InstructionHeader ih = 
+                (InstructionHeader)predecessors.elementAt(i);
+            if (ih.flowType == GOTO || 
+                (ih.flowType == IFGOTO && ih.successors[1] == this))
+                return true;
+        }
+        return false;
     }
 
     /**
@@ -157,21 +317,19 @@ public class InstructionHeader {
      * unique predecessor.
      */
     public InstructionHeader getUniquePredecessor() {
-        if (predecessors.size() != 1)
-            return null;
-        InstructionHeader pre = (InstructionHeader)predecessors.elementAt(0);
-        return (pre.getNextInstruction() == this) ? pre : null;
+        return (predecessors.size() == 1 &&
+                predecessors.elementAt(0) == prevInstruction) ? 
+            prevInstruction : null;
     }
 
     /**
-     * Get the unique predecessor which mustn't be a (un)conditional jump
+     * Get the unique predecessor which mustn't be a conditional jump
      * @return the predecessor or null if there isn't a such a thing
      */
     public InstructionHeader getSimpleUniquePredecessor() {
         InstructionHeader pre = getUniquePredecessor();
         return (pre.getSuccessors().length != 1) ? null : pre;
     }
-
     
     /**
      * Get the predecessors of this instruction.  This function mustn't
@@ -190,57 +348,99 @@ public class InstructionHeader {
      * by addresses.
      */
     public void resolveSuccessors(InstructionHeader[] instHeaders) {
-        if (addr+length < instHeaders.length)
-            nextInstruction = instHeaders[addr+length];
-        else
+        if (nextAddr < instHeaders.length) {
+            nextInstruction = instHeaders[nextAddr];
+            instHeaders[nextAddr].prevInstruction = this;
+        } else
             nextInstruction = null;
         successors = new InstructionHeader[succs.length];
         for (int i=0; i< succs.length; i++) {
             successors[i] = instHeaders[succs[i]];
             successors[i].predecessors.addElement(this);
         }
+        succs = null;
     }
+
+    public void dumpDebugging(TabbedPrintWriter writer)
+	throws java.io.IOException
+    {
+        writer.print(""+toString()+
+                     ": <"+addr + " - "+(nextAddr-1)+">  preds: ");
+        for (int i=0; i<predecessors.size(); i++) {
+            if (i>0) writer.print(", ");
+            writer.print(""+predecessors.elementAt(i));
+        }
+        writer.println("");
+        writer.print("outend: "+outer.endBlock+
+                     " prev: "+prevInstruction+", next: "+ nextInstruction +
+                     "  succs: ");
+        for (int i=0; i<successors.length; i++) {
+            if (i>0) writer.print(", ");
+            writer.print(""+successors[i]);
+        }
+        writer.println("");
+    }
+
 
     public void dumpSource(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-	if (writer.verbosity > 5) {
-	    writer.println("<"+addr + " - "+(addr+length-1)+">");
+	if (Decompiler.isDebugging) {
+            dumpDebugging(writer);
 	    writer.tab();
 	}
-        
-//         writer.print("predecs: ");
-//         for (int i=0; i<predecessors.size(); i++) {
-//             if (i>0) writer.print(", ");
-//             writer.print(""+((InstructionHeader)predecessors.elementAt(i)).
-//                          getAddress());
-//         }
-//         writer.println("");
-                 
-	if (!hasDirectPredecessor() && addr != 0)
-	    writer.print("addr_"+addr+": ");
+                         
+	if (needsLabel()) {
+            writer.untab();
+	    writer.println(getLabel()+": ");
+            writer.tab();
+        }
 
-        if (switchType == MyType.tBoolean) {
+        if (flowType == IFGOTO) {
 
-            writer.println("if ("+instr.toString()+") goto addr_"+succs[1]);
-            if (succs[0] != addr + length)
-                writer.println("goto addr_"+succs[0]);
-
-        } else if (switchType == MyType.tVoid) {
-            
-            if (instr.getType() != MyType.tVoid)
-                writer.print("push ");
-            writer.println(instr.toString()+";");
-            if (succs.length > 0 && succs[0] != addr + length)
-                writer.println("goto addr_"+succs[0]);
+            writer.println("if ("+instr.toString()+") goto "+
+                           successors[1].getLabel());
 
         } else {
-            writer.println("switch ("+instr.toString()+") {");
-            writer.tab();
-            writer.untab();
+
+            if (flowType != EMPTY) {
+                if (!(instr instanceof NopOperator)) {
+                    if (instr.getType() != MyType.tVoid)
+                        writer.print("push ");
+                    writer.println(instr.toString()+";");
+                }
+                if (flowType == GOTO)
+                    writer.println("goto "+successors[0].getLabel());
+            }
+
         }
-	if (writer.verbosity > 5)
+	if (Decompiler.isDebugging)
 	    writer.untab();
+    }
+    
+    /**
+     * Moves the predecessors from the InstructionHeader <em>from</em> to
+     * the current instruction.  The current predecessors are overwritten
+     * and you must make sure that no live InstructionHeader points to
+     * the current. <p>
+     * The predecessors of <em>from</em> are informed about this change.
+     * @param from The instruction header which predecessors are moved.
+     */
+    public void movePredecessors(InstructionHeader from) {
+        addr = from.addr;
+        prevInstruction = from.prevInstruction;
+        if (prevInstruction != null)
+            prevInstruction.nextInstruction = this;
+
+        predecessors = from.predecessors;
+        for (int i=0; i < predecessors.size(); i++) {
+            InstructionHeader pre = 
+                (InstructionHeader)predecessors.elementAt(i);
+
+            for (int j=0; j<pre.successors.length; j++)
+                if (pre.successors[j] == from)
+                    pre.successors[j] = this;
+        }
     }
 
     /**
@@ -249,23 +449,25 @@ public class InstructionHeader {
      * @param count the number of InstructionHeaders that should be replaced.
      * @param instr the new instruction; this should be equivalent to the
      *              old <em>count</em instructions.
+     * @return the InstructionHeader representing the combined instructions.
      */
-    public void combine(int count, Instruction newInstr) {
-        InstructionHeader last = this;
-        this.instr = newInstr;
+    public InstructionHeader combine(int count, Instruction newInstr) {
+        InstructionHeader ih = this;
         for (int i=1; i < count; i++) {
-            last = last.getSuccessors()[0];
-            length += last.length;
+            ih = ih.nextInstruction;
         }
-        switchType = last.switchType;
-        cases      = last.cases;
-        succs      = last.succs;
-        successors = last.successors;
-        nextInstruction = last.nextInstruction;
-        for (int i=0; i< successors.length; i++) {
-            successors[i].predecessors.removeElement(last);
-            successors[i].predecessors.addElement(this);
+        ih.instr = newInstr;
+        ih.movePredecessors(this);
+        return ih;
+    }
+
+    public InstructionHeader doTransformations(Transformation[] trafo) {
+        for (int i=0; i<trafo.length; i++) {
+            InstructionHeader newInstr = trafo[i].transform(this);
+            if (newInstr != null) 
+                return newInstr;
         }
+        return null;
     }
 
     /**
@@ -276,25 +478,11 @@ public class InstructionHeader {
      * @param newCondition the new instruction; this should be equivalent
      *              to the old two conditions.
      */
-    public void combineConditional(Instruction newCondition) {
-        nextInstruction.successors[0].predecessors.
-	    removeElement(nextInstruction);
-        nextInstruction.successors[1].predecessors.
-	    removeElement(nextInstruction);
-        instr = newCondition;
-
-        succs[0] = nextInstruction.succs[0];     // aid debugging
-        successors[0] = nextInstruction.successors[0];
-
-        if (successors[1] != nextInstruction.successors[1]) {
-            succs[1]      = nextInstruction.succs[1];   // aid debugging
-            successors[1] = nextInstruction.successors[1];
-            successors[1].predecessors.addElement(this);
-        } else {
-            successors[0].predecessors.addElement(this);
-        }
-
-        length += nextInstruction.length;        // aid debugging
-        nextInstruction = nextInstruction.nextInstruction;
+    public InstructionHeader combineConditional(Instruction newCondition) {
+        successors[1].predecessors.removeElement(this);
+        InstructionHeader next = nextInstruction;
+        next.instr        = newCondition;
+        next.movePredecessors(this);
+        return next;
     }
 }

@@ -25,13 +25,6 @@ public class CompareBinaryOperator extends SimpleOperator {
         return getPriority()+i;
     }
 
-    public void setOperandType(Type[] inputTypes) {
-        super.setOperandType(inputTypes);
-        Type operandType = 
-            MyType.intersection(operandTypes[0],operandTypes[1]);
-        operandTypes[0] = operandTypes[1] = operandType;
-    }
-
     public boolean equals(Object o) {
 	return (o instanceof CompareBinaryOperator) &&
 	    ((CompareBinaryOperator)o).operator == operator;

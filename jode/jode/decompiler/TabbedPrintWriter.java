@@ -6,7 +6,6 @@ public class TabbedPrintWriter {
     String tabstr;
     StringBuffer indent;
     PrintWriter pw;
-    int verbosity=0;
 
     public TabbedPrintWriter (OutputStream os, String tabstr) {
 	pw = new PrintWriter(os);

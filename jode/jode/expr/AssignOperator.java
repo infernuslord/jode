@@ -9,6 +9,10 @@ public class AssignOperator extends Operator {
         this.store = store;
     }
 
+    public StoreInstruction getStore() {
+        return store;
+    }
+
     public int getPriority() {
 	return store.getPriority();
     }

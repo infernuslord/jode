@@ -20,20 +20,9 @@ public class JsrInstructionHeader extends InstructionHeader {
      *        <li> void for  an unconditional Jsr. </li></ul>
      */
     public JsrInstructionHeader(int addr, int length, int dest, 
-				Instruction instr) {
-	super(addr,length, instr);
+				Instruction instr, int[] succs) {
+	super(JSR, addr, addr+length, instr, succs);
 	this.dest = dest;
-    }
-
-    /**
-     * Get the successors of this instructions.  This function mustn't
-     * be called before resolveSuccessors is executed for this
-     * InstructionHeaders.  
-     * @return Array of successors.  
-     */
-    public InstructionHeader[] getSuccessors() {
-	InstructionHeader[] result = { destination };
-	return result;
     }
 
     /**
@@ -43,7 +32,7 @@ public class JsrInstructionHeader extends InstructionHeader {
      * by addresses.
      */
     public void resolveSuccessors(InstructionHeader[] instHeaders) {
-	nextInstruction = instHeaders[addr+length];
+	nextInstruction = instHeaders[nextAddr];
 	destination = instHeaders[dest];
 	destination.predecessors.addElement(this);
 	/* Ret.successors.addElement(nextInstruction); XXX */

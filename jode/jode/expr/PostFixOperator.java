@@ -3,14 +3,21 @@ import sun.tools.java.Type;
 
 public class PostFixOperator extends Operator {
     StoreInstruction store;
+    boolean postfix;
 
-    public PostFixOperator(Type type, int op, StoreInstruction store) {
+    public PostFixOperator(Type type, int op, StoreInstruction store,
+                           boolean postfix) {
         super(type, op);
 	this.store = store;
+        this.postfix = postfix;
+    }
+    
+    public PostFixOperator(Type type, int op, StoreInstruction store) {
+        this (type, op, store, true);
     }
     
     public int getPriority() {
-        return 800;
+        return postfix ? 800 : 700;
     }
 
     public int getOperandPriority(int i) {
@@ -40,6 +47,9 @@ public class PostFixOperator extends Operator {
     }
 
     public String toString(String[] operands) {
-        return store.getLValueString(operands) + getOperatorString();
+        if (postfix)
+            return store.getLValueString(operands) + getOperatorString();
+        else
+            return getOperatorString() + store.getLValueString(operands);
     }
 }

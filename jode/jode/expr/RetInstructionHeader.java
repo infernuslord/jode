@@ -19,7 +19,7 @@ public class RetInstructionHeader extends InstructionHeader {
      * @param instr  The underlying Instruction of int type (ret addr).
      */
     public RetInstructionHeader(int addr, int length, Instruction instr) {
-	super(addr, length, instr);
+	super(RET, addr, addr+length, instr, new int[0]);
     }
 
     /**
@@ -40,6 +40,6 @@ public class RetInstructionHeader extends InstructionHeader {
      * by addresses.
      */
     public void resolveSuccessors(InstructionHeader[] instHeaders) {
-	nextInstruction = instHeaders[addr+length];
+	nextInstruction = instHeaders[nextAddr];
     }
 }
