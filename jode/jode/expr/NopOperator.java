@@ -22,33 +22,36 @@ import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
 /**
- * A NopOperator takes one or zero arguments and returns it again.  It
- * is mainly used as placeholder when the real operator is not yet
- * known (e.g. in SwitchBlock).  But there also exists a nop opcode in
- * the java virtual machine (The compiler can't create such a opcode,
- * though).
+ * A NopOperator takes one arguments and returns it again.  It is used
+ * as placeholder when the real operator is not yet known (e.g. in
+ * SwitchBlock, but also in every other Operator).
+ *
+ * A Nop operator doesn't have subExpressions; getSubExpressions() simply
+ * returns zero.
  *
  * @author Jochen Hoenicke */
-public class NopOperator extends SimpleOperator {
+public class NopOperator extends Expression {
     public NopOperator(Type type) {
-	super(type, 0, 1);
+	super(type);
     }
 
-    public NopOperator() {
-        super(Type.tVoid, 0, 0);
+    public int getFreeOperandCount() {
+	return 1;
     }
 
     public int getPriority() {
         return 1000;
     }
 
-    public Expression addOperand(Expression op) {
-	op.setType(type.getSubType());
-	return op;
+    public void updateSubTypes() {
+    }
+    public void updateType() {
     }
 
-    public int getOperandPriority(int i) {
-        return 0;
+    public Expression addOperand(Expression op) {
+	op.setType(type);
+	op.parent = parent;
+	return op;
     }
 
     public boolean isConstant() {
@@ -59,15 +62,12 @@ public class NopOperator extends SimpleOperator {
 	return (o instanceof NopOperator);
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands) 
-	throws java.io.IOException {
-        if (type == Type.tVoid)
-            writer.print("/* NOP */");
-        operands[0].dumpExpression(writer);
+    public Expression simplify() {
+	return this;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer) {
+    public void dumpExpression(TabbedPrintWriter writer)
+	throws java.io.IOException {
 	writer.print("POP");
     }
 }

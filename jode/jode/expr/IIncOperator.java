@@ -22,53 +22,38 @@ import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 
-public class IIncOperator extends NoArgOperator 
-    implements LocalVarOperator, CombineableOperator {
-    String value;
-    LocalInfo local;
+public class IIncOperator extends Operator 
+    implements CombineableOperator {
+    int value;
 
-    public IIncOperator(LocalInfo local, String value, int operator) {
+    public IIncOperator(LocalStoreOperator localStore, int value, 
+			int operator) {
         super(Type.tVoid, operator);
-        this.local = local;
 	this.value = value;
-        local.setType(Type.tUInt);
-        local.setOperator(this);
+	initOperands(1);
+	setSubExpressions(0, localStore);
+    }
+
+    public LValueExpression getLValue() {
+	return (LValueExpression) subExpressions[0];
     }
 
     public String getValue() {
-	return value;
-    }
-
-    public boolean isRead() {
-        return true;
-    }
-
-    public boolean isWrite() {
-        return true;
-    }
-
-    public void updateType() {
-        if (parent != null)
-            parent.updateType();
-    }
-
-    public LocalInfo getLocalInfo() {
-	return local;
+	return Integer.toString(value);
     }
 
     public int getPriority() {
         return 100;
     }
 
+    public void updateSubTypes() {
+	subExpressions[0].setType(type != Type.tVoid ? type : Type.tUInt);
+    }
 
-    /**
-     * Checks if the value of the given expression can change, due to
-     * side effects in this expression.  If this returns false, the 
-     * expression can safely be moved behind the current expresion.
-     * @param expr the expression that should not change.
-     */
-    public boolean hasSideEffects(Expression expr) {
-	return expr.containsConflictingLoad(this);
+
+    public void updateType() {
+	if (type != Type.tVoid)
+	    updateParentType(subExpressions[0].getType());
     }
 
     /**
@@ -77,29 +62,27 @@ public class IIncOperator extends NoArgOperator
     public void makeNonVoid() {
         if (type != Type.tVoid)
             throw new jode.AssertError("already non void");
-        type = local.getType();
+        type = subExpressions[0].getType();
     }
 
-    public boolean matches(Operator loadop) {
-        return loadop instanceof LocalLoadOperator && 
-            ((LocalLoadOperator)loadop).getLocalInfo().getLocalInfo()
-            == local.getLocalInfo();
+    public boolean lvalueMatches(Operator loadop) {
+	return getLValue().matches(loadop);
     }
 
     public Expression simplify() {
-        if (value.equals("1")) {
+        if (value == 1) {
             int op = (getOperatorIndex() == OPASSIGN_OP+ADD_OP)
                 ? INC_OP : DEC_OP;
-
-            return new LocalPrePostFixOperator
-                (getType(), op, this, isVoid()).simplify();
+            return new PrePostFixOperator
+                (getType(), op, getLValue(), isVoid()).simplify();
         }
         return super.simplify();
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	writer.print(local.getName() + getOperatorString() + value);
+	subExpressions[0].dumpExpression(writer, 950);
+	writer.print(getOperatorString() + value);
     }
 }
+

@@ -21,56 +21,36 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
+/**
+ * A PrePostFixOperator has one subexpression, namely the StoreInstruction.
+ */
 public class PrePostFixOperator extends Operator {
-    StoreInstruction store;
     boolean postfix;
 
-    public PrePostFixOperator(Type type, int op, 
-                              StoreInstruction store, boolean postfix) {
-        super(type, op);
-	this.store = store;
+    public PrePostFixOperator(Type type, int operatorIndex,
+			      LValueExpression lvalue, boolean postfix) {
+        super(type);
         this.postfix = postfix;
+	setOperatorIndex(operatorIndex);
+	initOperands(1);
+	setSubExpressions(0, lvalue);
     }
     
     public int getPriority() {
         return postfix ? 800 : 700;
     }
 
-    public Type getOperandType(int i) {
-	return store.getLValueOperandType(i);
+    public void updateSubTypes() {
+	if (!isVoid())
+	    subExpressions[0].setType(type);
     }
 
-    public int getOperandCount() {
-        return store.getLValueOperandCount();
+    public void updateType() {
+	if (!isVoid())
+	    updateParentType(subExpressions[0].getType());
     }
 
-    /**
-     * Checks if the value of the given expression can change, due to
-     * side effects in this expression.  If this returns false, the 
-     * expression can safely be moved behind the current expresion.
-     * @param expr the expression that should not change.
-     */
-    public boolean hasSideEffects(Expression expr) {
-	return store.hasSideEffects(expr);
-    }
-
-    /**
-     * Sets the return type of this operator.
-     */
-    public void setType(Type type) {
-	if (!isVoid()) {
-	    store.setLValueType(type);
-	    super.setType(store.getLValueType());
-	} else
-	    super.setType(type);
-    }
-
-    public void setOperandType(Type[] inputTypes) {
-        store.setLValueOperandType(inputTypes);
-    }
-
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands) 
+    public void dumpExpression(TabbedPrintWriter writer)
     throws java.io.IOException {
 	boolean needBrace = false;
 	int priority = 700;
@@ -78,13 +58,7 @@ public class PrePostFixOperator extends Operator {
 	    writer.print(getOperatorString());
 	    priority = 800;
 	}
-	if (store.getLValuePriority() < priority) {
-	    needBrace = true;
-	    writer.print("(");
-	}
-	store.dumpLValue(writer, operands);
-	if (needBrace)
-	    writer.print(")");
+	subExpressions[0].dumpExpression(writer, priority);
         if (postfix)
 	    writer.print(getOperatorString());
     }

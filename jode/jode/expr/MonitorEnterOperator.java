@@ -21,20 +21,26 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
-public class MonitorEnterOperator extends SimpleOperator {
+public class MonitorEnterOperator extends Operator {
     public MonitorEnterOperator() {
-        super(Type.tVoid, 0, 1);
-        operandTypes[0] = Type.tObject;
+        super(Type.tVoid, 0);
+	initOperands(1);
     }
 
     public int getPriority() {
         return 700;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tUObject);
+    }
+
+    public void updateType() {
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
         writer.print("MONITORENTER ");
-	operands[0].dumpExpression(writer, 700);
+	subExpressions[0].dumpExpression(writer, 700);
     }
 }

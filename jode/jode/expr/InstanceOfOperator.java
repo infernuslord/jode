@@ -21,50 +21,42 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
-public class InstanceOfOperator extends SimpleOperator {
+public class InstanceOfOperator extends Operator {
 
-    Type instanceType;
-    /**
-     * There are special cases where a instanceof isn't allowed.  We must cast
-     * to the common super type before.  This cases always give a runtime
-     * error, but we want to decompile even bad programs.
-     */
-    Type superType = null;
-    
+    Type instanceType;    
 
     public InstanceOfOperator(Type type) {
-        super(Type.tBoolean, 0, 1);
+        super(Type.tBoolean, 0);
         this.instanceType = type;
-        this.operandTypes[0] = Type.tUnknown;
-    }
-    public int getOperandCount() {
-        return 1;
+	initOperands(1);
     }
 
     public int getPriority() {
         return 550;
     }
 
-    public void setOperandType(Type[] type) {
-	super.setOperandType(type);
-	superType = instanceType.getCastHelper(type[0]);
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tUObject);
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void updateType() {
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	/* There are special cases where a cast isn't allowed.  We must cast
 	 * to the common super type before.  This cases always give a runtime
 	 * error, but we want to decompile even bad programs.
 	 */
-	Type superType = instanceType.getCastHelper(operands[0].getType());
+	Type superType
+	    = instanceType.getCastHelper(subExpressions[0].getType());
 	if (superType != null) {
 	    writer.print("(");
 	    writer.printType(superType);
 	    writer.print(") ");
-	    operands[0].dumpExpression(writer, 700);
+	    subExpressions[0].dumpExpression(writer, 700);
 	} else
-	    operands[0].dumpExpression(writer, 550);
+	    subExpressions[0].dumpExpression(writer, 550);
         writer.print(" instanceof ");
 	writer.printType(instanceType);
     }

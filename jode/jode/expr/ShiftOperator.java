@@ -29,11 +29,12 @@ public class ShiftOperator extends BinaryOperator {
         super(type, op);
     }
 
-    public Type getOperandType(int i) {
-        return (i==0) ? type : Type.tInt;
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tSubType(type));
+	subExpressions[1].setType(Type.tSubType(Type.tInt));
     }
 
-    public void setOperandType(Type[] inputTypes) {
-	setType(inputTypes[0]);
+    public void updateType() {
+	updateParentType(Type.tSuperType(subExpressions[0].getType()));
     }
 }

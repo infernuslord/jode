@@ -21,25 +21,27 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
-public class CheckCastOperator extends SimpleOperator {
+public class CheckCastOperator extends Operator {
     Type castType;
 
     public CheckCastOperator(Type type) {
-        super(type, 0, 1);
+        super(type, 0);
         castType = type;
-        operandTypes[0] = Type.tUnknown;
+	initOperands(1);
     }
 
     public int getPriority() {
         return 700;
     }
 
-    public void setOperandType(Type[] type) {
-	super.setOperandType(type);
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tUObject);
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void updateType() {
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	writer.print("(");
 	writer.printType(castType);
@@ -49,12 +51,12 @@ public class CheckCastOperator extends SimpleOperator {
 	 * to the common super type before.  This cases always give a runtime
 	 * error, but we want to decompile even bad programs.
 	 */
-	Type superType = castType.getCastHelper(operands[0].getType());
+	Type superType = castType.getCastHelper(subExpressions[0].getType());
 	if (superType != null) {
 	    writer.print("(");
 	    writer.printType(superType);
 	    writer.print(") ");
 	}
-	operands[0].dumpExpression(writer, 700);
+	subExpressions[0].dumpExpression(writer, 700);
     }
 }

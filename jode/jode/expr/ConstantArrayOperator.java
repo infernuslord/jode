@@ -22,18 +22,16 @@ import jode.type.Type;
 import jode.type.ArrayType;
 import jode.decompiler.TabbedPrintWriter;
 
-public class ConstantArrayOperator extends NoArgOperator {
-
-    ConstOperator empty;
-    Expression[] values;
-    Type argType;
+public class ConstantArrayOperator extends Operator {
     boolean isInitializer;
+    ConstOperator empty;
+    Type argType;
 
     public ConstantArrayOperator(Type type, int size) {
         super(type);
-        values = new Expression[size];
         argType = (type instanceof ArrayType) 
             ? Type.tSubType(((ArrayType)type).getElementType()) : Type.tError;
+
 	Object emptyVal;
 	if (argType == type.tError || argType.isOfType(Type.tUObject))
 	    emptyVal = null;
@@ -48,31 +46,33 @@ public class ConstantArrayOperator extends NoArgOperator {
 	else
 	    throw new IllegalArgumentException("Illegal Type: "+argType);
 	    
-        empty  = new ConstOperator(emptyVal);
+        empty = new ConstOperator(emptyVal);
 	empty.setType(argType);
         empty.makeInitializer();
+	initOperands(size);
+	for (int i=0; i < subExpressions.length; i++)
+	    setSubExpressions(i, empty);
     }
 
-    public void setType(Type newtype) {
-        super.setType(newtype);
-        Type newArgType = (this.type instanceof ArrayType) 
-            ? Type.tSubType(((ArrayType)this.type).getElementType()) 
-            : Type.tError;
-        if (!newArgType.equals(argType)) {
-            argType = newArgType;
-            empty.setType(argType);
-            for (int i=0; i< values.length; i++)
-                if (values[i] != null)
-                    values[i].setType(argType);
-        }
+    public void updateSubTypes() {
+        argType = (type instanceof ArrayType) 
+            ? Type.tSubType(((ArrayType)type).getElementType()) : Type.tError;
+	for (int i=0; i< subExpressions.length; i++)
+	    if (subExpressions[i] != null)
+		subExpressions[i].setType(argType);
+    }
+
+    public void updateType() {
     }
 
     public boolean setValue(int index, Expression value) {
-        if (index < 0 || index > values.length || values[index] != null)
+        if (index < 0 || 
+	    index > subExpressions.length || 
+	    subExpressions[index] != empty)
             return false;
         value.setType(argType);
         setType(Type.tSuperType(Type.tArray(value.getType())));
-        values[index] = value;
+        subExpressions[index] = value;
         value.parent = this;
         value.makeInitializer();
         return true;
@@ -87,15 +87,14 @@ public class ConstantArrayOperator extends NoArgOperator {
     }
 
     public Expression simplify() {
-	for (int i=0; i< values.length; i++) {
-	    if (values[i] != null)
-		values[i] = values[i].simplify();
+	for (int i=0; i< subExpressions.length; i++) {
+	    if (subExpressions[i] != null)
+		subExpressions[i] = subExpressions[i].simplify();
 	}
 	return this;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	if (!isInitializer) {
 	    writer.print("new ");
@@ -104,15 +103,15 @@ public class ConstantArrayOperator extends NoArgOperator {
 	}
 	writer.openBraceNoSpace();
 	writer.tab();
-        for (int i=0; i< values.length; i++) {
+        for (int i=0; i< subExpressions.length; i++) {
             if (i>0) {
 		if (i % 10 == 0)
 		    writer.println(",");
 		else
 		    writer.print(", ");
 	    }
-	    if (values[i] != null)
-		values[i].dumpExpression(writer, 0);
+	    if (subExpressions[i] != null)
+		subExpressions[i].dumpExpression(writer, 0);
 	    else
 		empty.dumpExpression(writer, 0);
         }

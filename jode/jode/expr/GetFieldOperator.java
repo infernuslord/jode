@@ -35,7 +35,6 @@ public class GetFieldOperator extends Operator {
     CodeAnalyzer codeAnalyzer;
     Reference ref;
     Type classType;
-    boolean needCast = false;
 
     public GetFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag,
 			    Reference ref) {
@@ -46,27 +45,18 @@ public class GetFieldOperator extends Operator {
 	this.ref = ref;
         if (staticFlag)
             codeAnalyzer.useType(classType);
+	initOperands(staticFlag ? 0 : 1);
     }
 
     public int getPriority() {
         return 950;
     }
 
-    public int getOperandCount() {
-        return staticFlag?0:1;
-    }
-
-    public int getOperandPriority(int i) {
-        return 900;
-    }
-
-    public Type getOperandType(int i) {
-        return classType;
-    }
-
-    public void setOperandType(Type types[]) {
+    public void updateSubTypes() {
 	if (!staticFlag)
-	    needCast = types[0].getHint().equals(Type.tNull);
+	    subExpressions[0].setType(Type.tSubType(classType));
+    }
+    public void updateType() {
     }
 
     /**
@@ -98,7 +88,7 @@ public class GetFieldOperator extends Operator {
 	return null;
     }
 
-    public FieldAnalyzer getFieldAnalyzer() {
+    public FieldAnalyzer getField() {
 	ClassInfo clazz = getClassInfo();
 	if (clazz != null) {
 	    ClassAnalyzer ana = codeAnalyzer.getClassAnalyzer();
@@ -119,9 +109,10 @@ public class GetFieldOperator extends Operator {
 	return null;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	boolean opIsThis = !staticFlag && operands[0] instanceof ThisOperator;
+	boolean opIsThis = !staticFlag
+	    && subExpressions[0] instanceof ThisOperator;
 	String fieldName = ref.getName();
 	if (staticFlag) {
 	    if (!classType.equals(Type.tClass(codeAnalyzer.getClazz()))
@@ -130,48 +121,56 @@ public class GetFieldOperator extends Operator {
 		writer.print(".");
 	    }
 	    writer.print(fieldName);
-	} else if (operands[0].getType() instanceof NullType) {
+	} else if (subExpressions[0].getType() instanceof NullType) {
 	    writer.print("((");
 	    writer.printType(classType);
 	    writer.print(")");
-	    operands[0].dumpExpression(writer, 700);
+	    subExpressions[0].dumpExpression(writer, 700);
 	    writer.print(").");
 	    writer.print(fieldName);
 	} else {
 	    if (opIsThis) {
-		ThisOperator thisOp = (ThisOperator) operands[0];
+		ThisOperator thisOp = (ThisOperator) subExpressions[0];
 		Scope scope = writer.getScope(thisOp.getClassInfo(),
 					      Scope.CLASSSCOPE);
-
-		if (scope == null)
-		    writer.println("UNKNOWN ");
 
 		if (scope == null || writer.conflicts(fieldName, scope, 
 						      Scope.FIELDNAME)) {
 		    thisOp.dumpExpression(writer, 950);
 		    writer.print(".");
 		} else if (writer.conflicts(fieldName, scope, 
-					    Scope.AMBIGUOUSNAME)) {
+					    Scope.AMBIGUOUSNAME)
+			   || (/* This is a inherited field conflicting
+				* with a field name in some outer class.
+				*/
+			       getField() == null 
+			       && writer.conflicts(fieldName, null,
+						   Scope.FIELDNAME))) {
 		    writer.print("this.");
 		}
 	    } else {
-		operands[0].dumpExpression(writer, 950);
+		subExpressions[0].dumpExpression(writer, 950);
 		writer.print(".");
 	    }
 	    writer.print(fieldName);
 	}
     }
 
-    public Expression simplifyThis(Expression[] subs) {
-	if (!staticFlag && subs[0] instanceof ThisOperator) {
-	    Expression constant = getFieldAnalyzer().getConstant();
-	    if (constant instanceof ThisOperator)
-		return constant;
+    public Expression simplify() {
+	if (!staticFlag) {
+	    subExpressions[0] = subExpressions[0].simplify();
+	    subExpressions[0].parent = this;
+	    if (subExpressions[0] instanceof ThisOperator
+		&& getField() != null) {
+		Expression constant = getField().getConstant();
+		if (constant instanceof ThisOperator)
+		    return constant;
+	    }
 	}
-	return null;
+	return this;
     }
 
-    public boolean equals(Object o) {
+    public boolean opEquals(Operator o) {
 	return o instanceof GetFieldOperator
 	    && ((GetFieldOperator)o).ref.equals(ref);
     }

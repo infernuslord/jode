@@ -31,5 +31,3 @@ public interface LocalVarOperator {
      */
     public void updateType();
 }
-         
-         

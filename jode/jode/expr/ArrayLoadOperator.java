@@ -22,46 +22,37 @@ import jode.type.Type;
 import jode.type.ArrayType;
 import jode.decompiler.TabbedPrintWriter;
 
-public class ArrayLoadOperator extends SimpleOperator {
+public class ArrayLoadOperator extends Operator {
     String value;
 
     public ArrayLoadOperator(Type type) {
-        super(type, 0, 2);
-        operandTypes[0] = Type.tArray(type);
-        operandTypes[1] = Type.tInt;
+        super(type, 0);
+	initOperands(2);
     }
 
     public int getPriority() {
         return 950;
     }
 
-    /**
-     * Sets the return type of this operator.
-     */
-    public void setType(Type type) {
-        if (!type.equals(this.type)) {
-            super.setType(type);
-            operandTypes[0] = Type.tArray(type);
-        }
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tSubType(Type.tArray(type)));
+	subExpressions[1].setType(Type.tSubType(Type.tInt));
     }
 
-    public void setOperandType(Type[] t) {
-        super.setOperandType(t);
-        if (operandTypes[0] == Type.tError)
-            type = Type.tError;
-	else if (operandTypes[0] instanceof ArrayType)
-            type = type.intersection
-                (((ArrayType)operandTypes[0]).getElementType());
-        else
-            throw new jode.AssertError("No Array type: "+operandTypes[0]);
+    public void updateType() {
+	Type subType = Type.tSuperType(subExpressions[0].getType())
+	    .intersection(Type.tArray(type));
+	if (!(subType instanceof ArrayType))
+	    updateParentType(Type.tError);
+	else 
+	    updateParentType(((ArrayType)subType).getElementType());
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	operands[0].dumpExpression(writer, 950);
+	subExpressions[0].dumpExpression(writer, 950);
 	writer.print("[");
-	operands[1].dumpExpression(writer, 0);
+	subExpressions[1].dumpExpression(writer, 0);
 	writer.print("]");
     }
 }

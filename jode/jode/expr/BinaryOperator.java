@@ -21,14 +21,15 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
-public class BinaryOperator extends SimpleOperator {
+public class BinaryOperator extends Operator {
 
     public BinaryOperator(Type type, int op) {
-        super(type, op, 2);
+        super(type, op);
+	initOperands(2);
     }
     
     public int getPriority() {
-        switch (operator) {
+        switch (operatorIndex) {
         case 1: case 2:
             return 610;
         case 3: case 4: case 5:
@@ -52,28 +53,42 @@ public class BinaryOperator extends SimpleOperator {
         throw new RuntimeException("Illegal operator");
     }
 
-    public int getOperandPriority(int i) {
-        return getPriority() + i;
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tSubType(type));
+	subExpressions[1].setType(Type.tSubType(type));
     }
 
-    public Type getOperandType(int i) {
-        return type;
+    public void updateType() {
+	Type leftType  = Type.tSuperType(subExpressions[0].getType());
+	Type rightType = Type.tSuperType(subExpressions[1].getType());
+	subExpressions[0].setType(Type.tSubType(rightType));
+	subExpressions[1].setType(Type.tSubType(leftType));
+	/* propagate hints? XXX */
+	updateParentType(leftType.intersection(rightType));
     }
 
-    public void setOperandType(Type[] inputTypes) {
-	setType(inputTypes[0].intersection(inputTypes[1]));
+    public Expression negate() {
+        if (getOperatorIndex() == LOG_AND_OP || 
+	    getOperatorIndex() == LOG_OR_OP) {
+            setOperatorIndex(getOperatorIndex() ^ 1);
+            for (int i=0; i< 2; i++) {
+		subExpressions[i] = subExpressions[i].negate();
+                subExpressions[i].parent = this;
+            }
+            return this;
+        }
+	return super.negate();
     }
 
-    public boolean equals(Object o) {
+    public boolean opEquals(Operator o) {
 	return (o instanceof BinaryOperator) &&
-	    ((BinaryOperator)o).operator == operator;
+	    o.operatorIndex == operatorIndex;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	operands[0].dumpExpression(writer, getPriority());
+	subExpressions[0].dumpExpression(writer, getPriority());
 	writer.print(getOperatorString());
-	operands[1].dumpExpression(writer, getPriority()+1);
+	subExpressions[1].dumpExpression(writer, getPriority()+1);
     }
 }

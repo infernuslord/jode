@@ -40,56 +40,38 @@ import jode.decompiler.TabbedPrintWriter;
  */
 
 public class CheckNullOperator extends Operator {
-
-    Type operandType;
     LocalInfo local;
 
     public CheckNullOperator(Type type, LocalInfo li) {
         super(type, 0);
-        operandType = type;
 	local = li;
-	local.setType(type);
-    }
-
-    public int getOperandCount() {
-	return 1;
+	initOperands(1);
     }
 
     public int getPriority() {
         return 200;
     }
 
-    public int getOperandPriority(int i) {
-        return 0;
-    }
-
-    public Type getOperandType(int i) {
-        return operandType;
-    }
-
-    public void setOperandType(Type[] inputTypes) {
-        operandType = operandType.intersection(inputTypes[0]);
-        type = operandType;
+    public void updateSubTypes() {
 	local.setType(type);
+	subExpressions[0].setType(Type.tSubType(type));
+    }
+
+    public void updateType() {
+	Type newType = Type.tSuperType(subExpressions[0].getType())
+	    .intersection(type);
+	local.setType(newType);
+	updateParentType(newType);
     }
 
     public void removeLocal() {
 	local.remove();
     }
 
-    /**
-     * Sets the return type of this operator.
-     */
-    public void setType(Type newType) {
-        type = operandType = operandType.intersection(newType);
-	local.setType(type);
-    }
-
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	writer.print("("+local.getName()+" = ");
-	operands[0].dumpExpression(writer, 0);
+	subExpressions[0].dumpExpression(writer, 0);
 	writer.print(").getClass() != null ? "+local.getName()+" : null");
     }
 }

@@ -22,40 +22,35 @@ import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.decompiler.TabbedPrintWriter;
 
-public class LocalStoreOperator extends StoreInstruction 
+public class LocalStoreOperator extends LValueExpression 
     implements LocalVarOperator {
     LocalInfo local;
 
-    public LocalStoreOperator(Type lvalueType, LocalInfo local, int operator) {
-        super(lvalueType, operator);
+    public LocalStoreOperator(Type lvalueType, LocalInfo local) {
+        super(lvalueType);
         this.local = local;
-        local.setType(lvalueType);
         local.setOperator(this);
+	initOperands(0);
     }
 
     public boolean isRead() {
-        return operator != ASSIGN_OP;
+        return parent != null && parent.getOperatorIndex() != ASSIGN_OP;
     }
 
     public boolean isWrite() {
         return true;
     }
 
+    public void updateSubTypes() {
+        local.setType(type);
+    }
+
     public void updateType() {
-        if (parent != null)
-            parent.updateType();
+	updateParentType(local.getType());
     }
 
     public LocalInfo getLocalInfo() {
 	return local.getLocalInfo();
-    }
-
-    public Type getLValueType() {
-	return local.getType();
-    }
-
-    public void setLValueType(Type type) {
-	local.setType(type);
     }
 
     public boolean matches(Operator loadop) {
@@ -64,30 +59,11 @@ public class LocalStoreOperator extends StoreInstruction
             == local.getSlot();
     }
 
-    public int getLValuePriority() {
+    public int getPriority() {
         return 1000;
     }
 
-    public int getLValueOperandCount() {
-        return 0;
-    }
-
-    public int getLValueOperandPriority(int i) {
-        /* shouldn't be called */
-        throw new RuntimeException("LocalStoreOperator has no operands");
-    }
-
-    public Type getLValueOperandType(int i) {
-        /* shouldn't be called */
-        throw new RuntimeException("LocalStoreOperator has no operands");
-    }
-
-    public void setLValueOperandType(Type []t) {
-        /* shouldn't be called */
-        throw new RuntimeException("LocalStoreOperator has no operands");
-    }
-
-    public void dumpLValue(TabbedPrintWriter writer, Expression[] operands) {
+    public void dumpExpression(TabbedPrintWriter writer) {
 	writer.print(local.getName());
     }
 }

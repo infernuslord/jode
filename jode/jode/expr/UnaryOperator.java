@@ -21,33 +21,42 @@ package jode.expr;
 import jode.type.Type;
 import jode.decompiler.TabbedPrintWriter;
 
-public class UnaryOperator extends SimpleOperator {
+public class UnaryOperator extends Operator {
     public UnaryOperator(Type type, int op) {
-        super(type, op, 1);
+        super(type, op);
+	initOperands(1);
     }
     
     public int getPriority() {
         return 700;
     }
 
-    /**
-     * Sets the return type of this operator.
-     */
-    public void setType(Type type) {
-        super.setType(type);
-        Type newOpType = type.intersection(operandTypes[0]);
-        operandTypes[0] = newOpType;
+    public Expression negate() {
+        if (getOperatorIndex() == LOG_NOT_OP) {
+	    if (subExpressions != null)
+		return subExpressions[0];
+	    else
+		return new NopOperator(Type.tBoolean);
+        }
+	return super.negate();
     }
 
-    public boolean equals(Object o) {
-	return (o instanceof UnaryOperator) &&
-	    ((UnaryOperator)o).operator == operator;
+    public void updateSubTypes() {
+        subExpressions[0].setType(Type.tSubType(type));
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void updateType() {
+	updateParentType(Type.tSuperType(subExpressions[0].getType()));
+    }
+
+    public boolean opEquals(Operator o) {
+	return (o instanceof UnaryOperator)
+	    && o.operatorIndex == operatorIndex;
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	writer.print(getOperatorString());
-	operands[0].dumpExpression(writer, 700);
+	subExpressions[0].dumpExpression(writer, 700);
     }
 }

@@ -22,22 +22,31 @@ import jode.type.Type;
 import jode.type.ArrayType;
 import jode.decompiler.TabbedPrintWriter;
 
-public class NewArrayOperator extends SimpleOperator {
+public class NewArrayOperator extends Operator {
     String baseTypeString;
 
     public NewArrayOperator(Type arrayType, int dimensions) {
-        super(arrayType, 0, dimensions);
-        for (int i=0; i< dimensions; i++) {
-            operandTypes[i] = Type.tUInt;
-        }
+        super(arrayType, 0);
+	initOperands(dimensions);
+    }
+
+    public int getDimensions() {
+	return subExpressions.length;
     }
 
     public int getPriority() {
         return 900;
     }
 
-    public void dumpExpression(TabbedPrintWriter writer,
-			       Expression[] operands) 
+    public void updateSubTypes() {
+        for (int i=0; i< subExpressions.length; i++)
+            subExpressions[i].setType(Type.tUInt);
+    }
+
+    public void updateType() {
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
         Type flat = type;
 	int depth = 0;
@@ -49,8 +58,8 @@ public class NewArrayOperator extends SimpleOperator {
 	writer.printType(flat);
 	for (int i=0; i< depth; i++) {
 	    writer.print("[");
-            if (i < getOperandCount())
-		operands[i].dumpExpression(writer, 0);
+            if (i < subExpressions.length)
+		subExpressions[i].dumpExpression(writer, 0);
 	    writer.print("]");
 	}
     }

@@ -19,52 +19,91 @@
 
 package jode.expr;
 import jode.type.Type;
+import jode.decompiler.FieldAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
 
-public class IfThenElseOperator extends SimpleOperator {
+public class IfThenElseOperator extends Operator {
     public IfThenElseOperator(Type type) {
-        super(type, 0, 3);
-        operandTypes[0] = Type.tBoolean;
+        super(type, 0);
+	initOperands(3);
     }
     
-    public int getOperandCount() {
-        return 3;
-    }
-
     public int getPriority() {
         return 200;
     }
 
-    public void setOperandType(Type[] inputTypes) {
-        super.setOperandType(inputTypes);
-        Type operandType = 
-            type.intersection(operandTypes[1]).intersection(operandTypes[2]);
-        type = operandTypes[1] = operandTypes[2] = operandType;
+    public void updateSubTypes() {
+	subExpressions[0].setType(Type.tBoolean);
+	subExpressions[1].setType(Type.tSubType(type));
+	subExpressions[2].setType(Type.tSubType(type));
     }
 
-    /**
-     * Sets the return type of this operator.
-     * @return true if the operand types changed
-     */
-    public void setType(Type newType) {
-        Type operandType = 
-            type.intersection(operandTypes[1]).intersection(newType);
-        if (!type.equals(operandType)) {
-            type = operandTypes[1] = operandTypes[2] = operandType;
+    public void updateType() {
+	Type subType = Type.tSuperType(subExpressions[1].getType())
+	    .intersection(Type.tSuperType(subExpressions[2].getType()));
+	updateParentType(subType);
+    }
+
+    public Expression simplify() {
+	if (getType().isOfType(Type.tBoolean)) {
+            if (subExpressions[1] instanceof ConstOperator
+		&& subExpressions[2] instanceof ConstOperator) {
+                ConstOperator c1 = (ConstOperator) subExpressions[1];
+                ConstOperator c2 = (ConstOperator) subExpressions[2];
+                if (c1.getValue().equals("1") &&
+                    c2.getValue().equals("0"))
+                    return subExpressions[0].simplify();
+                if (c2.getValue().equals("1") &&
+                    c1.getValue().equals("0"))
+                    return subExpressions[0].negate().simplify();
+            }
         }
+	if (subExpressions[0] instanceof CompareUnaryOperator
+	    && (subExpressions[1] instanceof GetFieldOperator)
+	    && (subExpressions[2] instanceof StoreInstruction)) {
+	    // Check for
+	    //   class$classname != null ? class$classname :
+	    //       (class$classname = class$("classname"))
+	    // and replace with
+	    //   classname.class
+	    CompareUnaryOperator cmp 
+		= (CompareUnaryOperator) subExpressions[0];
+	    GetFieldOperator get = (GetFieldOperator) subExpressions[1];
+	    StoreInstruction put = (StoreInstruction) subExpressions[2];
+	    FieldAnalyzer field;
+	    if (cmp.getOperatorIndex() == Operator.NOTEQUALS_OP
+		&& put.getLValue() instanceof PutFieldOperator
+		&& ((field = ((PutFieldOperator)put.getLValue()).getField())
+		    != null) && field.isSynthetic() 
+		&& put.lvalueMatches(get)
+		&& cmp.subExpressions[0] instanceof GetFieldOperator
+		&& put.lvalueMatches((GetFieldOperator)cmp.subExpressions[0])
+		&& put.subExpressions[1] instanceof InvokeOperator) {
+		InvokeOperator invoke = (InvokeOperator) put.subExpressions[1];
+		if (invoke.isGetClass()
+		    && invoke.subExpressions[0] instanceof ConstOperator
+		    && (invoke.subExpressions[0].getType()
+			.equals(Type.tString))) {
+		    String clazz = 
+			((ConstOperator)invoke.subExpressions[0]).getValue();
+		    if (field.setClassConstant(clazz))
+			return new ClassFieldOperator(Type.tClass(clazz));
+		}
+	    }
+	}
+	return super.simplify();
     }
 
-    public boolean equals(Object o) {
+    public boolean opEquals(Operator o) {
 	return (o instanceof IfThenElseOperator);
     }
 
-    public void dumpExpression(TabbedPrintWriter writer, 
-			       Expression[] operands)
+    public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
-	operands[0].dumpExpression(writer, 201);
+	subExpressions[0].dumpExpression(writer, 201);
 	writer.print(" ? ");
-	operands[1].dumpExpression(writer, 0);
+	subExpressions[1].dumpExpression(writer, 0);
 	writer.print(" : ");
-	operands[2].dumpExpression(writer, 200);
+	subExpressions[2].dumpExpression(writer, 200);
     }
 }
