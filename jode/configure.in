@@ -182,6 +182,7 @@ jode/obfuscator/NameSwapper.java
 jode/obfuscator/PackageIdentifier.java
 jode/obfuscator/ClassBundle.java
 jode/obfuscator/ConstantAnalyzer.java
+jode/obfuscator/ConstantRuntimeEnvironment.java
 jode/obfuscator/LocalIdentifier.java
 jode/obfuscator/MethodIdentifier.java
 jode/obfuscator/ClassIdentifier.java
