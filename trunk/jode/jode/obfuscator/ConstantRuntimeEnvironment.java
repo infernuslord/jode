@@ -222,25 +222,6 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	interpreter = new Interpreter(this);
     }
 
-    public static Object getDefaultValue(String typeSig) {
-	switch(typeSig.charAt(0)) {
-	case 'Z':
-	case 'B':
-	case 'S':
-	case 'C':
-	case 'I':
-	    return new Integer(0);
-	case 'J':
-	    return new Long(0L);
-	case 'D':
-	    return new Double(0.0);
-	case 'F':
-	    return new Float(0.0F);
-	default:
-	    return null;
-	}
-    }
-
     public Object getField(Reference ref, Object obj)
 	throws InterpreterException {
 	if (isWhite(ref))

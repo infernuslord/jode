@@ -216,6 +216,28 @@ public class TypeSignature {
 	return params;
     }
 
+    public static Object getDefaultValue(String typeSig) {
+	switch(typeSig.charAt(0)) {
+	case 'Z':
+	case 'B':
+	case 'S':
+	case 'C':
+	case 'I':
+	    return new Integer(0);
+	case 'J':
+	    return new Long(0L);
+	case 'D':
+	    return new Double(0.0);
+	case 'F':
+	    return new Float(0.0F);
+	case 'L':
+	case '[':
+	    return null;
+	default:
+	    throw new IllegalArgumentException(typeSig);
+	}
+    }
+
     /**
      * Returns the number of words, an object of the given simple type
      * signature takes.  
