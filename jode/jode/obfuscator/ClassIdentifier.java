@@ -170,12 +170,10 @@ public class ClassIdentifier extends Identifier {
 			 & modif) == 0
 			&& !topmethods[i].getName().equals("<init>")) {
 			reachableIdentifier
-			    (topmethods[i].getName(), 
-			     topmethods[i].getType().getTypeSignature(),
+			    (topmethods[i].getName(), topmethods[i].getType(),
 			     true);
 			preserveIdentifier
-			    (topmethods[i].getName(), 
-			     topmethods[i].getType().getTypeSignature());
+			    (topmethods[i].getName(), topmethods[i].getType());
 		    }
 		}
 	    }
@@ -288,13 +286,10 @@ public class ClassIdentifier extends Identifier {
 	for (int i=0; i < ifaces.length; i++) {
 	    ClassIdentifier ifaceident
 		= bundle.getClassIdentifier(ifaces[i].getName());
-	    if (ifaceident != null) {
-		if (!Obfuscator.shouldStrip || ifaceident.isReachable())
-		    result.addElement(ifaceident.getFullAlias());
-		else
-		    addIfaces(result, ifaceident.info.getInterfaces());
-	    } else
-		result.addElement(ifaces[i].getName());
+	    if (ifaceident != null && !ifaceident.isReachable())
+		addIfaces(result, ifaceident.info.getInterfaces());
+	    else
+		result.addElement(ifaces[i]);
 	}
     }
 
@@ -305,104 +300,68 @@ public class ClassIdentifier extends Identifier {
      * where the first entry is the super class (may be null) and the
      * other entries are the interfaces.
      */
-    public String[] getSuperIfaces() {
-	/* First generate Ifaces and superclass infos */
-	Vector newSuperIfaces = new Vector();
-	addIfaces(newSuperIfaces, info.getInterfaces());
-	String superName = null;
+    public void transformSuperIfaces() {
+	if (!Obfuscator.shouldStrip)
+	    return;
+
+	Vector newIfaces = new Vector();
+	addIfaces(newIfaces, info.getInterfaces());
 	ClassInfo superClass = info.getSuperclass();
 	while (superClass != null) {
 	    ClassIdentifier superident
 		= bundle.getClassIdentifier(superClass.getName());
-	    if (superident != null) {
-		if (!Obfuscator.shouldStrip || superident.isReachable()) {
-		    superName = superident.getFullAlias();
-		    break;
-		} else {
-		    addIfaces(newSuperIfaces, superClass.getInterfaces());
-		    superClass = superClass.getSuperclass();
-		}
-	    } else {
-		superName = superClass.getName();
+	    if (superident == null || superident.isReachable())
 		break;
+
+	    addIfaces(newIfaces, superClass.getInterfaces());
+	    superClass = superClass.getSuperclass();
+	}
+	ClassInfo[] ifaces = new ClassInfo[newIfaces.size()];
+	newIfaces.copyInto(ifaces);
+	info.setSuperclass(superClass);
+	info.setInterfaces(ifaces);
+    }
+
+    public void doTransformations() {
+	if (Obfuscator.verboseLevel > 0)
+	    Obfuscator.err.println("Transforming "+this);
+	info.setName(getFullAlias());
+	transformSuperIfaces();
+
+	int newFieldCount = 0, newMethodCount = 0;
+	for (int i=0; i < fieldCount; i++)
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
+		newFieldCount++;
+	for (int i=fieldCount; i < identifiers.length; i++)
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
+		newMethodCount++;
+
+	FieldInfo[] newFields = new FieldInfo[newFieldCount];
+	MethodInfo[] newMethods = new MethodInfo[newMethodCount];
+	newFieldCount = newMethodCount = 0;
+
+	for (int i=0; i < fieldCount; i++) {
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable()) {
+		((FieldIdentifier)identifiers[i]).doTransformations();
+		newFields[newFieldCount++]
+		    = ((FieldIdentifier)identifiers[i]).info;
 	    }
 	}
-	newSuperIfaces.insertElementAt(superName, 0);
-	String[] result = new String[newSuperIfaces.size()];
-	newSuperIfaces.copyInto(result);
-	return result;
+	for (int i=fieldCount; i < identifiers.length; i++) {
+	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable()) {
+		((MethodIdentifier)identifiers[i]).doTransformations();
+		newMethods[newMethodCount++]
+		    = ((MethodIdentifier)identifiers[i]).info;
+	    }
+	}
+	info.setFields(newFields);
+	info.setMethods(newMethods);
     }
     
     public void storeClass(DataOutputStream out) throws IOException {
 	if (Obfuscator.verboseLevel > 0)
 	    Obfuscator.err.println("Writing "+this);
-	GrowableConstantPool gcp = new GrowableConstantPool();
-
-	for (int i=fieldCount; i < identifiers.length; i++)
-	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
-		((MethodIdentifier)identifiers[i]).doCodeTransformations(gcp);
-
-	int[] hierarchyInts;
-	{
-	    String[] hierarchy = getSuperIfaces();
-	    hierarchyInts = new int[hierarchy.length];   
-	    for (int i=0; i< hierarchy.length; i++) {
-		if (hierarchy[i] != null)
-		    hierarchyInts[i] = gcp.putClassName(hierarchy[i]);
-		else
-		    hierarchyInts[i] = 0;
-	    }
-	    hierarchy = null;
-	}
-	int nameIndex = gcp.putClassName(getFullAlias());
-
-	int fields = 0;
-	int methods = 0;
-
-	for (int i=0; i<fieldCount; i++) {
-	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable()) {
-		((FieldIdentifier)identifiers[i]).fillConstantPool(gcp);
-		fields++;
-	    }
-	}
-	for (int i=fieldCount; i < identifiers.length; i++) {
-	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable()) {
-		((MethodIdentifier)identifiers[i]).fillConstantPool(gcp);
-		methods++;
-	    }
-	}
-
-	out.writeInt(0xcafebabe);
-	out.writeShort(3);
-	out.writeShort(45);
-	gcp.write(out);
-
-	out.writeShort(info.getModifiers());
-	out.writeShort(nameIndex);
-	out.writeShort(hierarchyInts[0]);
-	out.writeShort(hierarchyInts.length-1);
-	for (int i=1; i<hierarchyInts.length; i++)
-	    out.writeShort(hierarchyInts[i]);
-	
-	out.writeShort(fields);
-	for (int i=0; i<fieldCount; i++) {
-	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
-		((FieldIdentifier)identifiers[i]).write(out);
-	    else if (Obfuscator.isDebugging)
-		Obfuscator.err.println(identifiers[i].toString()
-				       + " is stripped");
-	}
-		
-	out.writeShort(methods);
-	for (int i=fieldCount; i < identifiers.length; i++) {
-	    if (!Obfuscator.shouldStrip || identifiers[i].isReachable())
-		((MethodIdentifier)identifiers[i]).write(out);
-	    else if (Obfuscator.isDebugging)
-		Obfuscator.err.println(identifiers[i].toString()
-				       + " is stripped");
-	}
-
-	out.writeShort(0); // no attributes;
+	info.write(out);
     }
 
     public Identifier getParent() {
@@ -475,7 +434,7 @@ public class ClassIdentifier extends Identifier {
 	FieldInfo[] finfos = clazz.getFields();
 	for (int i=0; i< finfos.length; i++) {
 	    if (finfos[i].getName().equals(fieldName)
-		&& finfos[i].getType().getTypeSignature().startsWith(typeSig))
+		&& finfos[i].getType().startsWith(typeSig))
 		return true;
 	}
 	
@@ -547,8 +506,7 @@ public class ClassIdentifier extends Identifier {
 	MethodInfo[] minfos = clazz.getMethods();
 	for (int i=0; i< minfos.length; i++) {
 	    if (minfos[i].getName().equals(methodName)
-		&& minfos[i].getType().getTypeSignature()
-		.startsWith(paramType))
+		&& minfos[i].getType().startsWith(paramType))
 		return minfos[i];
 	}
 	
