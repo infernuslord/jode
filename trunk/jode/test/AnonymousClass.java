@@ -26,8 +26,11 @@ public class AnonymousClass {
 	int var = 3;
 
 	public void test() {
+	    final long longVar = 5;
+	    final double dblVar = 3;
+
 	    class Hello {
-		int var = 4;
+		int var = (int) longVar;
 
 		Hello() {
 		    System.err.println("construct");
@@ -40,7 +43,7 @@ public class AnonymousClass {
 		    this.hashCode();
 		    Inner.this.hashCode();
 		    AnonymousClass.this.hashCode();
-		    System.err.println("HelloWorld");
+		    System.err.println("HelloWorld: "+dblVar);
 		}
 	    };
 	    final Hello hi = new Hello();
