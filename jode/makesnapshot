@@ -1,4 +1,15 @@
 #!/bin/sh
+
+if [ -e GlobalOptions.java ]; then
+    echo "Please mode to the jode directory first."
+    exit 1
+fi
+
+DATE=`date +"%Y%m%d"`
+perl -i -pe's/(snapshot )[0-9]+/${1}'$DATE'/
+            if /public final static String version/;'  GlobalOptions.java
+
+./ci.all
 echo '#!/bin/sh' > co.all
 echo co -u jcpp make* COPYING *.html *.java */*.java */*.j >> co.all
 chmod a+x co.all
@@ -13,7 +24,6 @@ chmod a+x compile
 ./compile jikes -g
 
 cd ..
-DATE=`date +"%Y%m%d"`
 tar -cvzf jode/snapshot/jode-RCS-$DATE.tar.gz \
     jode/co.all jode/compile jode/RCS jode/*/RCS
 
