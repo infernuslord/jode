@@ -105,4 +105,13 @@ public class CaseBlock extends StructuredBlock {
 	    writer.untab();
 	}
     }
+
+    /**
+     * Determines if there is a sub block, that flows through to the end
+     * of this block.  If this returns true, you know that jump is null.
+     * @return true, if the jump may be safely changed.
+     */
+    public boolean jumpMayBeChanged() {
+        return subBlock.jump != null || subBlock.jumpMayBeChanged();
+    }
 }

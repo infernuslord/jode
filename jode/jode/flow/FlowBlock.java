@@ -576,9 +576,8 @@ public class FlowBlock {
     public boolean doT1(FlowBlock succ) {
         /* check if this successor has only this block as predecessor. 
          * if the predecessor is not unique, return false. */
-        if (succ != END_OF_METHOD && 
-            (succ.predecessors.size() != 1 ||
-             succ.predecessors.elementAt(0) != this))
+        if (succ.predecessors.size() != 1 ||
+            succ.predecessors.elementAt(0) != this)
             return false;
 
         try{
@@ -650,8 +649,7 @@ public class FlowBlock {
                 nextcase = null;
 	    }
 	}
-        if (succ == END_OF_METHOD) {
-        } else if (nextcase != null) {
+        if (nextcase != null) {
             SwitchBlock switchBlock = (SwitchBlock) appendBlock;
 
             /* Now put the succ.block into the next case.
@@ -705,18 +703,18 @@ public class FlowBlock {
             }
         }
 
+        try {
+            checkConsistent();
+        } catch (RuntimeException ex) {
+            ex.printStackTrace();
             try {
-                checkConsistent();
-            } catch (RuntimeException ex) {
-                ex.printStackTrace();
-                try {
-                    jode.TabbedPrintWriter writer = 
-                        new jode.TabbedPrintWriter(System.err, "    ");
-                    writer.tab();
+                jode.TabbedPrintWriter writer = 
+                    new jode.TabbedPrintWriter(System.err, "    ");
+                writer.tab();
                 block.dumpSource(writer);
-                } catch (java.io.IOException ioex) {
-                }
+            } catch (java.io.IOException ioex) {
             }
+        }
 
         /* Try to eliminate as many jumps as possible.
          */
@@ -748,8 +746,8 @@ public class FlowBlock {
 	    while (enum.hasMoreElements()) {
 		Jump jump = (Jump) enum.nextElement();
 	    
-		if (jump == null || jump.destination != succ ||
-                    jump.prev == appendBlock)
+		if (jump == null || jump.destination != succ
+                    || jump.prev == appendBlock)
 		    continue;
 		
                 int breaklevel = 0;
@@ -763,10 +761,6 @@ public class FlowBlock {
                             breakToBlock = (BreakableBlock) surrounder;
                             break;
                         }
-                        /* We don't want labeled breaks, if we can
-                         * simply return.  */
-                        if (succ == END_OF_METHOD)
-                            break;
                     }
                 }
 
@@ -774,23 +768,15 @@ public class FlowBlock {
                 prevBlock.removeJump();
 
                 if (breakToBlock == null) {
-                    /* if the successor is the dummy return instruction
-                     * and no simple breakToBlock could be found above,
-                     * replace the jump with a return.  
+                    /* Nothing else helped, so put a do/while(0)
+                     * block around appendBlock and break to that
+                     * block.
                      */
-                    if (succ == END_OF_METHOD && breakToBlock == null)
-                        prevBlock.appendBlock(new ReturnBlock());
-                    else {
-                        /* Nothing else helped, so put a do/while(0)
-                         * block around appendBlock and break to that
-                         * block.
-                         */
-                        if (doWhileFalse == null)
-                            doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
-                                                         LoopBlock.FALSE);
-                        prevBlock.appendBlock
-                            (new BreakBlock(doWhileFalse, breaklevel > 0));
-                    }
+                    if (doWhileFalse == null)
+                        doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
+                                                     LoopBlock.FALSE);
+                    prevBlock.appendBlock
+                        (new BreakBlock(doWhileFalse, breaklevel > 0));
                 } else
                     prevBlock.appendBlock
                         (new BreakBlock(breakToBlock, breaklevel > 1));
@@ -932,12 +918,6 @@ public class FlowBlock {
              */
             bodyBlock = optimizeJumps(this, bodyBlock);
 
-            /* Now remove the jump of block if it points to this.
-             */
-            if (bodyBlock.jump != null &&
-                bodyBlock.jump.destination == this)
-                bodyBlock.removeJump();
-
             /* if there are further jumps to this, replace every jump with a
              * continue to while block and return true.  
              */
@@ -945,27 +925,42 @@ public class FlowBlock {
             while (enum.hasMoreElements()) {
                 Jump jump = (Jump) enum.nextElement();
                 
-                if (jump == null || jump.destination != this)
+                if (jump == null || jump.destination != this
+                    || jump.prev == bodyBlock)
                     continue;
                 
-                int continuelevel = 1;
+                int breaklevel = 0, continuelevel = 0;
+                BreakableBlock breakToBlock = null;
                 for (StructuredBlock surrounder = jump.prev.outer;
-                     surrounder != whileBlock;
+                     surrounder != whileBlock; 
                      surrounder = surrounder.outer) {
-                    if (surrounder instanceof LoopBlock) {
-                        continuelevel++;
+                    if (surrounder instanceof BreakableBlock) {
+                        if (surrounder instanceof LoopBlock)
+                            continuelevel++;
+                        breaklevel++;
+                        if (surrounder.getNextFlowBlock() == this) {
+                            breakToBlock = (BreakableBlock) surrounder;
+                            break;
+                        }
                     }
                 }
-                
-                SequentialBlock sequBlock = new SequentialBlock();
                 StructuredBlock prevBlock = jump.prev;
                 prevBlock.removeJump();
-                
-                sequBlock.replace(prevBlock, prevBlock);
-                sequBlock.setFirst(prevBlock);
-                sequBlock.setSecond(new ContinueBlock(whileBlock, 
-                                                      continuelevel > 1));
+                if (breakToBlock == null)
+                    prevBlock.appendBlock
+                        (new ContinueBlock(whileBlock, continuelevel > 0));
+                else
+                    prevBlock.appendBlock
+                        (new BreakBlock(breakToBlock, breaklevel > 1));
+                    
             }
+
+            /* Now remove the jump of block if it points to this.
+             */
+            if (bodyBlock.jump != null &&
+                bodyBlock.jump.destination == this)
+                bodyBlock.removeJump();
+
             lastModified = whileBlock;
         }
 
