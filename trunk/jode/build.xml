@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!-- Jakarta-Ant build file for jode, Copyright (C) 1999-2001 Jochen Hoenicke.
+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2, or (at your option)
+ any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program; see the file COPYING.  If not, write to
+ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+
+ $Id$
+-->
+
+<!DOCTYPE project PUBLIC "-//ANT//DTD project//EN" "project.dtd">
+<project name="jode" default="build" basedir=".">
+  <!-- set global properties for this build -->
+  <property name="version" value="1.90"/>
+  <property name="build" value="build"/>
+  <property name="props" value="props"/>
+  <property name="dist"  value="dist"/>
+  <property name="docs"  value="docs"/>
+  <property name="lib"   value="lib"/> 
+  
+  <property name="jcpp"  value="scripts/jcpp.pl"/>
+
+  <property name="versionfile" value="${src}/jode/GlobalOptions.java"/>
+
+  <path id="project.classpath">
+    <pathelement path="${classpath}"/>
+    <pathelement location="lib/getopt.jar"/>
+  </path>
+
+  <!-- -->
+
+  <!-- compiles jode and creates its javadoc-files -->
+  <target name="all" depends="dist,javadoc"/>
+
+  <!-- build the Jode files -->
+  <target name="build" depends="check-jdk,preconfig">
+    <mkdir dir="${build}"/>
+    <javac srcdir="${src}"
+	   destdir="${build}"
+	   classpathref="project.classpath">
+      <exclude name="net/sf/jode/obfuscator/" />
+      <exclude name="net/sf/jode/bytecode/*Subroutine*" />
+    </javac>
+    <copy todir="${build}">
+      <fileset dir="src"/>
+    </copy>
+  </target>
+
+  <target name="build-1.1">
+    <property name="collections.package"
+	      value="gnu.java.util.collections"/>
+    <property name="swing.package"
+	      value="javax.swing"/>
+    <property name="jdk1.2+" value="false"/>
+    <antcall name="build"/>
+  </target>
+
+  <target name="check-jdk" unless="jdk1.1.forced">
+    <available property="jdk1.2+" classname="java.lang.ThreadLocal" />
+    <available property="jdk1.3+" classname="java.lang.StrictMath" />
+  </target>
+
+  <target name="fail-getopt" unless="getopt.present">
+    <fail message="Package gnu.getopt not found!"/>
+  </target>
+  <target name="check-getopt">
+    <available property="getopt.present"
+	       classname="gnu.getopt.Getopt"
+	       classpathref="project.classpath" />
+    <antcall target="fail-getopt"/>
+  </target>
+
+  <target name="check-packages">
+    <available property="collections.package" 
+	       value="gnu.java.util.collections"
+               classname="gnu.java.util.collections.Set"
+               classpathref="project.classpath" />
+    <available property="collections.package" 
+	       value="org.gnu.java.util.collections"
+               classname="org.gnu.java.util.collections.Set"
+               classpathref="project.classpath" />
+    <available property="collections.package" 
+	       value="com.sun.java.util.collections"
+               classname="com.sun.java.util.collections.Set"
+               classpathref="project.classpath" />
+    <available property="swing.package" value="javax.swing"
+               classname="javax.swing.JFrame"
+               classpathref="project.classpath" />
+    <available property="swing.package" value="com.sun.java.swing"
+               classname="com.sun.java.swing.JFrame"
+               classpathref="project.classpath" />
+  </target>
+  
+  <target name="preconfig" depends="check-jdk,preconfig.11,preconfig.12"/>
+  <target name="preconfig.11" unless="jdk1.2+">
+    <property name="src" value="src-1.1"/>
+    <antcall target="runjcpp"/>
+  </target>
+
+  <target name="preconfig.12" if="jdk1.2+">
+    <property name="src"   value="src"/>
+  </target>
+
+  <target name="runjcpp" depends="check-packages">
+    <copy todir="${src}">
+      <fileset dir="src"/>
+    </copy>
+    <execon dir="." executable="perl" parallel="true">
+      <arg file="${jcpp}"/>
+      <arg value="-DJDK11"/>
+      <arg value="-DCOLLECTIONS=${collections.package}"/>
+      <arg value="-DCOLLECTIONEXTRA=${collections.package}"/>
+      <arg value="-DJAVAX_SWING=${swing.package}"/>
+      <fileset dir="${src}" includes="**/*.java"/>
+    </execon>
+  </target>
+
+  <!-- create the jar-files -->
+  <target name="dist" depends="distclass,distdoc">
+    <jar jarfile="${dist}/jode-${version}.jar"
+	 basedir="${dist}"
+	 includes="jode.jar,doc.jar"/>
+  </target>
+
+  <target name="distclass" depends="build">
+    <mkdir dir="${dist}"/>
+    <jar jarfile="${dist}/jode.jar"
+	 basedir="${build}"/>
+  </target>
+
+  <target name="distdoc" depends="javadoc">
+    <jar jarfile="${dist}/doc.jar"
+	 basedir="${docs}"/>
+  </target>
+
+  <!-- javadoc -->
+  <target name="javadoc">
+    <mkdir dir="${docs}/api"/>
+    <javadoc packagenames="net.sf.jode.*"
+	     sourcepath="${src}"
+	     destdir="${docs}/api"/>
+  </target>
+
+  <!-- ********* clean targets ************* -->
+
+  <!-- clean all -->
+  <target name="clean" depends="cleanbuild,cleanjavadoc"/>
+  
+
+  <!-- clean the class files -->
+  <target name="cleanbuild">
+    <delete dir="${build}"/>
+  </target>
+
+  <!-- clean javadocs -->
+  <target name="cleanjavadoc">
+    <delete dir="${docs}/api"/>
+  </target>
+
+  <!-- version stuff -->
+
+  <target name="setversion" if="version">
+    <echo message="---------------------------------------------------"/>
+    <echo message='  Creating new Jode version: "${version}" !!!'/>
+    <echo message="==================================================="/>
+    <!-- 
+    search the old version information and replace it with the new version
+    we will search the $(mainclass) for 'String VERSION = "..."' and
+    replace the contents of the String with the new version. 
+    -->
+    <echo message="updating version in ${versionfile} ..."/>
+    <exec executable="perl">
+      <arg value="-i"/>
+      <arg value="-pe"/>
+      <arg value='s/(String\s*version\s*=\s*")[^"]*/$1${version}/' />
+      <arg value="${versionfile}"/>
+    </exec>
+
+    <!--
+    commit the new $(VERSIONFILE) to the CVS
+    <echo message="commiting updated file to CVS..."/>
+    <cvs command='ci -m"new version ${version}" ${versionfile}'/>
+    -->
+
+    <echo message="...done!"/>
+    <echo message="---------------------------------------------------"/>
+  </target>
+</project>
