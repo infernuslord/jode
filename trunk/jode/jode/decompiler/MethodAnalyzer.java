@@ -19,6 +19,7 @@
 
 package jode.decompiler;
 import jode.bytecode.MethodInfo;
+import jode.jvm.SyntheticAnalyzer;
 import jode.type.*;
 import jode.AssertError;
 import jode.Decompiler;
@@ -29,32 +30,27 @@ import java.io.*;
 
 public class MethodAnalyzer implements Analyzer {
     ImportHandler imports;
-    CodeAnalyzer code = null;
     ClassAnalyzer classAnalyzer;
-    boolean isConstructor;
-    boolean isStatic;
-    boolean isSynthetic;
-    boolean isDeprecated;
-    int modifiers;
+    MethodInfo minfo;
+
     String methodName;
     MethodType methodType;
+    boolean isConstructor;
+
+    CodeAnalyzer code = null;
     Type[] exceptions;
 
-    boolean analyzed = false;
     SyntheticAnalyzer synth;
     
     public MethodAnalyzer(ClassAnalyzer cla, MethodInfo minfo,
                           ImportHandler imports) {
         this.classAnalyzer = cla;
         this.imports = imports;
-        this.modifiers = minfo.getModifiers();
-        this.methodType = Type.tMethod(minfo.getType());
+	this.minfo = minfo;
         this.methodName = minfo.getName();
-        this.isStatic = minfo.isStatic();
+        this.methodType = Type.tMethod(minfo.getType());
         this.isConstructor = 
             methodName.equals("<init>") || methodName.equals("<clinit>");
-	this.isSynthetic = minfo.isSynthetic();
-	this.isDeprecated = minfo.isDeprecated();
         
 	if (minfo.getBytecode() != null)
 	    code = new CodeAnalyzer(this, minfo, imports);
@@ -67,6 +63,8 @@ public class MethodAnalyzer implements Analyzer {
 	    for (int i=0; i< excCount; i++)
 		exceptions[i] = Type.tClass(excattr[i]);
         }
+	if (minfo.isSynthetic() || methodName.indexOf('$') != -1)
+	    synth = new SyntheticAnalyzer(minfo, true);
     }
 
     public String getName() {
@@ -90,17 +88,15 @@ public class MethodAnalyzer implements Analyzer {
     }
 
     public final boolean isStatic() {
-        return isStatic;
+        return minfo.isStatic();
     }
 
     public final boolean isSynthetic() {
-	return isSynthetic;
+	return minfo.isSynthetic();
     }
 
-    public final boolean isGetClass() {
-	if (synth == null) 
-	    analyzeSynthetic();
-	return synth.type == SyntheticAnalyzer.GETCLASS;
+    public final SyntheticAnalyzer getSynthetic() {
+	return synth;
     }
 
     public Type getReturnType() {
@@ -113,14 +109,20 @@ public class MethodAnalyzer implements Analyzer {
 	if (code == null)
 	    return;
 
-	analyzed = true;
 	int offset = 0;
 	if (!isStatic()) {
 	    LocalInfo clazz = code.getParamInfo(0);
-	    clazz.setType
-                (Type.tClass(this.classAnalyzer.getClazz().getName()));
+	    clazz.setType(Type.tClass(classAnalyzer.getClazz()));
 	    clazz.setName("this");
 	    offset++;
+	}
+
+	if (isConstructor()
+	    && classAnalyzer.getParent() instanceof ClassAnalyzer) {
+	    ClassAnalyzer parent = (ClassAnalyzer) classAnalyzer.getParent();
+	    LocalInfo clazz = code.getParamInfo(1);
+	    clazz.setType(Type.tClass(parent.getClazz()));
+	    clazz.setName("this$-1");
 	}
         
 	Type[] paramTypes = methodType.getParameterTypes();
@@ -135,7 +137,7 @@ public class MethodAnalyzer implements Analyzer {
         if (!isConstructor)
             imports.useType(methodType.getReturnType());
 
-	if (!Decompiler.immediateOutput) {
+	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) == 0) {
 	    if (GlobalOptions.verboseLevel > 0)
 		GlobalOptions.err.print(methodName+": ");
 	    code.analyze();
@@ -144,21 +146,17 @@ public class MethodAnalyzer implements Analyzer {
 	}
     }
     
-    public void analyzeSynthetic() {
-	if (!analyzed)
-	    analyze();
-	synth = new SyntheticAnalyzer(this);
-    }
-	    
     public void dumpSource(TabbedPrintWriter writer) 
          throws IOException
     {
-	if (synth != null && synth.type == synth.GETCLASS)
+	if (synth != null && synth.getKind() != synth.UNKNOWN)
 	    // We don't need this class anymore (hopefully?)
 	    return;
 	
 	if (isConstructor && classAnalyzer.constructors.length == 1
-	    && methodType.getParameterTypes().length == 0
+	    && (methodType.getParameterTypes().length == 0
+		|| (methodType.getParameterTypes().length == 1
+		    && classAnalyzer.parent instanceof ClassAnalyzer))
 	    && getMethodHeader() != null
 	    && getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock
 	    && getMethodHeader().hasNoJumps())
@@ -166,7 +164,8 @@ public class MethodAnalyzer implements Analyzer {
 	    // takes no parameters, this is the default constructor.
 	    return;
 
-	if (Decompiler.immediateOutput && code != null) {
+	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) != 0
+	    && code != null) {
             // We do the code.analyze() here, to get 
             // immediate output.
 
@@ -183,19 +182,21 @@ public class MethodAnalyzer implements Analyzer {
 
         writer.println();
 
-	if (isDeprecated) {
+	if (minfo.isDeprecated()) {
 	    writer.println("/**");
 	    writer.println(" * @deprecated");
 	    writer.println(" */");
 	}
-	String modif = Modifier.toString(modifiers);
+	if (minfo.isSynthetic())
+	    writer.print("/*synthetic*/ ");
+	String modif = Modifier.toString(minfo.getModifiers());
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
         if (isConstructor && isStatic())
             writer.print(""); /* static block */
         else { 
             if (isConstructor)
-                writer.print(imports.getClassString(classAnalyzer.getClazz()));
+		writer.print(classAnalyzer.getName());
             else {
                 writer.printType(getReturnType());
 		writer.print(" " + methodName);
@@ -204,8 +205,15 @@ public class MethodAnalyzer implements Analyzer {
             Type[] paramTypes = methodType.getParameterTypes();
             int offset = isStatic()?0:1;
 
+	    int start = 0;
+	    if (isConstructor()
+		&& classAnalyzer.getParent() instanceof ClassAnalyzer) {
+		start++;
+		offset++;
+	    }
+
 	    LocalInfo[] param = new LocalInfo[paramTypes.length];
-            for (int i=0; i<paramTypes.length; i++) {
+            for (int i=start; i<paramTypes.length; i++) {
                 if (code == null) {
                     param[i] = new LocalInfo(offset);
                     param[i].setType(paramTypes[i]);
@@ -223,8 +231,8 @@ public class MethodAnalyzer implements Analyzer {
 		}
             }
 
-            for (int i=0; i<paramTypes.length; i++) {
-                if (i>0)
+            for (int i=start; i<paramTypes.length; i++) {
+                if (i>start)
                     writer.print(", ");
                 writer.printType(param[i].getType());
 		writer.print(" "+param[i].getName());
@@ -248,5 +256,9 @@ public class MethodAnalyzer implements Analyzer {
 	    writer.closeBrace();
         } else
             writer.println(";");
+    }
+
+    public ClassAnalyzer getClassAnalyzer() {
+	return classAnalyzer;
     }
 }
