@@ -23,31 +23,14 @@ import jode.type.Type;
 
 public class LocalVariableRangeList {
 
-    class MyLocalInfo extends LocalInfo {
-        int startAddr;
-        int endAddr;
-        MyLocalInfo next;
-        
-        MyLocalInfo(int slot, int s, int e, String n, Type t) {
-            super (slot);
-            startAddr = s;
-            endAddr = e;
-            setName(n);
-            setType(t);
-            next = null;
-        }
+    LocalVarEntry list = null;
+
+    LocalVariableRangeList() {
     }
 
-    MyLocalInfo list = null;
-    int slot;
-
-    LocalVariableRangeList(int slot) {
-        this.slot = slot;
-    }
-
-    private void add(MyLocalInfo li) {
-        MyLocalInfo prev = null;
-        MyLocalInfo next = list;
+    private void add(LocalVarEntry li) {
+        LocalVarEntry prev = null;
+        LocalVarEntry next = list;
         while (next != null && next.endAddr < li.startAddr) {
             prev = next;
             next = next.next;
@@ -55,8 +38,8 @@ public class LocalVariableRangeList {
 	/* prev.endAddr < li.startAddr <= next.endAddr
 	 */
         if (next != null && li.endAddr >= next.startAddr) {
-	    if (next.getType().equals(li.getType())
-		&& next.getName().equals(li.getName())) {
+	    if (next.type.equals(li.type)
+		&& next.name.equals(li.name)) {
 		/* Same type, same name and overlapping range.
 		 * This is the same local: extend next to the common
 		 * range and don't add li.
@@ -74,24 +57,23 @@ public class LocalVariableRangeList {
             prev.next = li;
     }
 
-    private LocalInfo find(int addr) {
-        MyLocalInfo li = list;
+    private LocalVarEntry find(int addr) {
+        LocalVarEntry li = list;
         while (li != null && li.endAddr < addr)
             li = li.next;
-        if (li == null || li.startAddr > addr /* XXX addr+1? weired XXX */) {
-            LocalInfo temp = new LocalInfo(slot);
-            return temp;
+        if (li == null || li.startAddr > addr) {
+            return null;
         }
         return li;
     }
 
     public void addLocal(int startAddr, int endAddr,
                          String name, Type type) {
-        MyLocalInfo li = new MyLocalInfo(slot,startAddr,endAddr,name,type);
+        LocalVarEntry li = new LocalVarEntry(startAddr,endAddr,name,type);
         add (li);
     }
 
-    public LocalInfo getInfo(int addr) {
+    public LocalVarEntry getInfo(int addr) {
         return find(addr);
     }
 }
