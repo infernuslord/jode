@@ -199,73 +199,69 @@ public class FlowBlock {
                 ConditionalBlock cb = (ConditionalBlock) jump.prev.outer;
                 Expression instr = cb.getInstruction();
 
-		/* If this is the first instruction of a while and the
-		 * condition of the while is true, use the condition
-		 * as while condition.  
-		 */
-                if (cb.outer instanceof LoopBlock 
-                    || (cb.outer instanceof SequentialBlock 
-                        && cb.outer.getSubBlocks()[0] == cb 
-                        && cb.outer.outer instanceof LoopBlock)) {
+//                 if (cb.outer instanceof LoopBlock 
+//                     || (cb.outer instanceof SequentialBlock 
+//                         && cb.outer.getSubBlocks()[0] == cb 
+//                         && cb.outer.outer instanceof LoopBlock)) {
+            
+//                     LoopBlock loopBlock = (cb.outer instanceof LoopBlock) ?
+//                         (LoopBlock) cb.outer : (LoopBlock) cb.outer.outer;
 
-                    LoopBlock loopBlock = (cb.outer instanceof LoopBlock) ?
-                        (LoopBlock) cb.outer : (LoopBlock) cb.outer.outer;
-
-                    if (loopBlock.getCondition() == LoopBlock.TRUE &&
-                        loopBlock.getType() != LoopBlock.DOWHILE &&
-                        (loopBlock.jumpMayBeChanged()
-                         || loopBlock.getNextFlowBlock() == succ)) {
+//                     if (loopBlock.getCondition() == LoopBlock.TRUE &&
+//                         loopBlock.getType() != LoopBlock.DOWHILE &&
+//                         (loopBlock.jumpMayBeChanged()
+//                          || loopBlock.getNextFlowBlock() == succ)) {
                         
-                        if (loopBlock.jump == null) {
-                            /* consider this jump again */
-                            loopBlock.moveJump(jump);
-                            jumps = jump;
-                        } else
-                            jump.prev.removeJump();
+//                         if (loopBlock.jump == null) {
+//                             /* consider this jump again */
+//                             loopBlock.moveJump(jump);
+//                             jumps = jump;
+//                         } else
+//                             jump.prev.removeJump();
 
-                        loopBlock.setCondition(instr.negate());
-                        loopBlock.moveDefinitions(cb, null);
-                        cb.removeBlock();
-                        continue;
-                    }
+//                         loopBlock.setCondition(instr.negate());
+//                         loopBlock.moveDefinitions(cb, null);
+//                         cb.removeBlock();
+//                         continue;
+//                     }
 
-                } else if (cb.outer instanceof SequentialBlock 
-                           && cb.outer.getSubBlocks()[1] == cb) {
+//                 } else if (cb.outer instanceof SequentialBlock 
+//                            && cb.outer.getSubBlocks()[1] == cb) {
 
-                    /* And now for do/while loops, where the jump is
-                     * at the end of the loop.
-                     */
+//                     /* And now for do/while loops, where the jump is
+//                      * at the end of the loop.
+//                      */
                     
-                    /* First find the beginning of the loop */
-                    StructuredBlock sb = cb.outer.outer;
-                    while (sb instanceof SequentialBlock) {
-                        sb = sb.outer;
-                    }
-                    /* sb is now the first and cb is the last
-                     * instruction in the current block.
-                     */
-                    if (sb instanceof LoopBlock) {
-                        LoopBlock loopBlock = (LoopBlock) sb;
-                        if (loopBlock.getCondition() == LoopBlock.TRUE &&
-                            loopBlock.getType() == LoopBlock.WHILE &&
-                            (loopBlock.jumpMayBeChanged()
-                             || loopBlock.getNextFlowBlock() == succ)) {
+//                     /* First find the beginning of the loop */
+//                     StructuredBlock sb = cb.outer.outer;
+//                     while (sb instanceof SequentialBlock) {
+//                         sb = sb.outer;
+//                     }
+//                     /* sb is now the first and cb is the last
+//                      * instruction in the current block.
+//                      */
+//                     if (sb instanceof LoopBlock) {
+//                         LoopBlock loopBlock = (LoopBlock) sb;
+//                         if (loopBlock.getCondition() == LoopBlock.TRUE &&
+//                             loopBlock.getType() == LoopBlock.WHILE &&
+//                             (loopBlock.jumpMayBeChanged()
+//                              || loopBlock.getNextFlowBlock() == succ)) {
                             
-                            if (loopBlock.jump == null) {
-                                /* consider this jump again */
-                                loopBlock.moveJump(jump);
-                                jumps = jump;
-                            } else
-                                jump.prev.removeJump();
+//                             if (loopBlock.jump == null) {
+//                                 /* consider this jump again */
+//                                 loopBlock.moveJump(jump);
+//                                 jumps = jump;
+//                             } else
+//                                 jump.prev.removeJump();
 
-                            loopBlock.setType(LoopBlock.DOWHILE);
-                            loopBlock.setCondition(instr.negate());
-                            loopBlock.moveDefinitions(cb, null);
-                            cb.removeBlock();                            
-                            continue;
-                        }
-                    }
-                }
+//                             loopBlock.setType(LoopBlock.DOWHILE);
+//                             loopBlock.setCondition(instr.negate());
+//                             loopBlock.moveDefinitions(cb, null);
+//                             cb.removeBlock();                            
+//                             continue;
+//                         }
+//                     }
+//                 }
 
 		/* replace all conditional jumps to the successor, which
 		 * are followed by a block which has the end of the block
@@ -599,6 +595,30 @@ public class FlowBlock {
         }
     }
 
+
+    /**
+     * This is a special T1 transformation, that does also succeed, if
+     * the jumps in the flow block are not yet resolved.  But it has
+     * a special precondition:  The succ must be a simple instruction block,
+     * mustn't have another predecessor and all structured blocks in this
+     * flow block must be simple instruction blocks.
+     */
+    public void doSequentialT1(StructuredBlock succ, int length) {
+        VariableSet succIn = new VariableSet();
+        succ.fillInGenSet(succIn, this.gen);
+
+        succIn.merge(lastModified.jump.gen);
+        succIn.subtract(lastModified.jump.kill);
+        succ.jump.gen.mergeGenKill(lastModified.jump.gen, succ.jump.kill);
+        succ.jump.kill.add(lastModified.jump.kill);
+        this.in.unionExact(succIn);
+
+        lastModified.removeJump();
+        lastModified = lastModified.appendBlock(succ);
+        this.length += length;
+        doTransformations();
+    }
+
     /**
      * Do a T1 transformation with succ if possible.  It is possible,
      * iff succ has exactly this block as predecessor.
@@ -619,19 +639,25 @@ public class FlowBlock {
 
         /* Update the in/out-Vectors now */
         updateInOut(succ, jumps);
+        if (Decompiler.isFlowDebugging)
+            System.err.println("before Optimize: "+this);
 
         /* Try to eliminate as many jumps as possible.
          */
         jumps = optimizeJumps(jumps, succ);
+        if (Decompiler.isFlowDebugging)
+            System.err.println("before Remaining: "+this);
         resolveRemaining(jumps);
+        if (Decompiler.isFlowDebugging)
+            System.err.println("after Optimize: "+this);
 
         /* Now unify the blocks.
          */
-        lastModified.appendBlock(succ.block);
+        lastModified = lastModified.appendBlock(succ.block);
         mergeSuccessors(succ);
 
-        /* Set last modified to the new correct value.  */
-        lastModified = succ.lastModified;
+        /* This will also set last modified to the new correct value.  */
+        doTransformations();
 
         /* Set addr+length to correct value. */
         if (succ.addr < addr)
@@ -643,6 +669,44 @@ public class FlowBlock {
         return true;
     }
 
+    /**
+     * Find the exit condition of a for/while block.  The loop block
+     * mustn't have an exit condition yet.
+     */
+    public void mergeCondition() {
+        /* If the first instruction of a while is a conditional
+         * block, which jumps to the next address use the condition
+         * as while condition.  
+         */
+        LoopBlock loopBlock = (LoopBlock) lastModified;
+        int loopType = loopBlock.getType();
+
+        ConditionalBlock cb = null;
+        if (loopBlock.bodyBlock instanceof ConditionalBlock)
+            cb = (ConditionalBlock) loopBlock.bodyBlock;
+        else if (loopBlock.bodyBlock instanceof SequentialBlock
+                 && loopBlock.bodyBlock.getSubBlocks()[0] 
+                 instanceof ConditionalBlock)
+            cb = (ConditionalBlock) loopBlock.bodyBlock.getSubBlocks()[0];
+        else if (loopBlock.bodyBlock instanceof SequentialBlock
+                 && loopType == LoopBlock.WHILE) {
+            loopType = LoopBlock.DOWHILE;
+            SequentialBlock sequBlock = (SequentialBlock) loopBlock.bodyBlock;
+            while (sequBlock.subBlocks[1] instanceof SequentialBlock)
+                sequBlock = (SequentialBlock) sequBlock.subBlocks[1];
+            if (sequBlock.subBlocks[1] instanceof ConditionalBlock)
+                cb = (ConditionalBlock) sequBlock.subBlocks[1];
+        }
+
+        if (cb != null 
+            && cb.trueBlock.jump.destination.addr == addr + length) {
+            loopBlock.moveJump(cb.trueBlock.jump);
+            loopBlock.setCondition(cb.getInstruction().negate());
+            loopBlock.setType(loopType);
+            loopBlock.moveDefinitions(cb, null);
+            cb.removeBlock();
+        }
+    }
 
     public boolean doT2(int start, int end) {
         /* If there are no jumps to the beginning of this flow block
@@ -800,6 +864,7 @@ public class FlowBlock {
          */
         predecessors.removeElement(this);
         lastModified = block;
+        mergeCondition();
 
         /* T2 analysis succeeded */
         checkConsistent();
@@ -881,20 +946,20 @@ public class FlowBlock {
         checkConsistent();
     }
 
+    public void doTransformations() {
+        if (Decompiler.isFlowDebugging)
+            System.err.println("before Transformation: "+this);
 
-    static Transformation[] exprTrafos = {
-        new RemoveEmpty(),
-        new CreateExpression(),
-        new CreatePrePostIncExpression(),
-        new CreateAssignExpression(),
-        new CreateNewConstructor(),
-        new CombineIfGotoExpressions(),
-        new CreateIfThenElseOperator(),
-        new CreateConstantArray(),
-        new CreateForInitializer(),
-        new CompleteSynchronized(),
-    };
+        while (lastModified instanceof SequentialBlock) {
+            if (!lastModified.getSubBlocks()[0].doTransformations())
+                lastModified = lastModified.getSubBlocks()[1];
+        }
+        while (lastModified.doTransformations())
+            /* empty */;
 
+        if (Decompiler.isFlowDebugging)
+            System.err.println("after Transformation: "+this);
+    }
 
     /**
      * Search for an apropriate successor.
@@ -944,21 +1009,12 @@ public class FlowBlock {
 
         while (true) {
                 
-            if (Decompiler.isFlowDebugging)
-                System.err.println("before Transformation: "+this);
+            if (lastModified instanceof SwitchBlock) {
+                /* analyze the switch first.
+                 */
+                analyzeSwitch(start, end);
+            } 
 
-            /* First do some non flow transformations. */
-            int i=0;
-            while (i < exprTrafos.length) {
-                if (exprTrafos[i].transform(this))
-                    i = 0;
-                else
-                    i++;
-                checkConsistent();
-            }
-            
-            if (Decompiler.isFlowDebugging)
-                System.err.println("after Transformation: "+this);
 
             if (doT2(start, end)) {
 
@@ -989,20 +1045,6 @@ public class FlowBlock {
                              + addr + " - " + (addr+length));
                     return changed;
                 } else {
-                    if (succ.block instanceof SwitchBlock) {
-                        /* analyze succ, the new region is the
-                         * continuous region of
-                         * [start,end) \cap \compl [addr, addr+length)
-                         * where succ.addr lies in.
-                         */
-                        int newStart = (succ.addr > addr)
-                            ? addr+length : start;
-                        int newEnd   = (succ.addr > addr)
-                            ? end         : addr;
-                        if (succ.analyzeSwitch(newStart, newEnd))
-                            break;
-
-                    } 
                     if ((succ.addr == addr+length 
                          || succ.addr+succ.length == addr)
                         /* Only do T1 transformation if the blocks are
@@ -1058,14 +1100,14 @@ public class FlowBlock {
      * regions.  Only blocks whose address lies in the given address
      * range are considered and it is taken care of, that the switch
      * is never leaved. <p>
-     * The current flow block must contain the switch block as main
-     * block.
+     * The current flow block must contain the switch block as lastModified
      * @param start the start of the address range.
      * @param end the end of the address range.
      */
     public boolean analyzeSwitch(int start, int end) {
-        SwitchBlock switchBlock = (SwitchBlock) block;
+        SwitchBlock switchBlock = (SwitchBlock) lastModified;
         boolean changed = false;
+
         int last = -1;
         FlowBlock lastFlow = null;
         for (int i=0; i < switchBlock.caseBlocks.length; i++) {
@@ -1165,8 +1207,10 @@ public class FlowBlock {
                     jump.destination = END_OF_METHOD;
                 else
                     jump.destination = instr[jump.destAddr];
+                if (jump.destination == null)
+                    throw new AssertError("Missing dest: "+jump.destAddr);
+                addSuccessor(jump);
             }
-            addSuccessor(jump);
         }
     }
 

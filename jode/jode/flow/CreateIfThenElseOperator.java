@@ -20,24 +20,109 @@
 package jode.flow;
 import jode.Type;
 import jode.Expression;
+import jode.ConstOperator;
 import jode.ComplexExpression;
 import jode.IfThenElseOperator;
 import jode.CompareUnaryOperator;
 import java.util.Enumeration;
 import java.util.Vector;
 
-public class CreateIfThenElseOperator implements Transformation {
+public class CreateIfThenElseOperator {
+
+    /**
+     * This handles the body of createFunny. There are three cases:
+     *
+     * <pre>
+     * --------
+     *  IF (c2)
+     *    GOTO trueDest            ->   PUSH c2
+     *  PUSH false
+     * --------
+     *  PUSH bool                  ->   PUSH bool
+     * --------
+     *  if (c2)
+     *    (handled recursively)    ->   PUSH (c2 ? expr1 : expr2)
+     *  else
+     *    (handled recursively)
+     * --------
+     * </pre>
+     */
+    private static boolean createFunnyHelper(FlowBlock trueDest, 
+                                             FlowBlock falseDest,
+                                             StructuredBlock block) {
+
+        if (block instanceof InstructionBlock
+            && !((InstructionBlock)block).getInstruction().isVoid())
+            return true;
+        
+        if (block instanceof IfThenElseBlock) {
+            IfThenElseBlock ifBlock = (IfThenElseBlock) block;
+            Expression expr1, expr2;
+            if (ifBlock.elseBlock == null)
+                return false;
+
+            if (!createFunnyHelper(trueDest, falseDest, ifBlock.thenBlock)
+                | !createFunnyHelper(trueDest, falseDest, ifBlock.elseBlock))
+                return false;
+
+            if (jode.Decompiler.isVerbose)
+                System.err.print('?');
+
+            IfThenElseOperator iteo = new IfThenElseOperator(Type.tBoolean);
+            ((InstructionBlock)ifBlock.thenBlock).setInstruction
+                (new ComplexExpression
+                 (iteo, new Expression[] {
+                     ifBlock.cond,
+                     ((InstructionBlock) ifBlock.thenBlock).getInstruction(),
+                     ((InstructionBlock) ifBlock.elseBlock).getInstruction() 
+                  }));
+
+            ifBlock.thenBlock.moveDefinitions(ifBlock, null);
+            ifBlock.thenBlock.replace(ifBlock);
+            return true;
+        }
+
+        if (block instanceof SequentialBlock
+            && block.getSubBlocks()[0] instanceof ConditionalBlock
+            && block.getSubBlocks()[1] instanceof InstructionBlock) {
+
+            ConditionalBlock condBlock =
+                (ConditionalBlock) block.getSubBlocks()[0];
+            InstructionBlock pushBlock =
+                (InstructionBlock) block.getSubBlocks()[1];
+            
+            if (!(pushBlock.getInstruction() instanceof ConstOperator))
+                return false;
+
+            ConstOperator constOp = 
+                (ConstOperator) pushBlock.getInstruction();
+
+            if (condBlock.trueBlock.jump.destination == trueDest
+                && constOp.getValue().equals("0")) {
+
+                Expression cond = condBlock.getInstruction();
+                condBlock.flowBlock.removeSuccessor(condBlock.trueBlock.jump);
+                condBlock.trueBlock.removeJump();
+
+                pushBlock.setInstruction(cond);
+                pushBlock.moveDefinitions(block, null);
+                pushBlock.replace(block);
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
      * This handles the more complicated form of the ?-:-operator used
      * in a conditional block.  The simplest case is:
      * <pre>
      *   if (cond)
-     *       push e1
+     *       PUSH e1
      *   else {
      *       IF (c2)
      *           GOTO flow_2_
-     *       push 0
+     *       PUSH false
      *   }
      * -&gt;IF (stack_0 == 0)
      *     GOTO flow_1_
@@ -60,104 +145,35 @@ public class CreateIfThenElseOperator implements Transformation {
      * sometimes be better replaced with a correct jump.
      * @param flow The FlowBlock that is transformed 
      */
-    public boolean createFunny(FlowBlock flow) {
+    public static boolean createFunny(ConditionalBlock cb, 
+                                      StructuredBlock last) {
 
-        if (!(flow.lastModified instanceof ConditionalBlock))
-            return false;
-
-        ConditionalBlock conditional = (ConditionalBlock) flow.lastModified;
-
-        if (!(conditional.trueBlock instanceof EmptyBlock)
-            || conditional.trueBlock.jump == null 
-            || conditional.jump == null
-            || !(conditional.getInstruction() instanceof CompareUnaryOperator))
+        if (cb.jump == null
+            || !(cb.getInstruction() instanceof CompareUnaryOperator)
+            || !(last.outer instanceof SequentialBlock)
+            || !(last.outer.getSubBlocks()[0] instanceof IfThenElseBlock))
             return false;
         
         CompareUnaryOperator compare = 
-            (CompareUnaryOperator) conditional.getInstruction();
+            (CompareUnaryOperator) cb.getInstruction();
 
         FlowBlock trueDestination;
-        if (compare.getOperatorIndex() == compare.EQUALS_OP)
-            trueDestination = conditional.jump.destination;
-        else if (compare.getOperatorIndex() == compare.NOTEQUALS_OP)
-            trueDestination = conditional.trueBlock.jump.destination;
-        else
+        FlowBlock falseDestination;
+        if (compare.getOperatorIndex() == compare.EQUALS_OP) {
+            trueDestination = cb.jump.destination;
+            falseDestination = cb.trueBlock.jump.destination;
+        } else if (compare.getOperatorIndex() == compare.NOTEQUALS_OP) {
+            falseDestination = cb.jump.destination;
+            trueDestination = cb.trueBlock.jump.destination;
+        } else
             return false;
 
         Expression[] e = new Expression[3];
         IfThenElseBlock ifBlock;
-        try {
-            SequentialBlock sequBlock = 
-                (SequentialBlock) conditional.outer;
 
-            ifBlock = (IfThenElseBlock) sequBlock.subBlocks[0];
-
-            while (true) {
-                if (ifBlock.thenBlock instanceof IfThenElseBlock)
-                    ifBlock = (IfThenElseBlock) ifBlock.thenBlock;
-                else if (ifBlock.elseBlock instanceof IfThenElseBlock)
-                    ifBlock = (IfThenElseBlock) ifBlock.elseBlock;
-                else
-                    break;
-            }
-
-            e[0] = ifBlock.cond;
-
-            StructuredBlock[] subBlocks = ifBlock.getSubBlocks();
-            if (subBlocks.length != 2)
-                return false;
-
-            for (int i=0; i< 2; i++) {
-                if (subBlocks[i] instanceof InstructionBlock) {
-                    e[i+1] = ((InstructionBlock)subBlocks[i]).getInstruction();
-                    continue;
-                }
-
-                sequBlock = (SequentialBlock) subBlocks[i];
-                ConditionalBlock condBlock = 
-                    (ConditionalBlock) sequBlock.subBlocks[0];
-                InstructionBlock pushBlock =
-                    (InstructionBlock) sequBlock.subBlocks[1];
-                
-                jode.ConstOperator zero = 
-                    (jode.ConstOperator) pushBlock.getInstruction();
-                if (!zero.getValue().equals("0"))
-                    return false;
-                
-                if (!(condBlock.trueBlock instanceof EmptyBlock)
-                    || condBlock.trueBlock.jump == null
-                    || condBlock.jump != null
-                    || condBlock.trueBlock.jump.destination 
-                    != trueDestination)
-                    return false;
-
-                Expression cond = condBlock.getInstruction();
-                flow.removeSuccessor(condBlock.trueBlock.jump);
-                condBlock.trueBlock.removeJump();
-                pushBlock.setInstruction(cond);
-                pushBlock.moveDefinitions(sequBlock, pushBlock);
-                pushBlock.replace(sequBlock);
-
-                e[i+1] = cond;
-            }
-        } catch (ClassCastException ex) {
-            return false;
-        } catch (NullPointerException ex) {
-            return false;
-        }
-
-        if (jode.Decompiler.isVerbose)
-            System.err.print('?');
-
-        IfThenElseOperator iteo = new IfThenElseOperator
-            (Type.tSuperType(e[1].getType())
-             .intersection(Type.tSuperType(e[2].getType())));
-
-        ((InstructionBlock)ifBlock.thenBlock).
-            setInstruction(new ComplexExpression(iteo, e));
-        ifBlock.thenBlock.moveDefinitions(ifBlock, ifBlock.thenBlock);
-        ifBlock.thenBlock.replace(ifBlock);
-        return true;
+        SequentialBlock sequBlock = (SequentialBlock) last.outer;
+        return createFunnyHelper(trueDestination, falseDestination,
+                                 sequBlock.subBlocks[0]);
     }
 
     /**
@@ -176,57 +192,47 @@ public class CreateIfThenElseOperator implements Transformation {
      * The <code>-&gt;</code> points to the lastModified block.
      * @param flow The FlowBlock that is transformed
      */
-    public boolean create(FlowBlock flow) {
+    public static boolean create(InstructionContainer ic,
+                                 StructuredBlock last) {
         Expression e[] = new Expression[3];
         InstructionBlock thenBlock;
-        try {
-            InstructionBlock elseBlock = (InstructionBlock) flow.lastModified;
-
-            SequentialBlock sequBlock = (SequentialBlock)elseBlock.outer;
-            if (sequBlock.subBlocks[1] != elseBlock)
-                return false;
-
-            IfThenElseBlock ifBlock = (IfThenElseBlock)sequBlock.subBlocks[0];
-            if (ifBlock.elseBlock != null)
-                return false;
-
-            thenBlock = (InstructionBlock) ifBlock.thenBlock;
-
-            if (thenBlock.jump.destination != elseBlock.jump.destination)
-                return false;
-
-            e[1] = thenBlock.getInstruction();
-            if (e[1].isVoid())
-                return false;
-            e[2] = elseBlock.getInstruction();
-            if (e[2].isVoid())
-                return false;
-            e[0] = ifBlock.cond;
-
-        } catch (ClassCastException ex) {
+        if (ic.jump == null
+            || !(last.outer instanceof SequentialBlock))
             return false;
-        } catch (NullPointerException ex) {
+        SequentialBlock sequBlock = (SequentialBlock)last.outer;
+        if (!(sequBlock.subBlocks[0] instanceof IfThenElseBlock))
             return false;
-        }
 
+        IfThenElseBlock ifBlock = (IfThenElseBlock)sequBlock.subBlocks[0];
+        if (!(ifBlock.thenBlock instanceof InstructionBlock)
+            || ifBlock.thenBlock.jump == null
+            || ifBlock.thenBlock.jump.destination != ic.jump.destination
+            || ifBlock.elseBlock != null)
+            return false;
+        
+        thenBlock = (InstructionBlock) ifBlock.thenBlock;
+        
+        e[1] = thenBlock.getInstruction();
+        if (e[1].isVoid())
+            return false;
+        e[2] = ic.getInstruction();
+        if (e[2].isVoid())
+            return false;
+        e[0] = ifBlock.cond;
+        
         if (jode.Decompiler.isVerbose)
             System.err.print('?');
 
-        flow.removeSuccessor(thenBlock.jump);
+        thenBlock.flowBlock.removeSuccessor(thenBlock.jump);
         thenBlock.removeJump();
 
         IfThenElseOperator iteo = new IfThenElseOperator
             (Type.tSuperType(e[1].getType())
              .intersection(Type.tSuperType(e[2].getType())));
 
-        ((InstructionBlock)flow.lastModified).
-            setInstruction(new ComplexExpression(iteo, e));
-        flow.lastModified.moveDefinitions(flow.lastModified.outer, null);
-        flow.lastModified.replace(flow.lastModified.outer);
+        ic.setInstruction(new ComplexExpression(iteo, e));
+        ic.moveDefinitions(last.outer, last);
+        last.replace(last.outer);
         return true;
-    }
-
-    public boolean transform(FlowBlock flow) {
-        return createFunny(flow) || create(flow);
     }
 }

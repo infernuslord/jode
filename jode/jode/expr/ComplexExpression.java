@@ -132,6 +132,10 @@ public class ComplexExpression extends Expression {
         return subExpressions;
     }
 
+    public void setSubExpressions(int i, Expression expr) {
+        subExpressions[i] = expr;
+        updateSubTypes();
+    }
     void updateSubTypes() {
         for (int i=0; i < subExpressions.length; i++) {
             if (i == 0 && operator instanceof ArrayStoreOperator) {
@@ -255,7 +259,7 @@ public class ComplexExpression extends Expression {
 
             return new ComplexExpression
                 (new StringAddOperator(), new Expression[] 
-                 { e, subExpressions[1] });
+                 { e, subExpressions[1].simplifyString() });
         }
         if (operator instanceof ConstructorOperator
             && (((ConstructorOperator) operator).getClassType() 
@@ -263,7 +267,7 @@ public class ComplexExpression extends Expression {
             
             if (subExpressions.length == 1 &&
                 subExpressions[0].getType().isOfType(Type.tString))
-                return subExpressions[0];
+                return subExpressions[0].simplifyString();
         }
         return null;
     }
@@ -278,6 +282,7 @@ public class ComplexExpression extends Expression {
                 Expression simple = subExpressions[0].simplifyStringBuffer();
                 if (simple != null)
                     return simple;
+                        
             }
             else if (invoke.getMethodName().equals("valueOf")
                      && invoke.isStatic() 
@@ -309,7 +314,7 @@ public class ComplexExpression extends Expression {
                      { left, right });
             }
         }
-        return null;
+        return this;
     }
 
     public Expression simplify() {
@@ -382,7 +387,7 @@ public class ComplexExpression extends Expression {
         } 
         else {
             Expression stringExpr = simplifyString();
-            if (stringExpr != null)
+            if (stringExpr != this)
                 return stringExpr.simplify();
         }
         for (int i=0; i< subExpressions.length; i++) {
@@ -392,3 +397,4 @@ public class ComplexExpression extends Expression {
         return this;
     }
 }
+

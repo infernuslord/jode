@@ -20,21 +20,20 @@
 package jode.flow;
 import jode.*;
 
-public class CreateAssignExpression implements Transformation{
+public class CreateAssignExpression {
 
-    public boolean transform(FlowBlock flow) {
-        if (!(flow.lastModified instanceof InstructionContainer)
-            || !(flow.lastModified.outer instanceof SequentialBlock)
-            || !(((InstructionContainer)flow.lastModified).getInstruction()
-                 instanceof StoreInstruction)
-            || !(((InstructionContainer)flow.lastModified).getInstruction()
-                 .isVoid()))
+    public static boolean transform(InstructionContainer ic,
+                             StructuredBlock last) {
+        if (!(last.outer instanceof SequentialBlock)
+            || !(ic.getInstruction() instanceof StoreInstruction)
+            || !(ic.getInstruction().isVoid()))
             return false;
         
-        return (createAssignOp(flow) || createAssignExpression(flow));
+        return (createAssignOp(ic, last) || createAssignExpression(ic, last));
     }
 
-    public boolean createAssignOp(FlowBlock flow) {
+    public static boolean createAssignOp(InstructionContainer ic,
+                                         StructuredBlock last) {
 
         /* Situation:
          *
@@ -53,11 +52,8 @@ public class CreateAssignExpression implements Transformation{
          *
          * If the optional dup is present the store*= becomes non void.
          */
-        InstructionContainer lastBlock
-            = (InstructionContainer) flow.lastModified;
-        SequentialBlock opBlock = (SequentialBlock) lastBlock.outer;
-        StoreInstruction store 
-            = (StoreInstruction) lastBlock.getInstruction();
+        SequentialBlock opBlock = (SequentialBlock) last.outer;
+        StoreInstruction store = (StoreInstruction) ic.getInstruction();
 
         boolean isAssignOp = false;
         if (opBlock.subBlocks[0] instanceof SpecialBlock) {
@@ -93,7 +89,13 @@ public class CreateAssignExpression implements Transformation{
 
         int opIndex;
         Expression rightHandSide;
+        
+        if (expr.getOperator() instanceof ConvertOperator
+            && expr.getSubExpressions()[0] instanceof ComplexExpression
+            && expr.getOperator().getType().isOfType(store.getLValueType())) {
 
+            expr = (ComplexExpression) expr.getSubExpressions()[0];
+        }
         if (expr.getOperator() instanceof BinaryOperator) {
             BinaryOperator binop = (BinaryOperator) expr.getOperator();
             
@@ -109,24 +111,24 @@ public class CreateAssignExpression implements Transformation{
             Expression simple = expr.simplifyString();
             rightHandSide = simple;
             /* Now search for the leftmost operand ... */
-            ComplexExpression last = null;
+            ComplexExpression lastExpr = null;
             while (simple instanceof ComplexExpression
                    && simple.getOperator() instanceof StringAddOperator) {
-                last = (ComplexExpression) simple;
-                simple = last.getSubExpressions()[0];
+                lastExpr = (ComplexExpression) simple;
+                simple = lastExpr.getSubExpressions()[0];
             }
 
             /* ... check it ... */
-            if (last == null || !(simple instanceof Operator)
+            if (lastExpr == null || !(simple instanceof Operator)
                 || !store.matches((Operator) simple))
                 return false;
             
             /* ... and remove it. */
-            if (last.getParent() != null) {
-                ((ComplexExpression)last.getParent()).getSubExpressions()[0] 
-                    = last.getSubExpressions()[1];
+            if (lastExpr.getParent() != null) {
+                ((ComplexExpression)lastExpr.getParent())
+                    .setSubExpressions(0,lastExpr.getSubExpressions()[1]);
             } else
-                rightHandSide = last.getSubExpressions()[1]; 
+                rightHandSide = lastExpr.getSubExpressions()[1]; 
 
             opIndex = Operator.ADD_OP;
         }
@@ -137,20 +139,19 @@ public class CreateAssignExpression implements Transformation{
 
         if (isAssignOp)
             store.makeNonVoid();
-        lastBlock.replace(opBlock.subBlocks[1]);
+        last.replace(opBlock.subBlocks[1]);
         return true;
     }
 
-    public boolean createAssignExpression(FlowBlock flow) {
+    public static boolean createAssignExpression(InstructionContainer ic,
+                                          StructuredBlock last) {
         /* Situation:
          * sequBlock:
          *   dup_X(lvalue_count)
          *   store instruction
          */
-        InstructionContainer lastBlock
-            = (InstructionContainer) flow.lastModified;
-        SequentialBlock sequBlock = (SequentialBlock) lastBlock.outer;
-        StoreInstruction store = (StoreInstruction) lastBlock.getInstruction();
+        SequentialBlock sequBlock = (SequentialBlock) last.outer;
+        StoreInstruction store = (StoreInstruction) ic.getInstruction();
 
         if (sequBlock.subBlocks[0] instanceof SpecialBlock) {
 

@@ -24,8 +24,9 @@ public class ConstructorOperator extends Operator {
     MethodType methodType;
     Type classType;
 
-    public ConstructorOperator(Type type, MethodType methodType) {
-        super(type, 0);
+    public ConstructorOperator(Type type, MethodType methodType, 
+                               boolean isVoid) {
+        super(isVoid ? Type.tVoid : type, 0);
         this.classType  = type;
         this.methodType = methodType;
     }

@@ -107,6 +107,9 @@ public abstract class Expression {
     public Expression simplify() {
         return this;
     }
+    public Expression simplifyString() {
+        return this;
+    }
 
     static Expression EMPTYSTRING = new ConstOperator(Type.tString, "\"\"");
 

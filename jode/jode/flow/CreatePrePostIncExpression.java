@@ -20,30 +20,28 @@
 package jode.flow;
 import jode.*;
 
-public class CreatePrePostIncExpression implements Transformation {
+public class CreatePrePostIncExpression {
 
-    public boolean transform(FlowBlock flow)
+    public static boolean transform(InstructionContainer ic, 
+                                    StructuredBlock last)
     {
-        return (createLocalPrePostInc(flow) || createPostInc(flow));
+        return (createLocalPrePostInc(ic, last) || createPostInc(ic, last));
     }
     
-    public boolean createLocalPrePostInc(FlowBlock flow) {
-        IIncOperator iinc;
-        boolean isPost;
-        int op;
-        InstructionContainer lastBlock;
-        Type type;
-        try {
-            lastBlock = (InstructionContainer) flow.lastModified;
+    public static boolean createLocalPrePostInc(InstructionContainer ic, 
+                                                StructuredBlock last) {
 
-            Expression instr2 = lastBlock.getInstruction();
-            SequentialBlock sequBlock = (SequentialBlock)lastBlock.outer;
-            if (sequBlock.subBlocks[1] != lastBlock)
-                return false;
-            InstructionBlock ib = (InstructionBlock) sequBlock.subBlocks[0];
-            Expression instr1 = ib.getInstruction();
+        if (last.outer instanceof SequentialBlock 
+            && last.outer.getSubBlocks()[0] instanceof InstructionBlock) {
 
+            Expression instr1 = ((InstructionBlock)
+                                 last.outer.getSubBlocks()[0])
+                .getInstruction();
+            Expression instr2 = ic.getInstruction();
+
+            IIncOperator iinc;
             LocalLoadOperator load;
+            boolean isPost;
             if (instr1 instanceof IIncOperator 
                 && instr2 instanceof LocalLoadOperator) {
                 iinc = (IIncOperator) instr1;
@@ -57,6 +55,7 @@ public class CreatePrePostIncExpression implements Transformation {
             } else
                 return false;
 
+            int op;
 	    if (iinc.getOperatorIndex() == iinc.ADD_OP + iinc.OPASSIGN_OP)
                 op = Operator.INC_OP;
             else if (iinc.getOperatorIndex() == iinc.NEG_OP + iinc.OPASSIGN_OP)
@@ -72,94 +71,124 @@ public class CreatePrePostIncExpression implements Transformation {
 	    if (!iinc.matches(load))
 		return false;
 
-	    type = load.getType().intersection(Type.tUInt);
-        } catch (NullPointerException ex) {
-            return false;
-        } catch (ClassCastException ex) {
-            return false;
+	    Type type = load.getType().intersection(Type.tUInt);
+            Operator ppop = 
+                new LocalPrePostFixOperator(type, op, iinc, isPost);
+
+            ic.setInstruction(ppop);
+            ic.moveDefinitions(last.outer, last);
+            last.replace(last.outer);
+            return true;
         }
-	Operator ppop = new LocalPrePostFixOperator(type, op, iinc, isPost);
-        lastBlock.setInstruction(ppop);
-        lastBlock.moveDefinitions(lastBlock.outer, lastBlock);
-        lastBlock.replace(lastBlock.outer);
-	return true;
+	return false;
     }
 
-    public boolean createPostInc(FlowBlock flow) {
-	StoreInstruction store;
-	int op;
-	Type type;
-        InstructionBlock lastBlock;
-        SequentialBlock sequBlock;
-        try {
-            lastBlock = (InstructionBlock) flow.lastModified;
+    public static boolean createPostInc(InstructionContainer ic, 
+                                        StructuredBlock last) {
 
-            Expression storeExpr = lastBlock.getInstruction();
-	    store = (StoreInstruction) storeExpr.getOperator();
-            if (!store.isVoid())
-                return false;
+        /* Situation:
+         *
+         *   PUSH load/storeOps              PUSH load/storeOps
+         *   DUP  load/storeOps              PUSH store++/--
+         *   load  (unresolved)
+         *   DUP                       ->
+         *   PUSH +/-1
+         *   IADD/SUB
+         *   store (unresolved)
+         *
+         *   load (no params)          ->    PUSH store++/--
+         *   DUP
+         *   PUSH +/-1
+         *   store IADD/SUB
+         */
 
-            sequBlock = (SequentialBlock) lastBlock.outer;
-            if (sequBlock.subBlocks[1] != lastBlock)
-                return false;
-
-            BinaryOperator binOp;
-            InstructionBlock ib;
-            if (store.getLValueOperandCount() > 0) {
-                ib = (InstructionBlock) sequBlock.subBlocks[0];
-                binOp = (BinaryOperator) ib.getInstruction();
-                sequBlock = (SequentialBlock) sequBlock.outer;
-            } else
-                binOp = (BinaryOperator) 
-                    ((ComplexExpression) storeExpr).getSubExpressions()[0];
-
-            if (binOp.getOperatorIndex() == store.ADD_OP)
-                op = Operator.INC_OP;
-            else if (store.getOperatorIndex() == store.NEG_OP)
-                op = Operator.DEC_OP;
-            else
-                return false;
-                
-            ib = (InstructionBlock) sequBlock.subBlocks[0];
-
-            ConstOperator constOp = (ConstOperator) ib.getInstruction();
-            if (!constOp.getValue().equals("1") &&
-		!constOp.getValue().equals("-1"))
-                return false;
-            if (constOp.getValue().equals("-1"))
-		op ^= 1;
-
-            sequBlock = (SequentialBlock) sequBlock.outer;
-            SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
-            if (dup.type != SpecialBlock.DUP
-                || dup.count != store.getLValueType().stackSize()
-                || dup.depth != store.getLValueOperandCount())
-                return false;
-
-            sequBlock = (SequentialBlock) sequBlock.outer;
-            ib = (InstructionBlock) sequBlock.subBlocks[0];
-            Operator load = (Operator) ib.getInstruction();
-	    if (!store.matches(load))
-		return false;
-
-            if (store.getLValueOperandCount() > 0) {
-                sequBlock = (SequentialBlock) sequBlock.outer;
-                SpecialBlock dup2 = (SpecialBlock) sequBlock.subBlocks[0];
-                if (dup2.type != SpecialBlock.DUP
-                    || dup2.count != store.getLValueOperandCount() 
-                    || dup2.depth != 0)
-                    return false;
-            }
-	    type = load.getType().intersection(store.getLValueType());
-        } catch (NullPointerException ex) {
+        if (!(ic.getInstruction().getOperator() instanceof StoreInstruction)
+            || !(ic.getInstruction().isVoid()))
             return false;
-        } catch (ClassCastException ex) {
+        
+        StoreInstruction store = 
+            (StoreInstruction) ic.getInstruction().getOperator();
+
+
+        if (!(last.outer instanceof SequentialBlock))
             return false;
+        SequentialBlock sb = (SequentialBlock)last.outer;
+
+        Expression binOp;
+        if (store.getLValueOperandCount() == 0) {
+            if (!(ic.getInstruction() instanceof ComplexExpression))
+                return false;
+            binOp = ((ComplexExpression) ic.getInstruction())
+                .getSubExpressions()[0];
+        } else {
+            if (!(sb.subBlocks[0] instanceof InstructionBlock)
+                || !(sb.outer instanceof SequentialBlock))
+                return false;
+            binOp = ((InstructionBlock) sb.subBlocks[0])
+                .getInstruction();
+            sb = (SequentialBlock) sb.outer;
         }
-	Operator postop = new PrePostFixOperator(type, op, store, true);
-        lastBlock.setInstruction(postop);
-        lastBlock.moveDefinitions(sequBlock, lastBlock);
-        lastBlock.replace(sequBlock);
+        if (!(binOp instanceof BinaryOperator))
+            return false;
+ 
+        int op;
+        if (binOp.getOperator().getOperatorIndex() == store.ADD_OP)
+            op = Operator.INC_OP;
+        else if (binOp.getOperator().getOperatorIndex() == store.NEG_OP)
+            op = Operator.DEC_OP;
+        else
+            return false;
+                
+        if (!(sb.subBlocks[0] instanceof InstructionBlock))
+            return false;
+        InstructionBlock ib = (InstructionBlock) sb.subBlocks[0];
+        if (!(ib.getInstruction() instanceof ConstOperator))
+            return false;
+        ConstOperator constOp = (ConstOperator) ib.getInstruction();
+        if (constOp.getValue().equals("-1"))
+            op ^= 1;
+        else if (!constOp.getValue().equals("1"))
+            return false;
+
+        if (!(sb.outer instanceof SequentialBlock))
+            return false;
+        sb = (SequentialBlock) sb.outer;
+        if (!(sb.subBlocks[0] instanceof SpecialBlock))
+            return false;
+            
+        SpecialBlock dup = (SpecialBlock) sb.subBlocks[0];
+        if (dup.type != SpecialBlock.DUP
+            || dup.count != store.getLValueType().stackSize()
+            || dup.depth != store.getLValueOperandCount())
+            return false;
+
+        if (!(sb.outer instanceof SequentialBlock))
+            return false;
+        sb = (SequentialBlock) sb.outer;
+        if (!(sb.subBlocks[0] instanceof InstructionBlock))
+            return false;
+        ib = (InstructionBlock) sb.subBlocks[0];
+
+        if (!(ib.getInstruction() instanceof Operator)
+            || !store.matches((Operator) ib.getInstruction()))
+            return false;
+
+        if (store.getLValueOperandCount() > 0) {
+            if (!(sb.outer instanceof SequentialBlock))
+                return false;
+            sb = (SequentialBlock) sb.outer;
+            if (!(sb.subBlocks[0] instanceof SpecialBlock))
+                return false;
+            SpecialBlock dup2 = (SpecialBlock) sb.subBlocks[0];
+            if (dup2.type != SpecialBlock.DUP
+                || dup2.count != store.getLValueOperandCount() 
+                || dup2.depth != 0)
+                return false;
+        }
+        ic.setInstruction
+            (new PrePostFixOperator(store.getLValueType(), op, store, true));
+        ic.moveDefinitions(sb, last);
+        last.replace(sb);
 	return true;
     }
 }

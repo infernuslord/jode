@@ -51,7 +51,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * The increase instruction, only valid if type == FOR.
      */
     Expression incr;
-
+    
     /**
      * True, if the initializer is a declaration.
      */
@@ -253,4 +253,10 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     public boolean jumpMayBeChanged() {
         return mayChangeJump;
     }
+
+    public boolean doTransformations() {
+        return type == FOR && init == null
+            && CreateForInitializer.transform(this, flowBlock.lastModified);
+    }
 }
+

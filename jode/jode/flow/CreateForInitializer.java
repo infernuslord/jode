@@ -21,23 +21,19 @@ package jode.flow;
 import jode.Expression;
 import jode.StoreInstruction;
 
-public class CreateForInitializer implements Transformation {
+public class CreateForInitializer {
 
     /**
      * This combines an variable initializer into a for statement
-     * @param flow The FlowBlock that is transformed 
+     * @param forBlock the for block
+     * @param last  the lastModified of the flow block.
      */
-    public boolean transform(FlowBlock flow) {
+    public static boolean transform(LoopBlock forBlock, StructuredBlock last) {
 
-        if (!(flow.lastModified instanceof LoopBlock)
-            || !(flow.lastModified.outer instanceof SequentialBlock))
+        if (!(last.outer instanceof SequentialBlock))
             return false;
 
-        LoopBlock forBlock = (LoopBlock) flow.lastModified;
-        if (forBlock.type != forBlock.FOR || forBlock.init != null)
-            return false;
- 
-        SequentialBlock sequBlock = (SequentialBlock) forBlock.outer;
+        SequentialBlock sequBlock = (SequentialBlock) last.outer;
 
         if (!(sequBlock.subBlocks[0] instanceof InstructionBlock))
             return false;
@@ -53,8 +49,8 @@ public class CreateForInitializer implements Transformation {
             System.err.print('f');
 
         forBlock.init = initializer;
-        forBlock.moveDefinitions(forBlock.outer, forBlock);
-        forBlock.replace(forBlock.outer);
+        forBlock.moveDefinitions(last.outer, null);
+        last.replace(last.outer);
         return true;
     }
 }
