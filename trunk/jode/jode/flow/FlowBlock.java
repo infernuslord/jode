@@ -150,7 +150,7 @@ public class FlowBlock {
         same_jump: while(true) {
             /* if the jump is the jump of the appendBlock, skip it.
              */
-            if (jump.prev == appendBlock)
+            if (jump.prev == null || jump.prev == appendBlock)
                 continue next_jump;
 
             /* Note: jump.prev.outer != null, since appendBlock is
@@ -671,7 +671,7 @@ public class FlowBlock {
             /* Do the following modifications on the struct block. */
             appendBlock = precedingcase;
             succ.block.setFlowBlock(this);
-            switchBlock.define(defineHere);
+//             switchBlock.define(defineHere);
 
         } else {
 
@@ -698,7 +698,7 @@ public class FlowBlock {
             sequBlock.setFirst(appendBlock);
             sequBlock.setSecond(succ.block);
             succ.block.setFlowBlock(this);
-            sequBlock.define(defineHere);
+//             sequBlock.define(defineHere);
         }
 
         /* Merge the sucessors from the successing flow block
@@ -773,7 +773,6 @@ public class FlowBlock {
                                              LoopBlock.FALSE);
 
             int breaklevel = 1;
-            Jump debug=jump;
             for (StructuredBlock surrounder = jump.prev.outer;
                  surrounder != appendBlock.outer; 
                  surrounder = surrounder.outer) {
@@ -898,7 +897,7 @@ public class FlowBlock {
 
             whileBlock.replace(bodyBlock, bodyBlock);
             whileBlock.setBody(bodyBlock);
-            whileBlock.define(defineHere);
+//             whileBlock.define(defineHere);
 
             /* Try to eliminate as many jumps as possible.
              */

@@ -59,28 +59,43 @@ public class CatchBlock extends StructuredBlock {
      * @param catchBlock the catch block.
      */
     public void setCatchBlock(StructuredBlock catchBlock) {
-        if (catchBlock instanceof SequentialBlock
-            && catchBlock.getSubBlocks()[0] instanceof InstructionBlock) {
+        if ((catchBlock instanceof SequentialBlock
+             && catchBlock.getSubBlocks()[0] instanceof InstructionBlock)
+            || catchBlock instanceof InstructionBlock) {
             
-            InstructionBlock localBlock = 
-                (InstructionBlock) catchBlock.getSubBlocks()[0];
-            jode.Instruction instr = localBlock.getInstruction();
-            
+            jode.Instruction instr = 
+                ((InstructionBlock) (catchBlock instanceof InstructionBlock 
+                                     ? catchBlock
+                                     : catchBlock.getSubBlocks()[0])
+                 ).getInstruction();
+
             if (instr instanceof jode.PopOperator) {
-                exceptionLocal = new LocalInfo(99);
+                exceptionLocal = new LocalInfo(-1);
                 exceptionLocal.setName
                     (Identifier.lookup("exception_"+(serialno++)+"_"));
-                catchBlock = catchBlock.getSubBlocks()[1];
+                exceptionLocal.setType(exceptionType);
             } else if (instr instanceof jode.LocalStoreOperator) {
                 exceptionLocal = 
                     ((jode.LocalStoreOperator) instr).getLocalInfo();
-                catchBlock = catchBlock.getSubBlocks()[1];
-            } 
+            }
+
+            if (exceptionLocal != null) {
+                StructuredBlock newCatchBlock = 
+                    (catchBlock instanceof InstructionBlock 
+                     ? new EmptyBlock()
+                     : catchBlock.getSubBlocks()[1]);
+
+                if (catchBlock.jump != null)
+                    newCatchBlock.moveJump(catchBlock);
+                catchBlock = newCatchBlock;
+            }
         }
         if (exceptionLocal == null) { 
-            exceptionLocal = new LocalInfo(99);
+            exceptionLocal = new LocalInfo(-1);
             exceptionLocal.setName(Identifier.lookup("ERROR!!!"));
+            exceptionLocal.setType(exceptionType);
         }
+        used.addElement(exceptionLocal);
         this.catchBlock = catchBlock;
         catchBlock.outer = this;
         catchBlock.setFlowBlock(flowBlock);
@@ -124,6 +139,24 @@ public class CatchBlock extends StructuredBlock {
             && (catchBlock.jump != null || catchBlock.jumpMayBeChanged());
     }
 
+    /**
+     * Print the code for the declaration of a local variable.
+     * @param writer The tabbed print writer, where we print to.
+     * @param local  The local that should be declared.
+     */
+    public void dumpDeclaration(jode.TabbedPrintWriter writer, LocalInfo local)
+        throws java.io.IOException
+    {
+        if (local != exceptionLocal) {
+            /* exceptionLocal will be automatically declared in
+             * dumpInstruction.
+             *
+             * This is currently broken for nested tries... XXX
+             */
+            super.dumpDeclaration(writer, local);
+        }
+    }
+
     public void dumpInstruction(jode.TabbedPrintWriter writer) 
         throws java.io.IOException {
         /* avoid ugly nested tries */
@@ -132,7 +165,7 @@ public class CatchBlock extends StructuredBlock {
             writer.println("try {");
             writer.tab();
         }
-        tryBlock.dumpInstruction(writer);
+        tryBlock.dumpSource(writer);
         writer.untab();
         writer.println("} catch ("+/*XXX*/exceptionType.typeString
                        (exceptionLocal.getName().toString())+") {");
@@ -145,3 +178,6 @@ public class CatchBlock extends StructuredBlock {
         }
     }
 }
+
+
+

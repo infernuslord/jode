@@ -59,8 +59,11 @@ public class MyType extends Type {
 
     public static Type tSuperType(Type type) {
 	int typeCode = type.getTypeCode();
-	if (typeCode == 9 || typeCode == 10 || typeCode == 103) 
+	if (typeCode == 9 || typeCode == 10)
 	    return new ClassRangeType(tObject, type);
+        else if (typeCode == 103)
+            return (((ClassRangeType)type).topType == null 
+                    ? tUnknown : new ClassRangeType(tObject, null));
 	else
 	    return type;
     }

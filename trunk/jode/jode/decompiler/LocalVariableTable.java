@@ -43,7 +43,7 @@ public class LocalVariableTable {
     {
         int count = stream.readUnsignedShort();
         for (int i=0; i<count; i++) {
-            int start  = stream.readUnsignedShort()-2; /*XXX*/
+            int start  = stream.readUnsignedShort();
             int length = stream.readUnsignedShort();
             int name_i = stream.readUnsignedShort();
             int desc_i = stream.readUnsignedShort();

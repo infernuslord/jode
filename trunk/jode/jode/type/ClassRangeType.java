@@ -350,10 +350,12 @@ public class ClassRangeType extends MyType {
 
     public String typeString(String string, boolean flag1, boolean flag2)
     {
-// 	if (verbose??)
+	if (Decompiler.isDebugging)
 	    return "<"+bottomType+"-"+topType+">" + string;
-// 	else
-// 	    return bottomType.typeString(string, flag1, flag2);
+	else if (bottomType != null)
+	    return bottomType.typeString(string, flag1, flag2);
+        else
+	    return tObject.typeString(string, flag1, flag2);
     }
 
 //     public String toString()

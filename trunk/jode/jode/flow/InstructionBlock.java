@@ -31,11 +31,42 @@ public class InstructionBlock extends InstructionContainer {
         super(instr, jump);
     }
 
+    /**
+     * True if this is a declaration.
+     */
+    private boolean isDeclaration = false;
+
+    public void dumpDeclaration(TabbedPrintWriter writer, LocalInfo local)
+	throws java.io.IOException
+    {
+        if (instr instanceof Expression
+            && ((Expression)instr).getOperator() instanceof LocalStoreOperator
+            && ((LocalStoreOperator) ((Expression)instr).getOperator())
+            .getLocalInfo() == local) {
+            isDeclaration = true;
+        } else
+            super.dumpDeclaration(writer, local);
+    }
+
+    public void dumpSource(TabbedPrintWriter writer) 
+	throws java.io.IOException
+    {
+        isDeclaration = false;
+        super.dumpSource(writer);
+    }
+
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {
-        if (instr.getType() != MyType.tVoid)
-            writer.print("push ");
-        writer.println(instr.toString()+";");
+        if (isDeclaration) {
+            writer.println
+                (((LocalStoreOperator) ((Expression)instr).getOperator())
+                 .getLocalInfo().getType().toString()/*XXX*/
+                 + " " + instr.toString() + ";");
+        } else {
+            if (instr.getType() != MyType.tVoid)
+                writer.print("push ");
+            writer.println(instr.toString()+";");
+        }
     }
 }
