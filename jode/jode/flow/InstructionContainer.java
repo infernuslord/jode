@@ -20,6 +20,7 @@
 package jode.flow;
 import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
+import jode.expr.InvokeOperator;
 import jode.expr.LocalVarOperator;
 import jode.util.SimpleSet;
 
@@ -78,6 +79,16 @@ public abstract class InstructionContainer extends StructuredBlock {
     }
 
     public boolean doTransformations() {
+	if (instr == null)
+	    return false;
+	/* Do on the fly access$ transformation, since some further
+	 * operations need this.
+	 */
+	if (instr instanceof InvokeOperator) {
+	    Expression expr = ((InvokeOperator)instr).simplifyAccess();
+	    if (expr != null)
+		instr = expr;
+	}
         StructuredBlock last = flowBlock.lastModified;
         return CreateNewConstructor.transform(this, last)
             || CreateAssignExpression.transform(this, last)
