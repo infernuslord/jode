@@ -41,6 +41,16 @@ public class CheckCastOperator extends Operator {
     public void updateType() {
     }
 
+    public Expression simplify() {
+	if (subExpressions[0].getType().getCanonic()
+	    .isOfType(Type.tSubType(castType)))
+	    /* This is an unnecessary widening cast, probably that inserted
+	     * by jikes for inner classes constructors.
+	     */
+	    return subExpressions[0].simplify();
+	return super.simplify();
+    }
+
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	writer.print("(");
