@@ -71,9 +71,9 @@ public class ClassInfo extends BinaryInfo {
         return classpath.isDirectory(name.replace('.', '/'));
     }
     
-    public static Enumeration getClasses(final String packageName) {
+    public static Enumeration getClassesAndPackages(final String packageName) {
         final Enumeration enum = 
-            classpath.listClassFiles(packageName.replace('.','/'));
+            classpath.listFiles(packageName.replace('.','/'));
         return new Enumeration() {
             public boolean hasMoreElements() {
                 return enum.hasMoreElements();
@@ -81,9 +81,9 @@ public class ClassInfo extends BinaryInfo {
             public Object nextElement() {
                 String name = (String) enum.nextElement();
                 if (!name.endsWith(".class"))
-                    throw new jode.AssertError("Wrong file name");
-                return ClassInfo.forName(packageName + "."
-					 + name.substring(0, name.length()-6));
+		    // This is a package
+		    return name;
+                return name.substring(0, name.length()-6);
 
             }
         };
