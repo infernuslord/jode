@@ -19,9 +19,9 @@
 
 package jode;
 import java.lang.reflect.Modifier;
-import gnu.bytecode.Attribute;
-import gnu.bytecode.MiscAttr;
-import gnu.bytecode.Spy;
+import jode.bytecode.FieldInfo;
+import jode.bytecode.AttributeInfo;
+import jode.bytecode.ClassFormatException;
 
 public class FieldAnalyzer implements Analyzer {
     ClassAnalyzer clazz;
@@ -31,30 +31,34 @@ public class FieldAnalyzer implements Analyzer {
     String fieldName;
     Expression constant;
     
-    public FieldAnalyzer(ClassAnalyzer cla, gnu.bytecode.Field fd, 
+    public FieldAnalyzer(ClassAnalyzer cla, FieldInfo fd, 
                          JodeEnvironment e)
     {
         clazz = cla;
         env  = e;
 
-        modifiers = Spy.getModifiers(fd);
-        type = Type.tType(fd.getSignature());
+        modifiers = fd.getModifiers();
+        type = fd.getType();
         fieldName = fd.getName();
         constant = null;
 
-        Attribute attribute = 
-            Attribute.get(clazz.classType.getField(fieldName), 
-                          "ConstantValue");
+        AttributeInfo attribute = fd.findAttribute("ConstantValue");
+
         if (attribute != null) {
             try {
-                int index = Spy.getAttributeStream((MiscAttr)attribute)
-                    .readUnsignedShort();
+                byte[] contents = attribute.getContents();
+                if (contents.length != 2)
+                    throw new AssertError("ConstantValue attribute"
+                                          + " has wrong length");
+                int index = (contents[0] & 0xff) << 8 | (contents[1] & 0xff);
                 constant = new ConstOperator
-                    (type.intersection(cla.getConstantType(index)),
-                     cla.getConstantString(index));
+                    (type.intersection(cla.getConstantPool()
+                                       .getConstantType(index)),
+                     cla.getConstantPool().getConstantString(index));
                 constant.makeInitializer();
-            } catch (java.io.IOException ex) {
-                throw new AssertError("attribute too small");
+            } catch (ClassFormatException ex) {
+                ex.printStackTrace();
+                throw new AssertError("ClassFormatException");
             }
         }
     }

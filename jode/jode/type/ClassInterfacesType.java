@@ -17,7 +17,7 @@
  * $Id$
  */
 package jode;
-import jode.bytecode.ClassHierarchy;
+import jode.bytecode.ClassInfo;
 import java.util.Vector;
 import java.util.Stack;
 
@@ -35,45 +35,45 @@ import java.util.Stack;
  * @author Jochen Hoenicke */
 public class ClassInterfacesType extends Type {
 
-    ClassHierarchy clazz;
-    ClassHierarchy ifaces[];
+    ClassInfo clazz;
+    ClassInfo ifaces[];
 
-    public ClassHierarchy getClazz() {
-        return clazz != null ? clazz : ClassHierarchy.javaLangObject;
+    public ClassInfo getClazz() {
+        return clazz != null ? clazz : ClassInfo.javaLangObject;
     }
 
     public ClassInterfacesType(String clazzName) {
         super(TC_CLASS);
-        ClassHierarchy clazz = ClassHierarchy.forName(clazzName);
+        ClassInfo clazz = ClassInfo.forName(clazzName);
         if (clazz.isInterface()) {
             this.clazz = null;
-            ifaces = new ClassHierarchy[] {clazz};
+            ifaces = new ClassInfo[] {clazz};
         } else {
             this.clazz = 
-                (clazz == ClassHierarchy.javaLangObject) ? null : clazz;
-            ifaces = new ClassHierarchy[0];
+                (clazz == ClassInfo.javaLangObject) ? null : clazz;
+            ifaces = new ClassInfo[0];
         }
     }
 
-    public ClassInterfacesType(ClassHierarchy clazz) {
+    public ClassInterfacesType(ClassInfo clazz) {
         super(TC_CLASS);
         if (clazz.isInterface()) {
             this.clazz = null;
-            ifaces = new ClassHierarchy[] { clazz };
+            ifaces = new ClassInfo[] { clazz };
         } else {
             this.clazz = 
-                (clazz == ClassHierarchy.javaLangObject) ? null : clazz;
-            ifaces = new ClassHierarchy[0];
+                (clazz == ClassInfo.javaLangObject) ? null : clazz;
+            ifaces = new ClassInfo[0];
         }
     }
 
-    public ClassInterfacesType(ClassHierarchy clazz, ClassHierarchy[] ifaces) {
+    public ClassInterfacesType(ClassInfo clazz, ClassInfo[] ifaces) {
         super(TC_CLASS);
         this.clazz = clazz;
         this.ifaces = ifaces;
     }
 
-    private static Type create(ClassHierarchy clazz, ClassHierarchy[] ifaces) {
+    private static Type create(ClassInfo clazz, ClassInfo[] ifaces) {
         /* Make sure that every {java.lang.Object} equals tObject */
         if (ifaces.length == 0 && clazz == null) 
             return tObject;
@@ -125,7 +125,7 @@ public class ClassInterfacesType extends Type {
              * classes/interfaces that implement all bottom.ifaces.  
              */
 
-            ClassHierarchy clazz = this.clazz;
+            ClassInfo clazz = this.clazz;
             if (clazz != null) {
                 for (int i=0; i < bottom.ifaces.length; i++) {
                     if (!bottom.ifaces[i].implementedBy(clazz)) {
@@ -145,7 +145,7 @@ public class ClassInterfacesType extends Type {
                 }
             }
 
-            ClassHierarchy[] ifaces = new ClassHierarchy[this.ifaces.length];
+            ClassInfo[] ifaces = new ClassInfo[this.ifaces.length];
             int count = 0;
         big_loop:
             for (int j=0; j < this.ifaces.length; j++) {
@@ -157,7 +157,7 @@ public class ClassInterfacesType extends Type {
             }
 
             if (count < ifaces.length) {
-                ClassHierarchy[] shortIfaces = new ClassHierarchy[count];
+                ClassInfo[] shortIfaces = new ClassInfo[count];
                 System.arraycopy(ifaces, 0, shortIfaces, 0, count);
                 ifaces = shortIfaces;
             } else if (clazz == this.clazz)
@@ -166,10 +166,10 @@ public class ClassInterfacesType extends Type {
         }
     }
 
-    private boolean implementsAllIfaces(ClassHierarchy[] otherIfaces) {
+    private boolean implementsAllIfaces(ClassInfo[] otherIfaces) {
     big:
         for (int i=0; i < otherIfaces.length; i++) {
-            ClassHierarchy iface = otherIfaces[i];
+            ClassInfo iface = otherIfaces[i];
             if (clazz != null && iface.implementedBy(clazz))
                 continue big;
             for (int j=0; j < this.ifaces.length; j++) {
@@ -197,7 +197,7 @@ public class ClassInterfacesType extends Type {
             return tError;
 
         ClassInterfacesType other = (ClassInterfacesType) type;
-        ClassHierarchy clazz;
+        ClassInfo clazz;
 
         /* First determine the clazz, one of the two classes must be a sub
          * class of the other or null.
@@ -231,7 +231,7 @@ public class ClassInterfacesType extends Type {
         Vector ifaces = new Vector();
     big_loop_this:
         for (int i=0; i< this.ifaces.length; i++) {
-            ClassHierarchy iface = this.ifaces[i];
+            ClassInfo iface = this.ifaces[i];
             if (clazz != null && iface.implementedBy(clazz)) {
                 continue big_loop_this;
             }
@@ -248,12 +248,12 @@ public class ClassInterfacesType extends Type {
         }
     big_loop_other:
         for (int i=0; i< other.ifaces.length; i++) {
-            ClassHierarchy iface = other.ifaces[i];
+            ClassInfo iface = other.ifaces[i];
             if (clazz != null && iface.implementedBy(clazz)) {
                 continue big_loop_other;
             }
             for (int j=0; j<ifaces.size(); j++) {
-                if (iface.implementedBy((ClassHierarchy) 
+                if (iface.implementedBy((ClassInfo) 
                                         ifaces.elementAt(j))) {
                     continue big_loop_other;
                 }
@@ -265,7 +265,7 @@ public class ClassInterfacesType extends Type {
             ifaces.addElement(iface);
         }
             
-        ClassHierarchy[] ifaceArray = new ClassHierarchy[ifaces.size()];
+        ClassInfo[] ifaceArray = new ClassInfo[ifaces.size()];
         ifaces.copyInto(ifaceArray);
         return create(clazz, ifaceArray);
     }
@@ -285,7 +285,7 @@ public class ClassInterfacesType extends Type {
         if (code != TC_CLASS)
             return tError;
         ClassInterfacesType other = (ClassInterfacesType) type;
-        ClassHierarchy clazz;
+        ClassInfo clazz;
 
         /* First the easy part, determine the clazz */
         if (this.clazz == null || other.clazz == null)
@@ -298,7 +298,7 @@ public class ClassInterfacesType extends Type {
                     break;
                 clazz = clazz.getSuperclass();
             }
-            if (clazz == ClassHierarchy.javaLangObject)
+            if (clazz == ClassInfo.javaLangObject)
                 clazz = null;
         }
 
@@ -317,9 +317,9 @@ public class ClassInterfacesType extends Type {
             
         Stack allIfaces = new Stack();
         if (this.clazz != null) {
-            ClassHierarchy c = this.clazz;
+            ClassInfo c = this.clazz;
             while (clazz != c) {
-                ClassHierarchy clazzIfaces[] = c.getInterfaces();
+                ClassInfo clazzIfaces[] = c.getInterfaces();
                 for (int i=0; i<clazzIfaces.length; i++)
                     allIfaces.push(clazzIfaces[i]);
                 c = c.getSuperclass();
@@ -337,7 +337,7 @@ public class ClassInterfacesType extends Type {
              */
     iface_loop:
         while (!allIfaces.isEmpty()) {
-            ClassHierarchy iface = (ClassHierarchy) allIfaces.pop();
+            ClassInfo iface = (ClassInfo) allIfaces.pop();
             if ((clazz != null && iface.implementedBy(clazz))
                 || ifaces.contains(iface))
                 /* We can skip this, as clazz or ifaces already imply it.
@@ -358,12 +358,12 @@ public class ClassInterfacesType extends Type {
             /* This interface is not implemented by any of the other
              * ifaces.  Try its parent interfaces now.
              */
-            ClassHierarchy clazzIfaces[] = iface.getInterfaces();
+            ClassInfo clazzIfaces[] = iface.getInterfaces();
             for (int i=0; i<clazzIfaces.length; i++)
                 allIfaces.push(clazzIfaces[i]);
         }
                 
-        ClassHierarchy[] ifaceArray = new ClassHierarchy[ifaces.size()];
+        ClassInfo[] ifaceArray = new ClassInfo[ifaces.size()];
         ifaces.copyInto(ifaceArray);
         return create(clazz, ifaceArray);
     }
@@ -411,13 +411,13 @@ public class ClassInterfacesType extends Type {
     }
 
     public String getDefaultName() {
-        ClassHierarchy type;
+        ClassInfo type;
         if (clazz != null)
             type = clazz;
         else if (ifaces.length > 0)
             type = ifaces[0];
         else
-            type = ClassHierarchy.javaLangObject;
+            type = ClassInfo.javaLangObject;
         String name = type.getName();
         int dot = name.lastIndexOf('.');
         if (dot >= 0)

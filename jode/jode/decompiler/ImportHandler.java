@@ -19,8 +19,7 @@
 
 package jode;
 import java.util.*;
-import jode.bytecode.ClassHierarchy;
-import gnu.bytecode.ClassType;
+import jode.bytecode.ClassInfo;
 
 public class JodeEnvironment {
     Hashtable imports;
@@ -34,22 +33,11 @@ public class JodeEnvironment {
 
     JodeEnvironment(String path) {
         classPath = new SearchPath(path);
-        ClassHierarchy.setClassPath(classPath);
+        ClassInfo.setClassPath(classPath);
 	Type.setEnvironment(this);
         imports = new Hashtable();
         /* java.lang is always imported */
         imports.put("java.lang.*", new Integer(Integer.MAX_VALUE));
-    }
-
-    public gnu.bytecode.ClassType getClassType(String clazzName) {
-        try {
-            return gnu.bytecode.ClassFileInput.readClassType
-                (classPath.getFile(clazzName.replace('.', '/')
-                                   +".class"));
-        } catch (java.io.IOException ex) {
-            ex.printStackTrace();
-            throw new RuntimeException("Class not found.");
-        }
     }
 
     /**
@@ -172,9 +160,9 @@ public class JodeEnvironment {
 
     public void doClass(String className) 
     {
-        ClassHierarchy clazz;
+        ClassInfo clazz;
         try {
-            clazz = ClassHierarchy.forName(className);
+            clazz = ClassInfo.forName(className);
         } catch (IllegalArgumentException ex) {
             System.err.println("`"+className+"' is not a class name");
             return;

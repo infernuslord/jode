@@ -18,7 +18,6 @@
  */
 
 package jode;
-import gnu.bytecode.CpoolRef;
 
 public class PutFieldOperator extends StoreInstruction {
     CodeAnalyzer codeAnalyzer;

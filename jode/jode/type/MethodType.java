@@ -24,12 +24,14 @@ package jode;
  * @author Jochen Hoenicke 
  */
 public class MethodType {
+    final String signature;
     final Type[] parameterTypes;
     final Type returnType;
     final boolean staticFlag;
 
     public MethodType(boolean isStatic, String signature) {
         this.staticFlag = isStatic;
+        this.signature = signature;
         int index = 1, types = 0;
         while (signature.charAt(index) != ')') {
             types++;
@@ -68,16 +70,14 @@ public class MethodType {
         return returnType;
     }
 
+    public String toString() {
+        return signature;
+    }
+
     public boolean equals(Object o) {
         MethodType mt;
-        if (!(o instanceof InvokeOperator)
-            || !returnType.equals((mt = (MethodType)o).returnType)
-            || staticFlag != mt.staticFlag
-            || parameterTypes.length != mt.parameterTypes.length)
-            return false;
-        for (int i=0; i<parameterTypes.length; i++)
-            if (!parameterTypes[i].equals(mt.parameterTypes))
-                return false;
-        return true;
+        return ((o instanceof InvokeOperator)
+                && signature.equals((mt = (MethodType)o).signature)
+                && staticFlag == mt.staticFlag);
     }
 }

@@ -18,7 +18,6 @@
  */
 
 package jode;
-import gnu.bytecode.CpoolRef;
 
 public class ConstructorOperator extends Operator {
     MethodType methodType;

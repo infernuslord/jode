@@ -20,8 +20,7 @@
 package jode;
 import jode.flow.*;
 import java.io.*;
-import gnu.bytecode.CpoolRef;
-import gnu.bytecode.CpoolClass;
+import jode.bytecode.ConstantPool;
 
 /**
  * This is an abstract class which creates flow blocks for the
@@ -447,7 +446,8 @@ public abstract class Opcodes {
      * @exception IOException  if an read error occured.
      * @exception ClassFormatError  if an invalid opcode is detected.
      */
-    public static StructuredBlock readOpcode(int addr, DataInputStream stream,
+    public static StructuredBlock readOpcode(ConstantPool cpool,
+                                             int addr, DataInputStream stream,
                                              CodeAnalyzer ca) 
         throws IOException, ClassFormatError
     {
@@ -499,16 +499,16 @@ public abstract class Opcodes {
             int index = stream.readUnsignedByte();
             return createNormal
                 (ca, addr, 2, new ConstOperator
-                 (ca.method.classAnalyzer.getConstantType(index),
-                  ca.method.classAnalyzer.getConstantString(index)));
+                 (cpool.getConstantType(index), 
+                  cpool.getConstantString(index)));
         }
         case opc_ldc_w:
         case opc_ldc2_w: {
             int index = stream.readUnsignedShort();
             return createNormal
                 (ca, addr, 3, new ConstOperator
-                 (ca.method.classAnalyzer.getConstantType(index),
-                  ca.method.classAnalyzer.getConstantString(index)));
+                 (cpool.getConstantType(index),
+                  cpool.getConstantString(index)));
         }
         case opc_iload: case opc_lload: 
         case opc_fload: case opc_dload: case opc_aload:
@@ -719,63 +719,41 @@ public abstract class Opcodes {
                 (ca, addr, 1, new EmptyBlock(new Jump(-1)));
         case opc_getstatic:
         case opc_getfield: {
-            CpoolRef field = (CpoolRef)ca.method.classAnalyzer
-                .getConstant(stream.readUnsignedShort());
+            String[] ref = cpool.getRef(stream.readUnsignedShort());
             return createNormal
                 (ca, addr, 3, new GetFieldOperator
                  (ca, opcode == opc_getstatic,
-                  Type.tClass(field.getCpoolClass().getName().getString()),
-                  Type.tType(field.getNameAndType().getType().getString()),
-                  field.getNameAndType().getName().getString()));
+                  Type.tClass(ref[0]), Type.tType(ref[2]), ref[1]));
         }
         case opc_putstatic:
         case opc_putfield: {
-            CpoolRef field = (CpoolRef)ca.method.classAnalyzer
-                .getConstant(stream.readUnsignedShort());
+            String[] ref = cpool.getRef(stream.readUnsignedShort());
             return createNormal
                 (ca, addr, 3, new PutFieldOperator
                  (ca, opcode == opc_putstatic,
-                  Type.tClass(field.getCpoolClass().getName().getString()),
-                  Type.tType(field.getNameAndType().getType().getString()),
-                  field.getNameAndType().getName().getString()));
+                  Type.tClass(ref[0]), Type.tType(ref[2]), ref[1]));
         }
         case opc_invokevirtual:
         case opc_invokespecial:
-        case opc_invokestatic : {
-            CpoolRef field = (CpoolRef)ca.method.classAnalyzer
-                .getConstant(stream.readUnsignedShort());
-            return createNormal
-                (ca, addr, 3, new InvokeOperator
-                 (ca, opcode == opc_invokespecial, 
-                  Type.tClass(field.getCpoolClass()
-                              .getName().getString()),
-                  new MethodType(opcode == opc_invokestatic, 
-                                 field.getNameAndType()
-                                 .getType().getString()),
-                  field.getNameAndType().getName().getString()));
-        }
+        case opc_invokestatic :
         case opc_invokeinterface: {
-            CpoolRef field = (CpoolRef)ca.method.classAnalyzer.getConstant
-                (stream.readUnsignedShort());
-
+            String[] ref = cpool.getRef(stream.readUnsignedShort());
             StructuredBlock block = createNormal
-                (ca, addr, 5, new InvokeOperator
-                 (ca, false,
-                  Type.tClass(field.getCpoolClass()
-                              .getName().getString()),
-                  new MethodType(false, field.getNameAndType()
-                                 .getType().getString()),
-                  field.getNameAndType().getName().getString()));
-            int reserved = stream.readUnsignedShort();
+                (ca, addr, opcode == opc_invokeinterface ? 5 : 3, 
+                 new InvokeOperator
+                 (ca, opcode == opc_invokespecial, 
+                  Type.tClass(ref[0]),
+                  new MethodType(opcode == opc_invokestatic, ref[2]), 
+                  ref[1]));
+            if (opcode == opc_invokeinterface)
+                stream.readUnsignedShort();
             return block;
         }
         case opc_new: {
-            CpoolClass cpcls = (CpoolClass) 
-                ca.method.classAnalyzer.getConstant(stream.readUnsignedShort());
-            Type type = Type.tClassOrArray(cpcls.getName().getString());
+            Type type = Type.tClassOrArray
+                (cpool.getClassName(stream.readUnsignedShort()));
             type.useType();
-            return createNormal
-                (ca, addr, 3, new NewOperator(type));
+            return createNormal(ca, addr, 3, new NewOperator(type));
         }
         case opc_newarray: {
             Type type;
@@ -796,10 +774,8 @@ public abstract class Opcodes {
                 (ca, addr, 2, new NewArrayOperator(Type.tArray(type), 1));
         }
         case opc_anewarray: {
-            CpoolClass cpcls = (CpoolClass) 
-                ca.method.classAnalyzer.getConstant
-                (stream.readUnsignedShort());
-            Type type = Type.tClassOrArray(cpcls.getName().getString());
+            Type type = Type.tClassOrArray
+                (cpool.getClassName(stream.readUnsignedShort()));
             type.useType();
             return createNormal
                 (ca, addr, 3, new NewArrayOperator(Type.tArray(type), 1));
@@ -813,19 +789,15 @@ public abstract class Opcodes {
                  new ThrowBlock(new NopOperator(Type.tUObject),
                                 new Jump(-1)));
         case opc_checkcast: {
-            CpoolClass cpcls = (CpoolClass) 
-                ca.method.classAnalyzer.getConstant
-                (stream.readUnsignedShort());
-            Type type = Type.tClassOrArray(cpcls.getName().getString());
+            Type type = Type.tClassOrArray
+                (cpool.getClassName(stream.readUnsignedShort()));
             type.useType();
             return createNormal
                 (ca, addr, 3, new CheckCastOperator(type));
         }
         case opc_instanceof: {
-            CpoolClass cpcls = (CpoolClass) 
-                ca.method.classAnalyzer.getConstant
-                (stream.readUnsignedShort());
-            Type type = Type.tClassOrArray(cpcls.getName().getString());
+            Type type = Type.tClassOrArray
+                (cpool.getClassName(stream.readUnsignedShort()));
             type.useType();
             return createNormal
                 (ca, addr, 3, new InstanceOfOperator(type));
@@ -877,10 +849,8 @@ public abstract class Opcodes {
             }
         }
         case opc_multianewarray: {
-            CpoolClass cpcls = (CpoolClass) 
-                ca.method.classAnalyzer.getConstant
-                (stream.readUnsignedShort());
-            Type type = Type.tClassOrArray(cpcls.getName().getString());
+            Type type = Type.tClassOrArray
+                (cpool.getClassName(stream.readUnsignedShort()));
             int dimension = stream.readUnsignedByte();
             return createNormal
                 (ca, addr, 4,

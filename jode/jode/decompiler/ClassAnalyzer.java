@@ -18,14 +18,14 @@
  */
 
 package jode;
-import java.lang.reflect.Modifier;
-import gnu.bytecode.ConstantPool;
-import gnu.bytecode.CpoolEntry;
-import gnu.bytecode.CpoolValue1;
-import gnu.bytecode.CpoolValue2;
-import gnu.bytecode.CpoolString;
-import jode.bytecode.ClassHierarchy;
+import jode.bytecode.ClassInfo;
+import jode.bytecode.FieldInfo;
+import jode.bytecode.MethodInfo;
+import jode.bytecode.ConstantPool;
+import jode.bytecode.ClassFormatException;
 import jode.flow.TransformConstructors;
+
+import java.lang.reflect.Modifier;
 
 public class ClassAnalyzer implements Analyzer {
     JodeEnvironment env;
@@ -33,17 +33,16 @@ public class ClassAnalyzer implements Analyzer {
     MethodAnalyzer staticConstructor;
     MethodAnalyzer[] constructors;
 
-    ClassHierarchy clazz;
-    gnu.bytecode.ClassType classType;
+    ClassInfo clazz;
     ClassAnalyzer parent;
     
-    public ClassAnalyzer(ClassAnalyzer parent, ClassHierarchy clazz, 
+    public ClassAnalyzer(ClassAnalyzer parent, ClassInfo clazz, 
                          JodeEnvironment env)
     {
+        clazz.loadInfo(clazz.FULLINFO);
         this.parent = parent;
         this.clazz = clazz;
         this.env  = env;
-        this.classType = env.getClassType(clazz.getName());
     }
 
     public boolean setFieldInitializer(String fieldName, Expression expr) {
@@ -57,7 +56,7 @@ public class ClassAnalyzer implements Analyzer {
         return false;
     }
 
-    public ClassHierarchy getClazz() {
+    public ClassInfo getClazz() {
         return clazz;
     }
 
@@ -65,19 +64,27 @@ public class ClassAnalyzer implements Analyzer {
         int numFields = 0;
         int i = 0;
         
-        analyzers = new Analyzer[classType.getFieldCount() + 
-                                classType.getMethodCount()];
-        for (gnu.bytecode.Field field = classType.getFields();
-             field != null; field = field.getNext()) {
-            analyzers[i] = new FieldAnalyzer(this, field, env);
+        FieldInfo[] fields = clazz.getFields();
+        MethodInfo[] methods = clazz.getMethods();
+        if (fields == null) {
+            /* This means that the class could not be loaded.
+             * give up.
+             */
+            return;
+        }
+
+        analyzers = new Analyzer[fields.length + 
+                                methods.length];
+        for (int j=0; j < fields.length; j++) {
+            analyzers[i] = new FieldAnalyzer(this, fields[j], env);
             analyzers[i++].analyze();
         }
 
         staticConstructor = null;
         java.util.Vector constrVector = new java.util.Vector();
-        for (gnu.bytecode.Method method = classType.getMethods();
-             method != null; method = method.getNext()) {
-            MethodAnalyzer analyzer = new MethodAnalyzer(this, method, env);
+        for (int j=0; j < methods.length; j++) {
+            MethodAnalyzer analyzer = 
+                new MethodAnalyzer(this, methods[j], env);
             analyzers[i++] = analyzer;
 
             if (analyzer.isConstructor()) {
@@ -100,31 +107,33 @@ public class ClassAnalyzer implements Analyzer {
 	env.useClass(clazz.getName());
         if (clazz.getSuperclass() != null)
             env.useClass(clazz.getSuperclass().getName());
-        ClassHierarchy[] interfaces = clazz.getInterfaces();
+        ClassInfo[] interfaces = clazz.getInterfaces();
         for (int j=0; j< interfaces.length; j++)
             env.useClass(interfaces[j].getName());
     }
 
     public void dumpSource(TabbedPrintWriter writer) throws java.io.IOException
     {
-//         if (cdef.getSource() != null)
-//             writer.println("/* Original source: "+cdef.getSource()+" */");
-
+        if (analyzers == null) {
+            /* This means that the class could not be loaded.
+             * give up.
+             */
+            return;
+        }
         String modif = Modifier.toString(clazz.getModifiers() 
                                          & ~Modifier.SYNCHRONIZED);
         if (modif.length() > 0)
             writer.print(modif + " ");
         writer.print(clazz.isInterface() 
-                     ? ""/*interface is in modif*/ 
-                     : "class ");
+                     ? ""/*interface is in modif*/ : "class ");
 	writer.println(env.classString(clazz.getName()));
 	writer.tab();
-        ClassHierarchy superClazz = clazz.getSuperclass();
+        ClassInfo superClazz = clazz.getSuperclass();
 	if (superClazz != null && 
-            superClazz != ClassHierarchy.javaLangObject) {
+            superClazz != ClassInfo.javaLangObject) {
 	    writer.println("extends "+env.classString(superClazz.getName()));
         }
-        ClassHierarchy[] interfaces = clazz.getInterfaces();
+        ClassInfo[] interfaces = clazz.getInterfaces();
 	if (interfaces.length > 0) {
 	    writer.print(clazz.isInterface() ? "extends " : "implements ");
 	    for (int i=0; i < interfaces.length; i++) {
@@ -144,91 +153,8 @@ public class ClassAnalyzer implements Analyzer {
 	writer.println("}");
     }
 
-    public CpoolEntry getConstant(int i) {
-        return classType.getConstant(i);
-    }
-
-    public Type getConstantType(int i) 
-         throws ClassFormatError
-    {
-        CpoolEntry constant = getConstant(i);
-        switch(constant.getTag()) {
-        case ConstantPool.INTEGER: {
-            int value = ((CpoolValue1)constant).getValue();
-            return ((value < Short.MIN_VALUE || value > Character.MAX_VALUE) 
-                    ? Type.tInt
-                    : (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) 
-                    ? Type.tRange(Type.tInt, Type.tChar)
-                    : Type.tUInt);
-        }
-        case ConstantPool.FLOAT  : return Type.tFloat ;
-        case ConstantPool.LONG   : return Type.tLong  ;
-        case ConstantPool.DOUBLE : return Type.tDouble;
-        case ConstantPool.STRING : return Type.tString;
-        default:
-            throw new ClassFormatError("invalid constant type: "
-                                       + constant.getTag());
-        }
-    }
-
-    private static String quoted(String str) {
-        StringBuffer result = new StringBuffer("\"");
-        for (int i=0; i< str.length(); i++) {
-            char c;
-            switch (c = str.charAt(i)) {
-            case '\0':
-                result.append("\\0");
-                break;
-            case '\t':
-                result.append("\\t");
-                break;
-            case '\n':
-                result.append("\\n");
-                break;
-            case '\r':
-                result.append("\\r");
-                break;
-            case '\\':
-                result.append("\\\\");
-                break;
-            case '\"':
-                result.append("\\\"");
-                break;
-            default:
-                if (c < 32) {
-                    String oct = Integer.toOctalString(c);
-                    result.append("\\000".substring(0, 4-oct.length()))
-                        .append(oct);
-                } else if (c >= 32 && c < 127)
-                    result.append(str.charAt(i));
-                else {
-                    String hex = Integer.toHexString(c);
-                    result.append("\\u0000".substring(0, 6-hex.length()))
-                        .append(hex);
-                }
-            }
-        }
-        return result.append("\"").toString();
-    }
-
-    public String getConstantString(int i) 
-    {
-        CpoolEntry constant = classType.getConstant(i);
-        switch (constant.getTag()) {
-        case ConstantPool.INTEGER: 
-            return Integer.toString(((CpoolValue1)constant).getValue());
-        case ConstantPool.FLOAT:
-            return Float.toString
-                (Float.intBitsToFloat(((CpoolValue1)constant).getValue()));
-        case ConstantPool.LONG:
-            return Long.toString(((CpoolValue2)constant).getValue());
-        case ConstantPool.DOUBLE:
-            return Double.toString
-                (Double.longBitsToDouble(((CpoolValue2)constant).getValue()));
-        case ConstantPool.STRING: 
-            return quoted(((CpoolString)constant).getString().getString());
-        }
-        throw new AssertError("unknown constant type");
+    public ConstantPool getConstantPool() {
+        return clazz.getConstantPool();
     }
         
     public String getTypeString(Type type) {
@@ -239,4 +165,3 @@ public class ClassAnalyzer implements Analyzer {
         return type.toString() + " " + name;
     }
 }
-

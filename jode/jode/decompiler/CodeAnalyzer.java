@@ -18,7 +18,10 @@
  */
 
 package jode;
-import jode.bytecode.ClassHierarchy;
+import jode.bytecode.ClassInfo;
+import jode.bytecode.ConstantPool;
+import jode.bytecode.AttributeInfo;
+import jode.bytecode.CodeInfo;
 import jode.flow.FlowBlock;
 import jode.flow.TransformExceptionHandlers;
 
@@ -29,16 +32,10 @@ import java.io.DataInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
-import gnu.bytecode.CodeAttr;
-import gnu.bytecode.Attribute;
-import gnu.bytecode.LocalVarsAttr;
-import gnu.bytecode.CpoolClass;
-import gnu.bytecode.Spy;
-
 public class CodeAnalyzer implements Analyzer {
     
     FlowBlock methodHeader;
-    CodeAttr code;
+    CodeInfo code;
     MethodAnalyzer method;
     public JodeEnvironment env;
 
@@ -52,15 +49,14 @@ public class CodeAnalyzer implements Analyzer {
      */
     public MethodAnalyzer getMethod() {return method;}
     
-    public CodeAnalyzer(MethodAnalyzer ma, CodeAttr bc, JodeEnvironment e)
+    public CodeAnalyzer(MethodAnalyzer ma, CodeInfo bc, JodeEnvironment e)
          throws ClassFormatError
     {
         code = bc;
         method = ma;
         env  = e;
 
-        LocalVarsAttr attr = 
-            (LocalVarsAttr) Attribute.get(bc, "LocalVariableTable");
+        AttributeInfo attr = code.findAttribute("LocalVariableTable");
         if (attr != null)
             lvt = new LocalVariableTable(bc.getMaxLocals(), 
                                          method.classAnalyzer, attr);
@@ -81,9 +77,10 @@ public class CodeAnalyzer implements Analyzer {
      * @param code The code array.
      * @param handlers The exception handlers.
      */
-    void readCode(byte[] code, short[] handlers)
+    void readCode(byte[] code, int[] handlers)
          throws ClassFormatError
     {
+        ConstantPool cpool = method.classAnalyzer.getConstantPool();
         byte[] flags = new byte[code.length];
         int[] lengths = new int[code.length];
         try {
@@ -101,7 +98,8 @@ public class CodeAnalyzer implements Analyzer {
                         flags[succs[i]] |= PREDECESSORS;
 	    }
         } catch (IOException ex) {
-            throw new ClassFormatError(ex.toString());
+            ex.printStackTrace();
+            throw new ClassFormatError(ex.getMessage());
         }
         for (int i=0; i<handlers.length; i += 4) {
             int start = handlers[i + 0];
@@ -114,6 +112,7 @@ public class CodeAnalyzer implements Analyzer {
 
         FlowBlock[] instr = new FlowBlock[code.length];
 	int returnCount;
+        TransformExceptionHandlers excHandlers; 
         try {
             DataInputStream stream = 
                 new DataInputStream(new ByteArrayInputStream(code));
@@ -127,7 +126,7 @@ public class CodeAnalyzer implements Analyzer {
             FlowBlock lastBlock = null;
 	    for (int addr = 0; addr < code.length; ) {
 		jode.flow.StructuredBlock block
-                    = Opcodes.readOpcode(addr, stream, this);
+                    = Opcodes.readOpcode(cpool, addr, stream, this);
 
                 if (jode.Decompiler.isVerbose && addr > mark) {
                     System.err.print('.');
@@ -148,36 +147,34 @@ public class CodeAnalyzer implements Analyzer {
                 }
                 addr += lengths[addr];
 	    }
-        } catch (IOException ex) {
-            throw new ClassFormatError(ex.toString());
-        }
 
-        for (int addr=0; addr<instr.length; ) {
-            instr[addr].resolveJumps(instr);
-            addr = instr[addr].getNextAddr();
-        }
-
-        TransformExceptionHandlers excHandlers 
-            = new TransformExceptionHandlers(instr);
-        for (int i=0; i<handlers.length; i += 4) {
-            Type type = null;
-            int start   = handlers[i + 0];
-            int end     = handlers[i + 1];
-            int handler = handlers[i + 2];
-            if (start < 0) start += 65536;
-            if (end < 0) end += 65536;
-            if (handler < 0) handler += 65536;
-            if (handlers[i + 3 ] != 0) {
-                CpoolClass cpcls = (CpoolClass)
-                    method.classAnalyzer.getConstant(handlers[i + 3]);
-                type = Type.tClass(cpcls.getName().getString());
+            for (int addr=0; addr<instr.length; ) {
+                instr[addr].resolveJumps(instr);
+                addr = instr[addr].getNextAddr();
             }
-
-            excHandlers.addHandler(start, end, handler, type);
+            
+            excHandlers = new TransformExceptionHandlers(instr);
+            for (int i=0; i<handlers.length; i += 4) {
+                Type type = null;
+                int start   = handlers[i + 0];
+                int end     = handlers[i + 1];
+                int handler = handlers[i + 2];
+                if (start < 0) start += 65536;
+                if (end < 0) end += 65536;
+                if (handler < 0) handler += 65536;
+                if (handlers[i + 3 ] != 0)
+                    type = Type.tClass(cpool.getClassName(handlers[i + 3]));
+                
+                excHandlers.addHandler(start, end, handler, type);
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            throw new ClassFormatError(ex.getMessage());
         }
+
         if (Decompiler.isVerbose)
             System.err.print('-');
-
+            
         excHandlers.analyze();
 	methodHeader = instr[0];
         methodHeader.analyze();
@@ -186,7 +183,7 @@ public class CodeAnalyzer implements Analyzer {
     public void analyze()
     {
         byte[] codeArray = code.getCode();
-        short[] handlers = Spy.getExceptionHandlers(code);
+        int[] handlers = code.getExceptionHandlers();
         readCode(codeArray, handlers);
         Enumeration enum = allLocals.elements();
         while (enum.hasMoreElements()) {
@@ -238,7 +235,7 @@ public class CodeAnalyzer implements Analyzer {
         return method.classAnalyzer.getTypeString(type);
     }
 
-    public ClassHierarchy getClazz() {
+    public ClassInfo getClazz() {
         return method.classAnalyzer.clazz;
     }
 }
