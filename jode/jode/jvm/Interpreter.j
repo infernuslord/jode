@@ -197,9 +197,9 @@ skip_debugging:
 	dup
 	astore 6 
 	dup
-	getfield jode/bytecode/Instruction/nextByAddr Ljode/bytecode/Instruction;
+	invokevirtual jode/bytecode/Instruction/getNextByAddr()Ljode/bytecode/Instruction;
 	astore 4
-	getfield jode/bytecode/Instruction/opcode I
+	invokevirtual jode/bytecode/Instruction/getOpcode()I
 ; stack:
 ; instr.opcode	
 	dup
@@ -220,7 +220,7 @@ skip_debugging:
 	aaload	
 	iinc 5 1
 	aload 6
-	getfield jode/bytecode/Instruction/objData Ljava/lang/Object;
+	invokevirtual jode/bytecode/Instruction/getConstant()Ljava/lang/Object;
 ; Stack:
 ;  instr.objData
 ;  stack_value
@@ -256,7 +256,7 @@ load_store_instr:
 
 	aload_2			; locals
 	aload 6
-	getfield jode/bytecode/Instruction/localSlot I
+	invokevirtual jode/bytecode/Instruction/getLocalSlot()I
 	aaload
 	invokevirtual jode/jvm/Value/setValue(Ljode/jvm/Value;)V
 
@@ -332,7 +332,7 @@ store_instr:
 
 	aload_2			; locals
 	aload 6
-	getfield jode/bytecode/Instruction/localSlot I
+	invokevirtual jode/bytecode/Instruction/getLocalSlot()I
 	aaload
 	iinc 5 -1
 	aload_3			; stack
@@ -670,12 +670,12 @@ iinc_instr:
 	pop2
 	aload_2
 	aload 6
-	getfield jode/bytecode/Instruction/localSlot I
+	invokevirtual jode/bytecode/Instruction/getLocalSlot()I
 	aaload
 	dup
 	invokevirtual jode/jvm/Value/intValue()I
 	aload 6
-	getfield jode/bytecode/Instruction/intData I
+	invokevirtual jode/bytecode/Instruction/getIntData()I
 	iadd
 	invokevirtual jode/jvm/Value/setInt(I)V
 	goto big_loop
@@ -1318,7 +1318,7 @@ ificmp_final:
 	ifge big_loop
 jump_succ:
 	aload 6
-	getfield jode/bytecode/Instruction/succs [Ljode/bytecode/Instruction;
+	invokevirtual jode/bytecode/Instruction/getSuccs()[Ljode/bytecode/Instruction;
 	iconst_0
 	aaload
 	astore 4
@@ -1355,11 +1355,11 @@ tableswitch_instr:
 	aaload
 	invokevirtual jode/jvm/Value/intValue()I
 	aload 6
-	getfield jode/bytecode/Instruction/intData I
+	invokevirtual jode/bytecode/Instruction/getIntData()I
 	isub
 	dup
 	aload 6
-	getfield jode/bytecode/Instruction/succs [Ljode/bytecode/Instruction;
+	invokevirtual jode/bytecode/Instruction/getSuccs()[Ljode/bytecode/Instruction;
 	dup_x2
 ; Stack:
 ;  succs
@@ -1392,8 +1392,7 @@ lookupswitch_instr:
 	aaload
 	invokevirtual jode/jvm/Value/intValue()I
 	aload 6
-	getfield jode/bytecode/Instruction/objData Ljava/lang/Object;
-	checkcast [I
+	invokevirtual jode/bytecode/Instruction/getValues()[I
 	iconst_0
 ; Stack:
 ;   i
@@ -1420,7 +1419,7 @@ lookup_found:
 	istore 7
 	pop2
 	aload 6
-	getfield jode/bytecode/Instruction/succs [Ljode/bytecode/Instruction;
+	invokevirtual jode/bytecode/Instruction/getSuccs()[Ljode/bytecode/Instruction;
 	iload 7
 	aaload
 	astore 4
@@ -1450,8 +1449,7 @@ putfield_instr:
 	istore 7
 	aload_0
 	aload 6
-	getfield jode/bytecode/Instruction/objData Ljava/lang/Object;
-	checkcast jode/bytecode/Reference
+	invokevirtual jode/bytecode/Instruction/getReference()Ljode/bytecode/Reference;
 	dup
 	invokevirtual jode/bytecode/Reference/getType()Ljava/lang/String;
 	dup
@@ -1524,8 +1522,7 @@ getfield_instr:
 getfield_do:
 	aload_0
 	aload 6
-	getfield jode/bytecode/Instruction/objData Ljava/lang/Object;
-	checkcast jode/bytecode/Reference
+	invokevirtual jode/bytecode/Instruction/getReference()Ljode/bytecode/Reference;
 	dup_x2
 	aload 7
 getfield_start:
@@ -1556,8 +1553,7 @@ invoke_instr:
 	istore 7
 	aload_0
 	aload 6
-	getfield jode/bytecode/Instruction/objData Ljava/lang/Object;
-	checkcast jode/bytecode/Reference
+	invokevirtual jode/bytecode/Instruction/getReference()Ljode/bytecode/Reference;
 	dup
 	invokevirtual jode/bytecode/Reference/getType()Ljava/lang/String;
 	invokestatic jode/type/Type/tType(Ljava/lang/String;)Ljode/type/Type;
@@ -1714,8 +1710,7 @@ new_instr:
 	new jode/jvm/NewObject
 	dup
 	aload 6
-	getfield jode/bytecode/Instruction/objData Ljava/lang/Object;
-	checkcast java/lang/String
+	invokevirtual jode/bytecode/Instruction/getClazzType()Ljava/lang/String;
 	invokenonvirtual jode/jvm/NewObject/<init>(Ljava/lang/String;)V
 	invokevirtual jode/jvm/Value/setNewObject(Ljode/jvm/NewObject;)V
 	iinc 5 1
@@ -1775,8 +1770,7 @@ checkcast_instr:
 	dup
 	ifnull popLL_big_loop
 	aload 6
-	getfield jode/bytecode/Instruction/objData Ljava/lang/Object;
-	checkcast java/lang/String
+	invokevirtual jode/bytecode/Instruction/getClazzType()Ljava/lang/String;
 	invokeinterface jode/jvm/RuntimeEnvironment/instanceOf(Ljava/lang/Object;Ljava/lang/String;)Z 3
 	ifne big_loop
 	new java/lang/ClassCastException
@@ -1798,8 +1792,7 @@ instanceof_instr:
 	dup_x1
 	invokevirtual jode/jvm/Value/objectValue()Ljava/lang/Object;
 	aload 6
-	getfield jode/bytecode/Instruction/objData Ljava/lang/Object;
-	checkcast java/lang/String
+	invokevirtual jode/bytecode/Instruction/getClazzType()Ljava/lang/String;
 	invokeinterface jode/jvm/RuntimeEnvironment/instanceOf(Ljava/lang/Object;Ljava/lang/String;)Z 3
 	invokevirtual jode/jvm/Value/setInt(I)V
 	goto big_loop
@@ -1828,7 +1821,7 @@ monitorexit_instr:
 multianewarray_instr:
 	pop
 	aload 6
-	getfield jode/bytecode/Instruction/intData I
+	invokevirtual jode/bytecode/Instruction/getIntData()I
 	dup
 	istore 7
 	newarray int
@@ -1853,8 +1846,7 @@ newarray_test:
 	iinc 5 1
 	aload_0
 	aload 6
-	getfield jode/bytecode/Instruction/objData Ljava/lang/Object;
-	checkcast java/lang/String
+	invokevirtual jode/bytecode/Instruction/getClazzType()Ljava/lang/String;
 	aload 7
 newarray_start:
 	invokeinterface jode/jvm/RuntimeEnvironment/newArray(Ljava/lang/String;[I)Ljava/lang/Object; 3
@@ -1883,7 +1875,7 @@ handle_exception:
 	ifeq nohandlers
 	istore 7
 	aload 4
-	getfield jode/bytecode/Instruction/addr I
+	invokevirtual jode/bytecode/Instruction/getAddr()I
 	istore 4
 	iconst_0
 ; Stack:
@@ -1894,12 +1886,12 @@ handler_loop:
 	aaload
 	dup
 	getfield jode/bytecode/Handler/start Ljode/bytecode/Instruction;
-	getfield jode/bytecode/Instruction/addr I
+	invokevirtual jode/bytecode/Instruction/getAddr()I
 	iload 4
 	if_icmplt wrong_handler_pop
 	dup
 	getfield jode/bytecode/Handler/end Ljode/bytecode/Instruction;
-	getfield jode/bytecode/Instruction/addr I
+	invokevirtual jode/bytecode/Instruction/getAddr()I
 	iload 4
 	if_icmplt wrong_handler_pop
 	dup
