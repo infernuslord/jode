@@ -24,14 +24,9 @@ import jode.Instruction;
 /**
  * This is the structured block for an Throw block.
  */
-public class ThrowBlock extends StructuredBlock {
-    Instruction instr = null;
-
-    public ThrowBlock() {
-    }
-
+public class ThrowBlock extends InstructionContainer {
     public ThrowBlock(Instruction instr) {
-        this.instr = instr;
+        super(instr);
     }
 
     public void dumpInstruction(TabbedPrintWriter writer) 
