@@ -20,11 +20,10 @@
 package jode;
 
 public class CheckCastOperator extends SimpleOperator {
-    String typeString;
+    Type castType;
 
-    public CheckCastOperator(Type type, String typeString) {
+    public CheckCastOperator(Type type) {
         super(type, 0, 1);
-        this.typeString = typeString;
         /* The following is wrong.  The operand must not
          * be a super type of the given type, but any type
          * especially if type is an interface.
@@ -36,6 +35,7 @@ public class CheckCastOperator extends SimpleOperator {
          *
          * The forgiving solution:
          */
+        castType = type;
         operandTypes[0] = Type.tUnknown;
     }
 
@@ -48,6 +48,6 @@ public class CheckCastOperator extends SimpleOperator {
     }
 
     public String toString(String[] operands) {
-        return "(" + typeString + ")" + operands[0];
+        return "(" + castType.toString() + ")" + operands[0];
     }
 }

@@ -20,11 +20,8 @@
 package jode;
 
 public class NewOperator extends NoArgOperator {
-    String typeString;
-
-    public NewOperator(Type type, String typeString) {
+    public NewOperator(Type type) {
         super(type);
-        this.typeString = typeString;
     }
 
     public int getPriority() {
@@ -32,6 +29,6 @@ public class NewOperator extends NoArgOperator {
     }
 
     public String toString(String[] operands) {
-        return "new "+typeString;
+        return "new "+type.toString();
     }
 }
