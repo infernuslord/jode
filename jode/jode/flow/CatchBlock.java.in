@@ -145,20 +145,22 @@ public class CatchBlock extends StructuredBlock {
 	 * If we are unlucky the exceptionLocal is used outside of 
 	 * this block.  In that case we do a transformation.
 	 */
-	if (declare.contains(exceptionLocal))
-	    declare.remove(exceptionLocal);
-	else {
-	    LocalInfo dummyLocal = new LocalInfo();
-	    Expression store = new StoreInstruction
-		(new LocalStoreOperator
-		 (exceptionLocal.getType(), exceptionLocal)).addOperand
-		(new LocalLoadOperator(dummyLocal.getType(), 
-				       null, dummyLocal));
-	    InstructionBlock ib = new InstructionBlock(store);
-	    ib.setFlowBlock(flowBlock);
-	    ib.appendBlock(catchBlock);
-	    catchBlock = ib;
-	    exceptionLocal = dummyLocal;
+	if (exceptionLocal != null) {
+	    if (declare.contains(exceptionLocal))
+		declare.remove(exceptionLocal);
+	    else {
+		LocalInfo dummyLocal = new LocalInfo();
+		Expression store = new StoreInstruction
+		    (new LocalStoreOperator
+		     (exceptionLocal.getType(), exceptionLocal)).addOperand
+		    (new LocalLoadOperator(dummyLocal.getType(), 
+					   null, dummyLocal));
+		InstructionBlock ib = new InstructionBlock(store);
+		ib.setFlowBlock(flowBlock);
+		ib.appendBlock(catchBlock);
+		catchBlock = ib;
+		exceptionLocal = dummyLocal;
+	    }
 	}
     }
 
