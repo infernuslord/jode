@@ -31,12 +31,23 @@ public class AnonymousJavac {
 	    class Hello {
 		int var = (int) longVar;
 
+		{
+		    System.err.println("all constructors");
+		}
+
 		Hello() {
 		    System.err.println("construct");
 		}
 		Hello(String info) {
 		    System.err.println("construct: "+info);
 		}
+
+//  		Hello(int i) {
+//  		    this("If you find a compiler that can compile this,"
+//  			 +" please comment this out and tell me if "
+//  			 +"decompilation works.\n"
+//  			 +"jikes 0.47, javac 1.2 are both broken!");
+//  		}
 
 		public void hello() {
 		    this.hashCode();
@@ -51,6 +62,11 @@ public class AnonymousJavac {
 	    final Object o = new Object() {
 		int blah = 5;
 		Hello hii = hi;
+		Hello hoo = new Hello("hoo");
+
+		{
+		    System.err.println("Anonymous Constructor speaking");
+		}
 
 		public String toString() {
 		    this.hii.hello();
@@ -58,6 +74,11 @@ public class AnonymousJavac {
 		    return Integer.toHexString(AnonymousJavac.this.hashCode()
 					       +blah);
 		}
+
+		{
+		    System.err.println("Anonymous Constructor continues");
+		}
+
 	    };
 	    Object p = new Object() {
 		public String toString() {
