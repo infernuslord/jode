@@ -54,7 +54,7 @@ public class MethodAnalyzer implements Analyzer {
         
         AttributeInfo codeattr = minfo.findAttribute("Code");
         if (codeattr != null) {
-	    code = new CodeAnalyzer(this, codeattr, env);
+	    code = new CodeAnalyzer(this, minfo, codeattr, env);
         }
         
         AttributeInfo excattr = minfo.findAttribute("Exceptions");
@@ -109,14 +109,6 @@ public class MethodAnalyzer implements Analyzer {
 	return synth.type == SyntheticAnalyzer.GETCLASS;
     }
 
-    public int getParamCount() {
-        int count = isStatic() ? 0 : 1;
-        Type[] paramTypes = methodType.getParameterTypes();
-        for (int i=0; i< paramTypes.length; i++)
-            count += paramTypes[i].stackSize();
-	return count;
-    }
-
     public Type getReturnType() {
         return methodType.getReturnType();
     }
@@ -139,7 +131,7 @@ public class MethodAnalyzer implements Analyzer {
 	Type[] paramTypes = methodType.getParameterTypes();
 	for (int i=0; i< paramTypes.length; i++) {
 	    code.getParamInfo(offset).setType(paramTypes[i]);
-            offset += paramTypes[i].stackSize();
+            offset++;
         }
 
         for (int i= 0; i< exceptions.length; i++)
@@ -223,7 +215,7 @@ public class MethodAnalyzer implements Analyzer {
                 } else
                     li = code.getParamInfo(offset);
                 writer.print(li.getType().toString()+" "+li.getName());
-                offset += paramTypes[i].stackSize();
+                offset++;
             }
             writer.print(")");
         }
