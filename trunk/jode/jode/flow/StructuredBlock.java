@@ -237,6 +237,21 @@ public abstract class StructuredBlock {
     }
 
     /**
+     * Get the unique predecessor which mustn't be a conditional jump
+     * @return the predecessor or null if there isn't a such a thing
+     */
+    public StructuredBlock getSimpleUniquePredecessor() {
+        SequentialBlock sequ;
+        if (outer instanceof SequentialBlock) {
+            if (outer.getSubBlocks()[1] == this)
+                return outer.getSubBlocks()[0];
+            else if (outer.outer instanceof SequentialBlock)
+                return outer.outer.getSubBlocks[0];
+        }
+        return null;
+    }
+    
+    /**
      * Print the source code for this structured block.  This may be
      * called only once, because it remembers which local variables
      * were declared.  */
