@@ -46,24 +46,12 @@ public class CodeAnalyzer implements Analyzer {
     LocalVariableTable lvt;
     
     public CodeAnalyzer(MethodAnalyzer ma, MethodInfo minfo,
-			AttributeInfo codeattr, ImportHandler i)
+			ImportHandler i)
     {
         method = ma;
 	imports = i;
-	DataInputStream stream = new DataInputStream
-	    (new ByteArrayInputStream(codeattr.getContents()));
-
-	ConstantPool cpool = ma.classAnalyzer.getConstantPool();
-	code = new BytecodeInfo();
-	try {
-	    code.read(cpool, stream);
-	} catch (IOException ex) {
-	    ex.printStackTrace(Decompiler.err);
-	    code = null;
-	    return;
-	}
-	CodeVerifier verifier
-	    = new CodeVerifier(getClazz(), minfo, code);
+	code = minfo.getBytecode();
+	CodeVerifier verifier = new CodeVerifier(getClazz(), minfo, code);
 	try {
 	    verifier.verify();
 	} catch (VerifyException ex) {
@@ -72,12 +60,10 @@ public class CodeAnalyzer implements Analyzer {
 	}
 	
 	if (Decompiler.useLVT) {
-	    AttributeInfo attr = code.findAttribute("LocalVariableTable");
-	    if (attr != null) {
-                if (Decompiler.showLVT)
-                    Decompiler.err.println("Method: "+ma.getName());
-		lvt = new LocalVariableTable(code.getMaxLocals(), cpool, attr);
-	    }
+	    LocalVariableInfo[] localvars = code.getLocalVariableTable();
+	    if (localvars != null)
+		lvt = new LocalVariableTable(code.getMaxLocals(), 
+					     localvars);
 	}
 	initParams();
     }
@@ -236,6 +222,7 @@ public class CodeAnalyzer implements Analyzer {
 	    }
 	}
 	methodHeader.makeDeclaration(new jode.flow.VariableSet(param));
+	methodHeader.simplify();
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
