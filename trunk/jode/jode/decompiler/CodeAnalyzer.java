@@ -303,10 +303,6 @@ public class CodeAnalyzer implements Analyzer, Scope {
 	return param[nr];
     }
 
-    public String getTypeString(Type type) {
-        return method.classAnalyzer.getTypeString(type);
-    }
-
     public ClassAnalyzer getClassAnalyzer() {
 	return method.classAnalyzer;
     }
