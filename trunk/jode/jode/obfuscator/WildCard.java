@@ -21,23 +21,67 @@ package jode.obfuscator;
 
 public class WildCard {
 
-    public static boolean matches(String wildcard, String test) {
-	int indexWild = wildcard.indexOf('*');
-	if (indexWild == -1)
+    String wildcard;
+    int firstStar;
+
+    public WildCard(String wild) {
+	wildcard = wild;
+	firstStar = wildcard.indexOf('*');
+    }
+
+    public String getNextComponent(String prefix) {
+	int lastDot = prefix.length();
+	if (lastDot < wildcard.length()
+	    || !wildcard.startsWith(prefix)
+	    || (lastDot > 0 && wildcard.charAt(lastDot) != '.'))
+	    return null;
+	if (lastDot > 0)
+	    lastDot++;
+	int nextDot = wildcard.indexOf('.', lastDot);
+	if (firstStar == -1) {
+	    if (nextDot == -1)
+		return wildcard.substring(lastDot);
+	    else
+		return wildcard.substring(lastDot, nextDot);
+	} else {
+	    if (nextDot == -1 || nextDot > firstStar) {
+		return null;
+	    } else {
+		return wildcard.substring(lastDot, nextDot);
+	    }
+	}
+    }
+
+    public boolean startsWith(String test) {
+	if (firstStar == -1 || firstStar >= test.length())
+	    return wildcard.startsWith(test);
+	return test.startsWith(wildcard.substring(0, firstStar));
+    }
+
+    public boolean matches(String test) {
+	if (firstStar == -1)
 	    return wildcard.equals(test);
-	if (!test.startsWith(wildcard.substring(0, indexWild)))
+	if (!test.startsWith(wildcard.substring(0, firstStar)))
 	    return false;
 
-	test = test.substring(indexWild);
+	test = test.substring(firstStar);
+	int lastWild = firstStar;
 	int nextWild;
-	while ((nextWild = wildcard.indexOf('*', indexWild + 1)) != -1) {
-	    String pattern = wildcard.substring(indexWild+1, nextWild);
-	    while (!test.startsWith(pattern))
+	while ((nextWild = wildcard.indexOf('*', lastWild + 1)) != -1) {
+	    String pattern = wildcard.substring(lastWild+1, nextWild);
+	    while (!test.startsWith(pattern)) {
+		if (test.length() == 0)
+		    return false;
 		test = test.substring(1);
-	    test = test.substring(nextWild - indexWild);
-	    indexWild = nextWild;
+	    }
+	    test = test.substring(nextWild - lastWild);
+	    lastWild = nextWild;
 	}
 
-	return test.endsWith(wildcard.substring(indexWild+1));
+	return test.endsWith(wildcard.substring(lastWild+1));
+    }
+
+    public String toString() {
+	return "Wildcard "+wildcard;
     }
 }
