@@ -163,6 +163,22 @@ public class IntegerType extends Type {
         }
     }
     
+    public Class getTypeClass() {
+        switch (((IntegerType)getHint()).possTypes) {
+        case IT_Z:
+	    return Boolean.TYPE;
+        case IT_C:
+	    return Character.TYPE;
+        case IT_B:
+	    return Byte.TYPE;
+        case IT_S:
+	    return Short.TYPE;
+        case IT_I:
+        default:
+	    return Integer.TYPE;
+        }
+    }
+    
     public String toString() {
         switch (possTypes) {
         case IT_Z:

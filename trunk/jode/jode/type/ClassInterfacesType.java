@@ -397,6 +397,15 @@ public class ClassInterfacesType extends ReferenceType {
 	    return "Ljava/lang/Object;";
     }
 
+    public Class getTypeClass() throws ClassNotFoundException {
+	if (clazz != null)
+	    return Class.forName(clazz.getName());
+	else if (ifaces.length > 0)
+	    return Class.forName(ifaces[0].getName());
+	else
+	    return Class.forName("java.lang.Object");
+    }
+
     public String toString()
     {
 	if (this == tObject)

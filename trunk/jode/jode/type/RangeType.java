@@ -122,6 +122,13 @@ public class RangeType extends Type {
             return bottomType.getTypeSignature();
     }
 
+    public Class getTypeClass() throws ClassNotFoundException {
+        if (topType.isClassType() || !bottomType.isValidType())
+            return topType.getTypeClass();
+        else
+            return bottomType.getTypeClass();
+    }
+
     public String toString()
     {
 	if (topType == tNull)
