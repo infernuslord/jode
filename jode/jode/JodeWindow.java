@@ -147,7 +147,7 @@ public class JodeWindow
 	JodeEnvironment env = new JodeEnvironment(cp);
 	ByteArrayOutputStream out = new ByteArrayOutputStream();
 	try {
-	    TabbedPrintWriter writer = new TabbedPrintWriter(out, "    ");
+	    TabbedPrintWriter writer = new TabbedPrintWriter(out);
 	    env.doClass(lastClassName, writer);
 	    sourcecodeArea.setText(out.toString());
 	    saveButton.setEnabled(true);

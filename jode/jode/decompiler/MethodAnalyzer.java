@@ -198,11 +198,11 @@ public class MethodAnalyzer implements Analyzer {
             }
         }
         if (code != null) {
-            writer.println(" {");
+	    writer.openBrace();
             writer.tab();
             code.dumpSource(writer);
             writer.untab();
-            writer.println("}");
+	    writer.closeBrace();
         } else
             writer.println(";");
     }
