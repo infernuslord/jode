@@ -282,8 +282,10 @@ public abstract class Expression {
             dumpExpression(writer);
             return strw.toString();
         } catch (java.io.IOException ex) {
-            return super.toString();
-        }
+            return "/*IOException*/"+super.toString();
+        } catch (RuntimeException ex) {
+	    return "/*RuntimeException*/"+super.toString();
+	}
     }	
 
     public boolean isVoid() {
