@@ -145,7 +145,9 @@ public class FlowBlock {
     
     /**
      * This method optimizes the jumps to successor.
-     * Returns the new appendBlock, it may have changed.
+     * @param successor The successing flow block
+     * @param appendBlock the block where the successor is appended to.
+     * @return the new appendBlock, it may have changed.
      */
     public StructuredBlock optimizeJumps(FlowBlock successor,
                                          StructuredBlock appendBlock) {
@@ -374,6 +376,98 @@ public class FlowBlock {
         return appendBlock;
     }
 
+    /**
+     * Move the successors of the given flow block to this flow block.
+     * @param succ the other flow block 
+     */
+    void mergeSuccessors(FlowBlock succ) {
+        /* Merge the sucessors from the successing flow block
+         */
+        Enumeration enum = succ.successors.elements();
+        while (enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+            if (jump == null)
+                continue;
+            successors.addElement(jump);
+            if (jump.destination.predecessors.contains(succ)) {
+                                /*XXX comment and make clearer, better etc.*/
+                jump.destination.predecessors.removeElement(succ);
+                if (!jump.destination.predecessors.contains(this))
+                    jump.destination.predecessors.addElement(this);
+            }
+        }
+    }
+    
+    /**
+     * Resolve remaining jumps to the successor by generating break
+     * instructions.  As last resort generate a do while(false) block.
+     * @param successor The successing flow block
+     * @param appendBlock the block where the successor is appended to.
+     * @return the new appendBlock, it may have changed.
+     */
+    StructuredBlock resolveRemaining(FlowBlock succ, 
+                                     StructuredBlock appendBlock) {
+        LoopBlock doWhileFalse = null;
+        Enumeration enum = successors.elements();
+    next_jump:
+        while (enum.hasMoreElements()) {
+            Jump jump = (Jump) enum.nextElement();
+	    
+            if (jump == null || jump.destination != succ
+                    || jump.prev == appendBlock)
+                continue;
+            
+            int breaklevel = 0;
+            BreakableBlock breakToBlock = null;
+            for (StructuredBlock surrounder = jump.prev.outer;
+                 surrounder != null && surrounder != appendBlock.outer; 
+                 surrounder = surrounder.outer) {
+                if (surrounder instanceof BreakableBlock) {
+                    breaklevel++;
+                    if (surrounder.getNextFlowBlock() == succ) {
+                        breakToBlock = (BreakableBlock) surrounder;
+                        break;
+                    }
+                }
+            }
+            
+            StructuredBlock prevBlock = jump.prev;
+            prevBlock.removeJump();
+            
+            if (breakToBlock == null) {
+                /* Nothing else helped, so put a do/while(0)
+                 * block around appendBlock and break to that
+                 * block.
+                 */
+                if (doWhileFalse == null) {
+                    doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
+                                                 LoopBlock.FALSE);
+                    doWhileFalse.setJump(new Jump(succ));
+                    successors.addElement(doWhileFalse.jump);
+                }
+                prevBlock.appendBlock
+                    (new BreakBlock(doWhileFalse, breaklevel > 0));
+            } else
+                prevBlock.appendBlock
+                    (new BreakBlock(breakToBlock, breaklevel > 1));
+        }
+        
+        if (doWhileFalse != null) {
+            doWhileFalse.replace(appendBlock, appendBlock);
+            doWhileFalse.setBody(appendBlock);
+            doWhileFalse.removeJump();
+        }
+
+        /* Now remove the jump of the appendBlock if it points to
+         * successor.  
+         */
+        if (appendBlock.jump != null
+            && appendBlock.jump.destination == succ)
+            appendBlock.removeJump();
+
+        return appendBlock;
+    }
+
     /** 
      * Updates the in/out-Vectors of the structured block of the
      * successing flow block simultanous to a T1 transformation.
@@ -497,34 +591,45 @@ public class FlowBlock {
     public void checkConsistent() {
         if (!Decompiler.doChecks)
             return;
-        if (block.outer != null || block.flowBlock != this) {
-            throw new RuntimeException("Inconsistency");
-        }
-        block.checkConsistent();
-        Enumeration enum = successors.elements();
-        while (enum.hasMoreElements()) {
-            Jump jump = (Jump) enum.nextElement();
-            if (jump == null)
-                continue;
-                
-            if (jump.prev.flowBlock != this ||
-                jump.prev.jump != jump)
+//         try {
+            if (block.outer != null || block.flowBlock != this) {
                 throw new RuntimeException("Inconsistency");
-
-            StructuredBlock sb = jump.prev;
-            while (sb != block) {
-                if (sb.outer == null)
-                    throw new RuntimeException("Inconsistency");
-                StructuredBlock[] blocks = sb.outer.getSubBlocks();
-                int i;
-                for (i=0; i<blocks.length; i++)
-                    if (blocks[i] == sb)
-                        break;
-                if (i == blocks.length)
-                    throw new RuntimeException("Inconsistency");
-                sb = sb.outer;
             }
-        }
+            block.checkConsistent();
+            Enumeration enum = successors.elements();
+            while (enum.hasMoreElements()) {
+                Jump jump = (Jump) enum.nextElement();
+                if (jump == null)
+                    continue;
+                
+                if (jump.prev.flowBlock != this ||
+                    jump.prev.jump != jump)
+                    throw new RuntimeException("Inconsistency");
+                
+                StructuredBlock sb = jump.prev;
+                while (sb != block) {
+                    if (sb.outer == null)
+                        throw new RuntimeException("Inconsistency");
+                    StructuredBlock[] blocks = sb.outer.getSubBlocks();
+                    int i;
+                    for (i=0; i<blocks.length; i++)
+                        if (blocks[i] == sb)
+                            break;
+                    if (i == blocks.length)
+                        throw new RuntimeException("Inconsistency");
+                    sb = sb.outer;
+                }
+            }
+//         } catch (RuntimeException ex) {
+//             ex.printStackTrace();
+//             try {
+//                 jode.TabbedPrintWriter writer = 
+//                     new jode.TabbedPrintWriter(System.err, "    ");
+//                 writer.tab();
+//                 block.dumpSource(writer);
+//             } catch (java.io.IOException ioex) {
+//             }
+//         }
     }
 
     /**
@@ -540,20 +645,8 @@ public class FlowBlock {
             succ.predecessors.elementAt(0) != this)
             return false;
 
-        try{
-            checkConsistent();
-            succ.checkConsistent();
-        } catch (RuntimeException ex) {
-            ex.printStackTrace();
-            try {
-                jode.TabbedPrintWriter writer = 
-                    new jode.TabbedPrintWriter(System.err, "    ");
-                writer.tab();
-                block.dumpSource(writer);
-                    succ.block.dumpSource(writer);
-            } catch (java.io.IOException ioex) {
-            }
-        }
+        checkConsistent();
+        succ.checkConsistent();
 
         /* First find the innermost block that contains all jumps to this
          * successor and the last modified block.
@@ -647,34 +740,9 @@ public class FlowBlock {
             sequBlock.setSecond(succ.block);
         }
 
-        /* Merge the sucessors from the successing flow block
-         */
-        enum = succ.successors.elements();
-        while (enum.hasMoreElements()) {
-            Jump jump = (Jump) enum.nextElement();
-            if (jump == null)
-                continue;
-            successors.addElement(jump);
-            if (jump.destination.predecessors.contains(succ)) {
-                /*XXX comment and make clearer, better etc.*/
-                jump.destination.predecessors.removeElement(succ);
-                if (!jump.destination.predecessors.contains(this))
-                    jump.destination.predecessors.addElement(this);
-            }
-        }
+        mergeSuccessors(succ);
 
-        try {
-            checkConsistent();
-        } catch (RuntimeException ex) {
-            ex.printStackTrace();
-            try {
-                jode.TabbedPrintWriter writer = 
-                    new jode.TabbedPrintWriter(System.err, "    ");
-                writer.tab();
-                block.dumpSource(writer);
-            } catch (java.io.IOException ioex) {
-            }
-        }
+        checkConsistent();
 
         /* Try to eliminate as many jumps as possible.
          */
@@ -687,72 +755,9 @@ public class FlowBlock {
 	    
             appendBlock = optimizeJumps(succ, appendBlock);
             
-            try {
-                checkConsistent();
-            } catch (RuntimeException ex) {
-                ex.printStackTrace();
-                try {
-                    jode.TabbedPrintWriter writer = 
-                        new jode.TabbedPrintWriter(System.err, "    ");
-                    writer.tab();
-                    block.dumpSource(writer);
-                } catch (java.io.IOException ioex) {
-                }
-            }
+            checkConsistent();
 
-	    LoopBlock doWhileFalse = null;
-	    enum = successors.elements();
-        next_jump:
-	    while (enum.hasMoreElements()) {
-		Jump jump = (Jump) enum.nextElement();
-	    
-		if (jump == null || jump.destination != succ
-                    || jump.prev == appendBlock)
-		    continue;
-		
-                int breaklevel = 0;
-                BreakableBlock breakToBlock = null;
-                for (StructuredBlock surrounder = jump.prev.outer;
-                     surrounder != null && surrounder != appendBlock.outer; 
-                     surrounder = surrounder.outer) {
-                    if (surrounder instanceof BreakableBlock) {
-                        breaklevel++;
-                        if (surrounder.getNextFlowBlock() == succ) {
-                            breakToBlock = (BreakableBlock) surrounder;
-                            break;
-                        }
-                    }
-                }
-
-                StructuredBlock prevBlock = jump.prev;
-                prevBlock.removeJump();
-
-                if (breakToBlock == null) {
-                    /* Nothing else helped, so put a do/while(0)
-                     * block around appendBlock and break to that
-                     * block.
-                     */
-                    if (doWhileFalse == null)
-                        doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
-                                                     LoopBlock.FALSE);
-                    prevBlock.appendBlock
-                        (new BreakBlock(doWhileFalse, breaklevel > 0));
-                } else
-                    prevBlock.appendBlock
-                        (new BreakBlock(breakToBlock, breaklevel > 1));
-	    }
-	    
-	    if (doWhileFalse != null) {
-		doWhileFalse.replace(appendBlock, appendBlock);
-		doWhileFalse.setBody(appendBlock);
-	    }
-
-	    /* Now remove the jump of the appendBlock if it points to
-	     * successor.  
-	     */
-	    if (appendBlock.jump != null
-		&& appendBlock.jump.destination == succ)
-		appendBlock.removeJump();
+            appendBlock = resolveRemaining(succ, appendBlock);
 	}
 	    
 	/* Believe it or not: Now the rule, that the first part of a
@@ -774,20 +779,10 @@ public class FlowBlock {
         length += succ.length;
 
         /* T1 transformation succeeded */
-        try {
-            checkConsistent();
-        } catch (RuntimeException ex) {
-            ex.printStackTrace();
-            try {
-                jode.TabbedPrintWriter writer = 
-                    new jode.TabbedPrintWriter(System.err, "    ");
-                writer.tab();
-                block.dumpSource(writer);
-            } catch (java.io.IOException ioex) {
-            }
-        }
+        checkConsistent();
         return true;
     }
+
 
     public boolean doT2(int start, int end) {
         /* If there are no jumps to the beginning of this flow block
@@ -806,18 +801,7 @@ public class FlowBlock {
             }
         }
 
-        try {
-            checkConsistent();
-        } catch (RuntimeException ex) {
-            ex.printStackTrace();
-            try {
-                jode.TabbedPrintWriter writer = 
-                    new jode.TabbedPrintWriter(System.err, "    ");
-                writer.tab();
-                block.dumpSource(writer);
-            } catch (java.io.IOException ioex) {
-            }
-        }
+        checkConsistent();
 
         /* Update the in/out-Vectors now */
         updateInOut(this, false);
@@ -922,18 +906,7 @@ public class FlowBlock {
         predecessors.removeElement(this);
 
         /* T2 analysis succeeded */
-        try {
-            checkConsistent();
-        } catch (RuntimeException ex) {
-            ex.printStackTrace();
-            try {
-                jode.TabbedPrintWriter writer = 
-                    new jode.TabbedPrintWriter(System.err, "    ");
-                writer.tab();
-                block.dumpSource(writer);
-            } catch (java.io.IOException ioex) {
-            }
-        }
+        checkConsistent();
 
         return true;
     }
@@ -943,18 +916,7 @@ public class FlowBlock {
      * Do a T1 transformation with the end_of_method block.
      */
     public void mergeEndBlock() {
-        try{
-            checkConsistent();
-        } catch (RuntimeException ex) {
-            ex.printStackTrace();
-            try {
-                jode.TabbedPrintWriter writer = 
-                    new jode.TabbedPrintWriter(System.err, "    ");
-                writer.tab();
-                block.dumpSource(writer);
-            } catch (java.io.IOException ioex) {
-            }
-        }
+        checkConsistent();
 
         /* First find the innermost block that contains all jumps to the
          * END_OF_METHOD block.
@@ -1032,18 +994,7 @@ public class FlowBlock {
             appendBlock.removeJump();
 
         /* transformation succeeded */
-        try {
-            checkConsistent();
-        } catch (RuntimeException ex) {
-            ex.printStackTrace();
-            try {
-                jode.TabbedPrintWriter writer = 
-                    new jode.TabbedPrintWriter(System.err, "    ");
-                writer.tab();
-                block.dumpSource(writer);
-            } catch (java.io.IOException ioex) {
-            }
-        }
+        checkConsistent();
     }
 
 
@@ -1161,14 +1112,22 @@ public class FlowBlock {
                          */
                         return changed;
                     } else {
-                        if (succ.block instanceof RawTryCatchBlock) {
-                            int subStart = succ.addr;
-                            int subEnd = (subStart > addr)? end : addr;
-                            succ.analyze(subStart, subEnd);
-                        }
                         /* Only do T1 transformation if the blocks are
                          * adjacent.  */
-                        if ((succ.addr == addr+length 
+                        if (succ.block instanceof SwitchBlock) {
+                            /* analyze succ, the new region is the
+                             * continous region of
+                             * [start,end) \cap \compl [addr, addr+length)
+                             * where succ.addr lies in.
+                             */
+                            int newStart = (succ.addr > addr)
+                                ? addr+length : start;
+                            int newEnd   = (succ.addr > addr)
+                                ? end         : addr;
+                            if (succ.analyzeSwitch(newStart, newEnd))
+                                break;
+
+                        } if ((succ.addr == addr+length 
                              || succ.addr+succ.length == addr)
                             && doT1(succ)) {
                             /* T1 transformation succeeded. */
@@ -1206,7 +1165,82 @@ public class FlowBlock {
         }
     }
     
+    /**
+     * The switch analyzation.  This calls doSwitchT1 and doT2 on apropriate
+     * regions.  Only blocks whose address lies in the given address
+     * range are considered and it is taken care of, that the switch
+     * is never leaved. <p>
+     * The current flow block must contain the switch block as main
+     * block.
+     * @param start the start of the address range.
+     * @param end the end of the address range.
+     */
+    public boolean analyzeSwitch(int start, int end) {
+            SwitchBlock switchBlock = (SwitchBlock) block;
+            boolean changed = false;
+            StructuredBlock lastBlock = null;
+            lastModified = block;
+            /* XXX - move to switchBlock??? */
+            for (int i=0; i < switchBlock.caseBlocks.length; i++) {
+                if (switchBlock.caseBlocks[i].subBlock != null
+                    && switchBlock.caseBlocks[i].subBlock.jump != null) {
+                    FlowBlock next = switchBlock.caseBlocks[i].
+                        subBlock.jump.destination;
+                    if (next.addr >= end) 
+                        return changed;
+                    else if (next.addr >= start) {
 
+                        /* First analyze the next block. */
+                        changed = next.analyze(next.addr, end) || changed;
+
+                        /* Check if next has only the previous case
+                         * and this case as predecessor. Otherwise
+                         * break the analysis.
+                         */
+                        if (next.predecessors.size() != 1
+                            || next.predecessors.elementAt(0) != this)
+                            return changed;
+
+                        boolean lastContains = false;
+                        for (int j=0; j<successors.size(); j++) {
+                            Jump jump = (Jump) successors.elementAt(j);
+                            if (jump != null && jump.destination == next
+                                && jump != 
+                                switchBlock.caseBlocks[i].subBlock.jump) {
+                                if (lastBlock != null
+                                    && lastBlock.contains(jump.prev))
+                                    lastContains = true;
+                                else
+                                    return changed;
+                            }
+                        }
+                        checkConsistent();
+                                    
+                        updateInOut(next, true);
+                        switchBlock.caseBlocks[i].subBlock.removeJump();
+                        next.block.replace(switchBlock.caseBlocks[i].subBlock,
+                                           null);
+
+                        mergeSuccessors(next);
+                        if (lastContains) {
+                            lastBlock = optimizeJumps(next, lastBlock);
+                            lastBlock = resolveRemaining(next, lastBlock);
+                        }
+
+                        /* Set addr+length to (semi-)correct value */
+                        if (next.addr < addr)
+                            addr = next.addr;
+                        length += next.length;
+                        
+                        lastBlock = next.block;
+                        checkConsistent();
+                        changed = true;
+                    }
+                }
+            }
+            return changed;
+    }
+    
     /**
      * Resolves the destinations of all jumps.
      */
