@@ -160,7 +160,7 @@ public class ConstantPool {
         case ConstantPool.DOUBLE:
             return constants[i].toString();
         case ConstantPool.STRING: 
-            return quoted(getUTF8(indices1[i]));
+            return getUTF8(indices1[i]);
         }
         throw new ClassFormatException("unknown constant tag: "+tags[i]);
     }
