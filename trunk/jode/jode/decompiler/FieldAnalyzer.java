@@ -25,6 +25,7 @@ import jode.expr.Expression;
 import jode.expr.ThisOperator;
 import jode.expr.LocalLoadOperator;
 import jode.expr.ConstOperator;
+import jode.expr.OuterLocalOperator;
 
 public class FieldAnalyzer implements Analyzer {
     ClassAnalyzer clazz;
@@ -86,9 +87,14 @@ public class FieldAnalyzer implements Analyzer {
 
 	if (isSynthetic && isFinal()
 	    && (fieldName.startsWith("this$")
-		|| fieldName.startsWith("val$")))
+		|| fieldName.startsWith("val$"))) {
+	    if (fieldName.startsWith("val$") && fieldName.length() > 4
+		&& expr instanceof OuterLocalOperator) {
+		LocalInfo li = ((OuterLocalOperator) expr).getLocalInfo();
+		li.addHint(fieldName.substring(4), type);
+	    }
 	    analyzedSynthetic();
-	else
+	} else
 	    expr.makeInitializer();
 
 	constant = expr;
@@ -108,6 +114,9 @@ public class FieldAnalyzer implements Analyzer {
 
     public void analyze() {
         imports.useType(type);
+    }
+
+    public void makeDeclaration() {
 	if (constant != null)
 	    constant = constant.simplify();
     }
@@ -126,7 +135,20 @@ public class FieldAnalyzer implements Analyzer {
 	}
 	if (isSynthetic)
 	    writer.print("/*synthetic*/ ");
-	String modif = Modifier.toString(modifiers);
+	int modifiedModifiers = modifiers;
+	/*
+	 * JLS-1.0, section 9.3:
+	 *
+	 * Every field declaration in the body of an interface is
+	 * implicitly public, static, and final. It is permitted, but
+	 * strongly discouraged as a matter of style, to redundantly
+	 * specify any or all of these modifiers for such fields.
+	 */
+	if (clazz.getClazz().isInterface())
+	    modifiedModifiers &= ~(Modifier.PUBLIC
+				   | Modifier.STATIC
+				   | Modifier.FINAL);
+	String modif = Modifier.toString(modifiedModifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
 
