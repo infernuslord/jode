@@ -20,7 +20,8 @@
 package jode.decompiler;
 import jode.Type;
 
-public abstract class StoreInstruction extends Operator {
+public abstract class StoreInstruction extends Operator
+    implements CombineableOperator {
 
     public String lvCasts;
     Type lvalueType;
