@@ -82,7 +82,6 @@ public class CreateCheckNull {
      *   DUP
      *   if (POP == null) {
      *       throw null
-     *       GOTO END_OF_METHOD  // not checked
      *   }
      * </pre>
      * to a CheckNullOperator.  This is what jikes generates when it
@@ -111,7 +110,6 @@ public class CreateCheckNull {
 	LocalInfo li = new LocalInfo();
 	InstructionContainer ic = 
 	    new InstructionBlock(new CheckNullOperator(Type.tUObject, li));
-	ifBlock.flowBlock.removeSuccessor(ifBlock.thenBlock.jump);
 	ic.moveJump(ifBlock.jump);
 	if (last == ifBlock) {
 	    ic.replace(last.outer);

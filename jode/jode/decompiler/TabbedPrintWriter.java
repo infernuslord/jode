@@ -25,7 +25,6 @@ import java.util.Enumeration;
 import jode.AssertError;
 import jode.GlobalOptions;
 import jode.bytecode.ClassInfo;
-import jode.bytecode.InnerClassInfo;
 import jode.type.*;
 
 public class TabbedPrintWriter {
@@ -632,91 +631,43 @@ public class TabbedPrintWriter {
 	return null;
     }
 
-    public String getInnerClassString(ClassInfo info, int scopeType) {
-	InnerClassInfo[] outers = info.getOuterClasses();
-	if (outers == null)
-	    return null;
-	for (int i=0; i< outers.length; i++) {
-	    if (outers[i].name == null || outers[i].outer == null)
-		return null;
-	    Scope scope = getScope(ClassInfo.forName(outers[i].outer), 
-				   Scope.CLASSSCOPE);
-	    if (scope != null && 
-		!conflicts(outers[i].name, scope, scopeType)) {
- 		StringBuffer sb = new StringBuffer(outers[i].name);
-		for (int j = i; j-- > 0;) {
-		    sb.append('.').append(outers[j].name);
-		}
-		return sb.toString();
-	    }
-	}
-	String name = getClassString
-	    (ClassInfo.forName(outers[outers.length-1].outer), scopeType);
-	StringBuffer sb = new StringBuffer(name);
-	for (int j = outers.length; j-- > 0;)
-	    sb.append('.').append(outers[j].name);
-	return sb.toString();
-    }
-    
-    public String getAnonymousClassString(ClassInfo info, int scopeType) {
-	InnerClassInfo[] outers = info.getOuterClasses();
-	if (outers == null)
-	    return null;
-	for (int i=0; i< outers.length; i++) {
-	    if (outers[i].name == null)
-		return "ANONYMOUS CLASS "+info.getName();
-	    Scope scope = getScope(info, Scope.METHODSCOPE);
-	    if (scope != null && 
-		!conflicts(outers[i].name, scope, scopeType)) {
- 		StringBuffer sb = new StringBuffer(outers[i].name);
-		for (int j = i; j-- > 0;) {
-		    sb.append('.').append(outers[j].name);
-		}
-		return sb.toString();
-	    } else if (outers[i].outer == null) {
-		StringBuffer sb;
-		if (scope != null)
-		    sb = new StringBuffer("NAME CONFLICT ");
-		else
-		    sb = new StringBuffer("UNREACHABLE ");
-		
-		sb.append(outers[i].name);
-		for (int j = i; j-- > 0;) {
-		    sb.append('.').append(outers[j].name);
-		}
-		return sb.toString();
-	    }
-	}
-	String name = getClassString
-	    (ClassInfo.forName(outers[outers.length-1].outer), scopeType);
-	StringBuffer sb = new StringBuffer(name);
-	for (int j = outers.length; j-- > 0;)
-	    sb.append('.').append(outers[j].name);
-	return sb.toString();
-    }
-    
     public String getClassString(ClassInfo clazz, int scopeType) {
-	String name = clazz.getName();
-	if (name.indexOf('$') >= 0) {
-	    if ((Options.options & Options.OPTION_INNER) != 0) {
-		String innerClassName
-		    = getInnerClassString(clazz, scopeType);
-		if (innerClassName != null)
-		    return innerClassName;
-	    }
-	    if ((Options.options
-		 & Options.OPTION_ANON) != 0) {
-		String innerClassName
-		    = getAnonymousClassString(clazz, scopeType);
-		if (innerClassName != null)
-		    return innerClassName;
-	    }
+	if ((Options.options & Options.OPTION_INNER) != 0
+	    && clazz.getOuterClass() != null) {
+	    
+	    String className = clazz.getClassName();
+	    Scope scope = getScope(clazz.getOuterClass(), Scope.CLASSSCOPE);
+	    if (scope != null && 
+		!conflicts(className, scope, scopeType))
+		return className;
+
+	    return getClassString(clazz.getOuterClass(), scopeType)
+		+ "." + className;
+	}
+
+	if ((Options.options & Options.OPTION_ANON) != 0
+	    && clazz.isMethodScoped()) {
+
+	    String className = clazz.getClassName();
+	    if (className == null)
+		return "ANONYMOUS CLASS "+clazz.getName();
+
+	    Scope scope = getScope(clazz, Scope.METHODSCOPE);
+	    if (scope != null && 
+		!conflicts(className, scope, scopeType))
+		return className;
+
+	    if (scope != null)
+		return "NAME CONFLICT " + className;
+	    else
+		return "UNREACHABLE " + className;
 	}
 	if (imports != null) {
 	    String importedName = imports.getClassString(clazz);
 	    if (!conflicts(importedName, null, scopeType))
 		return importedName;
 	}
+	String name = clazz.getName();
 	if (conflicts(name, null, Scope.AMBIGUOUSNAME))
 	    return "PKGNAMECONFLICT "+ name;
 	return name;

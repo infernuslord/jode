@@ -36,21 +36,8 @@ public class ConditionalBlock extends InstructionContainer {
     
     public void checkConsistent() {
         super.checkConsistent();
-        if (trueBlock.jump == null
-            || !(trueBlock instanceof EmptyBlock))
+        if (!(trueBlock instanceof EmptyBlock))
             throw new jode.AssertError("Inconsistency");
-    }
-
-    /**
-     * Creates a new if conditional block.
-     */
-    public ConditionalBlock(Expression cond, Jump condJump, Jump elseJump) {
-        super(cond, elseJump);
-        /* cond is a CompareBinary or CompareUnary operator, so no
-         * check for LocalVarOperator (for condJump) is needed here.  
-         */
-        trueBlock = new EmptyBlock(condJump);
-        trueBlock.outer = this;
     }
 
     /**
@@ -68,6 +55,19 @@ public class ConditionalBlock extends InstructionContainer {
     /* The implementation of getNext[Flow]Block is the standard
      * implementation 
      */
+
+    /**
+     * Sets the successors of this structured block.  This should be only
+     * called once, by FlowBlock.setSuccessors().
+     */
+    public void setSuccessors(Jump[] jumps) {
+	if (jumps.length != 2) {
+	    /* A conditional block can only exactly two jumps. */
+	    throw new IllegalArgumentException("Not exactly two jumps.");
+	}
+        trueBlock.setJump(jumps[0]);
+	setJump(jumps[1]);
+    }
 
     /**
      * Returns all sub block of this structured block.

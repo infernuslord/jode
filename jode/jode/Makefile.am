@@ -2,11 +2,9 @@
 
 SUBDIRS = util bytecode type jvm expr flow decompiler obfuscator @SWINGUI@
 
-JAR = @JAR@
-JAVAC = @JAVAC@
-JAVADEP = $(top_builddir)/javaDependencies.pl -subdir=$(subdir)\
-   -dependdir=$(top_builddir) -classpath=$(top_builddir):$(top_srcdir) \
-   -depfile=Makefile.dep
+JAVADEP = $(PERL) -w -s $(top_srcdir)/scripts/javaDependencies.pl \
+   -subdir=$(subdir) -dependdir=$(top_builddir) \
+   -classpath=$(top_builddir):$(top_srcdir) -depfile=Makefile.dep
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
 SUBSTCP = @SUBSTCP@
@@ -18,7 +16,6 @@ MY_JAVA_FILES = \
 
 noinst_DATA = $(MY_JAVA_FILES:.java=.class)
 EXTRA_DIST = $(MY_JAVA_FILES)
-
 
 JARFILE = jode-@VERSION@.jar
 #data_DATA = $(JARFILE)

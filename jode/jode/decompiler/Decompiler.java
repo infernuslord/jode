@@ -19,7 +19,7 @@
 
 package jode.decompiler;
 import jode.GlobalOptions;
-import jode.bytecode.SearchPath;
+import jode.bytecode.ClassPath;
 import jode.bytecode.ClassInfo;
 import java.io.File;
 import java.io.PrintWriter;
@@ -38,7 +38,7 @@ import java.io.BufferedWriter;
  * @version 1.0
  */
 public class Decompiler {
-    private SearchPath searchPath = null;
+    private ClassPath classPath = null;
     private int importPackageLimit = ImportHandler.DEFAULT_PACKAGE_LIMIT;
     private int importClassLimit = ImportHandler.DEFAULT_CLASS_LIMIT;
 
@@ -51,7 +51,7 @@ public class Decompiler {
      * by context.  
      */
     public static final char altPathSeparatorChar
-	= SearchPath.altPathSeparatorChar;
+	= ClassPath.altPathSeparatorChar;
 
     /**
      * Create a new decompiler.
@@ -67,7 +67,7 @@ public class Decompiler {
      * @see #setClassPath(String[])
      */
     public void setClassPath(String classpath) {
-	searchPath = new SearchPath(classpath);
+	this.classPath = new ClassPath(classpath);
     }
 
     /**
@@ -80,10 +80,19 @@ public class Decompiler {
      * @see #setClassPath(String)
      */
     public void setClassPath(String[] classpath) {
-	StringBuffer sb = new StringBuffer(classpath[0]);
-	for (int i = 1; i < classpath.length; i++)
-	    sb.append(altPathSeparatorChar).append(classpath[i]);
-	searchPath = new SearchPath(sb.toString());
+	this.classPath = new ClassPath(classpath);
+    }
+
+    /**
+     * Set the class path.  Should be called once before decompile is
+     * called, otherwise the system class path is used.
+     * @param classpath a classpath object.
+     * @exception NullPointerException if classpath is null.
+     * @exception IndexOutOfBoundsException if classpath array is empty.
+     * @see #setClassPath(String)
+     */
+    public void setClassPath(ClassPath classpath) {
+	this.classPath = classpath;
     }
 
     private static final String[] optionStrings = {
@@ -174,14 +183,16 @@ public class Decompiler {
    public void decompile(String className, Writer writer,	
 			 ProgressListener progress) 
      throws java.io.IOException {
-       if (searchPath == null) {
-	   String classPath = System.getProperty("java.class.path")
+       if (classPath == null) {
+	   String cp = System.getProperty("java.class.path")
 	       .replace(File.pathSeparatorChar, altPathSeparatorChar);
-	   searchPath = new SearchPath(classPath);
+	   classPath = new ClassPath(cp);
        }
 
-       ClassInfo.setClassPath(searchPath);
-       ClassInfo clazz = ClassInfo.forName(className);
+       /* XXX, comment the next line, as soon as ClassInfo.forName is
+	* no longer used.  */
+       ClassInfo.setClassPath(classPath);
+       ClassInfo clazz = classPath.getClassInfo(className);
        ImportHandler imports = new ImportHandler(importPackageLimit,
 						 importClassLimit);
        TabbedPrintWriter tabbedWriter = 

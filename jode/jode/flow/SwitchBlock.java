@@ -21,6 +21,11 @@ package jode.flow;
 import jode.decompiler.TabbedPrintWriter;
 import jode.expr.Expression;
 
+///#def COLLECTIONS java.util
+import java.util.Arrays;
+import java.util.Comparator;
+///#enddef
+
 /**
  * This is the structured block for an empty block.
  */
@@ -30,55 +35,81 @@ implements BreakableBlock {
     VariableStack exprStack;
     VariableStack breakedStack;
 
-    public SwitchBlock(Expression instr,
-		       int[] cases, FlowBlock[] dests) {
+    public SwitchBlock(Expression instr, int[] cases) {
 	super(instr);
-
-	/* First remove all dests that jump to the default dest. */
-	int numCases = dests.length;
-	FlowBlock defaultDest = dests[cases.length];
+	this.caseBlocks = new CaseBlock[cases.length + 1];
 	for (int i=0; i< cases.length; i++) {
-	    if (dests[i] == defaultDest) {
-		dests[i] = null;
-		numCases--;
-	    }
-	}
-
-        caseBlocks = new CaseBlock[numCases];
-	FlowBlock lastDest = null;
-        for (int i=numCases-1; i>=0; i--) {
-	    /**
-	     * Sort the destinations by finding the greatest destAddr
-	     */
-	    int index = 0;
-	    for (int j=1; j<dests.length; j++) {
-		if (dests[j] != null 
-		    && (dests[index] == null
-			|| dests[j].getAddr() >= dests[index].getAddr()))
-		    index = j;
-	    }
-	    /* assert(dests[index] != null) */
-
-	    int value;
-	    if (index == cases.length)
-		value = -1;
-	    else
-		value = cases[index];
-
-	    if (dests[index] == lastDest)
-		caseBlocks[i] = new CaseBlock(value);
-	    else
-		caseBlocks[i] = new CaseBlock(value, 
-					      new Jump(dests[index]));
+	    caseBlocks[i] = new CaseBlock(cases[i]);
 	    caseBlocks[i].outer = this;
-	    lastDest = dests[index];
-	    dests[index] = null;
-	    if (index == cases.length)
-		caseBlocks[i].isDefault = true;
-        }
-	caseBlocks[numCases-1].isLastBlock = true;
-        this.jump = null;
+	}
+	caseBlocks[cases.length] = new CaseBlock(true);
+	caseBlocks[cases.length].outer = this;
         isBreaked = false;
+    }
+
+    /**
+     * Sets the successors of this structured block.  This should be only
+     * called once, by FlowBlock.setSuccessors().
+     */
+    public void setSuccessors(Jump[] jumps) {
+	if (jumps.length != caseBlocks.length) {
+	    /* A conditional block can only exactly two jumps. */
+	    throw new IllegalArgumentException("Wrong number of jumps.");
+	}
+	for (int i=0; i < caseBlocks.length; i++)
+	    caseBlocks[i].subBlock.setJump(jumps[i]);
+	doJumpTrafo();
+    }
+
+    public boolean doTransformations() {
+	return super.doTransformations();
+    }
+
+    public void doJumpTrafo() {
+	/* First remember the default destination */
+	FlowBlock defaultDest
+	    = caseBlocks[caseBlocks.length-1].subBlock.jump.destination;
+	Comparator caseBlockComparator = new Comparator() {
+	    public int compare(Object o1, Object o2) {
+		CaseBlock c1 = (CaseBlock) o1;
+		CaseBlock c2 = (CaseBlock) o2;
+		int d1 = c1.subBlock.jump.destination.getBlockNr();
+		int d2 = c2.subBlock.jump.destination.getBlockNr();
+		if (d1 != d2)
+		    return d1 - d2;
+		if (c2.isDefault)
+		    return -1;
+		if (c1.isDefault)
+		    return 1;
+		if (c1.value < c2.value)
+		    return -1;
+		if (c1.value > c2.value)
+		    return 1;
+		return 0;
+	    }
+	};
+	Arrays.sort(caseBlocks, caseBlockComparator);
+
+	int newCases = 0;
+	for (int i=0; i < caseBlocks.length; i++) {
+	    Jump jump = caseBlocks[i].subBlock.jump;
+	    if (i < caseBlocks.length - 1
+		&& jump.destination
+		== caseBlocks[i+1].subBlock.jump.destination) {
+		// This case falls into the next one.
+		caseBlocks[i].subBlock.removeJump();
+		flowBlock.removeSuccessor(jump);
+
+		if (caseBlocks[i+1].subBlock.jump.destination == defaultDest)
+		    continue; // remove this case, it jumps to the default.
+	    }
+	    caseBlocks[newCases++] = caseBlocks[i];
+	}
+	caseBlocks[newCases-1].isLastBlock = true;
+
+	CaseBlock[] newCaseBlocks = new CaseBlock[newCases];
+	System.arraycopy(caseBlocks, 0, newCaseBlocks, 0, newCases);
+	caseBlocks = newCaseBlocks;
     }
 
     /**
@@ -195,7 +226,7 @@ implements BreakableBlock {
             writer.tab();
         }
         writer.print("switch (");
-	instr.dumpExpression(writer.EXPL_PAREN, writer);
+	instr.dumpExpression(writer);
 	writer.print(")");
 	writer.openBrace();
 	for (int i=0; i < caseBlocks.length; i++)

@@ -18,13 +18,6 @@
  */
 
 package jode.decompiler;
-import jode.GlobalOptions;
-import jode.bytecode.SearchPath;
-import jode.bytecode.ClassInfo;
-import java.io.File;
-import java.io.PrintWriter;
-import java.io.Writer;
-import java.io.BufferedWriter;
 
 /**
  * This interface is used by jode to tell about its progress.  You

@@ -19,7 +19,7 @@
 
 package jode.decompiler;
 import jode.bytecode.ClassInfo;
-import jode.bytecode.InnerClassInfo;
+import java.io.IOException;
 
 public class Options {
     public static final int TAB_SIZE_MASK = 0x0f;
@@ -53,14 +53,14 @@ public class Options {
     }
 
     public static boolean skipClass(ClassInfo clazz) {
-	InnerClassInfo[] outers = clazz.getOuterClasses();
-	if (outers != null) {
-	    if (outers[0].outer == null) {
-		return doAnonymous();
-	    } else {
-		return doInner();
-	    }
+	if (!doInner() && !doAnonymous())
+	    return false;
+	try {
+	    clazz.load(ClassInfo.OUTERCLASS);
+	} catch (IOException ex) {
+	    return false;
 	}
-	return false;
+	return (doInner() && clazz.getOuterClass() != null
+		|| doAnonymous() && clazz.isMethodScoped());
     }
 }

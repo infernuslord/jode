@@ -54,13 +54,13 @@ public class CaseBlock extends StructuredBlock {
     boolean isLastBlock = false;
 
     public CaseBlock(int value) {
+	this(false);
 	this.value = value;
-	subBlock = null;
     }
 
-    public CaseBlock(int value, Jump dest) {
-	this.value = value;
-	subBlock = new EmptyBlock(dest);
+    public CaseBlock(boolean isDef) {
+	isDefault = isDef;
+	subBlock = new EmptyBlock();
 	subBlock.outer = this;
     }
 
@@ -92,7 +92,7 @@ public class CaseBlock extends StructuredBlock {
      */
     protected boolean wantBraces() {
 	StructuredBlock block = subBlock;
-	if (block == null)
+	if (block instanceof EmptyBlock)
 	    return false;
 	for (;;) {
 	    if (block.declare != null && !block.declare.isEmpty()) {
@@ -132,9 +132,7 @@ public class CaseBlock extends StructuredBlock {
      * Returns all sub block of this structured block.
      */
     public StructuredBlock[] getSubBlocks() {
-        return (subBlock != null) 
-            ? new StructuredBlock[] { subBlock }
-            : new StructuredBlock[0];
+        return new StructuredBlock[] { subBlock };
     }
 
     public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 
@@ -177,7 +175,10 @@ public class CaseBlock extends StructuredBlock {
             constOp.makeInitializer();
 	    writer.print("case " + constOp.toString() + ":");
         }
-	if (subBlock != null) {
+	if (subBlock instanceof EmptyBlock
+	    && subBlock.jump == null) {
+	    writer.println();
+	} else {
 	    boolean needBraces = wantBraces();
 	    if (needBraces)
 		writer.openBrace();
@@ -190,8 +191,7 @@ public class CaseBlock extends StructuredBlock {
 	    }
 	    if (needBraces)
 		writer.closeBrace();
-	} else
-	    writer.println();
+	}
     }
 
     /**
