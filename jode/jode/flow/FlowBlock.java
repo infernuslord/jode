@@ -26,8 +26,17 @@ import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
 import jode.expr.CombineableOperator;
-import jode.util.SimpleDictionary;
+import jode.util.SimpleMap;
 import jode.util.SimpleSet;
+
+///#ifdef JDK12
+///import java.util.Map;
+///import java.util.Iterator;
+///#else
+import jode.util.Map;
+import jode.util.Iterator;
+///#endif
+
 
 /**
  * A flow block is the structure of which the flow graph consists.  A
@@ -100,11 +109,11 @@ public class FlowBlock {
 
     /**
      * This contains a map of all successing flow blocks and there
-     * jumps.  The key of this dictionary are the flow blocks, while
+     * jumps.  The key of this map are the flow blocks, while
      * the elements is the first jump to that flow block.  The other
      * jumps are accessible via the jump.next field.
      */
-    Dictionary successors = new SimpleDictionary();
+    Map successors = new SimpleMap();
 
     /**
      * This is a vector of flow blocks, which reference this block.
@@ -566,11 +575,11 @@ public class FlowBlock {
     void mergeSuccessors(FlowBlock succ) {
         /* Merge the sucessors from the successing flow block
          */
-        Enumeration keys = succ.successors.keys();
-        Enumeration succs = succ.successors.elements();
-        while (keys.hasMoreElements()) {
-            FlowBlock dest = (FlowBlock) keys.nextElement();
-            Jump hisJumps = (Jump) succs.nextElement();
+        Iterator iter = succ.successors.entrySet().iterator();
+        while (iter.hasNext()) {
+	    Map.Entry entry = (Map.Entry) iter.next();
+            FlowBlock dest = (FlowBlock) entry.getKey();
+            Jump hisJumps = (Jump) entry.getValue();
             Jump myJumps = (Jump) successors.get(dest);
 
 	    if (dest != END_OF_METHOD)
@@ -646,9 +655,9 @@ public class FlowBlock {
 
         /* The gen/kill sets must be updated for every jump 
          * in the other block */
-        Enumeration succSuccs = successor.successors.elements();
-        while (succSuccs.hasMoreElements()) {
-            Jump succJumps = (Jump) succSuccs.nextElement();
+        Iterator succSuccs = successor.successors.values().iterator();
+        while (succSuccs.hasNext()) {
+            Jump succJumps = (Jump) succSuccs.next();
             for (; succJumps != null; succJumps = succJumps.next) {
 
                 succJumps.gen.mergeGenKill(gens, succJumps.kill);
@@ -703,14 +712,14 @@ public class FlowBlock {
         if (last.outer != null)
             throw new AssertError("Inconsistency");
 
-        Enumeration keys = successors.keys();
-        Enumeration succs = successors.elements();
-        while (keys.hasMoreElements()) {
-            FlowBlock dest = (FlowBlock) keys.nextElement();
+        Iterator iter = successors.entrySet().iterator();
+        while (iter.hasNext()) {
+	    Map.Entry entry = (Map.Entry) iter.next();
+            FlowBlock dest = (FlowBlock) entry.getKey();
             if (dest.predecessors.contains(this) == (dest == END_OF_METHOD))
                 throw new AssertError("Inconsistency");
                 
-            Jump jumps = (Jump)succs.nextElement();
+            Jump jumps = (Jump)entry.getValue();
             if (jumps == null)
                 throw new AssertError("Inconsistency");
                 
@@ -1159,10 +1168,10 @@ public class FlowBlock {
      */
     FlowBlock getSuccessor(int start, int end) {
         /* search successor with smallest addr. */
-        Enumeration keys = successors.keys();
+        Iterator keys = successors.keySet().iterator();
         FlowBlock succ = null;
-        while (keys.hasMoreElements()) {
-            FlowBlock fb = (FlowBlock) keys.nextElement();
+        while (keys.hasNext()) {
+            FlowBlock fb = (FlowBlock) keys.next();
             if (fb.addr < start || fb.addr >= end || fb == this)
                 continue;
             if (succ == null || fb.addr < succ.addr) {
@@ -1451,9 +1460,9 @@ public class FlowBlock {
 	    throw new jode.AssertError("initial stack is null");
 	stackMap = initialStack;
 	block.mapStackToLocal(initialStack);
-	Enumeration enum = successors.elements();
-	while (enum.hasMoreElements()) {
-	    Jump jumps = (Jump) enum.nextElement();
+	Iterator iter = successors.values().iterator();
+	while (iter.hasNext()) {
+	    Jump jumps = (Jump) iter.next();
 	    VariableStack stack;
 	    FlowBlock succ = jumps.destination;
 	    if (succ == END_OF_METHOD)
@@ -1477,9 +1486,9 @@ public class FlowBlock {
 	    return;
 	stackMap = null;
 	block.removePush();
-	Enumeration enum = successors.keys();
-	while (enum.hasMoreElements()) {
-	    FlowBlock succ = (FlowBlock)enum.nextElement();
+	Iterator iter = successors.keySet().iterator();
+	while (iter.hasNext()) {
+	    FlowBlock succ = (FlowBlock)iter.next();
 	    succ.removePush();
 	}
     }
