@@ -5,6 +5,7 @@ Decompiler:
  - outline inlined methods.
  - remove string decrypt method.
  - remove synthetic methods if and only if all calls to them are resolved.
+ - rename keywords to safe names.
  ~ handle try catch more thouroughly/safely.
  ~ decompile jode.jvm.Interpreter (hand optimized bytecode)
 
@@ -53,6 +54,7 @@ User Interface:
    - show usage of method/fields.
  - syntax highlighting, hyper links etc.  
 	(look at java.swing.JEditorPane or at Java Insight)
+ - as a first approximation use HTML code and a JHTMLPane
  - visual obfuscation/deobfuscation (like klassmaster?, better?)
 
 Internal:
