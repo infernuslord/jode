@@ -35,29 +35,55 @@ public class TransformConstructors {
         if (cons.length == 0)
             return;
 
-        InstructionBlock[] superCall = new InstructionBlock[cons.length];
-        StructuredBlock[] start = new StructuredBlock[cons.length];
-        StructuredBlock[] sb = new StructuredBlock[cons.length];
-        for (int i=0; i< sb.length; i++) {
+        int constrCount = cons.length;
+        StructuredBlock[] sb = new StructuredBlock[constrCount];
+        for (int i=0; i< constrCount; ) {
             sb[i] = cons[i].getMethodHeader().block;
-            if (sb[i] == null)
-                return;
-            if (!isStatic &&
-                sb[i] instanceof SequentialBlock
-                && sb[i].getSubBlocks()[0] instanceof InstructionBlock) {
-                superCall[i] = (InstructionBlock) sb[i].getSubBlocks()[0];
-                
-                if (!(superCall[i].getInstruction().getOperator()
-                      instanceof InvokeOperator)
-                    || !((InvokeOperator)superCall[i].getInstruction()
-                         .getOperator()).isConstructor())
-                    superCall[i] = null;
+            if (!isStatic) {
+                InstructionBlock ib;
+                if (sb[i] instanceof InstructionBlock)
+                    ib = (InstructionBlock)sb[i];
+                else if (sb[i] instanceof SequentialBlock
+                         && (sb[i].getSubBlocks()[0] 
+                             instanceof InstructionBlock))
+                    ib = (InstructionBlock) sb[i].getSubBlocks()[0];
                 else
-                    /* skip super call */
+                    return;
+
+                Expression instr = ib.getInstruction();
+                
+                if (!(instr instanceof ComplexExpression)
+                    || !(instr.getOperator() instanceof InvokeOperator)
+                    || !(((ComplexExpression)instr)
+                         .getSubExpressions()[0].toString().equals("this")))
+                    return;
+                    
+                InvokeOperator invoke = (InvokeOperator) instr.getOperator();
+                if (!invoke.isConstructor() || !invoke.isSuperOrThis())
+                    return;
+
+                if (invoke.isThis()) {
+                    /* This constructor calls another constructor, so we
+                     * can skip it.
+                     */
+                    sb[i] = sb[--constrCount];
+                    continue;
+                }
+                /* This constructor begins with a super call, as 
+                 * expected. If the super() has no parameters, we
+                 * can remove it as it is implicit.
+                 */
+                if (invoke.getMethodType().getParameterTypes().length == 0)
+                    ib.removeBlock();
+                if (sb[i] instanceof SequentialBlock)
                     sb[i] = sb[i].getSubBlocks()[1];
+                else
+                    sb[i] = new EmptyBlock();
             }
+            i++;
         }
-        for (int i=0; i< sb.length; i++)
+        StructuredBlock[] start = new StructuredBlock[constrCount];
+        for (int i=0; i< constrCount; i++)
             start[i] = sb[i];
     big_loop:
         for (;;) {
@@ -94,7 +120,7 @@ public class TransformConstructors {
                 break big_loop;
             }
 
-            for (int i=1; i< sb.length; i++) {
+            for (int i=1; i< constrCount; i++) {
                 ib = (sb[0] instanceof SequentialBlock) 
                     ? sb[0].getSubBlocks()[0]
                     : sb[0];
@@ -112,31 +138,23 @@ public class TransformConstructors {
             }
                                                    
             
-            for (int i=0; i< sb.length; i++) {
+            for (int i=0; i< constrCount; i++) {
                 if (sb[i] instanceof SequentialBlock)
                     sb[i] = sb[i].getSubBlocks()[1];
                 else
                     sb[i] = null; 
             }
-            for (int i=0; i< sb.length; i++)
+            for (int i=0; i< constrCount; i++)
                 if (sb[i] == null) {
 //                     System.err.println("constr "+i+" is over");
                     break big_loop;
                 }
         }
-        for (int i=0; i< superCall.length; i++) {
+        for (int i=0; i< constrCount; i++) {
             if (sb[i] == null)
                 start[i].removeBlock();
             else
                 sb[i].replace(start[i]);
-            if (superCall[i] != null) {
-                InvokeOperator op = 
-                    (InvokeOperator) superCall[i].getInstruction()
-                    .getOperator();
-                /* super() is implicit */
-                if (op.getMethodType().getParameterTypes().length == 0)
-                    superCall[i].removeBlock();
-            }
         }
     }
 }

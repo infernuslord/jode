@@ -88,6 +88,20 @@ public final class InvokeOperator extends Operator {
         return methodName.equals("<init>");
     }
 
+    public boolean isThis() {
+        Class clazz = codeAnalyzer.method.classAnalyzer.getClazz();
+        return (classType.equals(Type.tType(clazz)));
+    }
+
+    public boolean isSuperOrThis() {
+        Class clazz = codeAnalyzer.method.classAnalyzer.getClazz();
+        while (clazz != null 
+               && !classType.equals(Type.tType(clazz))) {
+            clazz = clazz.getSuperclass();
+        }
+        return (clazz != null);
+    }
+
     public String toString(String[] operands) {
         String object = null;
         if (specialFlag) {
@@ -101,11 +115,11 @@ public final class InvokeOperator extends Operator {
                 }
                 
                 if (clazz == null)
-                    object = "SPECIAL";
+                    object = "NON VIRTUAL this";
             } else if (classType.equals(Type.tType(clazz)))
                 object = operands[0];
             else
-                object = "SPECIAL "+operands[0];
+                object = "NON VIRTUAL "+operands[0];
         }
             
         object = (object != null) ? object
