@@ -1,3 +1,28 @@
+2004-08-05  Jochen Hoenicke  <hoenicke@marge.Informatik.Uni-Oldenburg.DE>
+
+	* build.xml: replace execon with apply.
+	* src/net/sf/jode/bytecode/ClassInfo.java (readAttributes):
+	read in signature attribute (not yet published, though).
+	* src/net/sf/jode/bytecode/MethodInfo.java (readAttributes):
+	likewise.
+	* src/net/sf/jode/bytecode/FieldInfo.java (readAttributes):
+	likewise.
+	* src/net/sf/jode/bytecode/ClassInfo.java (mergeModifiers):
+	only check the traditional modifiers for equality.
+	* src/net/sf/jode/bytecode/ConstantPool.java (getConstant):
+	Support for CLASS constants (jdk1.5) added.
+	* src/net/sf/jode/bytecode/BasicBlockReader.java (readCode):
+	opc_ldc, opc_ldc_w: Support for CLASS constants added.
+	* src/net/sf/jode/decompiler/Opcodes.java (addOpcode):
+	likewise.
+	* src/net/sf/jode/expr/InvokeOperator.java 
+	(simplifyStringBuffer, simplifyString):
+	Also handle StringBuilder (jdk1.5).
+	* src/net/sf/jode/type/Type.java (tStringBuilder): new field.
+	* src/net/sf/jode/swingui/Main.java (main): handle debug
+	options.
+
+
 2004-01-31  Jochen Hoenicke  <hoenicke@informatik.uni-oldenburg.de>
 
 	* src/net/sf/jode/jvm/SyntheticAnalyzer.java (checkGetClass):

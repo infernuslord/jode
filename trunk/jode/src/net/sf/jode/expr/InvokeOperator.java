@@ -517,7 +517,8 @@ public final class InvokeOperator extends Operator
     }
 
     public Expression simplifyStringBuffer() {
-	if (getClassType().equals(Type.tStringBuffer)) {
+	if (getClassType().equals(Type.tStringBuffer)
+	    || getClassType().equals(Type.tStringBuilder)) {
 	    if (isConstructor() 
 		&& subExpressions[0] instanceof NewOperator) {
 		if (methodType.getParameterTypes().length == 0)
@@ -548,7 +549,7 @@ public final class InvokeOperator extends Operator
 		
 		Expression secondOp = subExpressions[1];
 		Type[] paramTypes = new Type[] {
-		    Type.tStringBuffer, secondOp.getType().getCanonic()
+		    getClassType(), secondOp.getType().getCanonic()
 		};
 		if (needsCast(1, paramTypes)) {
 		    Type castType = methodType.getParameterTypes()[0];
@@ -568,7 +569,8 @@ public final class InvokeOperator extends Operator
     public Expression simplifyString() {
 	if (getMethodName().equals("toString")
 	    && !isStatic()
-	    && getClassType().equals(Type.tStringBuffer)
+	    && (getClassType().equals(Type.tStringBuffer)
+		|| getClassType().equals(Type.tStringBuilder))
 	    && subExpressions.length == 1) {
 	    Expression simple = subExpressions[0].simplifyStringBuffer();
 	    if (simple != null)

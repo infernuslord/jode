@@ -151,12 +151,15 @@ public class ConstantPool {
         if (i == 0)
             throw new ClassFormatException("null constant");
         switch (tags[i]) {
-        case ConstantPool.INTEGER: 
-        case ConstantPool.FLOAT:
-        case ConstantPool.LONG:
-        case ConstantPool.DOUBLE:
+        case INTEGER: 
+        case FLOAT:
+        case LONG:
+        case DOUBLE:
             return constants[i];
-        case ConstantPool.STRING: 
+        case CLASS:
+	    return Reference.getReference(getClassType(i), 
+					  "class", "Ljava/lang/Class;");
+        case STRING: 
             return getUTF8(indices1[i]);
         }
         throw new ClassFormatException("Tag mismatch: "+tags[i]);

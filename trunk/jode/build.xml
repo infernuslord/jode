@@ -67,25 +67,25 @@
   </target>
 
   <target name="run-jcpp" depends="check-packages,check-jcpp">
-    <execon dir="." executable="perl" parallel="true">
+    <apply dir="." executable="perl" parallel="true">
       <arg file="${jcpp}"/>
       <arg value="-DJDK11"/>
       <arg value="-DCOLLECTIONS=${collections.package}"/>
       <arg value="-DCOLLECTIONEXTRA=${collections.package}"/>
       <arg value="-DJAVAX_SWING=${swing.package}"/>
       <fileset dir="${src}" includes="**/*.java"/>
-    </execon>
+    </apply>
   </target>
 
   <target name="clean-jcpp" if="perl.present">
-    <execon dir="." executable="perl" parallel="true">
+    <apply dir="." executable="perl" parallel="true">
       <arg file="${jcpp}"/>
       <arg value="-DJDK12"/>
       <arg value="-DCOLLECTIONS=java.util"/>
       <arg value="-DCOLLECTIONEXTRA=java.lang"/>
       <arg value="-DJAVAX_SWING=javax.swing"/>
       <fileset dir="${src}" includes="**/*.java"/>
-    </execon>
+    </apply>
   </target>
 
   <!-- ********* Check Environment ******* -->

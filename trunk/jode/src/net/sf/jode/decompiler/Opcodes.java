@@ -147,9 +147,17 @@ public abstract class Opcodes implements net.sf.jode.bytecode.Opcodes {
 	    break;
         case opc_ldc:
         case opc_ldc2_w:
-            flow.appendBlock
-		(createNormal(ma, instr, 
-			      new ConstOperator(instr.getConstant())));
+	    {
+		Expression expr;
+		if (instr.getConstant() instanceof Reference) {
+		    Reference ref = (Reference) instr.getConstant();
+		    expr = new ClassFieldOperator
+			(Type.tType(cp, ref.getClazz()));
+		} else {
+		    expr = new ConstOperator(instr.getConstant());
+		}
+		flow.appendBlock(createNormal(ma, instr, expr));
+	    }
 	    break;
         case opc_iload: case opc_lload: 
         case opc_fload: case opc_dload: case opc_aload: {

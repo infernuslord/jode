@@ -436,7 +436,11 @@ public class Main
 		|| params[i].equals("--cp")
 		|| params[i].equals("-c"))
 		cp = params[++i];
-	    else if (params[i].startsWith("-")) {
+	    else if (params[i].equals("--debug")
+		     || params[i].equals("--D")) {
+		String arg = params[++i];
+		GlobalOptions.setDebugging(arg);
+	    } else if (params[i].startsWith("-")) {
 		if (!params[i].equals("--help")
 		    && !params[i].equals("-h"))
 		    System.err.println("Unknown option: "+params[i]);
