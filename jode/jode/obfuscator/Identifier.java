@@ -221,8 +221,14 @@ public abstract class Identifier {
     }
 
     public void readTable(Hashtable table) {
-	if (isRepresentative())
-	    setAlias((String) table.get(getFullName()));
+	Identifier rep = getRepresentative();
+	if (!rep.wasAliased) {
+	    String newAlias = (String) table.get(getFullName());
+	    if (newAlias != null) {
+		rep.wasAliased = true;
+		rep.setAlias(newAlias);
+	    }
+	}
     }
 
     public abstract void applyPreserveRule(int preserveRule);
