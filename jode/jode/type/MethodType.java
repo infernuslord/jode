@@ -1,4 +1,4 @@
-/* MethodType Copyright (C) 1997-1998 Jochen Hoenicke.
+/* MethodType Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *
  * $Id$
  */
+
 package jode;
 
 /** 
@@ -23,14 +24,13 @@ package jode;
  *
  * @author Jochen Hoenicke 
  */
-public class MethodType {
+public class MethodType extends Type {
     final String signature;
     final Type[] parameterTypes;
     final Type returnType;
-    final boolean staticFlag;
 
-    public MethodType(boolean isStatic, String signature) {
-        this.staticFlag = isStatic;
+    public MethodType(String signature) {
+	super(TC_METHOD);
         this.signature = signature;
         int index = 1, types = 0;
         while (signature.charAt(index) != ')') {
@@ -58,8 +58,11 @@ public class MethodType {
         returnType = Type.tType(signature.substring(index+1));
     }
 
-    public boolean isStatic() {
-        return staticFlag;
+    public final int stackSize() {
+	int size = returnType.stackSize();
+	for (int i=0; i<parameterTypes.length; i++)
+	    size -= parameterTypes[i].stackSize();
+	return size;
     }
 
     public Type[] getParameterTypes() {
@@ -81,7 +84,6 @@ public class MethodType {
     public boolean equals(Object o) {
         MethodType mt;
         return (o instanceof MethodType
-                && signature.equals((mt = (MethodType)o).signature)
-                && staticFlag == mt.staticFlag);
+                && signature.equals((mt = (MethodType)o).signature));
     }
 }
