@@ -110,6 +110,7 @@ public class Type {
     public static final Type tUObject = tRange(tObject, tUnknown);
     public static final Type tString  = tClass("java.lang.String");
     public static final Type tStringBuffer = tClass("java.lang.StringBuffer");
+    public static final Type tJavaLangClass = tClass("java.lang.Class");
 
     public static final Type tType(String type) {
         if (type == null || type.length() == 0)
@@ -465,6 +466,31 @@ public class Type {
         }
     }
 
+    public String getTypeSignature() {
+        switch (typecode) {
+        case TC_BOOLINT:
+        case TC_BOOLBYTE:
+        case TC_BOOLEAN:
+            return "Z";
+        case TC_BYTE:
+            return "B";
+        case TC_CHAR:
+            return "C";
+        case TC_SHORT:
+            return "S";
+        case TC_INT:
+            return "I";
+        case TC_LONG:
+            return "J";
+        case TC_FLOAT:
+            return "F";
+        case TC_DOUBLE:
+            return "D";
+        default:
+            return "?";
+        }
+    }
+    
     public String toString() {
         switch (typecode) {
         case TC_BOOLINT:

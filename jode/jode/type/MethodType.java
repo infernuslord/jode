@@ -70,6 +70,10 @@ public class MethodType {
         return returnType;
     }
 
+    public String getTypeSignature() {
+        return signature;
+    }
+
     public String toString() {
         return signature;
     }
