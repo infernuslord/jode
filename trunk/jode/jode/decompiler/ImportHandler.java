@@ -23,7 +23,7 @@ import java.util.*;
 public class JodeEnvironment {
     Hashtable imports;
     /* Classes that doesn't need to be qualified. */
-    Hashtable goodClasses = new Hashtable();
+    Hashtable cachedClassNames = null;
     ClassAnalyzer main;
     String className;
     String pkg;
@@ -66,7 +66,28 @@ public class JodeEnvironment {
             if (pkgName.equals(pkg))
                 return false;
 
-            name = name.substring(pkgdelim+1);
+            // name without package, but _including_ leading dot.
+            name = name.substring(pkgdelim); 
+
+            if (pkg.length() != 0) {
+                try {
+                    Class.forName(pkg + name);
+                    /* UGLY: If class doesn't conflict, above
+                     * Instruction throws an exception and we
+                     * doesn't reach here.  
+                     * XXX - Is there a better way to do it ???
+                     */
+//                     System.err.println(""+pkgName+name
+//                                        + " conflicts with "
+//                                        + pkg+name);
+                    return true;
+                } catch (ClassNotFoundException ex) {
+                    /* BTW: Exception generation is slow.  I'm
+                     * really sad that this is the default.
+                     */
+                }
+            }
+
             Enumeration enum = imports.keys();
             while (enum.hasMoreElements()) {
                 String importName = (String) enum.nextElement();
@@ -75,14 +96,16 @@ public class JodeEnvironment {
                     importName = importName.substring
                         (0, importName.length()-2);
                     if (!importName.equals(pkgName)) {
-                        String checkName = importName + "." + name;
                         try {
-                            Class.forName(checkName);
+                            Class.forName(importName + name);
                             /* UGLY: If class doesn't conflict, above
                              * Instruction throws an exception and we
                              * doesn't reach here.  
                              * XXX - Is there a better way to do it ???
                              */
+//                             System.err.println(""+pkgName+name
+//                                                + " conflicts with "
+//                                                + importName+name);
                             return true;
                         } catch (ClassNotFoundException ex) {
                             /* BTW: Exception generation is slow.  I'm
@@ -113,19 +136,20 @@ public class JodeEnvironment {
                 if (pkgvote.intValue() >= Decompiler.importPackageLimit)
                     continue;
 
-                /* This is a single Class import.  Mark it for importation,
-                 * but don't put it in newImports, yet.
+                /* This is a single Class import, that is not
+                 * superseeded by a package import.  Mark it for
+                 * importation, but don't put it in newImports, yet.  
                  */
                 classImports.addElement(importName);
             } else {
                 if (vote.intValue() < Decompiler.importPackageLimit)
                     continue;
+                newImports.put(importName, dummyVote);
             }
-            newImports.put(importName, dummyVote);
         }
 
         imports = newImports;
-
+        cachedClassNames = new Hashtable();
         /* Now check if the class import conflict with any of the
          * package imports.
          */
@@ -135,8 +159,12 @@ public class JodeEnvironment {
              * the same name, exactly the first (in hash order) will
              * be imported. */
             String className = (String) enum.nextElement();
-            if (!conflictsImport(className))
+            if (!conflictsImport(className)) {
                 imports.put(className, dummyVote);
+                String name = 
+                    className.substring(className.lastIndexOf('.')+1);
+                cachedClassNames.put(className, name);
+            }
         }
     }
 
@@ -201,22 +229,22 @@ public class JodeEnvironment {
         int pkgdelim = name.lastIndexOf('.');
         if (pkgdelim != -1) {
             String pkgName = name.substring(0, pkgdelim);
-            if (pkgName.equals(pkg)
-                || pkgName.equals("java.lang"))
+            if (pkgName.equals(pkg))
                 return;
+
+            Integer pkgVote = (Integer) imports.get(pkgName+".*");
+            if (pkgVote != null 
+                && pkgVote.intValue() >= Decompiler.importPackageLimit)
+                return;
+
             Integer i = (Integer) imports.get(name);
             if (i == null) {
-                /* This class wasn't imported before.  Mark the package
-                 * as used. */
+                /* This class wasn't imported before.  Mark the whole package
+                 * as used once more. */
 
-                i = (Integer) imports.get(pkgName+".*");
-                if (i != null && i.intValue() >= Decompiler.importPackageLimit)
-                    return;
-                i = (i == null)? new Integer(1): new Integer(i.intValue()+1);
-                imports.put(pkgName+".*", i);
-                if (i.intValue() >= Decompiler.importPackageLimit)
-                    return;
-
+                pkgVote = (pkgVote == null)
+                    ? new Integer(1): new Integer(pkgVote.intValue()+1);
+                imports.put(pkgName+".*", pkgVote);
                 i = new Integer(1);
 
             } else {
@@ -250,23 +278,30 @@ public class JodeEnvironment {
      * @return a legal string representation of clazz.  
      */
     public String classString(String name) {
+        if (cachedClassNames == null)
+            /* We are not yet clean, return the full name */
+            return name;
+
+        /* First look in our cache. */
+        String cached = (String) cachedClassNames.get(name);
+        if (cached != null)
+            return cached;
+
         int pkgdelim = name.lastIndexOf('.');
         if (pkgdelim != -1) {
-            /* First look in our cache. */
-            if (goodClasses.get(name) != null)
-                return name.substring(pkgdelim+1);
                 
             String pkgName = name.substring(0, pkgdelim);
 
             Integer i;
             if (pkgName.equals(pkg)
-                || ((   imports.get(pkgName+".*") != null
-                     || imports.get(name) != null)
+                || (imports.get(pkgName+".*") != null
                     && !conflictsImport(name))) {
-                goodClasses.put(name, name);
-                return  name.substring(pkgdelim+1);
+                String result = name.substring(pkgdelim+1);
+                cachedClassNames.put(name, result);
+                return result;
             }
         }
+        cachedClassNames.put(name, name);
         return name;
     }
 

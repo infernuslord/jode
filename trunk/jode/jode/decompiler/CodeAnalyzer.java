@@ -70,6 +70,10 @@ public class CodeAnalyzer implements Analyzer {
 	    param[i] = getLocalInfo(0, i);
     }
 
+    public FlowBlock getMethodHeader() {
+        return methodHeader;
+    }
+
     private final static int SEQUENTIAL   = 1;
     private final static int PREDECESSORS = 2;
     /**
@@ -226,12 +230,12 @@ public class CodeAnalyzer implements Analyzer {
             if (!li.isShadow())
                 li.getType().useType();
         }
+        methodHeader.makeDeclaration(new jode.flow.VariableSet(param));
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
-        methodHeader.makeDeclaration(new jode.flow.VariableSet(param));
         methodHeader.dumpSource(writer);
     }
 
@@ -242,6 +246,19 @@ public class CodeAnalyzer implements Analyzer {
         if (!allLocals.contains(li))
             allLocals.addElement(li);
         return li;
+    }
+
+    /**
+     * Checks if the variable set contains a local with the given name.
+     */
+    public LocalInfo findLocal(String name) {
+        Enumeration enum = allLocals.elements();
+        while (enum.hasMoreElements()) {
+            LocalInfo li = (LocalInfo) enum.nextElement();
+            if (li.getName().equals(name))
+                return li;
+        }
+        return null;
     }
 
     public LocalInfo getParamInfo(int slot) {

@@ -59,9 +59,11 @@ public class GetFieldOperator extends Operator {
     public String toString(String[] operands) {
         return staticFlag
             ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
+               && codeAnalyzer.findLocal(fieldName) == null
                ? fieldName 
                : classType.toString() + "." + fieldName)
             : (operands[0].equals("this")
+               && codeAnalyzer.findLocal(fieldName) == null
                ? fieldName
                : operands[0] + "." + fieldName);
     }

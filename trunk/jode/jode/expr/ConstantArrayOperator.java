@@ -24,6 +24,7 @@ public class ConstantArrayOperator extends NoArgOperator {
     ConstOperator empty;
     Expression[] values;
     Type argType;
+    boolean isInitializer;
 
     public ConstantArrayOperator(Type type, int size) {
         super(type);
@@ -31,6 +32,7 @@ public class ConstantArrayOperator extends NoArgOperator {
         argType = (type instanceof ArrayType) 
             ? Type.tSubType(((ArrayType)type).getElementType()) : Type.tError;
         empty  = new ConstOperator(argType, "0");
+        empty.makeInitializer();
     }
 
     public void setType(Type newtype) {
@@ -54,6 +56,7 @@ public class ConstantArrayOperator extends NoArgOperator {
         setType(Type.tSuperType(Type.tArray(value.getType())));
         values[index] = value;
         value.parent = this;
+        value.makeInitializer();
         return true;
     }
 
@@ -61,9 +64,13 @@ public class ConstantArrayOperator extends NoArgOperator {
         return 200;
     }
 
+    public void makeInitializer() {
+        isInitializer = true;
+    }
+
     public String toString(String[] operands) {
-        StringBuffer result 
-            = new StringBuffer("new ").append(type).append(" { ");
+        StringBuffer result = isInitializer ? new StringBuffer("{ ")
+            : new StringBuffer("new ").append(type).append(" { ");
         for (int i=0; i< values.length; i++) {
             if (i>0)
                 result.append(", ");

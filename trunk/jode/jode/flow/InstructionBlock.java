@@ -20,6 +20,7 @@ import jode.Expression;
 import jode.TabbedPrintWriter;
 import jode.LocalInfo;
 import jode.LocalStoreOperator;
+import jode.ComplexExpression;
 
 /**
  * This is the structured block for atomic instructions.
@@ -69,10 +70,13 @@ public class InstructionBlock extends InstructionContainer {
 	throws java.io.IOException
     {
         if (isDeclaration) {
-            writer.println
-                (((LocalStoreOperator) instr.getOperator())
-                 .getLocalInfo().getType().toString()
-                 + " " + instr.simplify().toString() + ";");
+            LocalInfo local = ((LocalStoreOperator) instr.getOperator())
+                .getLocalInfo();
+            Expression expr = 
+                ((ComplexExpression) instr).getSubExpressions()[0];
+            expr.makeInitializer();
+            writer.println(local.getType() + " " + local.getName() + " = "
+                           + expr.simplify().toString() + ";");
         } else {
             if (instr.getType() != jode.Type.tVoid)
                 writer.print("PUSH ");

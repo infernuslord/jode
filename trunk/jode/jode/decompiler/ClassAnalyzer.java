@@ -27,10 +27,14 @@ import gnu.bytecode.CpoolEntry;
 import gnu.bytecode.CpoolValue1;
 import gnu.bytecode.CpoolValue2;
 import gnu.bytecode.CpoolString;
+import jode.flow.TransformConstructors;
 
 public class ClassAnalyzer implements Analyzer {
     JodeEnvironment env;
-    Analyzer[] analyzers;
+    Analyzer[] analyzers;    
+    MethodAnalyzer staticConstructor;
+    MethodAnalyzer[] constructors;
+
     Class clazz;
     gnu.bytecode.ClassType classType;
     ClassAnalyzer parent;
@@ -48,7 +52,18 @@ public class ClassAnalyzer implements Analyzer {
             ex.printStackTrace();
         }
     }
-    
+
+    public boolean setFieldInitializer(String fieldName, Expression expr) {
+        for (int i=0; i< analyzers.length; i++) {
+            if (analyzers[i] instanceof FieldAnalyzer) {
+                FieldAnalyzer field = (FieldAnalyzer) analyzers[i];
+                if (field.getName().equals(fieldName))
+                    return field.setInitializer(expr);
+            }
+        }
+        return false;
+    }
+
     public void analyze() {
         int numFields = 0;
         int i = 0;
@@ -57,17 +72,34 @@ public class ClassAnalyzer implements Analyzer {
 
         analyzers = new Analyzer[fields.length + 
                                 classType.getMethodCount()];
-
         for (int j=0; j< fields.length; j++) {
             analyzers[i] = new FieldAnalyzer(this, fields[j], env);
             analyzers[i++].analyze();
         }
-    
+
+        staticConstructor = null;
+        java.util.Vector constrVector = new java.util.Vector();
         for (gnu.bytecode.Method method = classType.getMethods();
              method != null; method = method.getNext()) {
-            analyzers[i] = new MethodAnalyzer(this, method, env);
-            analyzers[i++].analyze();
+            MethodAnalyzer analyzer = new MethodAnalyzer(this, method, env);
+            analyzers[i++] = analyzer;
+
+            if (analyzer.isConstructor()) {
+                if (analyzer.isStatic())
+                    staticConstructor = analyzer;
+                else
+                    constrVector.addElement(analyzer);
+            }
+            analyzer.analyze();
         }
+        constructors = new MethodAnalyzer[constrVector.size()];
+        if (constructors.length > 0) {
+            constrVector.copyInto(constructors);
+            TransformConstructors.transform(this, false, constructors);
+        }
+        if (staticConstructor != null)
+            TransformConstructors.transform(this, true, new MethodAnalyzer[] 
+                                            { staticConstructor });
 
 	env.useClass(clazz);
         if (clazz.getSuperclass() != null)

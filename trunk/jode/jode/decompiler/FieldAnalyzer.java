@@ -29,7 +29,7 @@ public class FieldAnalyzer implements Analyzer {
     int modifiers;
     Type type;
     String fieldName;
-    ConstOperator constant;
+    Expression constant;
     
     public FieldAnalyzer(ClassAnalyzer cla, Field fd, JodeEnvironment e)
     {
@@ -51,11 +51,23 @@ public class FieldAnalyzer implements Analyzer {
                 constant = new ConstOperator
                     (type.intersection(cla.getConstantType(index)),
                      cla.getConstantString(index));
-
+                constant.makeInitializer();
             } catch (java.io.IOException ex) {
                 throw new AssertError("attribute too small");
             }
         }
+    }
+
+    public String getName() {
+        return fieldName;
+    }
+
+    public boolean setInitializer(Expression expr) {
+        expr.makeInitializer();
+        if (constant != null)
+            return constant.equals(expr);
+        constant = expr;
+        return true;
     }
 
     public void analyze() {
@@ -71,7 +83,7 @@ public class FieldAnalyzer implements Analyzer {
 
         writer.print(type.toString() + " " + fieldName);
         if (constant != null) {
-            writer.print(" = " + constant.toString());
+            writer.print(" = " + constant.simplify().toString());
         }
         writer.println(";");
     }

@@ -72,9 +72,24 @@ public class MethodAnalyzer implements Analyzer {
         }
     }
 
+    public jode.flow.FlowBlock getMethodHeader() {
+        return code != null ? code.getMethodHeader() : null;
+    }
+
+    public boolean isConstructor() {
+        return isConstructor;
+    }
+
+    public boolean isStatic() {
+        return methodType.isStatic();
+    }
+
     public int getParamCount() {
-	return (methodType.isStatic() ? 0 : 1)
-            + methodType.getParameterTypes().length;
+        int count = isStatic() ? 0 : 1;
+        Type[] paramTypes = methodType.getParameterTypes();
+        for (int i=0; i< paramTypes.length; i++)
+            count += paramTypes[i].stackSize();
+	return count;
     }
 
     public Type getReturnType() {
@@ -88,7 +103,7 @@ public class MethodAnalyzer implements Analyzer {
 	    return;
 
 	int offset = 0;
-	if (!methodType.isStatic()) {
+	if (!isStatic()) {
 	    LocalInfo clazz = code.getParamInfo(0);
 	    clazz.setType(Type.tType(this.classAnalyzer.clazz));
 	    clazz.setName("this");
@@ -96,8 +111,10 @@ public class MethodAnalyzer implements Analyzer {
 	}
         
 	Type[] paramTypes = methodType.getParameterTypes();
-	for (int i=0; i< paramTypes.length; i++)
-	    code.getParamInfo(offset+i).setType(paramTypes[i]);
+	for (int i=0; i< paramTypes.length; i++) {
+	    code.getParamInfo(offset).setType(paramTypes[i]);
+            offset += paramTypes[i].stackSize();
+        }
 
         for (int i= 0; i< exceptions.length; i++)
             exceptions[i].useType();
@@ -128,11 +145,15 @@ public class MethodAnalyzer implements Analyzer {
 		System.err.println("");
 	}
 
+        if (isConstructor() && isStatic() 
+            && getMethodHeader().getBlock() instanceof jode.flow.EmptyBlock)
+            return;
+
         writer.println("");
 	String modif = Modifier.toString(modifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
-        if (isConstructor && methodType.isStatic())
+        if (isConstructor && isStatic())
             writer.print(""); /* static block */
         else { 
             if (isConstructor)
@@ -148,11 +169,13 @@ public class MethodAnalyzer implements Analyzer {
                     writer.print(", ");
                 LocalInfo li;
                 if (code == null) {
-                    li = new LocalInfo(i+offset);
+                    li = new LocalInfo(offset);
                     li.setType(paramTypes[i]);
+                    li.makeNameUnique();
                 } else
-                    li = code.getParamInfo(i+offset);
+                    li = code.getParamInfo(offset);
                 writer.print(li.getType().toString()+" "+li.getName());
+                offset += paramTypes[i].stackSize();
             }
             writer.print(")");
         }

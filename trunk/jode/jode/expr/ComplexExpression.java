@@ -250,6 +250,8 @@ public class ComplexExpression extends Expression {
             else if (subExpressions[i].getType() == Type.tError)
                 expr[i] = "(/*type error */" + expr[i]+")";
         }
+        if (Decompiler.isTypeDebugging && parent != null)
+            return "[("+type+") "+ operator.toString(expr)+"]";
         return operator.toString(expr);
     }
 
@@ -426,5 +428,18 @@ public class ComplexExpression extends Expression {
         }
         return this;
     }
-}
 
+    public void makeInitializer() {
+        operator.makeInitializer();
+    }
+
+    public boolean isConstant() {
+        if (!operator.isConstant())
+            return false;
+        for (int i=0; i< subExpressions.length; i++)
+            if (!subExpressions[i].isConstant())
+                return false;
+        return true;
+    }
+
+}
