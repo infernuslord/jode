@@ -58,6 +58,13 @@ public class Jump {
      */
     VariableSet gen;
 
+    /**
+     * The stack map.  This tells how many objects are on stack at
+     * begin of the flow block, and to what locals they are maped.
+     * @see FlowBlock.mapStackToLocal
+     */
+    VariableStack stackMap;
+
     public Jump (int destAddr) {
         this.destAddr = destAddr;
 	kill = new VariableSet();
