@@ -18,18 +18,36 @@
  */
 
 package jode.decompiler;
-import jode.bytecode.ClassInfo;
-import jode.bytecode.MethodInfo;
-import jode.jvm.SyntheticAnalyzer;
-import jode.type.*;
-import jode.expr.Expression;
-import jode.expr.ThisOperator;
 import jode.AssertError;
 import jode.Decompiler;
 import jode.GlobalOptions;
+import jode.bytecode.*;
+import jode.jvm.SyntheticAnalyzer;
+import jode.type.*;
+import jode.expr.Expression;
+import jode.expr.ConstOperator;
+import jode.expr.CheckNullOperator;
+import jode.expr.ThisOperator;
+import jode.expr.LocalLoadOperator;
+import jode.expr.OuterLocalOperator;
+import jode.expr.ConstructorOperator;
+import jode.flow.StructuredBlock;
+import jode.flow.FlowBlock;
+import jode.flow.TransformExceptionHandlers;
+import jode.flow.Jump;
+import jode.jvm.CodeVerifier;
+import jode.jvm.VerifyException;
+import jode.util.SimpleDictionary;
 
 import java.lang.reflect.Modifier;
-import java.io.*;
+import java.util.BitSet;
+import java.util.Stack;
+import java.util.Vector;
+import java.util.Dictionary;
+import java.util.Enumeration;
+import java.io.DataInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 
 public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     ImportHandler imports;
@@ -40,13 +58,33 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     MethodType methodType;
     boolean isConstructor;
 
-    CodeAnalyzer code = null;
     Type[] exceptions;
 
     SyntheticAnalyzer synth;
 
+    FlowBlock methodHeader;
+    BytecodeInfo code;
+
+    Vector allLocals = new Vector();
+    LocalInfo[] param;
+    LocalVariableTable lvt;
+
+    /**
+     * This is a block that will be inserted at the beginning of the
+     * method, when the code is analyzed.
+     */
+    StructuredBlock insertBlock = null;
+
     boolean isJikesConstructor;
     boolean isImplicitAnonymousConstructor;
+
+    /**
+     * This dictionary maps an anonymous ClassInfo to the
+     * ConstructorOperator that creates this class.  
+     */
+    Vector anonConstructors = new Vector();
+    Vector innerAnalyzers;
+
 
     public MethodAnalyzer(ClassAnalyzer cla, MethodInfo minfo,
                           ImportHandler imports) {
@@ -58,8 +96,28 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
         this.isConstructor = 
             methodName.equals("<init>") || methodName.equals("<clinit>");
         
-	if (minfo.getBytecode() != null)
-	    code = new CodeAnalyzer(this, minfo, imports);
+	if (minfo.getBytecode() != null) {
+	    code = minfo.getBytecode();
+
+	    if ((Decompiler.options & Decompiler.OPTION_VERIFY) != 0) {
+		CodeVerifier verifier
+		    = new CodeVerifier(getClazz(), minfo, code);
+		try {
+		    verifier.verify();
+		} catch (VerifyException ex) {
+		    ex.printStackTrace(GlobalOptions.err);
+		    throw new jode.AssertError("Verification error");
+		}
+	    }
+	
+	    if ((Decompiler.options & Decompiler.OPTION_LVT) != 0) {
+		LocalVariableInfo[] localvars = code.getLocalVariableTable();
+		if (localvars != null)
+		    lvt = new LocalVariableTable(code.getMaxLocals(), 
+						 localvars);
+	    }
+	    initParams();
+	}
         String[] excattr = minfo.getExceptions();
         if (excattr == null) {
             exceptions = new Type[0];
@@ -73,6 +131,22 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    synth = new SyntheticAnalyzer(minfo, true);
     }
 
+
+
+    public void initParams() {
+        Type[] paramTypes = getType().getParameterTypes();
+	int paramCount = (isStatic() ? 0 : 1) + paramTypes.length;
+	param = new LocalInfo[paramCount];
+	int offset = 0;
+	int slot = 0;
+	if (!isStatic())
+	    param[offset++] = getLocalInfo(0, slot++);
+	for (int i=0; i < paramTypes.length; i++) {
+	    param[offset++] = getLocalInfo(0, slot);
+	    slot += paramTypes[i].stackSize();
+	}
+    }
+
     public String getName() {
 	return methodName;
     }
@@ -81,12 +155,26 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	return methodType;
     }
 
-    public jode.flow.FlowBlock getMethodHeader() {
-        return code != null ? code.getMethodHeader() : null;
+    public FlowBlock getMethodHeader() {
+        return methodHeader;
     }
 
-    public CodeAnalyzer getCode() {
+    public final BytecodeInfo getBytecodeInfo() {
 	return code;
+    }
+
+    public final ImportHandler getImportHandler() {
+	return imports;
+    }
+
+    public final void useType(Type type) {
+	imports.useType(type);
+    }
+
+    public void insertStructuredBlock(StructuredBlock superBlock) {
+	if (insertBlock != null)
+	    throw new jode.AssertError();
+	insertBlock = superBlock;
     }
 
     public final boolean isConstructor() {
@@ -121,6 +209,134 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
         return methodType.getReturnType();
     }
 
+
+    public void analyzeCode()
+    {
+	if (GlobalOptions.verboseLevel > 0)
+	    GlobalOptions.err.print(methodName+": ");
+	/* The adjacent analyzation relies on this */
+	DeadCodeAnalysis.removeDeadCode(code);
+	Handler[] handlers = code.getExceptionHandlers();
+	int returnCount;
+        TransformExceptionHandlers excHandlers; 
+	{
+	    /* First create a FlowBlock for every block that has a 
+	     * predecessor other than the previous instruction.
+	     */
+	    for (Instruction instr = code.getFirstInstr();
+		 instr != null; instr = instr.nextByAddr) {
+		if (instr.prevByAddr == null
+		    || instr.prevByAddr.alwaysJumps
+		    || instr.preds != null)
+		    instr.tmpInfo = new FlowBlock
+			(this, instr.addr, instr.length);
+	    }
+
+	    for (int i=0; i < handlers.length; i++) {
+		Instruction instr = handlers[i].start;
+		if (instr.tmpInfo == null)
+		    instr.tmpInfo 
+			= new FlowBlock(this, instr.addr, instr.length);
+		instr = handlers[i].catcher;
+		if (instr.tmpInfo == null)
+		    instr.tmpInfo 
+			= new FlowBlock(this, instr.addr, instr.length);
+	    }
+
+            /* While we read the opcodes into FlowBlocks 
+             * we try to combine sequential blocks, as soon as we
+             * find two sequential instructions in a row, where the
+             * second has no predecessors.
+             */
+            int mark = 1000;
+            FlowBlock lastBlock = null;
+	    boolean   lastSequential = false;
+	    for (Instruction instr = code.getFirstInstr();
+		 instr != null; instr = instr.nextByAddr) {
+
+		jode.flow.StructuredBlock block
+		    = Opcodes.readOpcode(instr, this);
+
+                if (GlobalOptions.verboseLevel > 0 && instr.addr > mark) {
+                    GlobalOptions.err.print('.');
+                    mark += 1000;
+                }
+
+                if (lastSequential && instr.tmpInfo == null
+		    /* Only merge with previous block, if this is sequential, 
+		     * too.  
+		     * Why?  doSequentialT2 does only handle sequential blocks.
+		     */
+		    && !instr.alwaysJumps && instr.succs == null) {
+		    
+                    lastBlock.doSequentialT2(block, instr.length);
+
+                } else {
+
+		    if (instr.tmpInfo == null)
+			instr.tmpInfo = new FlowBlock
+			    (this, instr.addr, instr.length);
+		    FlowBlock flowBlock = (FlowBlock) instr.tmpInfo;
+		    flowBlock.setBlock(block);
+
+		    if (lastBlock != null)
+			lastBlock.setNextByAddr(flowBlock);
+
+                    instr.tmpInfo = lastBlock = flowBlock;
+		    lastSequential = !instr.alwaysJumps && instr.succs == null;
+                }
+	    }
+
+	    methodHeader = (FlowBlock) code.getFirstInstr().tmpInfo;
+	    if (insertBlock != null) {
+		insertBlock.setJump(new Jump(methodHeader));
+		FlowBlock insertFlowBlock = new FlowBlock(this, 0, 0);
+		insertFlowBlock.setBlock(insertBlock);
+		insertFlowBlock.setNextByAddr(methodHeader);
+		methodHeader = insertFlowBlock;
+	    }
+
+            excHandlers = new TransformExceptionHandlers();
+            for (int i=0; i<handlers.length; i++) {
+                Type type = null;
+                FlowBlock start 
+		    = (FlowBlock) handlers[i].start.tmpInfo;
+                int endAddr = handlers[i].end.nextByAddr.addr;
+                FlowBlock handler
+		    = (FlowBlock) handlers[i].catcher.tmpInfo;
+                if (handlers[i].type != null)
+                    type = Type.tClass(handlers[i].type);
+                
+                excHandlers.addHandler(start, endAddr, handler, type);
+            }
+        }
+	for (Instruction instr = code.getFirstInstr();
+	     instr != null; instr = instr.nextByAddr)
+	    instr.tmpInfo = null;
+
+        if (GlobalOptions.verboseLevel > 0)
+            GlobalOptions.err.print('-');
+            
+//          try {
+//              TabbedPrintWriter writer = new TabbedPrintWriter(System.err);
+//  	    methodHeader.dumpSource(writer);
+//          } catch (java.io.IOException ex) {
+//          }
+        excHandlers.analyze();
+        methodHeader.analyze();
+
+	if ((Decompiler.options & Decompiler.OPTION_PUSH) == 0
+	    && methodHeader.mapStackToLocal())
+	    methodHeader.removePush();
+	if ((Decompiler.options & Decompiler.OPTION_ONETIME) != 0)
+	    methodHeader.removeOnetimeLocals();
+
+	methodHeader.mergeParams(param);
+
+	if (GlobalOptions.verboseLevel > 0)
+	    GlobalOptions.err.println("");
+    } 
+
     public void analyze() 
       throws ClassFormatError
     {
@@ -130,14 +346,14 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	int offset = 0;
 	if (!isStatic()) {
 	    ClassInfo classInfo = classAnalyzer.getClazz();
-	    LocalInfo thisLocal = code.getParamInfo(0);
+	    LocalInfo thisLocal = getParamInfo(0);
 	    thisLocal.setExpression(new ThisOperator(classInfo, true));
 	    offset++;
 	}
 
 	Type[] paramTypes = methodType.getParameterTypes();
 	for (int i=0; i< paramTypes.length; i++) {
-	    code.getParamInfo(offset).setType(paramTypes[i]);
+	    getParamInfo(offset).setType(paramTypes[i]);
             offset++;
         }
 
@@ -147,28 +363,18 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
         if (!isConstructor)
             imports.useType(methodType.getReturnType());
 
-	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) == 0) {
-	    if (GlobalOptions.verboseLevel > 0)
-		GlobalOptions.err.print(methodName+": ");
-	    code.analyze();
-	    if (GlobalOptions.verboseLevel > 0)
-		GlobalOptions.err.println("");
-	}
+	if ((Decompiler.options & Decompiler.OPTION_IMMEDIATE) == 0)
+	    analyzeCode();
     }
 
-    public LocalInfo getParamInfo(int i) {
-	if (code == null)
-	    return null;
-	return code.getParamInfo(i);
+    public final LocalInfo getParamInfo(int nr) {
+	return param[nr];
     }
 
-    public void analyzeAnonymousClasses() 
+    public void analyzeInnerClasses() 
       throws ClassFormatError
     {
-	if (code == null)
-	    return;
-
-	code.analyzeAnonymousClasses();
+	createAnonymousClasses();
     }
 
     public void makeDeclaration() {
@@ -176,13 +382,48 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    && classAnalyzer.outerValues != null) {
 	    Expression[] outerValues = classAnalyzer.outerValues;
 	    for (int i=0; i< outerValues.length; i++) {
-		LocalInfo local = code.getParamInfo(1+i);
+		LocalInfo local = getParamInfo(1+i);
 		local.setExpression(outerValues[i]);
 	    }
 	}
         
-	if (code != null)
-	    code.makeDeclaration();
+        for (Enumeration enum = allLocals.elements();
+	     enum.hasMoreElements(); ) {
+            LocalInfo li = (LocalInfo)enum.nextElement();
+            if (!li.isShadow())
+                imports.useType(li.getType());
+        }
+	for (int i=0; i < param.length; i++) {
+	    param[i].guessName();
+	    for (int j=0; j < i; j++) {
+		if (param[j].getName().equals(param[i].getName())) {
+		    /* A name conflict happened. */
+		    param[i].makeNameUnique();
+		    break; /* j */
+		}
+	    }
+	}
+
+	methodHeader.makeDeclaration(param);
+	methodHeader.simplify();
+	if (innerAnalyzers != null) {
+	    for (Enumeration enum = innerAnalyzers.elements();
+		 enum.hasMoreElements(); ) {
+		ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+		if (classAna.getParent() == this) {
+		    Expression[] outerValues = classAna.getOuterValues();
+		    for (int i=0; i< outerValues.length; i++) {
+			if (outerValues[i] instanceof OuterLocalOperator) {
+			    LocalInfo li = ((OuterLocalOperator) 
+					    outerValues[i]).getLocalInfo();
+			    if (li.getMethodAnalyzer() == this)
+				li.markFinal();
+			}
+		    }
+		    classAna.makeDeclaration();
+		}
+	    }
+	}
     }
 
     public boolean skipWriting() {
@@ -255,11 +496,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
             // We do the code.analyze() here, to get 
             // immediate output.
 
-	    if (GlobalOptions.verboseLevel > 0)
-		GlobalOptions.err.print(methodName+": ");
-	    code.analyze();
-	    if (GlobalOptions.verboseLevel > 0)
-		GlobalOptions.err.println("");
+	    analyzeCode();
 	}
 
         if (isConstructor() && isStatic() 
@@ -271,7 +508,12 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    writer.println(" * @deprecated");
 	    writer.println(" */");
 	}
-	if (minfo.isSynthetic())
+
+	writer.pushScope(this);
+
+	if (minfo.isSynthetic()
+	    && (classAnalyzer.getName() != null
+		|| !isConstructor()))
 	    writer.print("/*synthetic*/ ");
 	int modifiedModifiers = minfo.getModifiers();
 	/*
@@ -295,9 +537,9 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
         if (isConstructor
 	    && (isStatic()
 		|| (classAnalyzer.getName() == null
-		    && skipParams == methodType.getParameterTypes().length)))
-            writer.print(""); /* static block or unnamed constructor */
-        else { 
+		    && skipParams == methodType.getParameterTypes().length))) {
+            /* static block or unnamed constructor */
+        } else { 
             if (declareAsConstructor)
 		writer.print(classAnalyzer.getName());
             else {
@@ -312,7 +554,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    LocalInfo[] param = new LocalInfo[paramTypes.length];
             for (int i=start; i<paramTypes.length; i++) {
                 if (code == null) {
-                    param[i] = new LocalInfo(offset);
+                    param[i] = new LocalInfo(this, offset);
                     param[i].setType(paramTypes[i]);
 		    param[i].guessName();
 		    for (int j=0; j < i; j++) {
@@ -323,7 +565,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 			}
 		    }
                 } else {
-                    param[i] = code.getParamInfo(offset);
+                    param[i] = getParamInfo(offset);
 		    offset++;
 		}
             }
@@ -347,14 +589,414 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
         if (code != null) {
 	    writer.openBrace();
             writer.tab();
-            code.dumpSource(writer);
+	    if (methodHeader != null)
+		methodHeader.dumpSource(writer);
+	    else
+		writer.println("COULDN'T DECOMPILE METHOD!");
             writer.untab();
 	    writer.closeBrace();
         } else
             writer.println(";");
+	writer.popScope();
+    }
+
+    public LocalInfo getLocalInfo(int addr, int slot) {
+        LocalInfo li = new LocalInfo(this, slot);
+	if (lvt != null) {
+	    LocalVarEntry entry = lvt.getLocal(slot, addr);
+	    if (entry != null)
+		li.addHint(entry.getName(), entry.getType());
+	}
+	allLocals.addElement(li);
+        return li;
     }
 
     public ClassAnalyzer getClassAnalyzer() {
 	return classAnalyzer;
+    }
+
+    public ClassInfo getClazz() {
+        return classAnalyzer.clazz;
+    }
+
+
+    /**
+     * Checks if the variable set contains a local with the given name.
+     */
+    public LocalInfo findLocal(String name) {
+        Enumeration enum = allLocals.elements();
+        while (enum.hasMoreElements()) {
+            LocalInfo li = (LocalInfo) enum.nextElement();
+            if (li.getName().equals(name))
+                return li;
+        }
+        return null;
+    }
+
+    /**
+     * Checks if an anonymous class with the given name exists.
+     */
+    public ClassAnalyzer findAnonClass(String name) {
+	if (innerAnalyzers != null) {
+	    Enumeration enum = innerAnalyzers.elements();
+	    while (enum.hasMoreElements()) {
+		ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+		if (classAna.getParent() == this
+		    && classAna.getName() != null
+		    && classAna.getName().equals(name)) {
+		    return classAna;
+		}
+	    }
+	}
+        return null;
+    }
+
+    public boolean isScopeOf(Object obj, int scopeType) {
+	if (scopeType == METHODSCOPE
+	    && obj instanceof ClassInfo) {
+	    ClassAnalyzer ana = getClassAnalyzer((ClassInfo)obj);
+	    if (ana != null)
+		return ana.getParent() == this;
+	}
+	return false;
+    }
+
+    public boolean conflicts(String name, int usageType) {
+	if (usageType == AMBIGUOUSNAME || usageType == LOCALNAME)
+	    return findLocal(name) != null;
+	if (usageType == AMBIGUOUSNAME || usageType == CLASSNAME)
+	    return findAnonClass(name) != null;
+	return false;
+    }
+
+    public ClassDeclarer getParent() {
+	return getClassAnalyzer();
+    }
+
+
+    public void addAnonymousConstructor(ConstructorOperator cop) {
+	anonConstructors.addElement(cop);
+    }
+
+    private boolean unifyOuterValues(Expression ov1, Expression ov2,
+				     final ClassAnalyzer clazzAna, 
+				     final int shrinkTo) {
+
+
+	/* Wow, unifying outer values of different constructors in
+	 * different methods of different classes can get complicated.
+	 * We have not committed the number of OuterValues.  So we
+	 * can't say for sure, if the local load matches an outer
+	 * local if this is a constructor.  Even worse: The previous
+	 * outerValues may be a load of a constructor local, that
+	 * should be used as outer value...
+	 *
+	 * We look if there is a way to merge them and register an
+	 * outer value listener to lots of classes.  
+	 */
+
+	LocalInfo li1 = null;
+	MethodAnalyzer method1 = null;
+	if (ov2 instanceof ThisOperator) {
+	    if (ov1 instanceof ThisOperator)
+		return ov1.equals(ov2);
+	    Expression temp = ov2;
+	    ov2 = ov1;
+	    ov1 = temp;
+
+	} else {
+
+	    if (ov1 instanceof LocalLoadOperator)
+		li1 = ((LocalLoadOperator) ov1).getLocalInfo();
+	    else if (ov1 instanceof OuterLocalOperator)
+		li1 = ((OuterLocalOperator) ov1).getLocalInfo();
+	    else if (!(ov1 instanceof ThisOperator))
+		return false;
+	}
+
+	LocalInfo li2;
+	if (ov2 instanceof LocalLoadOperator)
+	    li2 = ((LocalLoadOperator) ov2).getLocalInfo();
+	else if (ov2 instanceof OuterLocalOperator)
+	    li2 = ((OuterLocalOperator) ov2).getLocalInfo();
+	else
+	    return false;
+	MethodAnalyzer method2 = li2.getMethodAnalyzer();
+
+
+	/* Now: li2 != null, method2 != null
+	 *      (li1 == null and method1 == null) iff ov1 is ThisOperator 
+	 */
+
+	class ShrinkOnShrink implements OuterValueListener {
+	    Dictionary limits = new SimpleDictionary();
+	    
+	    public void setLimit(ClassAnalyzer other, 
+				 int newLimit) {
+		limits.put(other, new Integer(newLimit));
+		other.addOuterValueListener(this);
+	    }
+	    
+	    public void done() {
+		shrinkTo = -1;
+	    }
+	    
+	    public void shrinkingOuterValues
+		(ClassAnalyzer other, int newCount) {
+		if (shrinkTo != -1) {
+		    int limit = ((Integer) limits.get(other)
+				 ).intValue();
+		    if (newCount <= limit) {
+			clazzAna.shrinkOuterValues(shrinkTo);
+			done();
+		    }
+		}
+	    }
+	}
+	
+	ShrinkOnShrink sos = new ShrinkOnShrink();
+
+	if (li1 != null) {
+	    method1 = li1.getMethodAnalyzer();
+	    
+	    System.err.println("unifyLocalInfos: "+method1+"."+li1
+			       +" and "+method2+"."+li2);
+	    
+	    while (!method2.isParent(method1)) {
+		if (!method1.isConstructor() || method1.isStatic()) {
+		    sos.done();
+		    return false;
+		}
+		
+		ClassAnalyzer ca1 = method2.classAnalyzer;
+		int slot = li1.getSlot();
+		Expression[] ov = ca1.getOuterValues();
+		if (ov == null) {
+		    sos.done();
+		    return false;
+		}
+		
+		int param = 0;
+		while (param < ov.length && slot > 0)
+		    slot -= ov[param++].getType().stackSize();
+		
+		if (slot != 0) {
+		    sos.done();
+		    return false;
+		}
+		ov1 = ov[param];
+
+		if (ov1 instanceof ThisOperator) {
+		    li1 = null;
+		    method1 = null;
+		    break;
+		}
+
+		sos.setLimit(ca1, param);
+		li1 = ((OuterLocalOperator) ov1).getLocalInfo();
+		method1 = li1.getMethodAnalyzer();
+		System.err.println("unifyLocalInfos: "+method1+"."+li1
+				   +" and "+method2+"."+li2);
+	    }
+	}
+
+	/* Now: ov1 is ThisOperator  and method1 == null
+	 *   or (ov1 is LocalExpression, li1 is LocalInfo,
+	 *       method1 is parent of method2).
+	 */
+	    
+	System.err.println(method1+" is parent of "+method2);
+	while (method1 != method2) {
+	    if (!method2.isConstructor() || method2.isStatic()) {
+		sos.done();
+		return false;
+	    }
+	    
+	    ClassAnalyzer ca2 = method2.classAnalyzer;
+	    int slot = li2.getSlot();
+	    Expression[] ov = ca2.getOuterValues();
+	    if (ov == null) {
+		sos.done();
+		return false;
+	    }
+
+	    slot--;
+	    int param = 0;
+	    while (param < ov.length && slot > 0)
+		slot -= ov[param++].getType().stackSize();
+	    
+	    if (slot != 0) {
+		System.err.println("slot: "+slot+"; param: "+param+"; "+ov[param]);
+		sos.done();
+		return false;
+	    }
+
+	    ov2 = ov[param];
+	    if (ov2 instanceof ThisOperator) {
+		if (ov1.equals(ov2))
+		    return true;
+		else {
+		    sos.done();
+		    return false;
+		}
+	    }
+
+	    sos.setLimit(ca2, param);
+	    li2 = ((OuterLocalOperator) ov2).getLocalInfo();
+	    method2 = li2.getMethodAnalyzer();
+	    System.err.println("unifyLocalInfos: "+method1+"."+li1
+			       +" and "+method2+"."+li2);
+	}
+	if (!li1.equals(li2)) {
+	    sos.done();
+	    return false;
+	}
+	return true;
+    }
+
+    public void analyzeConstructorOperator(ConstructorOperator cop) {
+	ClassInfo clazz = (ClassInfo) cop.getClassInfo();
+	ClassAnalyzer anonAnalyzer = getParent().getClassAnalyzer(clazz);
+	
+	Expression[] outerValues;
+	if (anonAnalyzer == null) {
+	    /* Create a new outerValues array corresponding to the
+	     * first constructor invocation.
+	     */
+	    if (GlobalOptions.verboseLevel > 0)
+		GlobalOptions.err.println("Analyzing method scope class: "
+					  +clazz);
+	    Expression[] subExprs = cop.getSubExpressions();
+	    outerValues = new Expression[subExprs.length];
+	    
+	    for (int j=0; j < outerValues.length; j++) {
+		Expression expr = subExprs[j].simplify();
+		if (expr instanceof CheckNullOperator)
+		    expr = ((CheckNullOperator) 
+			    expr).getSubExpressions()[0];
+		if (expr instanceof ThisOperator) {
+		    outerValues[j] = 
+			new ThisOperator(((ThisOperator)
+					  expr).getClassInfo());
+		    continue;
+		}
+		LocalInfo li = null;
+		if (expr instanceof LocalLoadOperator) {
+		    li = ((LocalLoadOperator) expr).getLocalInfo();
+		    if (!li.isConstant())
+			li = null;
+		}
+		if (expr instanceof OuterLocalOperator)
+		    li = ((OuterLocalOperator) expr).getLocalInfo();
+		
+		if (li != null) {
+		    outerValues[j] = new OuterLocalOperator(li);
+		    continue;
+		}
+		
+		Expression[] newOuter = new Expression[j];
+		System.arraycopy(outerValues, 0, newOuter, 0, j);
+		outerValues = newOuter;
+		break;
+	    }
+	    anonAnalyzer = new ClassAnalyzer(this, clazz, imports,
+					     outerValues);
+	    addClassAnalyzer(anonAnalyzer);
+	    anonAnalyzer.analyze();
+	    anonAnalyzer.analyzeInnerClasses();
+	} else {
+	    
+	    /*
+	     * Get the previously created outerValues array and
+	     * its length.  
+	     */
+	    outerValues = anonAnalyzer.getOuterValues();
+	    /*
+	     * Merge the other constructor invocation and
+	     * possibly shrink outerValues array.  
+	     */
+	    Expression[] subExprs = cop.getSubExpressions();
+	    for (int j=0; j < outerValues.length; j++) {
+		if (j < subExprs.length) {
+		    Expression expr = subExprs[j].simplify();
+		    if (expr instanceof CheckNullOperator)
+			expr = ((CheckNullOperator) expr)
+			    .getSubExpressions()[0];
+
+		    if (unifyOuterValues(outerValues[j], expr, 
+					 anonAnalyzer, j))
+			continue;
+		    
+		    System.err.println("shrinkOuterValues: "
+				       +outerValues[j]+" vs. "+expr);
+		}
+		anonAnalyzer.shrinkOuterValues(j);
+		break;
+	    }
+	}
+    }
+    
+    public void createAnonymousClasses() {
+	int serialnr = 0;
+        Enumeration elts = anonConstructors.elements();
+        while (elts.hasMoreElements()) {
+	    ConstructorOperator cop = (ConstructorOperator) elts.nextElement();
+	    analyzeConstructorOperator(cop);
+	}
+    }
+
+    /**
+     * Get the class analyzer for the given class info.  This searches
+     * the method scoped/anonymous classes in this method and all
+     * outer methods and the outer classes for the class analyzer.
+     * @param cinfo the classinfo for which the analyzer is searched.
+     * @return the class analyzer, or null if there is not an outer
+     * class that equals cinfo, and not a method scope/inner class in
+     * an outer method.
+     */
+    public ClassAnalyzer getClassAnalyzer(ClassInfo cinfo) {
+	if (innerAnalyzers != null) {
+	    Enumeration enum = innerAnalyzers.elements();
+	    while (enum.hasMoreElements()) {
+		ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+		if (classAna.getClazz().equals(cinfo)) {
+		    if (!isParent(classAna.getParent())) {
+			
+			Expression[] outerValues = classAna.getOuterValues();
+			for (int i=0; i< outerValues.length; i++) {
+			    if (outerValues[i] instanceof OuterLocalOperator) {
+				LocalInfo li = ((OuterLocalOperator) 
+						outerValues[i]).getLocalInfo();
+				classAna.shrinkOuterValues(i-1);
+			    }
+			}
+			classAna.setParent(this);
+		    }
+		    return classAna;
+		}
+	    }
+	}
+	return getParent().getClassAnalyzer(cinfo);
+    }
+
+    public void addClassAnalyzer(ClassAnalyzer clazzAna) {
+	if (innerAnalyzers == null)
+	    innerAnalyzers = new Vector();
+	innerAnalyzers.addElement(clazzAna);
+	getParent().addClassAnalyzer(clazzAna);
+    }
+
+    public boolean isParent(ClassDeclarer declarer) {
+	ClassDeclarer ancestor = this;
+	while (ancestor != null) {
+	    if (ancestor == declarer)
+		return true;
+	    ancestor = ancestor.getParent();
+	}
+	return false;
+    }
+
+    public String toString() {
+	return "MethodAnalyzer["+getClazz()+"."+getName()+"]";
     }
 }
