@@ -20,6 +20,7 @@ package jode.bytecode;
 import jode.MethodType;
 import java.io.*;
 import java.util.*;
+import java.lang.reflect.Modifier;
 
 /**
  * This class does represent a class similar to java.lang.Class.  You
@@ -217,6 +218,7 @@ public class ClassInfo extends BinaryInfo {
             else
                 superclass = ClassInfo.forName("java.lang.Object");
             interfaces = new ClassInfo[0];
+	    modifiers = Modifier.PUBLIC;
             status = FULLINFO;
         }
     }
@@ -240,7 +242,7 @@ public class ClassInfo extends BinaryInfo {
     }
 
     public boolean isInterface() {
-        return java.lang.reflect.Modifier.isInterface(getModifiers());
+        return Modifier.isInterface(getModifiers());
     }
 
     public String toString() {
