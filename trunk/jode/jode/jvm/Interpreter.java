@@ -18,7 +18,9 @@
  */
 
 package jode.jvm;
-import jode.*;
+import jode.AssertError;
+import jode.GlobalOptions;
+import jode.type.*;
 import jode.bytecode.*;
 import jode.decompiler.ClassAnalyzer;
 import java.lang.reflect.Array;
@@ -33,6 +35,16 @@ import java.lang.reflect.InvocationTargetException;
  */
 public class Interpreter implements Opcodes {
 
+    private final static int CMP_EQ = 0;
+    private final static int CMP_NE = 1;
+    private final static int CMP_LT = 2;
+    private final static int CMP_GE = 3;
+    private final static int CMP_GT = 4;
+    private final static int CMP_LE = 5;
+    private final static int CMP_GREATER_MASK = 1 << (CMP_GT|CMP_GE|CMP_NE);
+    private final static int CMP_LESS_MASK    = 1 << (CMP_LT|CMP_LE|CMP_NE);
+    private final static int CMP_EQUAL_MASK   = 1 << (CMP_GE|CMP_LE|CMP_EQ);
+
     public static Object interpretMethod
 	(RuntimeEnvironment env, BytecodeInfo code, Value[] locals)
 	throws InterpreterException, InvocationTargetException {
@@ -46,21 +58,23 @@ public class Interpreter implements Opcodes {
 	for(;;) {
 	    try {
 		Instruction instr = pc;
-		System.err.print(instr.addr+": [");
-		for (int i=0; i<stacktop; i++) {
-		    if (i>0)
-			System.err.print(",");
-		    System.err.print(stack[i]);
-		    if (stack[i].objectValue() instanceof char[]) {
-			System.err.print(new String((char[])stack[i].objectValue()));
+		if ((GlobalOptions.debuggingFlags 
+		     & GlobalOptions.DEBUG_INTERPRT) != 0) {
+		    GlobalOptions.err.print(instr.addr+": [");
+		    for (int i=0; i<stacktop; i++) {
+			if (i>0)
+			    GlobalOptions.err.print(",");
+			GlobalOptions.err.print(stack[i]);
+			if (stack[i].objectValue() instanceof char[]) {
+			    GlobalOptions.err.print(new String((char[])stack[i].objectValue()));
+			}
 		    }
+		    GlobalOptions.err.println("]");
+		    GlobalOptions.err.print("local: [");
+		    for (int i=0; i<locals.length; i++)
+			GlobalOptions.err.print(locals[i]+",");
+		    GlobalOptions.err.println("]");
 		}
-		System.err.println("]");
-		System.err.print("local: [");
-		for (int i=0; i<locals.length; i++)
-		    System.err.print(locals[i]+",");
-		System.err.println("]");
-
 		pc = instr.nextByAddr;
 		int opcode = instr.opcode;
 		switch (opcode) {
@@ -477,15 +491,14 @@ public class Interpreter implements Opcodes {
 		case opc_ifnull: case opc_ifnonnull: {
 		    int value;
 		    if (opcode >= opc_if_acmpeq) {
+			Object objValue = stack[--stacktop].objectValue();
 			if (opcode >= opc_ifnull) {
-			    value = 
-				stack[--stacktop].objectValue() == null ? 0 : 1;
-			    opcode += opc_ifeq - opc_ifnull;
+			    value = objValue == null ? 0 : 1;
+			    opcode -= opc_ifnull;
 			} else {
-			    value = 
-				stack[--stacktop].objectValue()
+			    value = objValue
 				== stack[--stacktop].objectValue() ? 0 : 1;
-			    opcode += opc_ifeq - opc_if_acmpeq;
+			    opcode -= opc_if_acmpeq;
 			}
 		    } else {
 			value = stack[--stacktop].intValue();
@@ -493,13 +506,14 @@ public class Interpreter implements Opcodes {
 			    int val1 = stack[--stacktop].intValue();
 			    value = (val1 == value ? 0
 				     : val1 < value ? -1 : 1);
-			    opcode += opc_ifeq - opc_if_icmpeq;
-			}
+			    opcode -= opc_if_icmpeq;
+			} else
+			    opcode -= opc_ifeq;
 		    }
-		    if (value > 0 && (opcode == opc_ifgt || opcode == opc_ifge)
-			|| value < 0 && (opcode == opc_iflt || opcode == opc_ifle)
-			|| value == 0 && (opcode == opc_ifge || opcode == opc_ifle
-					  || opcode == opc_ifeq))
+		    int opc_mask = 1 << opcode;
+		    if (value > 0 && (opc_mask & CMP_GREATER_MASK) != 0
+			|| value < 0 && (opc_mask & CMP_LESS_MASK) != 0
+			|| value == 0 && (opc_mask & CMP_EQUAL_MASK) != 0)
 			pc = instr.succs[0];
 		    break;
 		}
