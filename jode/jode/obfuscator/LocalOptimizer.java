@@ -57,7 +57,7 @@ import jode.GlobalOptions;
  * are not only left by the ret instructions, but also "spontanously"
  * (by not reading the return address again).
  */
-public class LocalOptimizer implements Opcodes {
+public class LocalOptimizer implements Opcodes, CodeTransformer {
 
     /**
      * This class keeps track of which locals must be the same, which
@@ -183,7 +183,6 @@ public class LocalOptimizer implements Opcodes {
     }
 
     BytecodeInfo bc;
-    MethodIdentifier methodIdent;
 
     InstrInfo firstInfo;
     Stack changedInfos;
@@ -193,9 +192,7 @@ public class LocalOptimizer implements Opcodes {
 
     LocalInfo[] paramLocals;
 
-    public LocalOptimizer(MethodIdentifier methodIdent, BytecodeInfo bc) {
-	this.methodIdent = methodIdent;
-	this.bc = bc;
+    public LocalOptimizer() {
     }
 
 
@@ -289,14 +286,14 @@ public class LocalOptimizer implements Opcodes {
 
 	/* Initialize paramLocals */
 	{
-	    int paramCount = methodIdent.info.isStatic() ? 0 : 1;
+	    int paramCount = bc.getMethodInfo().isStatic() ? 0 : 1;
 	    Type[] paramTypes = 
-		Type.tMethod(methodIdent.getType()).getParameterTypes();
+		Type.tMethod(bc.getMethodInfo().getType()).getParameterTypes();
 	    for (int i = paramTypes.length; i-- > 0;)
 		paramCount += paramTypes[i].stackSize();
 	    paramLocals = new LocalInfo[paramCount];
 	    int slot = 0;
-	    if (!methodIdent.info.isStatic()) {
+	    if (!bc.getMethodInfo().isStatic()) {
 		LocalInfo local = new LocalInfo();
 		if (lvt != null) {
 		    LocalVariableInfo lvi = findLVTEntry(lvt, 0, 0);
@@ -878,5 +875,28 @@ public class LocalOptimizer implements Opcodes {
 	    GlobalOptions.err.println();
 	}
 	GlobalOptions.err.println("-----------");
+    }
+
+    public void transformCode(BytecodeInfo bytecode) {
+	this.bc = bytecode;
+	calcLocalInfo();
+	if ((GlobalOptions.debuggingFlags 
+	     & GlobalOptions.DEBUG_LOCALS) != 0) {
+	    GlobalOptions.err.println("Before Local Optimization: ");
+	    dumpLocals();
+	}
+	stripLocals();
+	distributeLocals();
+	
+	if ((GlobalOptions.debuggingFlags 
+	     & GlobalOptions.DEBUG_LOCALS) != 0) {
+	    GlobalOptions.err.println("After Local Optimization: ");
+	    dumpLocals();
+	}
+
+	firstInfo = null;
+	changedInfos = null;
+	instrInfos = null;
+	paramLocals = null;
     }
 }
