@@ -228,7 +228,7 @@ public class ImportHandler {
      * Known Bug 2: It is not checked if the class name conflicts with
      * a local variable, field or method name.  This is very unlikely
      * since the java standard has different naming convention for those
-     * names. (But maybe a intelligent obfuscator may use this fact.)
+     * names. (But maybe an intelligent obfuscator may use this fact.)
      * This can only happen with static fields or static methods.
      * @return a legal string representation of clazz.  
      */
