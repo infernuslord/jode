@@ -133,16 +133,7 @@ public class ConstantPool {
         if (i == 0)
             throw new ClassFormatException("null constant");
         switch(tags[i]) {
-        case INTEGER: {
-            int value = ((Integer)constants[i]).intValue();
-            return ((value < Short.MIN_VALUE || value > Character.MAX_VALUE) 
-                    ? Type.tInt
-                    : (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) 
-                    ? Type.tRange(Type.tInt, Type.tChar)
-                    : (value == 0 || value == 1)
-		    ? Type.tBoolInt
-		    : Type.tUInt);
-        }
+        case INTEGER: return Type.tInt;
         case FLOAT  : return Type.tFloat ;
         case LONG   : return Type.tLong  ;
         case DOUBLE : return Type.tDouble;
@@ -193,6 +184,12 @@ public class ConstantPool {
         return result.append("\"").toString();
     }
 
+    public int getConstantInt(int i) throws ClassFormatException {
+	if (i == 0 || tags[i] != ConstantPool.INTEGER)
+            throw new ClassFormatException("not an integer "+tags[i]);
+	return ((Integer)constants[i]).intValue();
+    }
+
     public String getConstantString(int i) throws ClassFormatException {
         if (i == 0)
             throw new ClassFormatException("null constant");
@@ -205,7 +202,7 @@ public class ConstantPool {
         case ConstantPool.STRING: 
             return quoted(getUTF8(indices1[i]));
         }
-        throw new ClassFormatException("unknown constant tag");
+        throw new ClassFormatException("unknown constant tag: "+tags[i]);
     }
 
     public String getClassName(int i) throws ClassFormatException {
