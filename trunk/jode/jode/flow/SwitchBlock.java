@@ -134,10 +134,11 @@ implements BreakableBlock {
             writer.println(label+":");
             writer.tab();
         }
-        writer.println("switch ("+instr.simplify()+") {");
+        writer.print("switch ("+instr.simplify()+")");
+	writer.openBrace();
 	for (int i=0; i < caseBlocks.length; i++)
 	    caseBlocks[i].dumpSource(writer);
-	writer.println("}");
+	writer.closeBrace();
     }
 
     /**
