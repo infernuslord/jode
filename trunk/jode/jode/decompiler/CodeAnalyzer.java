@@ -21,15 +21,26 @@ package jode.decompiler;
 import jode.Decompiler;
 import jode.GlobalOptions;
 import jode.type.Type;
+import jode.util.SimpleDictionary;
 import jode.bytecode.*;
+import jode.expr.Expression;
+import jode.expr.ConstOperator;
+import jode.expr.CheckNullOperator;
+import jode.expr.ThisOperator;
+import jode.expr.LocalLoadOperator;
+import jode.expr.OuterLocalOperator;
+import jode.expr.ConstructorOperator;
+import jode.flow.StructuredBlock;
 import jode.flow.FlowBlock;
 import jode.flow.TransformExceptionHandlers;
+import jode.flow.Jump;
 import jode.jvm.CodeVerifier;
 import jode.jvm.VerifyException;
 
 import java.util.BitSet;
 import java.util.Stack;
 import java.util.Vector;
+import java.util.Dictionary;
 import java.util.Enumeration;
 import java.io.DataInputStream;
 import java.io.ByteArrayInputStream;
@@ -41,9 +52,17 @@ public class CodeAnalyzer implements Analyzer, Scope {
     BytecodeInfo code;
     MethodAnalyzer method;
     ImportHandler imports;
-
+    boolean analyzedAnonymous = false;
+    StructuredBlock insertBlock = null;
+    
     Vector allLocals = new Vector();
-    Vector anonClasses = new Vector();
+    /**
+     * This dictionary maps an anonymous ClassInfo to the
+     * ConstructorOperator that creates this class.  
+     */
+    Dictionary anonClasses = new SimpleDictionary();
+    Vector anonAnalyzers = new Vector();
+
     LocalInfo[] param;
     LocalVariableTable lvt;
     
@@ -94,6 +113,12 @@ public class CodeAnalyzer implements Analyzer, Scope {
 
     public FlowBlock getMethodHeader() {
         return methodHeader;
+    }
+
+    public void insertStructuredBlock(StructuredBlock superBlock) {
+	if (insertBlock != null)
+	    throw new jode.AssertError();
+	insertBlock = superBlock;
     }
 
     void readCode() {
@@ -171,6 +196,14 @@ public class CodeAnalyzer implements Analyzer, Scope {
 	    }
 
 	    methodHeader = (FlowBlock) code.getFirstInstr().tmpInfo;
+	    if (insertBlock != null) {
+		insertBlock.setJump(new Jump(methodHeader));
+		FlowBlock insertFlowBlock = new FlowBlock(this, 0, 0);
+		insertFlowBlock.setBlock(insertBlock);
+		insertFlowBlock.setNextByAddr(methodHeader);
+		methodHeader = insertFlowBlock;
+	    }
+
             excHandlers = new TransformExceptionHandlers();
             for (int i=0; i<handlers.length; i++) {
                 Type type = null;
@@ -212,6 +245,9 @@ public class CodeAnalyzer implements Analyzer, Scope {
 	if ((Decompiler.options & Decompiler.OPTION_ONETIME) != 0)
 	    methodHeader.removeOnetimeLocals();
 
+	methodHeader.mergeParams(param);
+	createAnonymousClasses();
+
         Enumeration enum = allLocals.elements();
         while (enum.hasMoreElements()) {
             LocalInfo li = (LocalInfo)enum.nextElement();
@@ -219,6 +255,7 @@ public class CodeAnalyzer implements Analyzer, Scope {
                 imports.useType(li.getType());
         }
 	for (int i=0; i < param.length; i++) {
+	    param[i].guessName();
 	    for (int j=0; j < i; j++) {
 		if (param[j].getName().equals(param[i].getName())) {
 		    /* A name conflict happened. */
@@ -227,14 +264,8 @@ public class CodeAnalyzer implements Analyzer, Scope {
 		}
 	    }
 	}
-	methodHeader.makeDeclaration(new jode.flow.VariableSet(param));
+	methodHeader.makeDeclaration(param);
 	methodHeader.simplify();
-
-        enum = anonClasses.elements();
-        while (enum.hasMoreElements()) {
-            ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
-	    classAna.analyze();
-        }
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -276,31 +307,119 @@ public class CodeAnalyzer implements Analyzer, Scope {
      * Checks if an anonymous class with the given name exists.
      */
     public ClassAnalyzer findAnonClass(String name) {
-        Enumeration enum = anonClasses.elements();
+        Enumeration enum = anonAnalyzers.elements();
         while (enum.hasMoreElements()) {
             ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
-            if (classAna.getName().equals(name))
+            if (classAna.getName() != null
+		&& classAna.getName().equals(name))
                 return classAna;
         }
         return null;
     }
 
-    static int serialnr = 0;
-    public ClassAnalyzer addAnonymousClass(ClassInfo clazz) {
-        Enumeration enum = anonClasses.elements();
-        while (enum.hasMoreElements()) {
-            ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
-	    if (classAna.getClazz() == clazz) {
-		if (classAna.getName() == null)
-		    classAna.setName("Anonymous_" + (serialnr++));
-		return classAna;
-	    }
+    public void addAnonymousConstructor(ConstructorOperator cop) {
+	ClassInfo cinfo = cop.getClassInfo();
+	ConstructorOperator[] cops = 
+	    (ConstructorOperator[]) anonClasses.get(cinfo);
+	ConstructorOperator[] newCops;
+	if (cops == null)
+	    newCops = new ConstructorOperator[] { cop };
+	else {
+	    newCops = new ConstructorOperator[cops.length + 1];
+	    System.arraycopy(cops, 0, newCops, 0, cops.length);
+	    newCops[cops.length] = cop;
 	}
-
-	ClassAnalyzer classAna = new ClassAnalyzer(this, clazz, imports);
-	anonClasses.addElement(classAna);
-	return classAna;
+	anonClasses.put(cinfo, newCops);
     }
+
+    public void createAnonymousClasses() {
+	int serialnr = 0;
+	Enumeration keys = anonClasses.keys();
+        Enumeration elts = anonClasses.elements();
+        while (keys.hasMoreElements()) {
+            ClassInfo clazz = (ClassInfo) keys.nextElement();
+	    ConstructorOperator[] cops =
+		(ConstructorOperator[]) elts.nextElement();
+
+//  	    System.err.println("aac: expr0 = "+cops[0]);
+	    Expression[] subExprs1 = cops[0].getSubExpressions();
+	    int maxOuter = subExprs1.length;
+	    for (int i=1; i < cops.length; i++) {
+//  		System.err.println("aac: expr"+i+" = "+cops[i]);
+		Expression[] subExprs2 = cops[i].getSubExpressions();
+		maxOuter = Math.min(subExprs2.length, maxOuter);
+		for (int j=0; j < maxOuter; j++) {
+		    if (!subExprs2[j].equals(subExprs1[j])) {
+			maxOuter = j;
+			break;
+		    }
+		}
+	    }
+			 
+	    Expression[] outerValues = new Expression[maxOuter];
+	    for (int j=0; j < maxOuter; j++) {
+		Expression expr = subExprs1[j].simplify();
+		if (expr instanceof CheckNullOperator)
+		    expr = ((CheckNullOperator) expr).getSubExpressions()[0];
+		if (expr instanceof ThisOperator) {
+		    outerValues[j] = 
+			new ThisOperator(((ThisOperator)expr).getClassInfo());
+		    continue;
+		}
+		if (expr instanceof LocalLoadOperator) {
+		    LocalLoadOperator llop = (LocalLoadOperator) expr;
+		    LocalInfo li = llop.getLocalInfo();
+		    for (int i=1; i < cops.length; i++) {
+			Expression expr2 = 
+			    cops[i].getSubExpressions()[j].simplify();
+			if (expr2 instanceof CheckNullOperator)
+			    expr2 = ((CheckNullOperator) expr2)
+				.getSubExpressions()[0];
+			LocalInfo li2 = 
+			    ((LocalLoadOperator) expr2).getLocalInfo();
+			li2.combineWith(li);
+		    }
+		    if (li.markFinal()) {
+			outerValues[j] = new OuterLocalOperator(li);
+			continue;
+		    }
+		}
+		maxOuter = j;
+//  		System.err.println("new maxOuter: "+maxOuter+" ("+expr);
+		Expression[] newOuter = new Expression[j];
+		System.arraycopy(outerValues, 0, newOuter, 0, j);
+		outerValues = newOuter;
+		break;
+	    }
+	    
+	    ClassAnalyzer classAna = new ClassAnalyzer(this, clazz, imports,
+						       outerValues);
+	    anonAnalyzers.addElement(classAna);
+	}
+	analyzedAnonymous = true;
+    }
+    public void analyzeAnonymousClasses() {
+        Enumeration enum = anonAnalyzers.elements();
+	while (enum.hasMoreElements()) {
+	    ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    classAna.analyze();
+	}
+    }
+
+    public boolean hasAnalyzedAnonymous() {
+	return analyzedAnonymous;
+    }
+
+    public ClassAnalyzer getAnonymousClass(ClassInfo cinfo) {
+        Enumeration enum = anonAnalyzers.elements();
+	while (enum.hasMoreElements()) {
+	    ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    if (classAna.getClazz().equals(cinfo))
+		return classAna;
+	}
+	throw new java.util.NoSuchElementException(cinfo.toString());
+    }
+
 
     public LocalInfo getParamInfo(int nr) {
 	return param[nr];
@@ -330,11 +449,13 @@ public class CodeAnalyzer implements Analyzer, Scope {
 
 
     public boolean isScopeOf(Object obj, int scopeType) {
+	if (scopeType == METHODSCOPE)
+	    return anonClasses.get(obj) != null;
 	return false;
     }
 
     public boolean conflicts(String name, int usageType) {
-	if (usageType == AMBIGUOUSNAME)
+	if (usageType == AMBIGUOUSNAME || usageType == LOCALNAME)
 	    return findLocal(name) != null;
 	if (usageType == AMBIGUOUSNAME || usageType == CLASSNAME)
 	    return findAnonClass(name) != null;
