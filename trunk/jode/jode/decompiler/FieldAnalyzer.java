@@ -19,7 +19,7 @@
 
 package jode.decompiler;
 import java.lang.reflect.Modifier;
-import jode.*;
+import jode.type.*;
 import jode.bytecode.FieldInfo;
 import jode.bytecode.AttributeInfo;
 import jode.bytecode.ClassFormatException;
@@ -29,7 +29,7 @@ import jode.expr.ConstOperator;
 
 public class FieldAnalyzer implements Analyzer {
     ClassAnalyzer clazz;
-    JodeEnvironment env;
+    ImportHandler imports;
     int modifiers;
     Type type;
     String fieldName;
@@ -38,10 +38,10 @@ public class FieldAnalyzer implements Analyzer {
     boolean analyzedSynthetic = false;
     
     public FieldAnalyzer(ClassAnalyzer cla, FieldInfo fd, 
-                         JodeEnvironment e)
+                         ImportHandler i)
     {
         clazz = cla;
-        env  = e;
+        imports = i;
 
         modifiers = fd.getModifiers();
         type = fd.getType();
@@ -83,7 +83,7 @@ public class FieldAnalyzer implements Analyzer {
     }
 
     public void analyze() {
-        type.useType();
+        imports.useType(type);
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -97,7 +97,8 @@ public class FieldAnalyzer implements Analyzer {
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
 
-        writer.print(type.toString() + " " + fieldName);
+	writer.printType(type);
+        writer.print(" " + fieldName);
         if (constant != null) {
             writer.print(" = " + constant.simplify().toString());
         }

@@ -20,13 +20,16 @@
 package jode.decompiler;
 import jode.bytecode.MethodInfo;
 import jode.bytecode.AttributeInfo;
-import jode.*;
+import jode.type.Type;
+import jode.type.*;
+import jode.AssertError;
+import jode.Decompiler;
 
 import java.lang.reflect.Modifier;
 import java.io.*;
 
 public class MethodAnalyzer implements Analyzer {
-    JodeEnvironment env;
+    ImportHandler imports;
     CodeAnalyzer code = null;
     ClassAnalyzer classAnalyzer;
     boolean isConstructor;
@@ -40,9 +43,9 @@ public class MethodAnalyzer implements Analyzer {
     Type[] exceptions;
     
     public MethodAnalyzer(ClassAnalyzer cla, MethodInfo minfo,
-                          JodeEnvironment env) {
+                          ImportHandler imports) {
         this.classAnalyzer = cla;
-        this.env = env;
+        this.imports = imports;
         this.modifiers = minfo.getModifiers();
         this.methodType = minfo.getType();
         this.methodName = minfo.getName();
@@ -54,7 +57,7 @@ public class MethodAnalyzer implements Analyzer {
         
         AttributeInfo codeattr = minfo.findAttribute("Code");
         if (codeattr != null) {
-	    code = new CodeAnalyzer(this, minfo, codeattr, env);
+	    code = new CodeAnalyzer(this, minfo, codeattr, imports);
         }
         
         AttributeInfo excattr = minfo.findAttribute("Exceptions");
@@ -135,10 +138,10 @@ public class MethodAnalyzer implements Analyzer {
         }
 
         for (int i= 0; i< exceptions.length; i++)
-            exceptions[i].useType();
+            imports.useType(exceptions[i]);
     
         if (!isConstructor)
-            methodType.getReturnType().useType();
+            imports.useType(methodType.getReturnType());
 
 	if (!Decompiler.immediateOutput || isSynthetic) {
 	    if (Decompiler.isVerbose)
@@ -196,8 +199,7 @@ public class MethodAnalyzer implements Analyzer {
             writer.print(""); /* static block */
         else { 
             if (isConstructor)
-                writer.print(env.classString(classAnalyzer.
-                                             getClazz().getName()));
+                writer.print(imports.getClassString(classAnalyzer.getClazz()));
             else
                 writer.print(getReturnType().toString()
 			     + " " + methodName);
