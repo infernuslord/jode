@@ -25,27 +25,13 @@ import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipEntry;
 
 public class Decompiler {
-    public final static String version = "1.0";
-    public final static String email = "jochen@gnu.org";
-    public final static String copyright = 
-	"Jode (c) 1998,1999 Jochen Hoenicke <"+email+">";
-    
     public final static int TAB_SIZE_MASK = 0x0f;
     public final static int BRACE_AT_EOL  = 0x10;
     public final static int SUN_STYLE = 0x14;
     public final static int GNU_STYLE = 0x02;
 
-    public static PrintStream err = System.err;
-    public static boolean isVerbose = false;
-    public static boolean isDebugging = false;
-    public static boolean isTypeDebugging = false;
-    public static boolean isFlowDebugging = false;
     public static boolean usePUSH = false;
-    public static boolean debugInOut = false;
-    public static boolean debugAnalyze = false;
-    public static boolean showLVT = false;
     public static boolean useLVT = true;
-    public static boolean doChecks = false;
     public static boolean prettyLocals = false;
     public static boolean immediateOutput = false;
     public static boolean highlevelTrafos = true;
@@ -53,21 +39,19 @@ public class Decompiler {
     public static boolean undoOptimizations = true;
     public static boolean removeOnetimeLocals = false;
     public static int outputStyle = SUN_STYLE;
-    public static int importPackageLimit = 3;
-    public static int importClassLimit = 3;
 
     public static void usage() {
-	err.println("Version: " + version);
+	PrintStream err = GlobalOptions.err;
+	err.println("Version: " + GlobalOptions.version);
         err.println("use: jode [-v][--dest <destdir>]"
 			   +"[--imm][--pretty]"
 			   +"[--cp <classpath>]"
 		           +"[--nolvt][--usepush][--nodecrypt]"
                            +"[--import <pkglimit> <clslimit>]"
-		           +"[--debug][--analyze][--flow]"
-			   +"[--type][--inout][--lvt][--check]"
+		           +"[--debug=...]"
                            +" class1 [class2 ...]");
 	err.println("\t-v               "+
-		    "show progress.");
+		    "be verbose (multiple times means more verbose).");
 	err.println("\t--dest <destdir> "+
 	    "write decompiled files to disk into directory destdir.");
 	err.println("\t--imm            "+
@@ -90,20 +74,8 @@ public class Decompiler {
 	err.println("\t                 "+
 	    "and packages with more then pkglimit used classes");
 	err.println("Debugging options, mainly used to debug this decompiler:");
-	err.println("\t--debug          "+
-		    "output some debugging messages into the source code.");
-	err.println("\t--analyze        "+
-		    "show analyzation order of flow blocks.");
-	err.println("\t--flow           "+
-		    "show flow block merging.");
-	err.println("\t--type           "+
-		    "show how types are guessed.");
-	err.println("\t--inout          "+
-		    "show T1/T2 in/out-set analysis.");
-	err.println("\t--lvt            "+
-		    "dump the local variable table.");
-	err.println("\t--check          "+
-		    "do flow block sanity checks.");
+	err.println("\t--debug=...      "+
+		    "use --debug=help for more information.");
     }
 
     public static void main(String[] params) {
@@ -111,32 +83,29 @@ public class Decompiler {
         String classPath = System.getProperty("java.class.path");
 	File destDir = null;
 	ZipOutputStream destZip = null;
-	err.println(copyright);
+	int importPackageLimit = 3;
+        int importClassLimit = 3;
+	GlobalOptions.err.println(GlobalOptions.copyright);
         for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
-                isVerbose = true;
+		GlobalOptions.verboseLevel++;
             else if (params[i].equals("--imm"))
                 immediateOutput = true;
 	    else if (params[i].equals("--dest"))
 		destDir = new File(params[++i]);
-            else if (params[i].equals("--debug"))
-                isDebugging = true;
-            else if (params[i].equals("--type"))
-                isTypeDebugging = true;
-            else if (params[i].equals("--analyze"))
-                debugAnalyze = true;
-            else if (params[i].equals("--flow"))
-                isFlowDebugging = true;
-            else if (params[i].equals("--inout"))
-                debugInOut = true;
-            else if (params[i].equals("--nolvt"))
-                useLVT = false;
-            else if (params[i].equals("--usepush"))
-                usePUSH = true;
-            else if (params[i].equals("--lvt"))
-                showLVT = true;
-            else if (params[i].equals("--check"))
-                doChecks = true;
+            else if (params[i].startsWith("--debug")) {
+		String flags;
+		if (params[i].startsWith("--debug=")) {
+		    flags = params[i].substring(8);
+		} else if (params[i].length() != 7) {
+		    usage();
+		    return;
+		} else {
+		    flags = params[++i];
+		}
+		GlobalOptions.setDebugging(flags);
+	    } else if (params[i].equals("--usepush"))
+		usePUSH = true;
             else if (params[i].equals("--pretty"))
                 prettyLocals = true;
             else if (params[i].equals("--nodecrypt"))
@@ -148,7 +117,7 @@ public class Decompiler {
 		else if (style.equals("gnu"))
 		    outputStyle = GNU_STYLE;
 		else {
-		    err.println("Unknown style: "+style);
+		    GlobalOptions.err.println("Unknown style: "+style);
 		    usage();
 		    return;
 		}
@@ -163,7 +132,7 @@ public class Decompiler {
             } else {
                 if (!params[i].startsWith("-h") &&
 		    !params[i].equals("--help"))
-                    err.println("Unknown option: "+params[i]);
+                    GlobalOptions.err.println("Unknown option: "+params[i]);
                 usage();
                 return;
             }
@@ -174,7 +143,8 @@ public class Decompiler {
         }
         
         ClassInfo.setClassPath(classPath);
-	ImportHandler imports = new ImportHandler();
+	ImportHandler imports = new ImportHandler(importClassLimit,
+						  importPackageLimit);
 	TabbedPrintWriter writer = null;
 	if (destDir == null)
 	    writer = new TabbedPrintWriter(System.out, imports);
@@ -182,8 +152,8 @@ public class Decompiler {
 	    try {
 		destZip = new ZipOutputStream(new FileOutputStream(destDir));
 	    } catch (IOException ex) {
-		err.println("Can't open zip file "+destDir);
-		ex.printStackTrace(err);
+		GlobalOptions.err.println("Can't open zip file "+destDir);
+		ex.printStackTrace(GlobalOptions.err);
 		return;
 	    }
 	    writer = new TabbedPrintWriter(destZip, imports);
@@ -194,7 +164,8 @@ public class Decompiler {
 		try {
 		    clazz = ClassInfo.forName(params[i]);
 		} catch (IllegalArgumentException ex) {
-		    err.println("`"+params[i]+"' is not a class name");
+		    GlobalOptions.err.println
+			("`"+params[i]+"' is not a class name");
 		    continue;
 		}
 
@@ -207,16 +178,16 @@ public class Decompiler {
 		    File file = new File (destDir, filename);
 		    File directory = new File(file.getParent());
 		    if (!directory.exists() && !directory.mkdirs()) {
-			err.println("Could not create directory "
-				    + directory.getPath() + ", "
-				    + "check permissions.");
+			GlobalOptions.err.println
+			    ("Could not create directory " 
+			     + directory.getPath() + ", check permissions.");
 		    }
 		    writer = new TabbedPrintWriter(new FileOutputStream(file),
 						   imports);
 		}
 
 		imports.init(params[i]);
-		Decompiler.err.println(params[i]);
+		GlobalOptions.err.println(params[i]);
 		
 		ClassAnalyzer clazzAna 
 		    = new ClassAnalyzer(null, clazz, imports);
@@ -233,17 +204,18 @@ public class Decompiler {
 		/* Now is a good time to clean up */
 		System.gc();
 	    } catch (IOException ex) {
-		err.println("Can't write source of "+params[i]+".");
-		err.println("Check the permissions.");
-		ex.printStackTrace(err);
+		GlobalOptions.err.println
+		    ("Can't write source of "+params[i]+".");
+		GlobalOptions.err.println("Check the permissions.");
+		ex.printStackTrace(GlobalOptions.err);
 	    }
 	}
 	if (destZip != null) {
 	    try {
 		destZip.close();
 	    } catch (IOException ex) {
-		err.println("Can't close Zipfile");
-		ex.printStackTrace(err);
+		GlobalOptions.err.println("Can't close Zipfile");
+		ex.printStackTrace(GlobalOptions.err);
 	    }
 	}
     }
