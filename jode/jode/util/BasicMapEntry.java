@@ -26,6 +26,10 @@
 /////////////////////////////////////////////////////////////////////////////
 
 package jode.util;
+///#ifdef JDK12
+///import java.lang.UnsupportedOperationException;
+///import java.util.Map;
+///#endif
 
 /**
  * a class which implements Map.Entry
