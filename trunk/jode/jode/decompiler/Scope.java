@@ -32,6 +32,7 @@ public interface Scope {
     public final int METHODNAME    = 2;
     public final int FIELDNAME     = 3;
     public final int AMBIGUOUSNAME = 4;
+    public final int LOCALNAME     = 5;
 
     public final int CLASSSCOPE    = 1;
     public final int METHODSCOPE   = 2;
