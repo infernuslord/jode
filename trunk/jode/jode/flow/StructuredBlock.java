@@ -343,12 +343,14 @@ public abstract class StructuredBlock {
 	while (enum.hasMoreElements()) {
 	    LocalInfo local = (LocalInfo) enum.nextElement();
             LocalInfo previous = done.findLocal(local.getName());
-            if (previous == null)
-		declare.addElement(local);
-            else if (!previous.equals(local)) {
+            if (previous != null &&!previous.equals(local)) {
                 /* A name conflict happened. */
                 local.makeNameUnique();
-                declare.addElement(local);
+                /* try again. */
+                previous = done.findLocal(local.getName());
+            }
+            if (previous == null) {
+		declare.addElement(local);
             }
 	}
         done.unionExact(declare);

@@ -128,8 +128,12 @@ public class LocalInfo {
             return shadow.getName();
         }
         if (name == null) {
-            name = "local_"+slot+"__"+serialnr+++"_";
-            isUnique = true;
+            if (jode.Decompiler.prettyLocals && type != null) {
+                name = type.getDefaultName();
+            } else {
+                name = "local_"+slot+"__"+serialnr+++"_";
+                isUnique = true;
+            }
         }
         return name;
     }

@@ -319,4 +319,14 @@ public class VariableSet implements Cloneable {
             i++;
         }
     }
+
+    public String toString() {
+        StringBuffer result = new StringBuffer("[");
+        for (int i=0; i < count; i++) {
+            if (i>0)
+                result.append(", ");
+            result.append(locals[i].getName());
+        }
+        return result.append("]").toString();
+    }
 }

@@ -106,6 +106,17 @@ public class UnfoundClassType extends Type {
         return true;
     }
 
+    public String getDefaultName() {
+        String name = clazzName;
+        int dot = name.lastIndexOf('.');
+        if (dot >= 0)
+            name = name.substring(dot+1);
+        if (Character.isUpperCase(name.charAt(0)))
+            return name.toLowerCase();
+        else
+            return name+"_var";
+    }
+
     public boolean equals(Object o) {
         return o == this
             || (o instanceof UnfoundClassType

@@ -28,14 +28,15 @@ public class Decompiler {
     public static boolean debugAnalyze = false;
     public static boolean showLVT = false;
     public static boolean doChecks = false;
+    public static boolean prettyLocals = false;
     public static boolean immediateOutput = false;
     public static int importPackageLimit = 3;
     public static int importClassLimit = 3;
 
     public static void usage() {
-        System.err.println("use: jode [-v][-imm][-debug][-analyze][-flow]"
-                           +"[-type][-inout][-lvt][-check]"
-                           +"[-import pkglimit clslimit]"
+        System.err.println("use: jode [-v][--imm][--debug][--analyze][--flow]"
+                           +"[--type][--inout][--lvt][--check]"
+                           +"[--import pkglimit clslimit]"
                            +" class1 [class2 ...]");
     }
 
@@ -45,23 +46,25 @@ public class Decompiler {
         for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
                 isVerbose = true;
-            else if (params[i].equals("-imm"))
+            else if (params[i].equals("--imm"))
                 immediateOutput = true;
-            else if (params[i].equals("-debug"))
+            else if (params[i].equals("--debug"))
                 isDebugging = true;
-            else if (params[i].equals("-type"))
+            else if (params[i].equals("--type"))
                 isTypeDebugging = true;
-            else if (params[i].equals("-analyze"))
+            else if (params[i].equals("--analyze"))
                 debugAnalyze = true;
-            else if (params[i].equals("-flow"))
+            else if (params[i].equals("--flow"))
                 isFlowDebugging = true;
-            else if (params[i].equals("-inout"))
+            else if (params[i].equals("--inout"))
                 debugInOut = true;
-            else if (params[i].equals("-lvt"))
+            else if (params[i].equals("--lvt"))
                 showLVT = true;
-            else if (params[i].equals("-check"))
+            else if (params[i].equals("--check"))
                 doChecks = true;
-            else if (params[i].equals("-import")) {
+            else if (params[i].equals("--pretty"))
+                prettyLocals = true;
+            else if (params[i].equals("--import")) {
                 importPackageLimit = Integer.parseInt(params[++i]);
                 importClassLimit = Integer.parseInt(params[++i]);
             } else if (params[i].equals("--")) {

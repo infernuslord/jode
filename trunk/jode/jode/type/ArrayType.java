@@ -116,6 +116,10 @@ public class ArrayType extends Type {
         return elementType.toString()+"[]";
     }
 
+    public String getDefaultName() {
+        return "arr_"+elementType.getDefaultName();
+    }
+
     public boolean equals(Object o) {
         if (o == this) 
             return true;
