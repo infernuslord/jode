@@ -95,7 +95,7 @@ public class ConditionalBlock extends InstructionContainer {
      */
     public VariableStack mapStackToLocal(VariableStack stack) {
 	VariableStack newStack;
-	int params = instr.getOperandCount();
+	int params = instr.getFreeOperandCount();
 	if (params > 0) {
 	    this.stack = stack.peek(params);
 	    newStack = stack.pop(params);
