@@ -4,9 +4,8 @@ import sun.tools.java.Type;
 public class NewConstructorOperator extends NoArgOperator {
     Expression constructor;
 
-    public NewConstructorOperator(int addr, int length, Type type, 
-                                  Expression expr) {
-        super(addr,length, type);
+    public NewConstructorOperator(Type type, Expression expr) {
+        super(type);
         this.constructor = expr;
     }
 
