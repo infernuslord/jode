@@ -138,7 +138,9 @@ public class ConstantPool {
                     ? Type.tInt
                     : (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) 
                     ? Type.tRange(Type.tInt, Type.tChar)
-                    : Type.tUInt);
+                    : (value == 0 || value == 1)
+		    ? Type.tBoolByte
+		    : Type.tUInt);
         }
         case FLOAT  : return Type.tFloat ;
         case LONG   : return Type.tLong  ;
