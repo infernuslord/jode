@@ -8,7 +8,7 @@
 java-decompiler, reverse engineering, free, GPL">
 <meta name="robots" content="index">
 <meta name="robots" content="nofollow">
-<meta name="date" content="1999-10-24">
+<meta name="date" content="2000-01-24">
 </head>
 
 <body>
@@ -23,13 +23,14 @@ java-decompiler, reverse engineering, free, GPL">
 <br><br>
 <a
 href="http://www.informatik.uni-oldenburg.de/~delwi/jode/jode.html">
-<B>Jode</B></a>
+<B>Jode (WWW)</B></a>
 <ul>
 <li><a href="applet.html">Test It Online</a></li>
 <li><a href="download.html">Download</a></li>
 <li><a href="usage.html">Usage</a></li>
 <li><a href="license.html">License</a></li>
 <li><a href="history.html">History</a></li>
+<li><a href="links.html">Links</a></li>
 <li><a href="bluesky.html">Blue Sky</a></li>
 </ul>
 </td>
@@ -83,9 +84,13 @@ config file</li>
 (they can be conditionally, so that only one is actually excuted),
 jode refuses to mark it as final.  This can make decompilation of
 method scoped classes wrong. </li> 
-<li>There's a bug in ConstantAnalyzer (part of the obfuscator).  It is
-triggered very seldom, and produces incorrect code.  Use it with
-care.</li>
+
+<li>There's probably a bug in LocalOptimizer (part of the obfuscator).
+It is triggered very seldom, and may produces incorrect code.  If your
+application doesn't work after obfuscation, or is refused by the
+bytecode verifier, try again without the LocalOptimizer.  If this was
+the reason send me your class file ;-)
+</li>
 </ul>
 
 <p>Now follows a list of oddities, that will probably never get
@@ -115,11 +120,10 @@ those that occur on some of the <code>jode.test</code> files, I would
 be very interested in a bug report (including the <code>class</code>
 file, if possible).</p>
 
-<p>Sometimes <i>JODE</i> generates some GOTO expression and labels.  This
-   shouldn't happen any more with code produced by javac or jikes.
-   But some flow obfuscator likes Zelix Klassmaster may provoke this.
-   In that case you can run the Obfuscator first (to optimize away the
-   flow obfuscation ;-).</p>
+<p>Sometimes <i>JODE</i> generates some GOTO expression and labels.
+This shouldn't happen any more with code produced by javac or jikes.
+But some flow obfuscator may provoke this.  In that case you can run
+the Obfuscator first (to optimize away the flow obfuscation ;-).</p>
 </td>
 </table>
 
@@ -127,7 +131,7 @@ file, if possible).</p>
 
 <p><A HREF="mailto:Jochen.Hoenicke@Informatik.Uni-Oldenburg.DE">
 http://www.informatik.uni-oldenburg.de/~delwi/jode/jode.html</A>, last
-updated on <em>24-Okt-1999</em>.</p>
+updated on <em>24-Jan-2000</em>.</p>
 
 </body>
 </html>
