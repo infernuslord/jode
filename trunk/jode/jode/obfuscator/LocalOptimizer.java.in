@@ -432,7 +432,9 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 
 	    Instruction prevInstr = instr.getPrevByAddr();
 	    if (prevInstr != null) {
-		if (prevInstr.getOpcode() == opc_jsr) {
+		if (!prevInstr.doesAlwaysJump())
+		    promoteReads(info, prevInstr);
+		else if (prevInstr.getOpcode() == opc_jsr) {
 		    /* Prev instr is a jsr, promote reads to the
 		     * corresponding ret.
 		     */
@@ -448,8 +450,7 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 			promoteReads(info, prevInstr, 
 				     jsrInfo.retInfo.usedBySub, true);
 		    }
-		} else if (!prevInstr.doesAlwaysJump())
-		    promoteReads(info, prevInstr);
+		}
 	    }
 
 	    if (instr.getPreds() != null) {
