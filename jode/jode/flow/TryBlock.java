@@ -19,6 +19,12 @@
 
 package jode.flow;
 import jode.decompiler.TabbedPrintWriter;
+import jode.type.*;
+import jode.expr.Expression;
+import jode.expr.ComplexExpression;
+import jode.expr.InvokeOperator;
+import jode.expr.ConstructorOperator;
+import jode.expr.LocalLoadOperator;
 
 /**
  * A TryBlock is created for each exception in the
@@ -133,5 +139,95 @@ public class TryBlock extends StructuredBlock {
                 return false;
         }
         return true;
+    }
+
+    /**
+     * A special transformation for try blocks:
+     * jikes generate try/catch-blocks for array clone:
+     * <pre>
+     * try {
+     *     PUSH ARRAY.clone()
+     * } catch (CloneNotSupportedException ex) {
+     *     throw new InternalError(ex.getMessage());
+     * }
+     * </pre>
+     * which is simply transformed to the content of the try block.
+     */
+    public boolean checkJikesArrayClone() {
+
+	if (subBlocks.length != 2
+	    || !(subBlocks[0] instanceof InstructionBlock)
+	    || !(subBlocks[1] instanceof CatchBlock))
+	    return false;
+
+	Expression instr = 
+	    ((InstructionBlock)subBlocks[0]).getInstruction();
+	CatchBlock catchBlock = (CatchBlock) subBlocks[1];
+
+	if (instr.isVoid()
+	    || !(instr instanceof ComplexExpression)
+	    || !(instr.getOperator() instanceof InvokeOperator)
+	    || !(catchBlock.catchBlock instanceof ThrowBlock)
+	    || !(catchBlock.exceptionType.equals
+		 (Type.tClass("java.lang.CloneNotSupportedException"))))
+	    return false;
+
+	
+	InvokeOperator arrayClone = 
+	    (InvokeOperator) instr.getOperator();
+	if (!arrayClone.getMethodName().equals("clone")
+	    || arrayClone.isStatic()
+	    || (arrayClone.getMethodType().getParameterTypes()
+		.length != 0)
+	    || (arrayClone.getMethodType().getReturnType() 
+		!= Type.tObject)
+	    || !(((ComplexExpression) instr).getSubExpressions()[0]
+		 .getType().isOfType(Type.tArray(Type.tUnknown))))
+	    return false;
+	
+	Expression throwExpr = 
+	    ((ThrowBlock) catchBlock.catchBlock).getInstruction();
+	
+	if (!(throwExpr instanceof ComplexExpression)
+	    || !(throwExpr.getOperator() instanceof ConstructorOperator))
+	    return false;
+	
+	ConstructorOperator throwOp =
+	    (ConstructorOperator) throwExpr.getOperator();
+	
+	if (!(throwOp.getClassType()
+	      .equals(Type.tClass("java.lang.InternalError")))
+	    || throwOp.getMethodType().getParameterTypes().length != 1)
+	    return false;
+	
+	Expression getMethodExpr = 
+	    ((ComplexExpression) throwExpr).getSubExpressions()[0];
+	if (!(getMethodExpr instanceof ComplexExpression)
+	    || !(getMethodExpr.getOperator() instanceof InvokeOperator))
+	    return false;
+
+	InvokeOperator invoke = (InvokeOperator) getMethodExpr.getOperator();
+	if (!invoke.getMethodName().equals("getMessage")
+	    || invoke.isStatic()
+	    || (invoke.getMethodType().getParameterTypes()
+		.length != 0)
+	    || (invoke.getMethodType().getReturnType() 
+		!= Type.tString))
+	    return false;
+	
+	Expression exceptExpr = 
+	    ((ComplexExpression) getMethodExpr).getSubExpressions()[0];
+	if (!(exceptExpr instanceof LocalLoadOperator)
+	    || !(((LocalLoadOperator) exceptExpr).getLocalInfo()
+		 .equals(catchBlock.exceptionLocal)))
+	    return false;
+	subBlocks[0].replace(this);
+	if (flowBlock.lastModified == this)
+	    flowBlock.lastModified = subBlocks[0];
+	return true;
+    }
+
+    public boolean doTransformations() {
+	return checkJikesArrayClone();
     }
 }
