@@ -388,14 +388,10 @@ public abstract class StructuredBlock {
 		}
 	    }
 
-	    if (local.hasName()) {
-		LocalInfo previous = done.findLocal(local.getName());
-		if (previous != null) {
-		    /* A name conflict happened. */
-		    local.makeNameUnique();
-		    /* try again. */
-		    previous = done.findLocal(local.getName());
-		}
+	    LocalInfo previous = done.findLocal(local.getName());
+	    if (previous != null) {
+		/* A name conflict happened. */
+		local.makeNameUnique();
 	    }
 	    declare.addElement(local);
 	}
