@@ -20,6 +20,7 @@
 package jode.expr;
 import jode.Type;
 import jode.decompiler.CodeAnalyzer;
+import jode.decompiler.FieldAnalyzer;
 
 public class PutFieldOperator extends StoreInstruction {
     CodeAnalyzer codeAnalyzer;
@@ -44,13 +45,6 @@ public class PutFieldOperator extends StoreInstruction {
         return staticFlag;
     }
 
-    public boolean isSynthetic() {
-	if (!isThis())
-	    return false;
-	return codeAnalyzer.getClassAnalyzer()
-	    .getField(fieldName, fieldType).isSynthetic();
-    }
-
     /**
      * Checks, whether this is a call of a method from this class.
      * @XXX check, if this class implements the method and if not
@@ -59,6 +53,13 @@ public class PutFieldOperator extends StoreInstruction {
     public boolean isThis() {
         return (classType.equals(Type.tClass(codeAnalyzer.getClazz().
                                              getName())));
+    }
+
+    public FieldAnalyzer getField() {
+	if (!isThis())
+	    return null;
+	return codeAnalyzer.getClassAnalyzer()
+	    .getField(fieldName, fieldType);
     }
 
     public String getFieldName() {
