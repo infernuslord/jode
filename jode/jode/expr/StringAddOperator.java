@@ -27,6 +27,10 @@ public class StringAddOperator extends SimpleOperator {
         super(Type.tString, ADD_OP, 2);
         operandTypes[1] = Type.tUnknown;
     }
+
+    public void clearFirstType() {
+	operandTypes[0] = Type.tUnknown;
+    }
     
     public int getPriority() {
         return 610;
