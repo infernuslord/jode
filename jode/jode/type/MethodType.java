@@ -17,7 +17,7 @@
  * $Id$
  */
 
-package jode;
+package jode.type;
 
 /** 
  * This type represents an method type.

@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.type;
+import jode.AssertError;
 
 /**
  * This class represents the NullType.  The null type is special as it
@@ -64,7 +65,7 @@ public class NullType extends ReferenceType {
     }
 
     public String toString() {
-	return "/*NULL*/" + env.classString("java.lang.Object");
+	return "<NULL>";
     }
 
     /**

@@ -19,7 +19,7 @@
 
 package jode.obfuscator;
 import jode.bytecode.*;
-import jode.Type;
+import jode.type.Type;
 
 public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
     MethodIdentifier m;

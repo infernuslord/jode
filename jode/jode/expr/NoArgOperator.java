@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
 import jode.AssertError;
+import jode.decompiler.TabbedPrintWriter;
 
 public abstract class NoArgOperator extends Operator {
 
@@ -47,4 +48,3 @@ public abstract class NoArgOperator extends Operator {
         throw new AssertError("This operator has no operands");
     }
 }
-

@@ -18,7 +18,7 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
 
 public abstract class SimpleOperator extends Operator {
     protected Type[] operandTypes;

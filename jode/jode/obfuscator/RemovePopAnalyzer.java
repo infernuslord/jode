@@ -20,8 +20,8 @@
 package jode.obfuscator;
 import jode.bytecode.*;
 import jode.AssertError;
-import jode.MethodType;
-import jode.Type;
+import jode.type.MethodType;
+import jode.type.Type;
 
 public class RemovePopAnalyzer implements CodeAnalyzer, Opcodes {
     MethodIdentifier m;

@@ -18,8 +18,9 @@
  */
 
 package jode.jvm;
+import jode.AssertError;
 import jode.bytecode.Reference;
-import jode.*;
+import jode.type.*;
 import java.lang.reflect.*;
 
 public class SimpleRuntimeEnvironment implements RuntimeEnvironment {

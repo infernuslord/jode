@@ -17,7 +17,8 @@
  * $Id$
  */
 
-package jode;
+package jode.type;
+import jode.Decompiler;
 
 /**
  * This is a type class for 16 bit integral types.  There are seven

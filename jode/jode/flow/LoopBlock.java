@@ -19,7 +19,7 @@
 
 package jode.flow;
 import jode.decompiler.TabbedPrintWriter;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.expr.Expression;
 import jode.expr.ConstOperator;

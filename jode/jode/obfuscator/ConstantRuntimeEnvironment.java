@@ -21,7 +21,7 @@ package jode.obfuscator;
 import jode.jvm.*;
 import jode.bytecode.Reference;
 import jode.bytecode.BytecodeInfo;
-import jode.*;
+import jode.type.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;

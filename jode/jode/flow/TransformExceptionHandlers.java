@@ -20,7 +20,7 @@
 package jode.flow;
 import jode.AssertError;
 import jode.Decompiler;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.LocalInfo;
 import jode.expr.*;
 
@@ -882,7 +882,7 @@ public class TransformExceptionHandlers {
                      && ! analyzeSpecialFinally(tryFlow, catchFlow, 
                                                 endHandler))
 
-                analyzeCatchBlock(jode.Type.tObject, tryFlow, catchFlow);
+                analyzeCatchBlock(Type.tObject, tryFlow, catchFlow);
 
             tryFlow.checkConsistent();
             if (Decompiler.debugAnalyze)
