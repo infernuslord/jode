@@ -47,7 +47,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 
     void readAttribute(String name, int length, ConstantPool cp,
 		       DataInputStream input, int howMuch) throws IOException {
-	if (howMuch >= ClassInfo.ALMOSTALL && name.equals("Code")) {
+	if (howMuch >= ClassInfo.NODEBUG && name.equals("Code")) {
 	    basicblocks = new BasicBlocks(this);
 	    basicblocks.read(cp, input, howMuch);
 	} else if (howMuch >= ClassInfo.DECLARATIONS
@@ -143,7 +143,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	}
     }
 
-    public void write(GrowableConstantPool constantPool, 
+    void write(GrowableConstantPool constantPool, 
 		      DataOutputStream output) throws IOException {
 	output.writeShort(modifier);
 	output.writeShort(constantPool.putUTF8(name));
@@ -151,9 +151,14 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
         writeAttributes(constantPool, output);
     }
 
-    public void dropBody() {
-	basicblocks = null;
-	super.dropAttributes();
+    void drop(int keep) {
+	if (keep < ClassInfo.DECLARATIONS)
+	    exceptions = null;
+	if (keep < ClassInfo.NODEBUG)
+	    basicblocks = null;
+	else
+	    basicblocks.drop(keep);
+	super.drop(keep);
     }
 
     public String getName() {

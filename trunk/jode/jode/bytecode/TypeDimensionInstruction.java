@@ -20,32 +20,18 @@
 package jode.bytecode;
 
 /**
- * This class represents an instruction in the byte code.
+ * This class represents an opc_multianewarray instruction.
  *
  */
-public class TypeDimensionInstruction extends TypeInstruction {
+class TypeDimensionInstruction extends TypeInstruction {
     /**
      * The dimension of this multianewarray operation.
      */
     private int dimension;
 
-    /**
-     * Standard constructor: creates an opcode with parameter and
-     * lineNr.  
-     */
-    public TypeDimensionInstruction(int opcode, String type, int dimension,
-				     int lineNr) {
-	super(opcode, type, lineNr);
-	if (opcode != opc_multianewarray)
-	    throw new IllegalArgumentException("Instruction has no dimension");
-	this.dimension = dimension;
-    }
-
-    /**
-     * Creates a simple opcode, without any parameters.
-     */
     public TypeDimensionInstruction(int opcode, String type, int dimension) {
-	this(opcode, type, dimension, -1);
+	super(opcode, type);
+	this.dimension = dimension;
     }
 
     /**

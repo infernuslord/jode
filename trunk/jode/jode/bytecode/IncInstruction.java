@@ -23,28 +23,18 @@ package jode.bytecode;
  * This class represents an instruction in the byte code.
  *
  */
-public class IncInstruction extends SlotInstruction {
+class IncInstruction extends SlotInstruction {
     /**
      * The amount of increment.
      */
     private int increment;
 
     /**
-     * Standard constructor: creates an opcode with parameter and
-     * lineNr.  
-     */
-    public IncInstruction(int opcode, int slot, int increment, int lineNr) {
-	super(opcode, slot, lineNr);
-	if (opcode != opc_iinc)
-	    throw new IllegalArgumentException("Instruction has no increment");
-	this.increment = increment;
-    }
-
-    /**
      * Creates a simple opcode, without any parameters.
      */
-    public IncInstruction(int opcode, int slot, int increment) {
-	this(opcode, slot, increment, -1);
+    IncInstruction(int opcode, LocalVariableInfo lvi, int increment) {
+	super(opcode, lvi);
+	this.increment = increment;
     }
 
     /**

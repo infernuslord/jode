@@ -24,25 +24,15 @@ import jode.util.StringQuoter;
  * This class represents an instruction in the byte code.
  *
  */
-public class ConstantInstruction extends Instruction {
+class ConstantInstruction extends Instruction {
     /**
      * The typesignature of the class/array.
      */
     private Object constant;
 
-    /**
-     * Standard constructor: creates an opcode with parameter and
-     * lineNr.  
-     */
-    public ConstantInstruction(int opcode, Object constant, int lineNr) {
-	super(opcode, lineNr);
-	if (opcode != opc_ldc && opcode != opc_ldc2_w)
-	    throw new IllegalArgumentException("Instruction has no typesig");
+    ConstantInstruction(int opcode, Object constant) {
+	super(opcode);
 	this.constant = constant;
-    }
-
-    public ConstantInstruction(int opcode, Object constant) {
-	this(opcode, constant, -1);
     }
 
     public final Object getConstant() 
@@ -61,4 +51,3 @@ public class ConstantInstruction extends Instruction {
 	     ? StringQuoter.quote((String) constant) : constant);
     }
 }
-

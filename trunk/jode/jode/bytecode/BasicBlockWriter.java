@@ -89,11 +89,10 @@ class BasicBlockWriter implements Opcodes {
 	    int blockNr = block.getBlockNr();
 	    LocalVariableInfo[] life
 		= (LocalVariableInfo[]) atStart[blockNr].clone();
-	    for (Iterator iter = block.getInstructions().iterator();
-		 iter.hasNext() ; ) {
-		Instruction instr = (Instruction) iter.next();
-		if (instr.hasLocal()) {
-		    LocalVariableInfo lvi = instr.getLocalInfo();
+	    Instruction[] instrs = block.getInstructions();
+	    for (int i = 0; i < instrs.length; i++) {
+		if (instrs[i].hasLocal()) {
+		    LocalVariableInfo lvi = instrs[i].getLocalInfo();
 		    int slot = lvi.getSlot();
 		    if (life[slot] != null 
 			&& life[slot] != lvi)
@@ -162,10 +161,9 @@ class BasicBlockWriter implements Opcodes {
 		}
 	    }
 
-	    int size = block.getInstructions().size();
-	    for (int k = 0; k < size; k++) {
-		Instruction instr
-		    = (Instruction) block.getInstructions().get(k);
+	    Instruction[] instrs = block.getInstructions();
+	    for (int k = 0; k < instrs.length; k++) {
+		Instruction instr = instrs[k];
 		if (instr.hasLocal()) {
 		    LocalVariableInfo lvi = instr.getLocalInfo();
 		    int slot = lvi.getSlot();
@@ -227,12 +225,11 @@ class BasicBlockWriter implements Opcodes {
     next_block:
 	for (int i = 0; i < blocks.length; i++) {
 	    blockAddr[i] = addr;
-	    List instructions = blocks[i].getInstructions();
-	    int size = instructions.size();
-	    instrLength[i] = new int[size];
+	    Instruction[] instrs = blocks[i].getInstructions();
+	    instrLength[i] = new int[instrs.length];
 	    Block[] succs = blocks[i].getSuccs();
-	    for (int j = 0; j < size; j++) {
-		Instruction instr = (Instruction) instructions.get(j);
+	    for (int j = 0; j < instrs.length; j++) {
+		Instruction instr = instrs[j];
 		if (instr.hasLineNr())
 		    lntCount++;
 
@@ -637,10 +634,10 @@ class BasicBlockWriter implements Opcodes {
 	    Block[] succs = blocks[i].getSuccs();
 	    if (addr != blockAddr[i])
 		throw new InternalError("Address calculation broken!");
-	    List instructions = blocks[i].getInstructions();
-	    int size = instructions.size();
+	    Instruction[] instructions = blocks[i].getInstructions();
+	    int size = instructions.length;
 	    for (int j = 0; j < size; j++) {
-		Instruction instr = (Instruction) instructions.get(j);
+		Instruction instr = instructions[j];
 		if (instr.hasLineNr()) {
 		    lnt[lntPtr++] = (short) addr;
 		    lnt[lntPtr++] = (short) instr.getLineNr();

@@ -34,10 +34,26 @@ import java.util.Iterator;
 
 
 /**
+ * <p>Represents a container for user specified attributes.</p>
  *
- * @author Jochen Hoenicke
+ * <p>Java bytecode is extensible: Classes, Methods and Fields may
+ * have any number of attributes.  Every attribute has a name and some
+ * unformatted data.</p>
+ *
+ * <p>There are some predefined attributes, even the Code of a Method
+ * is an attribute.  These predefined attributes are all handled by
+ * this package as appropriate.  This methods are only useful for non
+ * standard attributes.</p>
+ *
+ * <p>One application of this attributes are installation classes.
+ * These classes have a special attribute containing a zip of the
+ * files that should be installed.  There are other possible uses,
+ * e.g.  putting native machine code for some architectures into the
+ * class.</p>
+ *
+ * @author Jochen Hoenicke 
  */
-class BinaryInfo {
+public class BinaryInfo {
     private Map unknownAttributes = null;
 
     void skipAttributes(DataInputStream input) throws IOException {
@@ -140,8 +156,9 @@ class BinaryInfo {
 	}
     }
 
-    public void dropAttributes() {
-	unknownAttributes = null;
+    void drop(int keep) {
+	if (keep < ClassInfo.ALL)
+	    unknownAttributes = null;
     }
 
     void prepareAttributes(GrowableConstantPool gcp) {
@@ -178,7 +195,7 @@ class BinaryInfo {
 	}
     }
 
-    public int getAttributeSize() {
+    int getAttributeSize() {
 	int size = 2; /* attribute count */
 	if (unknownAttributes != null) {
 	    Iterator i = unknownAttributes.values().iterator();
@@ -188,31 +205,55 @@ class BinaryInfo {
 	return size;
     }
     
+    /**
+     * Finds a non standard attribute with the given name.
+     * @param name the name of the attribute.
+     * @return the contents of the attribute, null if not found.
+     */
     public byte[] findAttribute(String name) {
 	if (unknownAttributes != null)
 	    return (byte[]) unknownAttributes.get(name);
 	return null;
     }
 
+    /**
+     * Gets all non standard attributes
+     */
     public Iterator getAttributes() {
 	if (unknownAttributes != null)
 	    return unknownAttributes.values().iterator();
 	return Collections.EMPTY_SET.iterator();
     }
 
-    public void setAttribute(String name, byte[] content) {
+    /**
+     * Adds a new non standard attribute or replaces an old one with the
+     * same name.
+     * @param name the name of the attribute.
+     * @param contents the new contens.
+     */
+    public void setAttribute(String name, byte[] contents) {
 	if (unknownAttributes == null)
 	    unknownAttributes = new SimpleMap();
-	unknownAttributes.put(name, content);
+	unknownAttributes.put(name, contents);
     }
 
+    /**
+     * Removes a new non standard attribute.
+     * @param name the name of the attribute.
+     * @return the old contents of the attribute.
+     */
     public byte[] removeAttribute(String name) {
 	if (unknownAttributes != null)
 	    return (byte[]) unknownAttributes.remove(name);
 	return null;
     }
 
+    /**
+     * Removes all non standard attribute.
+     */
     public void removeAllAttributes() {
 	unknownAttributes = null;
     }
 }
+
+

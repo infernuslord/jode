@@ -1,4 +1,4 @@
-/* Block Copyright (C) 1999 Jochen Hoenicke.
+/* Block Copyright (C) 2000 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,12 +28,48 @@ import java.util.Iterator;
 ///#enddef
 
 /**
- * Represents a single basic block. It contains a list of
- * instructions, the successor blocks and the exception handlers for
- * this block.  The last Instruction, and only the last, may be a
- * conditional jump, a tableswitch or a jsr.
+ * <p>Represents a single basic block.  It contains a list of
+ * instructions and the successor blocks.</p>
  *
- * @author Jochen Hoenicke */
+ * <p>All jump instructions must be at the end of the block.  These
+ * jump instructions are <code>opc_lookupswitch</code>,
+ * <code>opc_if</code>xxx, <code>opc_jsr</code>, <code>opc_ret</code>,
+ * <code>opc_</code>x<code>return</code> and <code>opc_return</code>.
+ * An <code>opc_goto</code> is implicit if the basic block doesn't end
+ * with a jump instructions, or if it ends with an conditional jump or
+ * jsr.</p>
+ *
+ * <p>The jump instructions don't remember their destinations, instead
+ * the Block does it.  This are the successor block.  There are
+ * several cases:</p>
+ *
+ * <ul> 
+ * <li>Block ends with <code>opc_lookupswitch</code> with
+ * <code>n</code> values.  Then there must be <code>n+1</code>
+ * successors where the first <code>n</code> successors correspond to
+ * the values and the last successor is the default successor.</li>
+ * <li>Block ends with <code>opc_if</code>xxx, then there must be two
+ * successors: The first one is the successor if the condition evaluates
+ * to true, the second one is for the false branch. </li>
+ * <li>Block ends with <code>opc_jsr</code>, then there must be two
+ * successors: The first one is the subroutine, the second is the next
+ * block after the subroutine. </li>
+ * <li>Block ends with <code>opc_</code>x</code>return</code> or
+ * <code>opc_ret</code>, then there must no successor at all. </li>
+ * <li>In any other case there must be exactly one successor.</li>
+ * </ul>
+ *
+ * <p>If any successor is <code>null</code> it represents end of
+ * method, i.e. a return instruction.  You can also use
+ * <code>null</code> successors for conditional jumps and switch
+ * instruction. You normally shouldn't use <code>opc_return</code>
+ * instructions.  They are only necessary, if you want to return with
+ * a non-empty stack. </p>
+ * 
+ * @author Jochen Hoenicke
+ * @see jode.bytecode.BasicBlocks
+ * @see jode.bytecode.Instruction
+ */
 public final class Block {
     /**
      * The opcodes of the instructions in this block.
@@ -56,6 +92,21 @@ public final class Block {
     int blockNr;
 
     /**
+     * The blockNr of this block.  Set by BasicBlocks.
+     */
+    int lineNr;
+
+    /**
+     * The number of items this block takes from the stack.
+     */
+    int pop;
+    /**
+     * The number of items this block puts on the stack.
+     */
+    int push;
+
+
+    /**
      * Creates a new empty block, with a null successor array.
      */
     public Block() {
@@ -68,8 +119,8 @@ public final class Block {
      * modified, except that the instructions (but not their opcodes)
      * may be modified.
      */
-    public List getInstructions() {
-	return Arrays.asList(instrs);
+    public Instruction[] getInstructions() {
+	return instrs;
     }
     
     /**
@@ -105,35 +156,45 @@ public final class Block {
 	return blockNr;
     }
 
-    private void checkConsistent() {
-	/* Check if all instructions are of correct type */
+    private void initCode() {
 	int size = instrs.length;
+	int depth = 0;
+	int poppush[] = new int[2];
+	boolean needGoto = true;
 	for (int i = 0; i < size; i++) {
+	    instrs[i].getStackPopPush(poppush);
+	    depth += poppush[0];
+	    if (pop < depth)
+		pop = depth;
+	    depth -= poppush[1];
+
 	    int opcode = instrs[i].getOpcode();
 	    switch (opcode) {
 	    case Opcodes.opc_goto:
 		throw new IllegalArgumentException("goto in block");
 		
 	    case Opcodes.opc_lookupswitch:
-		if (succs == null || succs.length == 0)
+		if (succs.length != instrs[i].getValues().length + 1)
 		    throw new IllegalArgumentException
 			("no successors for switch");
 		if (i != size - 1)
 		    throw new IllegalArgumentException
 			("switch in the middle!");
-		return;
+		needGoto = false;
+		break;
 
 	    case Opcodes.opc_ret: case Opcodes.opc_athrow:
 	    case Opcodes.opc_ireturn: case Opcodes.opc_lreturn: 
 	    case Opcodes.opc_freturn: case Opcodes.opc_dreturn: 
 	    case Opcodes.opc_areturn: case Opcodes.opc_return:
-		if (succs == null || succs.length > 0)
+		if (succs.length != 0)
 		    throw new IllegalArgumentException
 			("throw or return with successor.");
 		if (i != size - 1)
 		    throw new IllegalArgumentException
 			("return in the middle!");
-		return;
+		needGoto = false;
+		break;
 
 	    case Opcodes.opc_ifeq: case Opcodes.opc_ifne: 
 	    case Opcodes.opc_iflt: case Opcodes.opc_ifge: 
@@ -144,29 +205,38 @@ public final class Block {
 	    case Opcodes.opc_if_acmpeq: case Opcodes.opc_if_acmpne:
 	    case Opcodes.opc_ifnull: case Opcodes.opc_ifnonnull:
 	    case Opcodes.opc_jsr:
-		if (succs == null || succs.length != 2)
+		if (succs.length != 2)
 		    throw new IllegalArgumentException
 			("successors inappropriate for if/jsr");
+		if (succs[0] == null && opcode == Opcodes.opc_jsr)
+		    throw new IllegalArgumentException
+			("null successors inappropriate for jsr");
 		if (i != size - 1)
 		    throw new IllegalArgumentException
 			("if/jsr in the middle!");
-		return;
+		needGoto = false;
 	    }
 	}
-	if (succs == null || succs.length != 1)
+	push = pop - depth;
+	if (needGoto && succs.length != 1)
 	    throw new IllegalArgumentException("no single successor block");
+    }
+
+    public void getStackPopPush (int[] poppush) {
+	poppush[0] = pop;
+	poppush[1] = push;
+	return;
     }
     
     /**
      * Set the code, i.e. instructions and successor blocks.
      * The instructions must be valid and match the successors.
      */
-    public void setCode(Collection instrs, Block[] succs) {
-	this.instrs = (Instruction[]) 
-	    instrs.toArray(new Instruction[instrs.size()]);
+    public void setCode(Instruction[] instrs, Block[] succs) {
+	this.instrs = instrs;
 	this.succs = succs;
 	try {
-	    checkConsistent();
+	    initCode();
 	} catch (IllegalArgumentException ex) {
 	    dumpCode(jode.GlobalOptions.err);
 	    throw ex;

@@ -256,7 +256,7 @@ class BasicBlockReader implements Opcodes {
 	if (!alwaysJump)
 	    succs[succLength] = getSuccBlock(info.nextAddr);
 
-	blocks[blockNr].setCode(Arrays.asList(instrs), succs);
+	blocks[blockNr].setCode(instrs, succs);
     }
 
     void convert() throws ClassFormatException {
@@ -331,7 +331,9 @@ class BasicBlockReader implements Opcodes {
 			if (slot >= maxLocals)
 			    throw new ClassFormatException
 				("Invalid local slot "+slot);
-			instr = new SlotInstruction(wideopcode, slot);
+			LocalVariableInfo lvi
+			    = LocalVariableInfo.getInfo(slot);
+			instr = new SlotInstruction(wideopcode, lvi);
 			length = 4;
 			if ((GlobalOptions.debuggingFlags
 			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
@@ -345,7 +347,9 @@ class BasicBlockReader implements Opcodes {
 			if (slot >= maxLocals-1)
 			    throw new ClassFormatException
 				("Invalid local slot "+slot);
-			instr = new SlotInstruction(wideopcode, slot);
+			LocalVariableInfo lvi
+			    = LocalVariableInfo.getInfo(slot);
+			instr = new SlotInstruction(wideopcode, lvi);
 			length = 4;
 			if ((GlobalOptions.debuggingFlags
 			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
@@ -358,7 +362,9 @@ class BasicBlockReader implements Opcodes {
 			if (slot >= maxLocals)
 			    throw new ClassFormatException
 				("Invalid local slot "+slot);
-			instr = new SlotInstruction(wideopcode, slot);
+			LocalVariableInfo lvi
+			    = LocalVariableInfo.getInfo(slot);
+			instr = new SlotInstruction(wideopcode, lvi);
 			length = 4;
 			if ((GlobalOptions.debuggingFlags
 			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
@@ -370,8 +376,10 @@ class BasicBlockReader implements Opcodes {
 			if (slot >= maxLocals)
 			    throw new ClassFormatException
 				("Invalid local slot "+slot);
+			LocalVariableInfo lvi
+			    = LocalVariableInfo.getInfo(slot);
 			int incr = input.readShort();
-			instr = new IncInstruction(wideopcode, slot, incr);
+			instr = new IncInstruction(wideopcode, lvi, incr);
 			length = 6;
 			if ((GlobalOptions.debuggingFlags
 			     & GlobalOptions.DEBUG_BYTECODE) != 0) 
@@ -399,8 +407,10 @@ class BasicBlockReader implements Opcodes {
 		    if (slot >= maxLocals)
 			throw new ClassFormatException
 			    ("Invalid local slot "+slot);
+		    LocalVariableInfo lvi
+			= LocalVariableInfo.getInfo(slot);
 		    instr = new SlotInstruction
-			(opc_iload + (opcode-opc_iload_0)/4, slot);
+			(opc_iload + (opcode-opc_iload_0)/4, lvi);
 		    length = 1;
 		    break;
 		}
@@ -414,8 +424,10 @@ class BasicBlockReader implements Opcodes {
 		    if (slot >= maxLocals)
 			throw new ClassFormatException
 			    ("Invalid local slot "+slot);
+		    LocalVariableInfo lvi
+			= LocalVariableInfo.getInfo(slot);
 		    instr = new SlotInstruction
-			(opc_istore + (opcode-opc_istore_0)/4, slot);
+			(opc_istore + (opcode-opc_istore_0)/4, lvi);
 		    length = 1;
 		    break;
 		}
@@ -427,8 +439,10 @@ class BasicBlockReader implements Opcodes {
 		    if (slot >= maxLocals-1)
 			throw new ClassFormatException
 			    ("Invalid local slot "+slot);
+		    LocalVariableInfo lvi
+			= LocalVariableInfo.getInfo(slot);
 		    instr = new SlotInstruction
-			(opc_lstore + (opcode-opc_lstore_0)/4, slot);
+			(opc_lstore + (opcode-opc_lstore_0)/4, lvi);
 		    length = 1;
 		    break;
 		}
@@ -438,7 +452,9 @@ class BasicBlockReader implements Opcodes {
 		    if (slot >= maxLocals)
 			throw new ClassFormatException
 			    ("Invalid local slot "+slot);
-		    instr = new SlotInstruction(opcode, slot);
+		    LocalVariableInfo lvi
+			= LocalVariableInfo.getInfo(slot);
+		    instr = new SlotInstruction(opcode, lvi);
 		    length = 2;
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
@@ -451,7 +467,9 @@ class BasicBlockReader implements Opcodes {
 		    if (slot >= maxLocals - 1)
 			throw new ClassFormatException
 			    ("Invalid local slot "+slot);
-		    instr = new SlotInstruction(opcode, slot);
+		    LocalVariableInfo lvi
+			= LocalVariableInfo.getInfo(slot);
+		    instr = new SlotInstruction(opcode, lvi);
 		    length = 2;
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
@@ -463,7 +481,9 @@ class BasicBlockReader implements Opcodes {
 		    if (slot >= maxLocals)
 			throw new ClassFormatException
 			    ("Invalid local slot "+slot);
-		    instr = new SlotInstruction(opcode, slot);
+		    LocalVariableInfo lvi
+			= LocalVariableInfo.getInfo(slot);
+		    instr = new SlotInstruction(opcode, lvi);
 		    length = 2;
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
@@ -535,8 +555,10 @@ class BasicBlockReader implements Opcodes {
 		    if (slot >= maxLocals)
 			throw new ClassFormatException
 			    ("Invalid local slot "+slot);
+		    LocalVariableInfo lvi
+			= LocalVariableInfo.getInfo(slot);
 		    int incr = input.readByte();
-		    instr = new IncInstruction(opcode, slot, incr);
+		    instr = new IncInstruction(opcode, lvi, incr);
 		    length = 3;
 		    if ((GlobalOptions.debuggingFlags
 			 & GlobalOptions.DEBUG_BYTECODE) != 0) 
@@ -958,3 +980,4 @@ class BasicBlockReader implements Opcodes {
 	}
     }
 }
+

@@ -156,7 +156,7 @@ public class ClassPath  {
     private class LocalPath extends Path {
 	private File dir;
 
-	private LocalPath(File path) {
+	public LocalPath(File path) {
 	    dir = path;
 	}
 
@@ -253,7 +253,7 @@ public class ClassPath  {
 	    } while (name.length() > 0);
 	}
 
-	private ZipPath(ZipFile zipfile, String prefix) {
+	public ZipPath(ZipFile zipfile, String prefix) {
 	    this.file = zipfile;
 	    this.prefix = prefix;
 
@@ -264,7 +264,7 @@ public class ClassPath  {
 	    }
 	}
 
-	private ZipPath(byte[] zipcontents, String prefix) 
+	public ZipPath(byte[] zipcontents, String prefix) 
 	    throws IOException
 	{
 	    this.contents = zipcontents;
@@ -354,9 +354,9 @@ public class ClassPath  {
     }
 
     private class URLPath extends Path {
-	URL base;
+	private URL base;
 
-	private URLPath(URL base) {
+	public URLPath(URL base) {
 	    this.base = base;
 	}
 

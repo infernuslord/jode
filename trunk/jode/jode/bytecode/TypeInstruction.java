@@ -23,29 +23,15 @@ package jode.bytecode;
  * This class represents an instruction in the byte code.
  *
  */
-public class TypeInstruction extends Instruction {
+class TypeInstruction extends Instruction {
     /**
      * The typesignature of the class/array.
      */
     private String typeSig;
 
-    /**
-     * Standard constructor: creates an opcode with parameter and
-     * lineNr.  
-     */
-    public TypeInstruction(int opcode, String typeSig, int lineNr) {
-	super(opcode, lineNr);
-	if (opcode != opc_new && opcode != opc_checkcast
-	    && opcode != opc_instanceof && opcode != opc_multianewarray)
-	    throw new IllegalArgumentException("Instruction has no typesig");
-	this.typeSig = typeSig;
-    }
-
-    /**
-     * Creates a simple opcode, without any parameters.
-     */
     public TypeInstruction(int opcode, String typeSig) {
-	this(opcode, typeSig, -1);
+	super(opcode);
+	this.typeSig = typeSig;
     }
 
     public final String getClazzType() 

@@ -23,36 +23,14 @@ package jode.bytecode;
  * This class represents an instruction in the byte code.
  *
  */
-public class SlotInstruction extends Instruction {
+class SlotInstruction extends Instruction {
     private LocalVariableInfo lvi;
 
     /**
      */
-    public SlotInstruction(int opcode, LocalVariableInfo lvi, int lineNr) {
-	super(opcode, lineNr);
-	if (opcode != opc_iinc && opcode != opc_ret
-	    && (opcode < opc_iload || opcode > opc_aload)
-	    && (opcode < opc_istore || opcode > opc_astore))
-	    throw new IllegalArgumentException("Instruction has no slot");
-	this.lvi = lvi;
-    }
-
-    /**
-     */
-    public SlotInstruction(int opcode, int slot, int lineNr) {
-	this(opcode, LocalVariableInfo.getInfo(slot), lineNr);
-    }
-
-    /**
-     */
     public SlotInstruction(int opcode, LocalVariableInfo lvi) {
-	this(opcode, lvi, -1);
-    }
-
-    /**
-     */
-    public SlotInstruction(int opcode, int slot) {
-	this(opcode, LocalVariableInfo.getInfo(slot), -1);
+	super(opcode);
+	this.lvi = lvi;
     }
 
     public boolean isStore() {
