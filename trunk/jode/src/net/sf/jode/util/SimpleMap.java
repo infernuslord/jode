@@ -96,5 +96,3 @@ public class SimpleMap extends AbstractMap {
 	return null;
     }
 }
-
-

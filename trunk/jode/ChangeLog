@@ -1,3 +1,23 @@
+2001-08-08  Jochen Hoenicke  <jochen@gnu.org>
+	More Documentation updates.
+	* build.xml: Release rules.
+	* scripts/jcpp.pl: Don't make backups of original.
+	* net/sf/jode/bytecode/BasicBlocks.java (setBlocks): Check that
+	successors are inside method.
+	* net/sf/jode/bytecode/Block.java (getStackHeight): New Method.
+	* net/sf/jode/bytecode/ClassPath.java (Location): public class to
+	model a component of the class path.  Previously it was Path.
+	(ClassPath): New constructors added that take Location objects.
+	* net/sf/jode/bytecode/ConstantPool.java (getClassName): Cache
+	constants.
+	* net/sf/jode/bytecode/GrowableConstantPool.java: Made public.
+	(grow): Check that not too many constants are added.
+	(reserveLongConstants): Removed (not used).
+	(copyConstant): Removed (not used).
+	* net/sf/jode/jvm/NewObject.java: Made package protected.
+	* net/sf/jode/obfuscator/modules/RemovePopAnalyzer.java: 
+	Big updates (almost rewrote from scratch).  Still doesn't compile.
+	
 2001-08-05  Jochen Hoenicke  <jochen@gnu.org>
 
 	Documentation updates (INSTALL, javadoc).

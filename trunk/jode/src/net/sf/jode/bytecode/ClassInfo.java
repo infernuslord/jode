@@ -356,7 +356,11 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     }
 
     ClassInfo(String name, ClassPath classpath) {
-        this.name = name.intern();
+	/* Name may be null when reading class with unknown name from
+	 * stream.
+	 */
+	if (name != null)
+	    this.name = name.intern();
 	this.classpath = classpath;
     }
 
@@ -658,10 +662,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     }
     
     /**
-     * Reads a class file from a data input stream.  You should really
+     * Reads a class file from a data input stream.  Normally you should
      * <code>load</code> a class from its classpath instead.  This may
      * be useful for special kinds of input streams, that ClassPath 
-     * doesn't handle though.
+     * doesn't handle.
      *
      * @param input The input stream, containing the class in standard
      *              bytecode format.
@@ -700,56 +704,43 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         ConstantPool cpool = new ConstantPool();
         cpool.read(input);
 
-	/* always read modifiers, name, super, ifaces */
-	{
-	    modifiers = input.readUnsignedShort();
-	    String className = cpool.getClassName(input.readUnsignedShort());
-	    if (!name.equals(className))
-		throw new ClassFormatException("wrong name " + className);
-	    int superID = input.readUnsignedShort();
-	    superclass = superID == 0 ? null
-		: classpath.getClassInfo(cpool.getClassName(superID));
-	    int count = input.readUnsignedShort();
-	    interfaces = new ClassInfo[count];
-	    for (int i = 0; i < count; i++) {
-		interfaces[i] = classpath.getClassInfo
-		    (cpool.getClassName(input.readUnsignedShort()));
-	    }
-	}	    
+	/* modifiers */
+	modifiers = input.readUnsignedShort();
+	/* name */
+	String className = cpool.getClassName(input.readUnsignedShort());
+	if (name == null)
+	    name = className;
+	else if (!name.equals(className))
+	    throw new ClassFormatException("wrong name " + className);
+
+	/* superclass */
+	int superID = input.readUnsignedShort();
+	superclass = superID == 0 ? null
+	    : classpath.getClassInfo(cpool.getClassName(superID));
+
+	/* interfaces */
+	int count = input.readUnsignedShort();
+	interfaces = new ClassInfo[count];
+	for (int i = 0; i < count; i++) {
+	    interfaces[i] = classpath.getClassInfo
+		(cpool.getClassName(input.readUnsignedShort()));
+	}
 
 	/* fields */
-        if (howMuch >= PUBLICDECLARATIONS) {
-            int count = input.readUnsignedShort();
-	    fields = new FieldInfo[count];
-            for (int i = 0; i < count; i++) {
-		fields[i] = new FieldInfo(); 
-                fields[i].read(cpool, input, howMuch);
-            }
-        } else {
-	    byte[] skipBuf = new byte[6];
-            int count = input.readUnsignedShort();
-            for (int i = 0; i < count; i++) {
-		input.readFully(skipBuf); // modifier, name, type
-                skipAttributes(input);
-            }
-        }
+	count = input.readUnsignedShort();
+	fields = new FieldInfo[count];
+	for (int i = 0; i < count; i++) {
+	    fields[i] = new FieldInfo(); 
+	    fields[i].read(cpool, input, howMuch);
+	}
 
 	/* methods */
-        if (howMuch >= PUBLICDECLARATIONS) {
-            int count = input.readUnsignedShort();
-	    methods = new MethodInfo[count];
-            for (int i = 0; i < count; i++) {
-		methods[i] = new MethodInfo(); 
-                methods[i].read(cpool, input, howMuch);
-            }
-        } else {
-	    byte[] skipBuf = new byte[6];
-            int count = input.readUnsignedShort();
-            for (int i = 0; i < count; i++) {
-		input.readFully(skipBuf); // modifier, name, type
-                skipAttributes(input);
-            }
-        }
+	count = input.readUnsignedShort();
+	methods = new MethodInfo[count];
+	for (int i = 0; i < count; i++) {
+	    methods[i] = new MethodInfo(); 
+	    methods[i].read(cpool, input, howMuch);
+	}
 
 	/* initialize inner classes to empty array, in case there
 	 * is no InnerClasses attribute.
@@ -769,9 +760,19 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    if (ci.status < OUTERCLASS)
 		ci.mergeOuterInfo(null, null, -1, false);
 	}
+
+	/* Set status */
 	status = howMuch;
     }
 
+    /****** WRITING CLASS FILES ***************************************/
+
+    /**
+     * Reserves constant pool entries for String, Integer and Float
+     * constants needed by the bytecode.  These constants should have
+     * small constant pool indices so that a ldc instead of a ldc_w
+     * bytecode can be used.
+     */
     private void reserveSmallConstants(GrowableConstantPool gcp) {
 	for (int i = 0; i < fields.length; i++)
 	    fields[i].reserveSmallConstants(gcp);
@@ -780,8 +781,11 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	    methods[i].reserveSmallConstants(gcp);
     }
 
-    /****** WRITING CLASS FILES ***************************************/
-
+    /**
+     * Reserves all constant pool entries needed by this class.  This
+     * is necessary, because the constant pool is the first thing 
+     * written to the class file.
+     */
     private void prepareWriting(GrowableConstantPool gcp) {
 	gcp.putClassName(name);
 	gcp.putClassName(superclass.name);
@@ -828,6 +832,9 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
         prepareAttributes(gcp);
     }
 
+    /**
+     * Count the attributes needed by the class.
+     */
     protected int getAttributeCount() {
 	int count = super.getAttributeCount();
 	if (sourceFile != null)
@@ -837,6 +844,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	return count;
     }
 
+    /**
+     * Write the attributes needed by the class, namely SourceFile
+     * and InnerClasses attributes.
+     */
     protected void writeAttributes(GrowableConstantPool gcp,
 				   DataOutputStream output) 
 	throws IOException {
@@ -958,7 +969,12 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     }
 
     /**
-     * Guess the contents of a class.  It
+     * Guess the contents of a class.  This is a last resort if the
+     * file can't be read by the class path.  It generates outer class
+     * information based on the class name, assumes that the class
+     * extends java.lang.Object, implements no interfaces and has no
+     * fields, methods or inner classes.
+     *
      * @param howMuch The amount of information that should be read, e.g.
      *                <code>HIERARCHY</code>.
      * @see #OUTERCLASS
@@ -1018,7 +1034,7 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     }
 
     /**  
-     * This is the counter part to load.  It will drop all
+     * This is the counter part to load and guess.  It will drop all
      * informations bigger than "keep" and clean up the memory.
      * @param keep tells how much info we should keep, can be
      *    <code>NONE</code> or anything that <code>load</code> accepts.
@@ -1217,8 +1233,8 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     /**
      * Sets the name of this class info.  Note that by changing the
      * name you may overwrite an already loaded class.  This can have
-     * ugly effects, as that overwritten class may still exist, but
-     * can't be loaded via the classPath.
+     * ugly effects, as references to that overwritten class may still
+     * exist.
      */
     public void setName(String newName) {
 	/* The class name is used as index in the hash table.  We have
@@ -1396,6 +1412,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
      * Checks if this class is a super class of child.  This loads the
      * complete hierarchy of child on demand and can throw an IOException
      * if some classes are not found or broken.
+     *
+     * It doesn't check for cycles in class hierarchy, so it may get
+     * into an eternal loop.
+     *
      * @param child the class that should be a child class of us.
      * @return true if this is as super class of child, false otherwise
      * @exception IOException if hierarchy of child could not be loaded.
@@ -1414,7 +1434,10 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
      * complete hierarchy of clazz on demand and can throw an IOException
      * if some classes are not found or broken.  If this class is not an
      * interface it returns false, but you should check it yourself for 
-     * better performance.
+     * better performance. <br>
+     *
+     * It doesn't check for cycles in class hierarchy, so it may get
+     * into an eternal loop.
      * @param clazz the class to be checked.
      * @return true if this is a interface and is implemented by clazz,
      * false otherwise

@@ -20,11 +20,13 @@
 package net.sf.jode.bytecode;
 
 /**
- * This class represents an instruction in the byte code.
+ * <p> This class represents an instruction in the byte code.
+ * Instructions can be created with the static {@link #forOpcode}
+ * methods. </p>
  *
- * We only allow a subset of opcodes.  Other opcodes are mapped to
- * their simpler version.  When writing the bytecode the shortest
- * possible bytecode is produced.
+ * <p> We only allow a subset of opcodes.  Other opcodes are mapped to
+ * their simpler version.  Don't worry about this, when writing the
+ * bytecode the shortest possible bytecode is produced. </p>
  *
  * The opcodes we map are:
  * <pre>
@@ -216,55 +218,104 @@ public class Instruction implements Opcodes{
     }
 
     /**
-     * Returns the opcode of the instruction.  
+     * Gets the opcode of the instruction.  
+     * @return the opcode of the instruction.  
      */
     public final int getOpcode() {
 	return lineAndOpcode & 0xff;
     }
 
+    /**
+     * Tells whether there is a line number information for this
+     * instruction.
+     * @return true if there is a line number information for this
+     * instruction.
+     */
     public final boolean hasLineNr() {
 	return lineAndOpcode >= 0;
     }
 
+    /**
+     * Gets the line number of this instruction.
+     * @return the line number, or -1 if there isn't one.
+     */
     public final int getLineNr() {
 	return lineAndOpcode >> 8;
     }
 
+    /**
+     * Sets the line number of this instruction.
+     * @param nr the line number; use -1 to clear it.
+     */
     public final void setLineNr(int nr) {
 	lineAndOpcode = (nr << 8) | (lineAndOpcode & 0xff);
     }
 
+    /**
+     * Checks whether this instruction is a local store instruction, i.e.
+     * one of <code>astore</code>, <code>istore</code>, <code>lstore</code>, 
+     * <code>fstore</code> or <code>dstore</code>.
+     */
     public boolean isStore() {
 	return false;
     }
 
+    /**
+     * Checks whether this instruction accesses a local slot.
+     */
     public boolean hasLocal() {
 	return false;
     }
 	    
+    /**
+     * Gets the slot number of the local this instruction accesses.
+     * @return the slot number.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * access a local slot.
+     */
     public int getLocalSlot()
     {
 	throw new IllegalArgumentException();
 	// UnsupportedOperationException would be more appropriate
     }
 
+    /**
+     * Gets the information of the local this instruction accesses.
+     * @return the local variable info.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * access a local.
+     */
     public LocalVariableInfo getLocalInfo()
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Sets the information of the local this instruction accesses.
+     * @param info the local variable info.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * access a local.
+     */
     public void setLocalInfo(LocalVariableInfo info) 
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Sets the slot of the local this instruction accesses.
+     * @param slot the local slot
+     * @throws IllegalArgumentException if this instruction doesn't
+     * access a local.
+     */
     public void setLocalSlot(int slot) 
     {
 	throw new IllegalArgumentException();
     }
 
     /**
-     * Get the increment for an opc_iinc instruction.
+     * Gets the increment for an opc_iinc instruction.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
      */
     public int getIncrement()
     {
@@ -272,7 +323,9 @@ public class Instruction implements Opcodes{
     }
 
     /**
-     * Set the increment for an opc_iinc instruction.
+     * Sets the increment for an opc_iinc instruction.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
      */
     public void setIncrement(int incr)
     {
@@ -280,7 +333,9 @@ public class Instruction implements Opcodes{
     }
 
     /**
-     * Get the dimensions for an opc_anewarray opcode.
+     * Gets the dimensions for an opc_multianewarray opcode.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
      */
     public int getDimensions()
     {
@@ -288,53 +343,101 @@ public class Instruction implements Opcodes{
     }
 
     /**
-     * Set the dimensions for an opc_anewarray opcode.
+     * Sets the dimensions for an opc_multianewarray opcode.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
      */
     public void setDimensions(int dims)
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Gets the constant for a opc_ldc or opc_ldc2_w opcode.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
+     */
     public Object getConstant() 
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Sets the constant for a opc_ldc or opc_ldc2_w opcode.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
+     */
     public void setConstant(Object constant) 
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Gets the reference of the field or method this instruction accesses.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
+     */
     public Reference getReference()
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Sets the reference of the field or method this instruction accesses.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
+     */
     public void setReference(Reference ref)
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Gets the class type this instruction uses, e.g if its a class cast.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
+     */
     public String getClazzType() 
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Sets the class type this instruction uses, e.g if its a class cast.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
+     */
     public void setClazzType(String type)
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Gets the values of a opc_lookupswitch opcode.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
+     */
     public int[] getValues()
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Sets the values of a opc_lookupswitch opcode.
+     * @throws IllegalArgumentException if this instruction doesn't
+     * support this.
+     */
     public void setValues(int[] values) 
     {
 	throw new IllegalArgumentException();
     }
 
+    /**
+     * Checks whether this instruction always changes program flow.
+     * Returns false for opc_jsr it.
+     * @return true if this instruction always changes flow, i.e. if
+     * its an unconditional jump, a return, a throw, a ret or a switch.
+     */
     public final boolean doesAlwaysJump() {
 	switch (getOpcode()) {
 	case opc_ret:
@@ -380,6 +483,12 @@ public class Instruction implements Opcodes{
 	return toString();
     }
 
+    /**
+     * Gets a printable representation of the opcode with its
+     * parameters.  This will not include the destination for jump
+     * instructions, since this information is not stored inside the
+     * instruction.  
+     */
     public String toString() {
 	return opcodeString[getOpcode()];
     }

@@ -232,6 +232,15 @@ public final class Block {
 	    throw new IllegalArgumentException("no single successor block");
     }
 
+    /**
+     * Returns the stack height at the beginning of the block.  This
+     * is automatically calculated, when the block is inserted in a
+     * basic block.
+     */
+    public int getStackHeight () {
+	return stackHeight;
+    }
+
     public void getStackPopPush (int[] poppush) {
 	poppush[0] = maxpop;
 	poppush[1] = delta + maxpop;

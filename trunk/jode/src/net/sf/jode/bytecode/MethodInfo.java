@@ -27,8 +27,8 @@ import java.lang.Comparable;
 ///#enddef
 
 /**
- * <p>Represents a java bytecode method.  A method consists of the following
- * parts:</p>
+ * Represents a java bytecode method.  A method consists of the following
+ * parts:
  *
  * <dl>
  *
@@ -37,9 +37,13 @@ import java.lang.Comparable;
  * <dt>type</dt><dd>The method's {@link TypeSignature type signature}
  * in bytecode format.</dd>
  *
- * <dt>modifiers</dt><dd>The modifiers of the method like private, public etc.
- * These are created by or-ing the constants defined in
- * {@link java.lang.reflect.Modifier}. </dt>
+ * <dt>modifiers</dt><dd>The modifiers of the field like private, public etc.
+ * These are created by or-ing the constants {@link Modifier#PUBLIC},
+ * {@link Modifier#PRIVATE}, {@link Modifier#PROTECTED}, 
+ * {@link Modifier#STATIC}, {@link Modifier#FINAL}, 
+ * {@link Modifier#SYNCHRONIZED}, {@link Modifier#NATIVE}, 
+ * {@link Modifier#ABSTRACT}, {@link Modifier#STRICT}
+ * of class {@link java.lang.reflect.Modifier}. </dt>
  *
  * <dt>basicblocks</dt><dd>the bytecode of the method in form of
  * {@link BasicBlocks basic blocks}, null if it is native or

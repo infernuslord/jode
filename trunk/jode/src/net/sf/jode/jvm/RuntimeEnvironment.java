@@ -34,8 +34,10 @@ import java.lang.reflect.InvocationTargetException;
  * <li> array of primitive type is mapped to itself (not array of Integer)</li>
  * <li> array of other types are mapped to array of mapped other type </li>
  * </ul>
- * 
- * @author Jochen Hoenicke */
+ *
+ * @author Jochen Hoenicke
+ * @see SimpleRuntimeEnvironment
+ */
 public interface RuntimeEnvironment {
     /**
      * Get the value of a field member.

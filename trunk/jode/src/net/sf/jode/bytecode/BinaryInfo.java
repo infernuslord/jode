@@ -42,7 +42,7 @@ import java.util.Iterator;
  *
  * <p>There are some predefined attributes, even the Code of a Method
  * is an attribute.  These predefined attributes are all handled by
- * this package as appropriate.  This methods are only useful for non
+ * this package as appropriate.  These methods are only useful for non
  * standard attributes.</p>
  *
  * <p>You can provide new attributes by overriding the protected
@@ -253,7 +253,7 @@ public class BinaryInfo {
      * BasicBlocks.
      *
      * @return the total length of all attributes, including their
-     * headers and the number of attributes field.
+     * headers and the "number of attributes" field.
      */
     protected int getAttributeSize() {
 	int size = 2; /* attribute count */
@@ -267,8 +267,9 @@ public class BinaryInfo {
     
     /**
      * Finds a non standard attribute with the given name.  You don't
-     * have access to the constant pool.  Instead extend this class
-     * and override readAttribute method if you need the pool.
+     * have access to the constant pool.  If you need the pool don't
+     * use this method but extend this class and override
+     * readAttribute method.
      * @param name the name of the attribute.
      * @return the contents of the attribute, null if not found.
      * @see #readAttribute
@@ -282,12 +283,14 @@ public class BinaryInfo {
     /**
      * Gets all non standard attributes.
      * @return an iterator for all attributes.  The values returned by
-     * the next() method of the iterator are of byte[] type.
+     * the next() method of the iterator are of Map.Entry type.  The
+     * key of the entry is the name of the attribute, while the values
+     * are the byte[] contents.
      * @see #findAttribute
      */
     public Iterator getAttributes() {
 	if (unknownAttributes != null)
-	    return unknownAttributes.values().iterator();
+	    return unknownAttributes.entrySet().iterator();
 	return Collections.EMPTY_SET.iterator();
     }
 

@@ -36,8 +36,8 @@ import java.util.Iterator;
 
 /**
  * This class is a java virtual machine written in java :-).  Well not
- * exactly.  It does only handle a subset of the opcodes and is mainly
- * written do deobfuscate Strings.
+ * exactly.  It is only a bytecode interpreter, you have to supply the
+ * rest of the VM (the runtime environment).
  *
  * @author Jochen Hoenicke
  */

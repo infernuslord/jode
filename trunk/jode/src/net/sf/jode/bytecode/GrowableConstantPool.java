@@ -23,11 +23,14 @@ import java.io.IOException;
 import java.util.Hashtable;
 
 /**
- * This class represent a constant pool, where new constants can be added to.
+ * This class represent a constant pool, where new constants can be
+ * added to.  Normally you wont need to touch this class, as ClassInfo
+ * already does all the hard work.  You will only need it if you want
+ * to add your own custom attributes that use the constant pool.
  *
  * @author Jochen Hoenicke
  */
-class GrowableConstantPool extends ConstantPool {
+public class GrowableConstantPool extends ConstantPool {
     Hashtable entryToIndex = new Hashtable(); 
     boolean written;
 
@@ -59,6 +62,9 @@ class GrowableConstantPool extends ConstantPool {
 	}
     }
 
+    /**
+     * Create a new growable constant pool
+     */
     public GrowableConstantPool () {
 	count = 1;
 	tags = new int[128];
@@ -68,11 +74,13 @@ class GrowableConstantPool extends ConstantPool {
 	written = false;
     }
 
-    public final void grow(int wantedSize) {
+    private final void grow(int wantedSize) {
 	if (written)
 	    throw new IllegalStateException("adding to written ConstantPool");
+	if (wantedSize > 65535)
+	    throw new IllegalArgumentException("Too many constants added");
 	if (tags.length < wantedSize) {
-	    int newSize = Math.max(tags.length*2, wantedSize);
+	    int newSize = Math.min(65535, Math.max(tags.length*2, wantedSize));
 	    int[] tmpints = new int[newSize];
 	    System.arraycopy(tags, 0, tmpints, 0, count);
 	    tags = tmpints;
@@ -117,7 +125,7 @@ class GrowableConstantPool extends ConstantPool {
 	return newIndex;
     }
 
-    int putIndexed(int tag, Object obj1, int index1, int index2) {
+    private int putIndexed(int tag, Object obj1, int index1, int index2) {
 	Key key = new Key(tag, obj1, index2);
 	Integer indexObj = (Integer) entryToIndex.get(key);
 	if (indexObj != null) {
@@ -135,16 +143,45 @@ class GrowableConstantPool extends ConstantPool {
 	return count++;
     }
 
+    /**
+     * Adds a new UTF8 entry to the constant pool and returns the index.
+     * If it already exists it will reuse the previous entry.
+     * @param utf the UTF8 string.
+     * @return the index of the pool entry.
+     * @exception IllegalStateException if the pool was already written,
+     * but the entry was not added before.
+     */
     public final int putUTF8(String utf) {
 	return putConstant(UTF8, utf);
     }    
 
+    /**
+     * Adds a new class name entry to the constant pool and returns
+     * the index.  If it already exists it will reuse the previous
+     * entry.
+     * @param name the dot separated full qualified class name.
+     * @return the index of the pool entry.
+     * @exception IllegalArgumentException if the class name is illegal.
+     * @exception IllegalStateException if the pool was already written,
+     * but the entry was not added before.
+     */
     public int putClassName(String name) {
 	name = name.replace('.','/');
 	TypeSignature.checkTypeSig("L"+name+";");
 	return putIndexed(CLASS, name, putUTF8(name), 0);
     }
 
+    /**
+     * Adds a new class entry to the constant pool and returns
+     * the index.  If it already exists it will reuse the previous
+     * entry.  This is the same as putClassName, except for the format
+     * of the parameter and that it can also handle arrays.
+     * @param name the type signature of the class to add.
+     * @return the index of the pool entry.
+     * @exception IllegalArgumentException if the class name is illegal.
+     * @exception IllegalStateException if the pool was already written,
+     * but the entry was not added before.
+     */
     public int putClassType(String name) {
 	TypeSignature.checkTypeSig(name);
 	if (name.charAt(0) == 'L')
@@ -154,6 +191,19 @@ class GrowableConstantPool extends ConstantPool {
 	return putIndexed(CLASS, name, putUTF8(name), 0);
     }
 
+    /**
+     * Adds a new field/method or interface reference to the constant
+     * pool and returns the index.  If it already exists it will reuse
+     * the previous entry.
+     * @param tag the tag of the reference, one of FIELDREF, METHODREF
+     * or INTERFACEMETHODREF.
+     * @param ref the reference.
+     * @return the index of the pool entry.
+     * @exception IllegalArgumentException if the reference type or
+     * class name is illegal.
+     * @exception IllegalStateException if the pool was already written,
+     * but the entry was not added before.
+     */
     public int putRef(int tag, Reference ref) {
 	String className = ref.getClazz();
 	String typeSig = ref.getType();
@@ -172,10 +222,14 @@ class GrowableConstantPool extends ConstantPool {
     }
 
     /**
-     * Puts a constant into this constant pool
-     * @param c the constant, must be of type 
-     *    Integer, Long, Float, Double or String
-     * @return the index into the pool of this constant.
+     * Puts a "one slot" constant into this constant pool.  If it
+     * already exists it will reuse the previous entry.
+     * @param c the constant; must be of type 
+     *    Integer, Float or String
+     * @return the index of the pool entry.
+     * @exception IllegalArgumentException if the constant is of wrong type.
+     * @exception IllegalStateException if the pool was already written,
+     * but the entry was not added before.
      */
     public int putConstant(Object c) {
 	if (c instanceof String) {
@@ -194,10 +248,13 @@ class GrowableConstantPool extends ConstantPool {
     }
 
     /**
-     * Puts a constant into this constant pool
-     * @param c the constant, must be of type 
-     *    Integer, Long, Float, Double or String
-     * @return the index into the pool of this constant.
+     * Puts a "double slot" constant into this constant pool.  If it
+     * already exists it will reuse the previous entry.
+     * @param c the constant; must be of type Long or Double
+     * @return the index of the pool entry.
+     * @exception IllegalArgumentException if the constant is of wrong type.
+     * @exception IllegalStateException if the pool was already written,
+     * but the entry was not added before.
      */
     public int putLongConstant(Object c) {
 	int tag;
@@ -212,9 +269,11 @@ class GrowableConstantPool extends ConstantPool {
     }
 
     /**
-     * Reserve an entry in this constant pool for a constant (for ldc).
+     * Reserves an entry in this constant pool for a constant (for ldc).
+     * The constant must still be put into the pool, before the pool may
+     * be written.
      * @param c the constant, must be of type 
-     *    Integer, Long, Float, Double or String
+     *    Integer, Float or String
      * @return the reserved index into the pool of this constant.
      */
     public int reserveConstant(Object c) {
@@ -226,25 +285,14 @@ class GrowableConstantPool extends ConstantPool {
     }
 
     /**
-     * Reserve an entry in this constant pool for a constant (for ldc).
-     * @param c the constant, must be of type 
-     *    Integer, Long, Float, Double or String
-     * @return the reserved index into the pool of this constant.
+     * Writes the constant pool to the stream.  This is normally called
+     * by {@link ClassInfo#write}.  
+     * @param stream the stream to write to.
+     * @exception IOException if it occured while writing.
      */
-    public int reserveLongConstant(Object c) {
-	return putLongConstant(c);
-    }
-
-    public int copyConstant(ConstantPool cp, int index) 
-	throws ClassFormatException {
-	return putConstant(cp.getConstant(index));
-    }
-
     public void write(DataOutputStream stream) 
 	throws IOException {
 	written = true;
-	if (count > 65536)
-	    throw new ClassFormatError("Too many constants");
 	stream.writeShort(count);
 	for (int i=1; i< count; i++) {
 	    int tag = tags[i];

@@ -225,8 +225,7 @@ for (@files) {
 	if ($changes == 0) {
 	    unlink "$file.tmp";
 	} else {
-	    (rename "$file", "$file.orig" 
-	     and rename "$file.tmp", "$file") 
+	    (unlink "$file" and rename "$file.tmp", "$file") 
 		or print STDERR "$file: Couldn't rename files.\n";
 	}
     } else {
