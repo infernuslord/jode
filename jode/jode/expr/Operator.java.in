@@ -23,6 +23,7 @@ import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 
 import @COLLECTIONS@.Collection;
+import @COLLECTIONS@.Set;
 
 public abstract class Operator extends Expression {
     /* Don't reorder these constants unless you know what you are doing! */
@@ -172,12 +173,15 @@ public abstract class Operator extends Expression {
     }
 
     public void fillDeclarables(Collection used) {
-	if (this instanceof LocalVarOperator) {
-	    used.add(((LocalVarOperator) this).getLocalInfo());
-	}
         for (int i=0; i< subExpressions.length; i++)
 	    subExpressions[i].fillDeclarables(used);
     }
+
+    public void makeDeclaration(Set done) {
+        for (int i=0; i< subExpressions.length; i++)
+	    subExpressions[i].makeDeclaration(done);
+    }
+
 
     /**
      * Checks if the value of the given expression can change, due to

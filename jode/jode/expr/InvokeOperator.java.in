@@ -20,17 +20,17 @@
 package jode.expr;
 import java.lang.reflect.Modifier;
 
-import jode.Decompiler;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.TabbedPrintWriter;
+import jode.decompiler.Options;
 import jode.decompiler.OuterValues;
+import jode.decompiler.Scope;
 import jode.GlobalOptions;
 import jode.bytecode.*;
 import jode.jvm.*;
 import jode.type.*;
-import jode.decompiler.Scope;
 import jode.util.SimpleMap;
 
 import java.lang.reflect.InvocationTargetException;
@@ -39,6 +39,7 @@ import @COLLECTIONS@.Collections;
 import @COLLECTIONS@.Collection;
 import @COLLECTIONS@.Map;
 import @COLLECTIONS@.Iterator;
+import @COLLECTIONS@.Set;
 
 public final class InvokeOperator extends Operator 
     implements MatchableOperator {
@@ -175,7 +176,7 @@ public final class InvokeOperator extends Operator
 
     public void checkAnonymousClasses() {
 	if (methodFlag != CONSTRUCTOR
-	    || (Decompiler.options & Decompiler.OPTION_ANON) == 0)
+	    || (Options.options & Options.OPTION_ANON) == 0)
 	    return;
 	InnerClassInfo outer = getOuterClassInfo(getClassInfo());
 	if (outer != null && (outer.outer == null || outer.name == null)) {
@@ -251,8 +252,8 @@ public final class InvokeOperator extends Operator
      * inside the same base class as the caller class, null otherwise.
      */
     public ClassAnalyzer getClassAnalyzer() {
-	if ((Decompiler.options & 
-	     (Decompiler.OPTION_ANON | Decompiler.OPTION_INNER)) == 0)
+	if ((Options.options & 
+	     (Options.OPTION_ANON | Options.OPTION_INNER)) == 0)
 	    return null;
 
 	ClassInfo callee = getClassInfo();
@@ -261,7 +262,7 @@ public final class InvokeOperator extends Operator
 
 	int nested = 0;
 	InnerClassInfo[] outers = callee.getOuterClasses();
-	if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
+	if ((Options.options & Options.OPTION_INNER) != 0
 	    && outers != null) {
 	    /* If the callee class is an inner class we take its
 	     * (outermost) parent instead.  This will assure that we
@@ -288,12 +289,12 @@ public final class InvokeOperator extends Operator
 		if (ana.getParent() == null)
 		    return null;
 		if (ana.getParent() instanceof MethodAnalyzer
-		    && (Decompiler.options & Decompiler.OPTION_ANON) != 0)
+		    && (Options.options & Options.OPTION_ANON) != 0)
 		    ana = ((MethodAnalyzer) ana.getParent())
 			.getClassAnalyzer();
 		else if (ana.getParent() instanceof ClassAnalyzer
-			 && (Decompiler.options 
-			 & Decompiler.OPTION_INNER) != 0)
+			 && (Options.options 
+			 & Options.OPTION_INNER) != 0)
 		    ana = (ClassAnalyzer) ana.getParent();
 		else 
 		    throw new jode.AssertError
@@ -325,12 +326,12 @@ public final class InvokeOperator extends Operator
 		if (ana.getParent() == null)
 		    break;
 		if (ana.getParent() instanceof MethodAnalyzer
-		    && (Decompiler.options & Decompiler.OPTION_ANON) != 0)
+		    && (Options.options & Options.OPTION_ANON) != 0)
 		    ana = ((MethodAnalyzer) ana.getParent())
 			.getClassAnalyzer();
 		else if (ana.getParent() instanceof ClassAnalyzer
-			 && (Decompiler.options 
-			     & Decompiler.OPTION_INNER) != 0)
+			 && (Options.options 
+			     & Options.OPTION_INNER) != 0)
 		    ana = (ClassAnalyzer) ana.getParent();
 		else 
 		    throw new jode.AssertError
@@ -367,7 +368,7 @@ public final class InvokeOperator extends Operator
     }
 
     public boolean isConstant() {
-	if ((Decompiler.options & Decompiler.OPTION_ANON) == 0)
+	if ((Options.options & Options.OPTION_ANON) == 0)
 	    return super.isConstant();
 
 	ClassInfo clazz = getClassInfo();
@@ -545,7 +546,7 @@ public final class InvokeOperator extends Operator
 	    result.addOperand(right);
 	    result.addOperand(subExpressions[0].simplify());
 	} 
-	else if ((Decompiler.options & Decompiler.OPTION_DECRYPT) != 0
+	else if ((Options.options & Options.OPTION_DECRYPT) != 0
 		 && isThis() && isStatic()
 		 && methodType.getParameterTypes().length == 1
 		 && methodType.getParameterTypes()[0].equals(Type.tString)
@@ -700,63 +701,68 @@ public final class InvokeOperator extends Operator
 	InnerClassInfo outer = getOuterClassInfo(clazz);
 	ClassAnalyzer clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
 
+	if ((Options.options & Options.OPTION_ANON) != 0
+	    && outer != null && outer.outer == null && outer.name != null
+	    && clazzAna != null
+	    && clazzAna.getParent() == methodAnalyzer) {
+
+	    /* This is a named method scope class, declare it.
+	     * But first declare all method scoped classes,
+	     * that are used inside; order does matter.
+	     */
+	    clazzAna.fillDeclarables(used);
+	    used.add(clazzAna);
+	}
+
+	if (!isConstructor() || isStatic()) {
+	    super.fillDeclarables(used);
+	    return;
+	}
 	int arg = 1;
 	int length = subExpressions.length;
 	boolean jikesAnonymousInner = false;
 
-	if ((Decompiler.options & Decompiler.OPTION_ANON) != 0
+	if ((Options.options & Options.OPTION_ANON) != 0
 	    && clazzAna != null
 	    && outer != null && (outer.outer == null || outer.name == null)) {
+
+	    OuterValues ov = clazzAna.getOuterValues();
+	    arg += ov.getCount();
+	    jikesAnonymousInner = ov.isJikesAnonymousInner();
 	    
-	    if (outer.name != null) {
-		if (clazzAna.getParent() == methodAnalyzer) {
-		    /* This is a named method scope class, declare it.
-		     * But first declare all method scoped classes,
-		     * that are used inside; order does matter.
-		     */
-		    clazzAna.fillDeclarables(used);
-		    used.add(clazzAna);
-		}
-	    }
-	    if (isConstructor()) {
-		OuterValues ov = clazzAna.getOuterValues();
-		arg += ov.getCount();
-		jikesAnonymousInner = ov.isJikesAnonymousInner();
-
-		for (int i=1; i< arg; i++) {
-		    Expression expr = subExpressions[i];
-		    if (expr instanceof CheckNullOperator) {
-			CheckNullOperator cno = (CheckNullOperator) expr;
+	    for (int i=1; i< arg; i++) {
+		Expression expr = subExpressions[i];
+		if (expr instanceof CheckNullOperator) {
+		    CheckNullOperator cno = (CheckNullOperator) expr;
 			expr = cno.subExpressions[0];
-		    }
-		    expr.fillDeclarables(used);
 		}
-
-		if (outer.name == null) {
-		    /* This is an anonymous class */
-		    ClassInfo superClazz = clazz.getSuperclass();
-		    ClassInfo[] interfaces = clazz.getInterfaces();
-		    if (interfaces.length == 1
-			&& (superClazz == null
-			    || superClazz == ClassInfo.javaLangObject)) {
-			clazz = interfaces[0];
-		    } else {
-			clazz = (superClazz != null
-				 ? superClazz : ClassInfo.javaLangObject);
-		    }
-		    outer = getOuterClassInfo(clazz);
-		    
+		expr.fillDeclarables(used);
+	    }
+	    
+	    if (outer.name == null) {
+		/* This is an anonymous class */
+		ClassInfo superClazz = clazz.getSuperclass();
+		ClassInfo[] interfaces = clazz.getInterfaces();
+		if (interfaces.length == 1
+		    && (superClazz == null
+			|| superClazz == ClassInfo.javaLangObject)) {
+		    clazz = interfaces[0];
+		} else {
+		    clazz = (superClazz != null
+			     ? superClazz : ClassInfo.javaLangObject);
 		}
+		outer = getOuterClassInfo(clazz);
+		
 	    }
 	}
-	if (isConstructor()
-	    && (Decompiler.options & Decompiler.OPTION_INNER) != 0
+
+	if ((Options.options & Options.OPTION_INNER) != 0
 	    && outer != null && outer.outer != null && outer.name != null
 	    && !Modifier.isStatic(outer.modifiers)) {
-
+	    
 	    Expression outerExpr = jikesAnonymousInner 
-			   ? subExpressions[--length]
-			   : subExpressions[arg++];
+		? subExpressions[--length]
+		: subExpressions[arg++];
 	    if (outerExpr instanceof CheckNullOperator) {
 		CheckNullOperator cno = (CheckNullOperator) outerExpr;
 		outerExpr = cno.subExpressions[0];
@@ -767,6 +773,27 @@ public final class InvokeOperator extends Operator
 	    subExpressions[i].fillDeclarables(used);
     }
 
+    /**
+     * We add the named method scoped classes to the declarables, and
+     * only fillDeclarables on the parameters we will print.
+     */
+    public void makeDeclaration(Set done) {
+	super.makeDeclaration(done);
+
+	if (isConstructor() && !isStatic()
+	    && (Options.options & Options.OPTION_ANON) != 0) {
+	    ClassInfo clazz = getClassInfo();
+	    InnerClassInfo outer = getOuterClassInfo(clazz);
+	    ClassAnalyzer clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
+	    if (clazzAna != null && outer != null && outer.name == null) {
+		
+		/* call makeDeclaration on the anonymous class, since
+		 * _we_ will declare the anonymous class.  */
+		clazzAna.makeDeclaration(done);
+	    }
+	}
+    }
+    
     /* Invokes never equals: they may return different values even if
      * they have the same parameters.
      */
@@ -798,8 +825,8 @@ public final class InvokeOperator extends Operator
 	    if (outer != null && outer.name == null)
 		anonymousNew = true;
 	    clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
-	    if ((~Decompiler.options & 
-		 (Decompiler.OPTION_ANON | Decompiler.OPTION_CONTRAFO)) == 0
+	    if ((~Options.options & 
+		 (Options.OPTION_ANON | Options.OPTION_CONTRAFO)) == 0
 		&& clazzAna != null
 		&& outer != null 
 		&& (outer.outer == null || outer.name == null)) {
@@ -846,9 +873,9 @@ public final class InvokeOperator extends Operator
 	     */
 	    if (outer != null && outer.outer != null && outer.name != null
 		&& !Modifier.isStatic(outer.modifiers)
-		&& (~Decompiler.options & 
-		    (Decompiler.OPTION_INNER
-		     | Decompiler.OPTION_CONTRAFO)) == 0) {
+		&& (~Options.options & 
+		    (Options.OPTION_INNER
+		     | Options.OPTION_CONTRAFO)) == 0) {
 
 		Expression outerExpr = jikesAnonymousInner 
 		    ? subExpressions[--length]
@@ -914,10 +941,7 @@ public final class InvokeOperator extends Operator
 	    break;
 	}
 	case SPECIAL:
-	    if (subExpressions[0] instanceof ThisOperator
-		&& (((ThisOperator)subExpressions[0]).getClassInfo()
-		    == methodAnalyzer.getClazz())) {
-
+	    if (isSuperOrThis()) {
 		if (!isThis()) {
 		    /* We don't have to check if this is the real super
 		     * class, as long as ACC_SUPER is set.

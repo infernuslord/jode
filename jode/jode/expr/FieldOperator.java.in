@@ -29,9 +29,9 @@ import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.FieldAnalyzer;
+import jode.decompiler.Options;
 import jode.decompiler.TabbedPrintWriter;
 import jode.decompiler.Scope;
-import jode.Decompiler;
 
 import @COLLECTIONS@.Collection;
 
@@ -157,21 +157,19 @@ public abstract class FieldOperator extends Operator {
 	InnerClassInfo outer = getOuterClassInfo(clazz);
 	ClassAnalyzer clazzAna = methodAnalyzer.getClassAnalyzer(clazz);
 
-	if ((Decompiler.options & Decompiler.OPTION_ANON) != 0
+	if ((Options.options & Options.OPTION_ANON) != 0
+	    && outer != null && outer.outer == null && outer.name != null
 	    && clazzAna != null
-	    && outer != null && (outer.outer == null || outer.name == null)) {
+	    && clazzAna.getParent() == methodAnalyzer) {
 
-	    if (outer.name != null) {
-		if (clazzAna.getParent() == methodAnalyzer) {
-		    /* This is a named method scope class, declare it.
-		     * But first declare all method scoped classes,
-		     * that are used inside; order does matter.
-		     */
-		    clazzAna.fillDeclarables(used);
-		    used.add(clazzAna);
-		}
-	    }
+	    /* This is a named method scope class, declare it.
+	     * But first declare all method scoped classes,
+	     * that are used inside; order does matter.
+	     */
+	    clazzAna.fillDeclarables(used);
+	    used.add(clazzAna);
 	}
+	super.fillDeclarables(used);
     }
 
     public void dumpExpression(TabbedPrintWriter writer)
