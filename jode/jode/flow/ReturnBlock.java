@@ -42,6 +42,12 @@ public class ReturnBlock extends InstructionContainer {
 	return true;
     }
 
+    public void checkConsistent() {
+	super.checkConsistent();
+	if (jump != null && jump.destination != FlowBlock.END_OF_METHOD)
+	    throw new InternalError("Inconsistency");
+    }
+
     /**
      * This does take the instr into account and modifies stack
      * accordingly.  It then calls super.mapStackToLocal.
@@ -57,8 +63,6 @@ public class ReturnBlock extends InstructionContainer {
 		newStack = stack.pop(params);
 	    }
 	}
-	if (jump != null)
-	    jump.stackMap = newStack;
 	return null;
     }
 
