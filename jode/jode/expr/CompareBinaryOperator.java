@@ -64,6 +64,8 @@ public class CompareBinaryOperator extends Operator {
     public void updateType() {
 	Type leftType  = Type.tSuperType(subExpressions[0].getType());
 	Type rightType = Type.tSuperType(subExpressions[1].getType());
+	compareType = compareType
+	    .intersection(leftType).intersection(rightType);
 	subExpressions[0].setType(Type.tSubType(rightType));
 	subExpressions[1].setType(Type.tSubType(leftType));
 	/* propagate hints? XXX */
