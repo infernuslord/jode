@@ -1,5 +1,11 @@
 #!/bin/sh
 for i in ci.all jcpp make* COPYING *.html doc/*.texi *.java */*.java test/*.j
 do 
-    test -w $i && (./jcpp -DJDK11 $i; rcsdiff $i; ci -u $* $i); 
+    if test -w $i; then
+	if [ $i != ${i%.java} ]; then
+	    ./jcpp -DJDK11 $i 
+	fi
+	rcsdiff $i
+	ci -u $* $i 
+    fi
 done
