@@ -28,7 +28,9 @@ import net.sf.jode.util.UnifyHash;
  * Primitive types have a one letter type signature.  Type signature
  * of classes contains the class name. Type signatures for arrays and
  * methods are recursively build from the type signatures of their
- * elements.  <br>
+ * elements.  <br> Since java 5 there is a new class of type
+ * signatures supporting generics.  These can be accessed with the
+ * getSignature methods of ClassInfo, MethodInfo and FieldInfo.
  *
  * Here are a few examples:
  * <table><tr><th>type signature</th><th>Java type</th></tr>
@@ -49,7 +51,16 @@ import net.sf.jode.util.UnifyHash;
  * <tr><td><code>()I</code></td>
  *     <td> method without arguments 
  *          and <code>int</code> return type.</td></tr>
+ * <tr><td colspan="2"><code>&lt;E:Ljava/lang/Object;&gt;Ljava/lang/Object;Ljava/util/Collection&lt;TE;&gt;;</code></td>
+ *     </tr><tr><td></td>
+ *     <td> generic class over &lt;E extends Object&gt; extending
+ *          Object and implementing Collections&lt;E&gt;</td></tr>
+ * <tr><td colspan="2"><code>&lt;T:Ljava/lang/Object;&gt;([TT;)[TT;</code></td>
+ *     </tr><tr><td></td>
+ *     <td> generic method over &lt;T extends Object&gt; taking an
+ *          array of T as parameters and returning an array of T.</td></tr>
  * </table>
+ *
  *
  * @author Jochen Hoenicke
  */
@@ -359,7 +370,7 @@ public class TypeSignature {
     /**
      * Checks whether a given type signature is a valid (not method)
      * type signature.  Throws an exception otherwise.
-     * @param typeSig the type signature.
+     * @param typesig the type signature.
      * @exception NullPointerException if typeSig is null.
      * @exception IllegalArgumentException if typeSig is not a valid
      * type signature or if it's a method type signature.
@@ -380,7 +391,7 @@ public class TypeSignature {
     /**
      * Checks whether a given type signature is a valid method
      * type signature.  Throws an exception otherwise.
-     * @param typeSig the type signature.
+     * @param typesig the type signature.
      * @exception NullPointerException if typeSig is null.
      * @exception IllegalArgumentException if typeSig is not a valid
      * method type signature.

@@ -128,6 +128,9 @@ import java.lang.reflect.Modifier;
  *   Every class (resp. interfaces) can implement (resp. extend) 
  *   zero or more interfaces.
  * </dd>
+ * <dt>signature</dt><dd>The classes super class and interfaces with
+ * template information.</dd>
+ *
  * <dt>fields</dt><dd>
  *   Fields are represented as {@link FieldInfo} objects.
  * </dd>
@@ -569,13 +572,13 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
 	} else if (howMuch >= ClassInfo.OUTERCLASS
 		   && name.equals("InnerClasses")) {
 	    readInnerClassesAttribute(length, cp, input);
+	} else if (name.equals("Signature")) {
+	    signature = cp.getUTF8(input.readUnsignedShort());
 	} else if (name.equals("Deprecated")) {
 	    deprecatedFlag = true;
 	    if (length != 0)
 		throw new ClassFormatException
 		    ("Deprecated attribute has wrong length");
-	} else if (name.equals("Signature")) {
-	    signature = cp.getUTF8(input.readUnsignedShort());
 	} else
 	    super.readAttribute(name, length, cp, input, howMuch);
     }
@@ -1190,12 +1193,33 @@ public final class ClassInfo extends BinaryInfo implements Comparable {
     }
 
     /**
+     * Gets the type signature including template information of the class.
+     * <b>WARNING:</b> This field may disappear and merged into getType later.
+     * @return the type signature.
+     * @see TypeSignature
+     */
+    public String getSignature() {
+        if (status < HIERARCHY)
+            throw new IllegalStateException("status is "+status);
+        if (signature != null)
+	    return signature;
+	StringBuffer sb = new StringBuffer();
+	sb.append('L').append(superclass.getName().replace('.','/'))
+	    .append(";");
+	for (int i = 0; i < interfaces.length; i++) {
+	    sb.append('L').append(interfaces[i].getName().replace('.','/'))
+		.append(";");
+	}
+	return sb.toString();
+    }
+
+    /**
      * Gets the modifiers of this class, e.g. public or abstract.  The
      * information is only available if at least {@link #HIERARCHY} is
      * loaded.
      * @return a bitboard of the modifiers.
      * @see Class#getModifiers
-     * @see Modifier
+     * @see BinaryInfo#ACC_PUBLIC ACC_* fields in BinaryInfo
      */
     public int getModifiers() {
         if (modifiers == -1)

@@ -1,3 +1,29 @@
+2004-08-06  Jochen Hoenicke  <hoenicke@marge.Informatik.Uni-Oldenburg.DE>
+
+	* src/net/sf/jode/bytecode/BinaryInfo.java (ACC_*): added 
+	constants describing modifier attributes.
+	* src/net/sf/jode/bytecode/BasicBlockReader.java
+	(convertHandlers): remove empty handlers.
+	(readCode): merge adjacent try-blocks (splitted by javac-1.4
+	return rule).
+	* src/net/sf/jode/bytecode/FieldInfo.java (syntheticFlag):
+	removed, use modifier and ACC_SYNTHETIC (new in java 5) instead.
+	Changed all usages.  When writing it currently writes out both
+	old and new synthetic format.
+	(getSignature): New method to return full generic signature.
+	* src/net/sf/jode/bytecode/MethodInfo.java
+	(syntheticFlag, getSignature): likewise.
+	* src/net/sf/jode/bytecode/ClassInfo.java (getSignature): 
+	New method to return full generic signature.
+	* src/net/sf/jode/decompiler/MethodAnalyzer.java (skipWriting):
+	Skip java 5 bridge methods.
+	* src/net/sf/jode/expr/InvokeOperator.java (getClassAnalyzer):
+	Check for null callee.
+	* src/net/sf/jode/expr/FlowBlock.java (analyze): New order for
+	T1,T2 analysis:  Do not do T1 analysis when the block has more
+	than one real successor and the next block can be easily merged.
+	See comment for more information.
+	
 2004-08-05  Jochen Hoenicke  <hoenicke@marge.Informatik.Uni-Oldenburg.DE>
 
 	* build.xml: replace execon with apply.

@@ -61,6 +61,79 @@ import java.util.Iterator;
  * @author Jochen Hoenicke 
  */
 public class BinaryInfo {
+    /**
+     * The bit mask representing public modifier.
+     */
+    public static int ACC_PUBLIC     = 0x0001;
+    /**
+     * The bit mask representing private modifier.
+     */
+    public static int ACC_PRIVATE    = 0x0002;
+    /**
+     * The bit mask representing protected modifier.
+     */
+    public static int ACC_PROTECTED  = 0x0004;
+    /**
+     * The bit mask representing static modifier.
+     */
+    public static int ACC_STATIC     = 0x0008;
+    /**
+     * The bit mask representing final modifier.
+     */
+    public static int ACC_FINAL      = 0x0010;
+    /**
+     * The bit mask representing the ACC_SUPER modifier for classes.
+     * This is a special modifier that only has historic meaning.  Every
+     * class should have this set.
+     */
+    public static int ACC_SUPER      = 0x0020;
+    /**
+     * The bit mask representing volatile modifier for fields.
+     */
+    public static int ACC_VOLATILE   = 0x0040;
+    /**
+     * The bit mask representing synthetic bridge method.  This is
+     * used when a non-generic method overrides a generic method of 
+     * super class/interface.
+     */
+    public static int ACC_BRIDGE     = 0x0040;
+    /**
+     * The bit mask representing transient fields.
+     */
+    public static int ACC_TRANSIENT  = 0x0080;
+    /**
+     * The bit mask representing varargs methods.
+     */
+    public static int ACC_VARARGS    = 0x0080;
+    /**
+     * The bit mask representing enum fields.
+     */
+    public static int ACC_ENUM       = 0x0100;
+    /**
+     * The bit mask representing native methods.
+     */
+    public static int ACC_NATIVE     = 0x0100;
+    /**
+     * The bit mask representing interfaces.
+     */
+    public static int ACC_INTERFACE  = 0x0200;
+    /**
+     * The bit mask representing abstract modifier.
+     */
+    public static int ACC_ABSTRACT   = 0x0400;
+    /**
+     * The bit mask representing annotation classes.
+     */
+    public static int ACC_ANNOTATION = 0x0800;
+    /**
+     * The bit mask representing strictfp modifier.
+     */
+    public static int ACC_STRICT     = 0x0800;
+    /**
+     * The bit mask representing synthetic fields/methods and classes.
+     */
+    public static int ACC_SYNTHETIC  = 0x1000;
+
     private Map unknownAttributes = null;
 
     void skipAttributes(DataInputStream input) throws IOException {
@@ -174,8 +247,8 @@ public class BinaryInfo {
     /**
      * Drops information from this info.  Override this to drop your
      * own info and don't forget to call the method of the super class.
-     * @param howMuch the constant that was given to the {@link
-     * ClassInfo#drop} function when loading this class.
+     * @param keep the constant representing how much information we
+     * should keep (see {@link ClassInfo#load}).
      */
     protected void drop(int keep) {
 	if (keep < ClassInfo.ALL)
@@ -214,13 +287,14 @@ public class BinaryInfo {
      * Overwrite this method if you want to add your own attributes.
      * All constants you need from the growable constant pool must
      * have been previously registered by the {@link #prepareAttributes}
-     * method.</p>
+     * method.  This method must not add new constants to the pool</p>
      *
      * First call the method of the super class.  Afterwrites write
      * each of your own attributes including the attribute header
      * (name and length entry).
      *
-     * @param gcp The growable constant pool, which is not growable anymore.
+     * @param constantPool The growable constant pool, which is not 
+     * growable anymore (see above).
      * @param output the data output stream.  You must write exactly
      * as many bytes to it as you have told with the {@link
      * #getAttributeSize} method.

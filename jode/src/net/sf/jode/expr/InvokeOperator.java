@@ -314,6 +314,8 @@ public final class InvokeOperator extends Operator
      * inside the same base class as the caller class, null otherwise.
      */
     private ClassAnalyzer getClassAnalyzer(ClassInfo callee) {
+	if (callee == null)
+	    return null;
 	if ((Options.options & 
 	     (Options.OPTION_ANON | Options.OPTION_INNER)) == 0)
 	    return null;

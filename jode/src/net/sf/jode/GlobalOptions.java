@@ -25,7 +25,7 @@ public class GlobalOptions {
     public final static String version = "@VERSION@";
     public final static String email = "jochen@gnu.org";
     public final static String copyright = 
-	"Jode (c) 1998-2001 Jochen Hoenicke <"+email+">";
+	"Jode (c) 1998-2004 Jochen Hoenicke <"+email+">";
     public final static String URL = "http://jode.sourceforge.net/";
 
     public static PrintWriter err = new PrintWriter(System.err, true);

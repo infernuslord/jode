@@ -518,7 +518,7 @@ public class ClassPath  {
      * description for more information, which kind of paths are
      * supported. When a class or a file is not found in the class
      * path the fallback is used.
-     * @param path An array of paths.
+     * @param paths An array of paths.
      * @param fallback The fallback classpath.
      */
     public ClassPath(String[] paths, ClassPath fallback) {
@@ -530,7 +530,7 @@ public class ClassPath  {
      * Creates a new class path for the given path.  See the class
      * description for more information, which kind of paths are
      * supported.
-     * @param path An array of paths.
+     * @param paths An array of paths.
      */
     public ClassPath(String[] paths) {
 	initPath(paths);
@@ -971,7 +971,7 @@ public class ClassPath  {
 
     /**
      * Get a list of all classes and packages in the given package.
-     * @param package a dot-separated package name.
+     * @param packageName a dot-separated package name.
      * @return An enumeration with all class/subpackages in the given
      * package.  If package doesn't denote a package it returns null.
      */

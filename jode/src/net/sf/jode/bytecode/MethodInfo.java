@@ -37,6 +37,9 @@ import java.lang.Comparable;
  * <dt>type</dt><dd>The method's {@link TypeSignature type signature}
  * in bytecode format.</dd>
  *
+ * <dt>signature</dt><dd>The method's {@link TypeSignature type signature}
+ * in bytecode format including template information.</dd>
+ *
  * <dt>modifiers</dt><dd>The modifiers of the field like private, public etc.
  * These are created by or-ing the constants {@link Modifier#PUBLIC},
  * {@link Modifier#PRIVATE}, {@link Modifier#PROTECTED}, 
@@ -69,7 +72,6 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 
     BasicBlocks basicblocks;
     String[] exceptions;
-    boolean syntheticFlag;
     boolean deprecatedFlag;
     /**
      * The type signature that also contains template information.
@@ -101,7 +103,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 		throw new ClassFormatException
 		    ("Exceptions attribute has wrong length");
 	} else if (name.equals("Synthetic")) {
-	    syntheticFlag = true;
+	    modifier |= ACC_SYNTHETIC;
 	    if (length != 0)
 		throw new ClassFormatException
 		    ("Synthetic attribute has wrong length");
@@ -141,7 +143,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	    for (int i = 0; i < exceptions.length; i++)
 		gcp.putClassName(exceptions[i]);
 	}
-	if (syntheticFlag)
+	if (isSynthetic())
 	    gcp.putUTF8("Synthetic");
 	if (deprecatedFlag)
 	    gcp.putUTF8("Deprecated");
@@ -154,7 +156,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	    count++;
 	if (exceptions != null)
 	    count++;
-	if (syntheticFlag)
+	if (isSynthetic())
 	    count++;
 	if (deprecatedFlag)
 	    count++;
@@ -177,7 +179,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
 	    for (int i = 0; i < count; i++)
 		output.writeShort(gcp.putClassName(exceptions[i]));
 	}
-	if (syntheticFlag) {
+	if (isSynthetic()) {
 	    output.writeShort(gcp.putUTF8("Synthetic"));
 	    output.writeInt(0);
 	}
@@ -213,6 +215,16 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
         return typeSig;
     }
 
+    /**
+     * Gets the type signature including template information of the method.
+     * <b>WARNING:</b> This field may disappear and merged into getType later.
+     * @return the type signature.
+     * @see TypeSignature
+     */
+    public String getSignature() {
+        return signature != null ? signature : typeSig;
+    }
+
     public int getModifiers() {
         return modifier;
     }
@@ -226,7 +238,7 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
     }
 
     public boolean isSynthetic() {
-	return syntheticFlag;
+	return (modifier & ACC_SYNTHETIC) != 0;
     }
 
     public boolean isDeprecated() {
@@ -254,7 +266,10 @@ public final class MethodInfo extends BinaryInfo implements Comparable {
     }
 
     public void setSynthetic(boolean flag) {
-	syntheticFlag = flag;
+	if (flag)
+	    modifier |= ACC_SYNTHETIC;
+	else
+	    modifier &= ~ACC_SYNTHETIC;
     }
 
     public void setDeprecated(boolean flag) {

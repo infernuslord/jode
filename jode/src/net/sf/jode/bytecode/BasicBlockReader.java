@@ -224,25 +224,27 @@ class BasicBlockReader implements Opcodes {
     private Handler[] convertHandlers() {
 	int newCount = 0;
 	for (int i=0; i < handlers.length; i++) {
+	    while (handlers[i].start < handlers[i].end
+		   && infos[handlers[i].start].blockNr == -1)
+		handlers[i].start = infos[handlers[i].start].nextAddr;
+	    if (handlers[i].start == handlers[i].end)
+		continue;
+
+	    while (handlers[i].end < infos.length
+		   && infos[handlers[i].end].blockNr == -1)
+		handlers[i].end = infos[handlers[i].end].nextAddr;
 	    if ((infos[handlers[i].catcher].flags & IS_REACHABLE) != 0)
 		newCount++;
 	}
 	Handler[] newHandlers = new Handler[newCount];
 	int ptr = 0;
-	for (int i=0; i<handlers.length; i++) {
-	    int start = handlers[i].start;
-	    while (infos[start].blockNr == -1)
-		start = infos[start].nextAddr;
-	    int end = handlers[i].end;
-	    while (end < infos.length
-		   && infos[end].blockNr == -1)
-		end = infos[end].nextAddr;
-	    int endBlock = end < infos.length
-		? infos[end].blockNr : blocks.length;
-	    
-	    if ((infos[handlers[i].catcher].flags & IS_REACHABLE) != 0) {
+	for (int i=0; i<handlers.length; i++) {	    
+	    if (handlers[i].start < handlers[i].end
+		&& (infos[handlers[i].catcher].flags & IS_REACHABLE) != 0) {
+		int endBlock = handlers[i].end < infos.length
+		    ? infos[handlers[i].end].blockNr : blocks.length;
 		newHandlers[ptr++] = new Handler
-		    (blocks[infos[start].blockNr], 
+		    (blocks[infos[handlers[i].start].blockNr], 
 		     blocks[endBlock - 1],
 		     getSuccBlock(handlers[i].catcher),
 		     handlers[i].type);
@@ -856,6 +858,17 @@ class BasicBlockReader implements Opcodes {
 	    handlers[i].type = (index == 0) ? null
 		: cp.getClassName(index);
 
+	    if (i > 0 && handlers[i].start == handlers[i-1].end
+		&& handlers[i].catcher == handlers[i-1].catcher
+		&& handlers[i].type == handlers[i-1].type) {
+		/* Javac 1.4 splits handlers at return instruction
+		 * (see below).  We merge them together here.
+		 */
+		handlers[i-1].end = handlers[i].end;
+		handlersLength--;
+		i--;
+	    }
+
 	    if ((GlobalOptions.debuggingFlags
 		 & GlobalOptions.DEBUG_BYTECODE) != 0) 
 		GlobalOptions.err.println("Handler "+handlers[i].start
@@ -870,6 +883,7 @@ class BasicBlockReader implements Opcodes {
 		 */
 		handlersLength--;
 		i--;
+		continue;
 	    }
 
 	    if (handlers[i].start <= handlers[i].catcher
@@ -883,6 +897,7 @@ class BasicBlockReader implements Opcodes {
 		if (handlers[i].start == handlers[i].catcher) {
 		    handlersLength--;
 		    i--;
+		    continue;
 		} else {
 		    handlers[i].end = handlers[i].catcher;
 		}
