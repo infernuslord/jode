@@ -35,7 +35,7 @@ public class ReturnBlock extends InstructionContainer {
     }
 
     public ReturnBlock(Expression instr) {
-        super(instr, new Jump(-1));
+        super(instr, new Jump(FlowBlock.END_OF_METHOD));
     }
 
     /**
