@@ -22,7 +22,6 @@ import jode.decompiler.TabbedPrintWriter;
 import jode.type.*;
 import jode.expr.Expression;
 import jode.expr.InvokeOperator;
-import jode.expr.ConstructorOperator;
 import jode.expr.LocalLoadOperator;
 
 /**
@@ -187,17 +186,17 @@ public class TryBlock extends StructuredBlock {
 	    ((ThrowBlock) catchBlock.catchBlock).getInstruction();
 	
 	if (throwExpr.getFreeOperandCount() != 0
-	    || !(throwExpr instanceof ConstructorOperator))
+	    || !(throwExpr instanceof InvokeOperator))
 	    return false;
 	
-	ConstructorOperator throwOp = (ConstructorOperator) throwExpr;
-	
-	if (!(throwOp.getClassType()
-	      .equals(Type.tClass("java.lang.InternalError")))
+	InvokeOperator throwOp = (InvokeOperator) throwExpr;
+	if (!throwOp.isConstructor()
+	    || !(throwOp.getClassType()
+		 .equals(Type.tClass("java.lang.InternalError")))
 	    || throwOp.getMethodType().getParameterTypes().length != 1)
 	    return false;
 	
-	Expression getMethodExpr = throwOp.getSubExpressions()[0];
+	Expression getMethodExpr = throwOp.getSubExpressions()[1];
 	if (!(getMethodExpr instanceof InvokeOperator))
 	    return false;
 
