@@ -38,10 +38,11 @@ public class NopOperator extends SimpleOperator {
     }
 
     public int getPriority() {
-        return 0;
+        return 1000;
     }
 
     public Expression addOperand(Expression op) {
+	op.setType(type.getSubType());
 	return op;
     }
 
