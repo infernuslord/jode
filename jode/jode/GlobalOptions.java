@@ -41,11 +41,12 @@ public class GlobalOptions {
     public static final int DEBUG_CHECK    = 0x080;
     public static final int DEBUG_LOCALS   = 0x100;
     public static final int DEBUG_CONSTRS  = 0x200;
+    public static final int DEBUG_INTERPRT = 0x400;
 
     public static final String[] debuggingNames = {
 	"bytecode", "verifier", "types", "flow", 
 	"inout", "analyze", "lvt", "check", "locals",
-	"constructors",
+	"constructors", "interpreter"
     };
 
     public static void usageDebugging() {
@@ -71,6 +72,8 @@ public class GlobalOptions {
 		    "dump local merging information.");
 	err.println("\tconstructors " +
 		    "dump constructor simplification.");
+	err.println("\tinterpreter  " +
+		    "debug execution of interpreter.");
 	System.exit(0);
     }
 
