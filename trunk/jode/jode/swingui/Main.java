@@ -21,14 +21,14 @@ package jode.swingui;
 import jode.Decompiler;
 import jode.decompiler.*;
 import jode.bytecode.ClassInfo;
-///#ifdef JDK12
-///import javax.swing.*;
-///import javax.swing.event.*;
-///import javax.swing.tree.*;
+///#ifndef OLDSWING
+import javax.swing.*;
+import javax.swing.event.*;
+import javax.swing.tree.*;
 ///#else
-import com.sun.java.swing.*;
-import com.sun.java.swing.event.*;
-import com.sun.java.swing.tree.*;
+///import com.sun.java.swing.*;
+///import com.sun.java.swing.event.*;
+///import com.sun.java.swing.tree.*;
 ///#endif
 import java.awt.*;
 import java.awt.event.*;
