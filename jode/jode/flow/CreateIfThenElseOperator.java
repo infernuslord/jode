@@ -96,7 +96,7 @@ public class CreateIfThenElseOperator {
                 (ConstOperator) pushBlock.getInstruction();
 
             if (condBlock.trueBlock.jump.destination == trueDest
-                && constOp.getValue().equals("0")) {
+                && constOp.getValue().equals(new Integer(0))) {
 
                 Expression cond = condBlock.getInstruction();
                 condBlock.flowBlock.removeSuccessor(condBlock.trueBlock.jump);

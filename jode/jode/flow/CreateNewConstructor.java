@@ -87,14 +87,14 @@ public class CreateNewConstructor {
 	Type appendType = appendCall.getMethodType().getParameterTypes()[0];
 	if (!appendType.equals(Type.tString)) {
 	    InvokeOperator valueOf = new InvokeOperator
-		(methodAna, true, false,
+		(methodAna, InvokeOperator.STATIC,
 		 Reference.getReference("Ljava/lang/String;", "valueOf",
 					"(" + appendType.getTypeSignature()
 					+ ")Ljava/lang/String;"));
 	    expr = valueOf.addOperand(expr);
 	}
 	InvokeOperator newConstr = new InvokeOperator
-	    (methodAna, false, true, 
+	    (methodAna, InvokeOperator.CONSTRUCTOR, 
 	     Reference.getReference("Ljava/lang/StringBuffer;", "<init>",
 				    "(Ljava/lang/String;)V"));
 	newConstr.makeNonVoid();

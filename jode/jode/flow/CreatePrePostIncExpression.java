@@ -72,9 +72,9 @@ public class CreatePrePostIncExpression {
 	else
 	    return false;
 	
-	if (iinc.getValue().equals("-1"))
+	if (iinc.getValue() == -1)
 	    op ^= 1;
-	else if (!iinc.getValue().equals("1"))
+	else if (iinc.getValue() != 1)
 	    return false;
 	
 	if (!iinc.lvalueMatches(load))
@@ -134,11 +134,10 @@ public class CreatePrePostIncExpression {
         else
             return false;
           
-        if (constOp.getValue().equals("-1")
-	    || constOp.getValue().equals("-1.0"))
+	/* Why doubleValue?  This is the most exact measurement. */
+        if (((Number)constOp.getValue()).doubleValue() == -1.0)
             op ^= 1;
-        else if (!constOp.getValue().equals("1")
-		 && !constOp.getValue().equals("-1.0"))
+        else if (((Number)constOp.getValue()).doubleValue() != 1.0)
             return false;
 
         if (!(last.outer instanceof SequentialBlock))
