@@ -150,7 +150,7 @@ public class PackageIdentifier extends Identifier {
 	    }
 	    
 	    if (pack != null)
-		return pack.getIdentifier(name.substring(index+1));
+		return pack.loadClass(name.substring(index+1));
 	    else
 		return null;
 	}
