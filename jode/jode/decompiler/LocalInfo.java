@@ -53,7 +53,7 @@ public class LocalInfo implements Declarable {
     private boolean isFinal = false;
     private Expression constExpr = null;
 
-    public static class Hint {
+    static class Hint {
 	String name;
 	Type type;
 
