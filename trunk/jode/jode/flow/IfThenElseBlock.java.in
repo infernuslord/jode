@@ -141,6 +141,21 @@ public class IfThenElseBlock extends StructuredBlock {
     }
 
     /**
+     * Make the declarations, i.e. initialize the declare variable
+     * to correct values.  This will declare every variable that
+     * is marked as used, but not done.<br>
+     *
+     * This will now also combine locals, that use the same slot, have
+     * compatible types and are declared in the same block. <br>
+     *
+     * @param done The set of the already declare variables.
+     */
+    public void makeDeclaration(Set done) {
+	cond.makeDeclaration(done);
+	super.makeDeclaration(done);
+    }
+
+    /**
      * Print the source code for this structured block.  This may be
      * called only once, because it remembers which local variables
      * were declared.

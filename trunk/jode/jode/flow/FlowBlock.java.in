@@ -1612,23 +1612,13 @@ public class FlowBlock {
 
     /**
      * Make declarations.  It will determine, where in each block the
-     * 
+     * variables and method scoped classes must be declared.
      */
-    public void makeDeclaration() {
+    public void makeDeclaration(Set done) {
 	block.propagateUsage();
-	Set done = new SimpleSet();
-	done.addAll(in);
 	block.makeDeclaration(done);
 	if (nextByAddr != null)
-	    nextByAddr.makeDeclaration();
-    }
-
-    /**
-     * Make declarations.  It will determine, where in each block the
-     * 
-     */
-    public void makeDeclaration(LocalInfo[] param) {
-	makeDeclaration();
+	    nextByAddr.makeDeclaration(done);
     }
 
     /**

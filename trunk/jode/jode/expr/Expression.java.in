@@ -23,6 +23,7 @@ import jode.GlobalOptions;
 import jode.decompiler.TabbedPrintWriter;
 
 import @COLLECTIONS@.Collection;
+import @COLLECTIONS@.Set;
 
 public abstract class Expression {
     protected Type type;
@@ -228,6 +229,9 @@ public abstract class Expression {
     }
 
     public void fillDeclarables(Collection used) {
+    }
+
+    public void makeDeclaration(Set done) {
     }
 
     public abstract void dumpExpression(TabbedPrintWriter writer) 

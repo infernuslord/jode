@@ -20,12 +20,12 @@
 package jode.flow;
 import java.lang.reflect.Modifier;
 import jode.GlobalOptions;
-import jode.Decompiler;
 import jode.decompiler.Analyzer;
 import jode.decompiler.ClassAnalyzer;
 import jode.decompiler.MethodAnalyzer;
 import jode.decompiler.FieldAnalyzer;
 import jode.decompiler.MethodAnalyzer;
+import jode.decompiler.Options;
 import jode.decompiler.OuterValues;
 import jode.decompiler.OuterValueListener;
 import jode.expr.*;
@@ -241,7 +241,7 @@ public class TransformConstructors {
        	InvokeOperator superCall = (InvokeOperator) expr;
 	Expression[] subExpr = superCall.getSubExpressions();
 
-	/* An anonymous constructor may also give locals
+	/* An anonymous constructor may only give locals
 	 * to its super constructor.
 	 */
 	for (int i = 1; i < subExpr.length; i++) {
@@ -577,7 +577,7 @@ public class TransformConstructors {
 		return null;
 	    }
 	    if (outerValues != null
-		&& (Decompiler.options & Decompiler.OPTION_CONTRAFO) != 0) {
+		&& (Options.options & Options.OPTION_CONTRAFO) != 0) {
 		int slot = ((LocalLoadOperator)expr).getLocalInfo().getSlot();
 		Expression outExpr = outerValues.getValueBySlot(slot);
 		if (outExpr != null)
@@ -604,7 +604,7 @@ public class TransformConstructors {
     }
 
     public void removeSynthInitializers() {
-	if ((Decompiler.options & Decompiler.OPTION_CONTRAFO) == 0
+	if ((Options.options & Options.OPTION_CONTRAFO) == 0
 	    || isStatic || type01Count == 0)
 	    return;
 
@@ -852,7 +852,7 @@ public class TransformConstructors {
 	    InnerClassInfo[] outers = superClazz.getOuterClasses();
 	    int superParamCount = superInvoke.getSubExpressions().length - 1;
 
-	    if ((Decompiler.options & Decompiler.OPTION_INNER) != 0
+	    if ((Options.options & Options.OPTION_INNER) != 0
 		&& outers != null
 		&& outers[0].outer != null
 		&& outers[0].name != null
@@ -995,7 +995,7 @@ public class TransformConstructors {
      * outerValue - locals).
      */
     public void transform() {
-	if ((Decompiler.options & Decompiler.OPTION_CONTRAFO) == 0
+	if ((Options.options & Options.OPTION_CONTRAFO) == 0
 	    || cons.length == 0)
 	    return;
 

@@ -200,6 +200,28 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
     }
 
     /**
+     * Replaces the given sub block with a new block.
+     * @param oldBlock the old sub block.
+     * @param newBlock the new sub block.
+     * @return false, if oldBlock wasn't a direct sub block.
+     */
+    public boolean replaceSubBlock(StructuredBlock oldBlock, 
+                                   StructuredBlock newBlock) {
+        if (bodyBlock == oldBlock)
+            bodyBlock = newBlock;
+        else
+            return false;
+        return true;
+    }
+
+    /**
+     * Returns all sub block of this structured block.
+     */
+    public StructuredBlock[] getSubBlocks() {
+        return new StructuredBlock[] { bodyBlock };
+    }
+
+    /**
      * Remove all variables from set, that we can declare inside the
      * loop-block.  This is the initializer for for-blocks.
      */
@@ -223,28 +245,6 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 	}
 	cond.fillDeclarables(used);
         return used;
-    }
-
-    /**
-     * Replaces the given sub block with a new block.
-     * @param oldBlock the old sub block.
-     * @param newBlock the new sub block.
-     * @return false, if oldBlock wasn't a direct sub block.
-     */
-    public boolean replaceSubBlock(StructuredBlock oldBlock, 
-                                   StructuredBlock newBlock) {
-        if (bodyBlock == oldBlock)
-            bodyBlock = newBlock;
-        else
-            return false;
-        return true;
-    }
-
-    /**
-     * Returns all sub block of this structured block.
-     */
-    public StructuredBlock[] getSubBlocks() {
-        return new StructuredBlock[] { bodyBlock };
     }
 
     /**
@@ -278,6 +278,12 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * @param done The set of the already declare variables.
      */
     public void makeDeclaration(Set done) {
+	if (type == FOR) {
+	    if (initInstr != null)
+		initInstr.makeDeclaration(done);
+	    incrInstr.makeDeclaration(done);
+	}
+	cond.makeDeclaration(done);
 	super.makeDeclaration(done);
         if (type == FOR && initInstr != null)
 	    checkDeclaration(declare);

@@ -19,7 +19,6 @@
 
 package jode.flow;
 import jode.decompiler.TabbedPrintWriter;
-import jode.Decompiler;
 import jode.expr.*;
 
 /**

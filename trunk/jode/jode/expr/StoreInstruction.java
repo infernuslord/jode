@@ -89,8 +89,9 @@ public class StoreInstruction extends Operator
             ConstOperator one = (ConstOperator) subExpressions[1];
 
             if ((getOperatorIndex() == OPASSIGN_OP+ADD_OP ||
-                 getOperatorIndex() == OPASSIGN_OP+SUB_OP) &&
-		((Number)one.getValue()).doubleValue() == 1.0) {
+                 getOperatorIndex() == OPASSIGN_OP+SUB_OP)
+		&& one.getValue() instanceof Number
+		&& ((Number)one.getValue()).doubleValue() == 1.0) {
 		
                 int op = (getOperatorIndex() == OPASSIGN_OP+ADD_OP)
                     ? INC_OP : DEC_OP;
