@@ -21,9 +21,6 @@ package jode.decompiler;
 import java.lang.reflect.Modifier;
 import jode.type.*;
 import jode.bytecode.FieldInfo;
-import jode.bytecode.AttributeInfo;
-import jode.bytecode.ClassFormatException;
-import jode.bytecode.ConstantPool;
 import jode.expr.Expression;
 import jode.expr.ConstOperator;
 
@@ -44,13 +41,10 @@ public class FieldAnalyzer implements Analyzer {
         imports = i;
 
         modifiers = fd.getModifiers();
-        type = fd.getType();
+        type = Type.tType(fd.getType());
         fieldName = fd.getName();
         constant = null;
-	this.isSynthetic = (fd.findAttribute("Synthetic") != null);
-
-        AttributeInfo attribute = fd.findAttribute("ConstantValue");
-
+	this.isSynthetic = fd.isSynthetic();
         if (fd.getConstant() != null) {
 	    constant = new ConstOperator(fd.getConstant());
 	    constant.setType(type);
