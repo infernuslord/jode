@@ -139,7 +139,7 @@ public class TransformConstructors implements OuterValueListener {
 		 +clazzAnalyzer.getClazz()+": "+ovMinSlots+","+ovMaxSlots);
 	    GlobalOptions.err.println
 		("CAN'T REPAIR.  PRODUCED CODE IS PROBABLY WRONG.");
-	    Thread.dumpStack();
+	    new Throwable().printStackTrace(GlobalOptions.err);
 	    ovMinSlots = outerSlots;
 	}
     }
