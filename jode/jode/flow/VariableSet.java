@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.decompiler.LocalInfo;
+import jode.util.ArrayEnum;
 
 /**
  * This class represents a set of Variables, which are mainly used in
