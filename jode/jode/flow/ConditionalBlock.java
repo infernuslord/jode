@@ -29,8 +29,7 @@ public class ConditionalBlock extends InstructionContainer {
     EmptyBlock trueBlock;
     
     /**
-     * Creates a new if then else block.  The method setThenBlock must
-     * be called shortly after the creation.
+     * Creates a new if conditional block.
      */
     public ConditionalBlock(Expression cond, Jump condJump, Jump elseJump) {
         super(cond, elseJump);
@@ -38,6 +37,18 @@ public class ConditionalBlock extends InstructionContainer {
          * check for LocalVarOperator (for condJump) is needed here.  
          */
         trueBlock = new EmptyBlock(condJump);
+        trueBlock.outer = this;
+    }
+
+    /**
+     * Creates a new if conditional block.
+     */
+    public ConditionalBlock(Expression cond) {
+        super(cond);
+        /* cond is a CompareBinary or CompareUnary operator, so no
+         * check for LocalVarOperator (for condJump) is needed here.  
+         */
+        trueBlock = new EmptyBlock();
         trueBlock.outer = this;
     }
 
@@ -64,9 +75,7 @@ public class ConditionalBlock extends InstructionContainer {
     }
 
     /**
-     * Print the source code for this structured block.  This may be
-     * called only once, because it remembers which local variables
-     * were declared.
+     * Print the source code for this structured block.  
      */
     public void dumpInstruction(TabbedPrintWriter writer)
         throws java.io.IOException
