@@ -35,7 +35,7 @@ import jode.expr.CheckNullOperator;
 import jode.expr.ThisOperator;
 import jode.expr.LocalLoadOperator;
 import jode.expr.OuterLocalOperator;
-import jode.expr.ConstructorOperator;
+import jode.expr.InvokeOperator;
 import jode.flow.StructuredBlock;
 import jode.flow.FlowBlock;
 import jode.flow.TransformExceptionHandlers;
@@ -79,12 +79,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     LocalInfo[] param;
     LocalVariableTable lvt;
 
-    /**
-     * This is a block that will be inserted at the beginning of the
-     * method, when the code is analyzed.
-     */
-    StructuredBlock insertBlock = null;
-
     boolean isJikesConstructor;
     boolean hasJikesOuterValue;
     boolean isImplicitAnonymousConstructor;
@@ -92,7 +86,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 
     /**
      * This dictionary maps an anonymous ClassInfo to the
-     * ConstructorOperator that creates this class.  
+     * InvokeOperator that creates this class.  
      */
     Vector anonConstructors = new Vector();
     Vector innerAnalyzers;
@@ -183,12 +177,17 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	imports.useType(type);
     }
 
-    public void insertStructuredBlock(StructuredBlock superBlock) {
-	if (methodHeader != null)
+    public void insertStructuredBlock(StructuredBlock insertBlock) {
+	if (methodHeader != null) {
+	    insertBlock.setJump(new Jump(FlowBlock.NEXT_BY_ADDR));
+	    FlowBlock insertFlowBlock = new FlowBlock(this, 0);
+	    insertFlowBlock.appendBlock(insertBlock, 0);
+	    insertFlowBlock.setNextByAddr(methodHeader);
+	    insertFlowBlock.doT2(methodHeader);
+	    methodHeader = insertFlowBlock;
+	} else {
 	    throw new IllegalStateException();
-	if (insertBlock != null)
-	    throw new jode.AssertError();
-	insertBlock = superBlock;
+	}
     }
 
     public final boolean isConstructor() {
@@ -312,15 +311,6 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	    }
 
 	    methodHeader = (FlowBlock) code.getFirstInstr().getTmpInfo();
-	    if (insertBlock != null) {
-		insertBlock.setJump(new Jump(methodHeader));
-		FlowBlock insertFlowBlock = new FlowBlock(this, 0);
-		insertFlowBlock.appendBlock(insertBlock, 0);
-		insertFlowBlock.setNextByAddr(methodHeader);
-		methodHeader = insertFlowBlock;
-		insertFlowBlock = null;
-	    }
-
             excHandlers = new TransformExceptionHandlers();
             for (int i=0; i<handlers.length; i++) {
                 Type type = null;
@@ -714,7 +704,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
     }
 
 
-    public void addAnonymousConstructor(ConstructorOperator cop) {
+    public void addAnonymousConstructor(InvokeOperator cop) {
 	anonConstructors.addElement(cop);
     }
 
@@ -883,7 +873,7 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	return true;
     }
 
-    public void analyzeConstructorOperator(ConstructorOperator cop) {
+    public void analyzeInvokeOperator(InvokeOperator cop) {
 	ClassInfo clazz = (ClassInfo) cop.getClassInfo();
 	ClassAnalyzer anonAnalyzer = getParent().getClassAnalyzer(clazz);
 	
@@ -893,10 +883,10 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	     * first constructor invocation.
 	     */
 	    Expression[] subExprs = cop.getSubExpressions();
-	    outerValues = new Expression[subExprs.length];
+	    outerValues = new Expression[subExprs.length-1];
 	    
 	    for (int j=0; j < outerValues.length; j++) {
-		Expression expr = subExprs[j].simplify();
+		Expression expr = subExprs[j+1].simplify();
 		if (expr instanceof CheckNullOperator)
 		    expr = ((CheckNullOperator) 
 			    expr).getSubExpressions()[0];
@@ -943,8 +933,8 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	     */
 	    Expression[] subExprs = cop.getSubExpressions();
 	    for (int j=0; j < outerValues.length; j++) {
-		if (j < subExprs.length) {
-		    Expression expr = subExprs[j].simplify();
+		if (j+1 < subExprs.length) {
+		    Expression expr = subExprs[j+1].simplify();
 		    if (expr instanceof CheckNullOperator)
 			expr = ((CheckNullOperator) expr)
 			    .getSubExpressions()[0];
@@ -964,8 +954,8 @@ public class MethodAnalyzer implements Analyzer, Scope, ClassDeclarer {
 	int serialnr = 0;
         Enumeration elts = anonConstructors.elements();
         while (elts.hasMoreElements()) {
-	    ConstructorOperator cop = (ConstructorOperator) elts.nextElement();
-	    analyzeConstructorOperator(cop);
+	    InvokeOperator cop = (InvokeOperator) elts.nextElement();
+	    analyzeInvokeOperator(cop);
 	}
     }
 
