@@ -1,4 +1,4 @@
-/* jode.bytecode.AttributeInfo Copyright (C) 1997-1998 Jochen Hoenicke.
+/* AttributeInfo Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *
  * $Id$
  */
+
 package jode.bytecode;
 import jode.decompiler.TabbedPrintWriter;
 import java.io.*;
@@ -56,9 +57,7 @@ public class AttributeInfo {
         return data;
     }
 
-    static final char hex[] = { '0','1','2','3','4','5','6','7',
-                                '8','9','a','b','c','d','e','f' };
-
+    static final char[] hex = "0123456789abcdef".toCharArray();
     public void dumpSource(TabbedPrintWriter writer) throws IOException{
         if (data != null) {
             writer.println("/* Attribute "+name+" ["+data.length+"]");
