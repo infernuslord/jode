@@ -35,6 +35,7 @@ import jode.decompiler.LocalVarOperator;
  */
 public class LocalInfo {
     private static int serialnr = 0;
+    private static int nextAnonymousSlot = -1;
     private int slot;
     private boolean isUnique;
     private String name;
@@ -42,12 +43,17 @@ public class LocalInfo {
     private LocalInfo shadow;
     private Vector operators = new Vector();
 
-    /* The current implementation may use very much stack.  This
-     * should be changed someday.
+    /**
+     * Create a new local info with an anonymous slot.
      */
+    public LocalInfo() {
+        name = null;
+        type = Type.tUnknown;
+        this.slot = nextAnonymousSlot--;
+    }
 
     /**
-     * Create a new local info.  The name will be a string
+     * Create a new local info.
      * @param slot  The slot of this variable.
      */
     public LocalInfo(int slot) {
@@ -138,8 +144,8 @@ public class LocalInfo {
             if (jode.Decompiler.prettyLocals && type != null) {
                 name = type.getDefaultName();
             } else {
-                name = type.getDefaultName() + 
-		    "_" + slot + "_" + serialnr++ + "_";
+                name = type.getDefaultName()
+		    + (slot >= 0 ? "_" + slot : "") + "_" + serialnr++ + "_";
                 isUnique = true;
             }
         }
