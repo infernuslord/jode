@@ -1,7 +1,7 @@
 package jode;
 import sun.tools.java.Type;
 
-public class UnknownSubType extends UnknownType {
+public class UnknownSubType extends MyType {
     Type elemType;
 
     public UnknownSubType(Type type) {
