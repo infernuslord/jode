@@ -58,11 +58,10 @@ public class RetBlock extends StructuredBlock {
 	return null;
     }
 
-    public VariableSet propagateUsage() {
-	if (used == null)
-	    used = new VariableSet(); /*XXX*/
+    public VariableSet getUsed() {
+	used = new VariableSet();
 	used.addElement(local);
-	return super.propagateUsage();
+	return used;
     }
 
     public void dumpInstruction(jode.decompiler.TabbedPrintWriter writer) 

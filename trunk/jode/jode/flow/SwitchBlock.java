@@ -183,13 +183,6 @@ implements BreakableBlock {
         return getNextFlowBlock();
     }
 
-    public VariableSet propagateUsage() {
-	if (used == null)
-	    used = new VariableSet(); /*XXX*/
-	instr.fillInGenSet(null, used);
-	return super.propagateUsage();
-    }
-
     public void dumpInstruction(TabbedPrintWriter writer) 
 	throws java.io.IOException
     {

@@ -339,18 +339,20 @@ public abstract class StructuredBlock {
 	return false;
     }
 
+    public VariableSet getUsed() {
+	return new VariableSet();
+    }
+
     /**
      * Propagate the used set.  Initially the used block contains the
-     * local that are in some expression directly in this block.  This
-     * will extend the set, so that a variable is used if it is used in
-     * at least two sub blocks.
+     * local that are used in some expression directly in this block.
+     * This will extend the set, so that a variable is used if it is
+     * used in at least two sub blocks.
      *
      * @return all locals that are used in this block or in some sub
-     * block (this is <i>not</i> the used set).  
-     */
+     * block (this is <i>not</i> the used set).  */
     public VariableSet propagateUsage() {
-	if (used == null)
-	    used = new VariableSet(); /*XXX*/
+	used = getUsed();
         StructuredBlock[] subs = getSubBlocks();
         VariableSet allUse = (VariableSet) used.clone();
         for (int i=0; i<subs.length; i++) {

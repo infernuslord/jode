@@ -211,18 +211,15 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 	}
     }
 
-    public VariableSet propagateUsage() {
-	if (used == null)
-	    used = new VariableSet(); /*XXX*/
+    public VariableSet getUsed() {
+	used = new VariableSet();
         if (type == FOR) {
 	    incrInstr.fillInGenSet(null, used);
 	    if (initInstr != null)
 		initInstr.fillInGenSet(null, used);
 	}
 	cond.fillInGenSet(null, used);
-        VariableSet allUse = (VariableSet) used.clone();
-        allUse.unionExact(bodyBlock.propagateUsage());
-        return allUse;
+        return used;
     }
 
     /**

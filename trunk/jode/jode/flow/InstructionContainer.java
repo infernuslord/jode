@@ -69,12 +69,11 @@ public abstract class InstructionContainer extends StructuredBlock {
 	    instr.fillInGenSet(in, gen);
     }
 
-    public VariableSet propagateUsage() {
-	if (used == null)
-	    used = new VariableSet(); /*XXX*/
+    public VariableSet getUsed() {
+	used = new VariableSet();
 	if (instr != null)
 	    instr.fillInGenSet(null, used);
-	return super.propagateUsage();
+	return used;
     }
 
     public boolean doTransformations() {
