@@ -19,7 +19,7 @@
 
 package jode.bytecode;
 import java.io.*;
-import jode.Type;
+import jode.type.Type;
 import java.util.Hashtable;
 
 /**

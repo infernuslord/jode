@@ -18,8 +18,8 @@
  */
 
 package jode.bytecode;
-import jode.Type;
-import jode.MethodType;
+import jode.type.Type;
+import jode.type.MethodType;
 import java.io.*;
 import java.lang.reflect.Modifier;
 

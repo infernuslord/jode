@@ -21,8 +21,8 @@ package jode.decompiler;
 import jode.Decompiler;
 import jode.flow.*;
 import jode.expr.*;
-import jode.Type;
-import jode.MethodType;
+import jode.type.Type;
+import jode.type.MethodType;
 
 public class SyntheticAnalyzer {
     public final static int UNKNOWN = 0;

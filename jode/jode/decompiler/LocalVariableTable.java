@@ -20,7 +20,7 @@
 package jode.decompiler;
 import java.io.*;
 import jode.Decompiler;
-import jode.Type;
+import jode.type.Type;
 import jode.bytecode.AttributeInfo;
 import jode.bytecode.ConstantPool;
 
