@@ -157,7 +157,7 @@ public class LocalInfo {
             while (enum.hasMoreElements())
                 ((LocalVarOperator)enum.nextElement()).updateType();
         }
-        return this.type;
+        return li.type;
     }
 
     public boolean isShadow() {
