@@ -111,13 +111,14 @@ public final class SlotSet extends AbstractSet implements Cloneable {
     }
 
     /**
-     * Removes a local info from this variable set.  
+     * Removes a slot from this variable set.  
      */
     public boolean remove(Object li) {
-        li = ((LocalInfo) li).getLocalInfo();
+        int slot = ((LocalInfo) li).getSlot();
         for (int i=0; i<count;i++) {
-            if (locals[i].getLocalInfo() == li) {
+            if (locals[i].getSlot() == slot) {
                 locals[i] = locals[--count];
+		locals[count] = null;
 		return true;
 	    }
 	}
@@ -174,7 +175,7 @@ public final class SlotSet extends AbstractSet implements Cloneable {
     /**
      * Merges this SlotSet with another.  For all slots occuring
      * in both variable sets, all corresponding LocalInfos are merged.
-     * The variable sets are not changed (use union for this).
+     * The sets are not changed (use addAll for this).
      * @return The merged variables.
      * @param vs the other variable set.  */
     public void merge(VariableSet vs) {
@@ -186,5 +187,22 @@ public final class SlotSet extends AbstractSet implements Cloneable {
 		    li.combineWith(vs.locals[j]);
 	    }
 	}
+    }
+
+    /**
+     * Add the slots in kill to the current set, unless there are
+     * already in this set.  This differs from addAll, in the fact that it
+     * doesn't combine the locals.
+     *
+     * @param kill The other kill set.
+     */
+    public void mergeKill(SlotSet kill) {
+        grow(kill.size());
+    big_loop:
+        for (Iterator i = kill.iterator(); i.hasNext(); ) {
+            LocalInfo li2 = (LocalInfo) i.next();
+	    if (!containsSlot(li2.getSlot()))
+		add(li2.getLocalInfo());
+        }
     }
 }
