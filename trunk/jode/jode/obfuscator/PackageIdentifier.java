@@ -73,7 +73,7 @@ public class PackageIdentifier extends Identifier {
 		    loadedClasses.put(name, ident);
 		} else if (!ClassInfo.exists(fullname)) {
 		    throw new IllegalArgumentException
-			("Can't find class"+fullname);
+			("Can't find class "+fullname);
 		} else {
 		    ident = new ClassIdentifier(bundle, this, name, 
 						ClassInfo.forName(fullname));
@@ -222,15 +222,25 @@ public class PackageIdentifier extends Identifier {
 	}
     }
 
-    public void writeTable(PrintWriter out) throws IOException {
-	if (parent != null && getName() != getAlias())
-	    out.println("" + parent.getFullAlias() + getAlias()
-			+ " = " + getName());
+    public void readTable(Hashtable table) {
+	if (parent != null)
+	    setAlias((String) table.get(parent.getFullName() + getName()));
 	Enumeration enum = loadedClasses.elements();
 	while (enum.hasMoreElements()) {
 	    Identifier ident = (Identifier) enum.nextElement();
 	    if (!Obfuscator.shouldStrip || ident.isReachable())
-		ident.writeTable(out);
+		ident.readTable(table);
+	}
+    }
+
+    public void writeTable(Hashtable table) {
+	if (parent != null)
+	    table.put(parent.getFullAlias() + getAlias(), getName());
+	Enumeration enum = loadedClasses.elements();
+	while (enum.hasMoreElements()) {
+	    Identifier ident = (Identifier) enum.nextElement();
+	    if (!Obfuscator.shouldStrip || ident.isReachable())
+		ident.writeTable(table);
 	}
     }
 
@@ -269,11 +279,12 @@ public class PackageIdentifier extends Identifier {
 	    else {
 		try {
 		    File file = new File(newDest, ident.getAlias()+".class");
-		    if (file.exists()) {
-			Obfuscator.err.println
-			    ("Refuse to overwrite existing class file "
-			     +file.getPath()+".  Remove it first.");
-		    }
+// 		    if (file.exists()) {
+// 			Obfuscator.err.println
+// 			    ("Refuse to overwrite existing class file "
+// 			     +file.getPath()+".  Remove it first.");
+// 			return;
+// 		    }
 		    DataOutputStream out = new DataOutputStream
 			(new FileOutputStream(file));
 		    ((ClassIdentifier) ident).storeClass(out);
