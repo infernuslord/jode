@@ -43,7 +43,7 @@ public class TabbedPrintWriter {
     /**
      * Convert the numeric indentation to a string.
      */
-    public void makeIndentStr() {
+    protected void makeIndentStr() {
 	int tabs = (currentIndent >> 3);
 	// This is a very fast implementation.
 	if (tabs <= 20)
