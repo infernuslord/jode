@@ -149,6 +149,10 @@ public class ClassBundle {
 	}
     }
 
+    public void doTransformations() {
+	basePackage.doTransformations();
+    }
+    
     public void storeClasses(String destination) {
 	if (destination.endsWith(".jar") ||
 	    destination.endsWith(".zip")) {
