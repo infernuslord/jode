@@ -466,7 +466,7 @@ public abstract class StructuredBlock {
 		}
 	    }
 
-	    LocalInfo previous = done.findLocal(local.getName());
+	    LocalInfo previous = done.findLocal(localName);
 	    if (previous != null) {
 		/* A name conflict happened. */
 		local.makeNameUnique();
