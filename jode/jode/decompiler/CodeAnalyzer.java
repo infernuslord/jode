@@ -19,13 +19,11 @@
 
 package jode.decompiler;
 import jode.*;
-import jode.bytecode.ClassInfo;
-import jode.bytecode.ConstantPool;
-import jode.bytecode.AttributeInfo;
-import jode.bytecode.CodeInfo;
+import jode.bytecode.*;
 import jode.flow.FlowBlock;
 import jode.flow.TransformExceptionHandlers;
 
+import java.util.BitSet;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.Enumeration;
@@ -36,7 +34,7 @@ import java.io.IOException;
 public class CodeAnalyzer implements Analyzer {
     
     FlowBlock methodHeader;
-    CodeInfo code;
+    BytecodeInfo code;
     MethodAnalyzer method;
     public JodeEnvironment env;
 
@@ -50,20 +48,30 @@ public class CodeAnalyzer implements Analyzer {
      */
     public MethodAnalyzer getMethod() {return method;}
     
-    public CodeAnalyzer(MethodAnalyzer ma, CodeInfo bc, JodeEnvironment e)
-         throws ClassFormatError
+    public CodeAnalyzer(MethodAnalyzer ma, 
+			AttributeInfo codeattr, JodeEnvironment e)
     {
-        code = bc;
         method = ma;
         env  = e;
+	DataInputStream stream = new DataInputStream
+	    (new ByteArrayInputStream(codeattr.getContents()));
 
+	ConstantPool cpool = ma.classAnalyzer.getConstantPool();
+	code = new BytecodeInfo();
+	try {
+	    code.read(cpool, stream);
+	} catch (IOException ex) {
+	    ex.printStackTrace(Decompiler.err);
+	    code = null;
+	    return;
+	}
+	
 	if (Decompiler.useLVT) {
 	    AttributeInfo attr = code.findAttribute("LocalVariableTable");
 	    if (attr != null) {
                 if (Decompiler.showLVT)
                     Decompiler.err.println("Method: "+ma.getName());
-		lvt = new LocalVariableTable(bc.getMaxLocals(), 
-					     method.classAnalyzer, attr);
+		lvt = new LocalVariableTable(code.getMaxLocals(), cpool, attr);
 	    }
 	}
 
@@ -73,7 +81,7 @@ public class CodeAnalyzer implements Analyzer {
 	    param[i] = getLocalInfo(0, i);
     }
 
-    public CodeInfo getCodeInfo() {
+    public BytecodeInfo getBytecodeInfo() {
 	return code;
     }
 
@@ -81,51 +89,38 @@ public class CodeAnalyzer implements Analyzer {
         return methodHeader;
     }
 
-    private final static int SEQUENTIAL   = 1;
-    private final static int PREDECESSORS = 2;
-    /**
-     * @param code The code array.
-     * @param handlers The exception handlers.
-     */
-    void readCode(byte[] code, int[] handlers)
-         throws ClassFormatError
-    {
-        ConstantPool cpool = method.classAnalyzer.getConstantPool();
-        byte[] flags = new byte[code.length];
-        int[] lengths = new int[code.length];
-        try {
-            DataInputStream stream = 
-                new DataInputStream(new ByteArrayInputStream(code));
-	    for (int addr = 0; addr < code.length; ) {
-                int[] succs = Opcodes.getSizeAndSuccs(addr, stream);
-                if  (succs.length == 2 
-                     && succs[1] == addr + succs[0])
-                    flags[addr] |= SEQUENTIAL;
-                lengths[addr] = succs[0];
-                addr += succs[0];
-                for (int i=1; i<succs.length; i++)
-                    if (succs[i] != addr)
-                        flags[succs[i]] |= PREDECESSORS;
-	    }
-        } catch (IOException ex) {
-            ex.printStackTrace(Decompiler.err);
-            throw new ClassFormatError(ex.getMessage());
-        }
-        for (int i=0; i<handlers.length; i += 4) {
-            int start = handlers[i + 0];
-            int handler = handlers[i + 2];
-            if (start < 0) start += 65536;
-            if (handler < 0) handler += 65536;
-            flags[start]   |= PREDECESSORS;
-            flags[handler] |= PREDECESSORS;
-        }
+    void readCode() {
+	/* The adjacent analyzation relies on this */
+	DeadCodeAnalysis.removeDeadCode(code);
+	Handler[] handlers = code.getExceptionHandlers();
 
-        FlowBlock[] instr = new FlowBlock[code.length];
 	int returnCount;
         TransformExceptionHandlers excHandlers; 
-        try {
-            DataInputStream stream = 
-                new DataInputStream(new ByteArrayInputStream(code));
+	{
+	    /* First create a FlowBlock for every block that has a 
+	     * predecessor other than the previous instruction.
+	     */
+	    for (Instruction instr = code.getFirstInstr();
+		 instr != null; instr = instr.nextByAddr) {
+		if (instr.prevByAddr == null
+		    || instr.prevByAddr.alwaysJumps
+		    || instr.preds.size() != 1)
+		    instr.tmpInfo = new FlowBlock
+			(this, instr.addr, instr.length);
+		else
+		    instr.tmpInfo = null;
+	    }
+
+	    for (int i=0; i < handlers.length; i++) {
+		Instruction instr = handlers[i].start;
+		if (instr.tmpInfo == null)
+		    instr.tmpInfo 
+			= new FlowBlock(this, instr.addr, instr.length);
+		instr = handlers[i].catcher;
+		if (instr.tmpInfo == null)
+		    instr.tmpInfo 
+			= new FlowBlock(this, instr.addr, instr.length);
+	    }
 
             /* While we read the opcodes into FlowBlocks 
              * we try to combine sequential blocks, as soon as we
@@ -134,59 +129,58 @@ public class CodeAnalyzer implements Analyzer {
              */
             int mark = 1000;
             FlowBlock lastBlock = null;
-	    for (int addr = 0; addr < code.length; ) {
-		jode.flow.StructuredBlock block
-                    = Opcodes.readOpcode(cpool, addr, stream, this);
+	    boolean   lastSequential = false;
+	    for (Instruction instr = code.getFirstInstr();
+		 instr != null; instr = instr.nextByAddr) {
 
-                if (jode.Decompiler.isVerbose && addr > mark) {
+		jode.flow.StructuredBlock block
+		    = Opcodes.readOpcode(instr, this);
+
+                if (jode.Decompiler.isVerbose && instr.addr > mark) {
                     Decompiler.err.print('.');
                     mark += 1000;
                 }
 
-                if (lastBlock != null && flags[addr] == SEQUENTIAL) {
-
-                    lastBlock.doSequentialT1(block, lengths[addr]);
+                if (lastSequential && instr.tmpInfo == null
+		    /* Only merge with previous block, if this is sequential, 
+		     * too.  
+		     * Why?  doSequentialT1 does only handle sequential blocks.
+		     */
+		    && !instr.alwaysJumps && instr.succs == null) {
+		    
+                    lastBlock.doSequentialT1(block, instr.length);
 
                 } else {
-                    
-                    instr[addr] = new FlowBlock(this, addr, 
-                                                lengths[addr], block);
-                    lastBlock =  ((flags[addr] & SEQUENTIAL) == 0) 
-                        ? null : instr[addr];
 
+		    if (instr.tmpInfo == null)
+			instr.tmpInfo = new FlowBlock
+			    (this, instr.addr, instr.length);
+		    FlowBlock flowBlock = (FlowBlock) instr.tmpInfo;
+		    flowBlock.setBlock(block);
+
+		    if (lastBlock != null)
+			lastBlock.setNextByAddr(flowBlock);
+
+                    instr.tmpInfo = lastBlock = flowBlock;
+		    lastSequential = !instr.alwaysJumps && instr.succs == null;
                 }
-                addr += lengths[addr];
 	    }
 
-            for (int addr=0; addr<instr.length; ) {
-                instr[addr].resolveJumps(instr);
-                addr = instr[addr].getNextAddr();
-            }
-            
-	    methodHeader = instr[0];
-	    methodHeader.markReachable();
+	    methodHeader = (FlowBlock) code.getFirstInstr().tmpInfo;
             excHandlers = new TransformExceptionHandlers();
-            for (int i=0; i<handlers.length; i += 4) {
+            for (int i=0; i<handlers.length; i++) {
                 Type type = null;
-                int start   = handlers[i + 0];
-                int end     = handlers[i + 1];
-                int handler = handlers[i + 2];
-                if (start < 0) start += 65536;
-                if (end < 0) end += 65536;
-                if (handler < 0) handler += 65536;
-                if (handlers[i + 3 ] != 0)
-                    type = Type.tClass(cpool.getClassName(handlers[i + 3]));
+                FlowBlock start 
+		    = (FlowBlock) handlers[i].start.tmpInfo;
+                int endAddr = handlers[i].end.nextByAddr.addr;
+                FlowBlock handler
+		    = (FlowBlock) handlers[i].catcher.tmpInfo;
+                if (handlers[i].type != null)
+                    type = Type.tClass(handlers[i].type);
                 
-                excHandlers.addHandler(instr[start], end, 
-				       instr[handler], type);
-		instr[handler].markReachable();
+                excHandlers.addHandler(start, endAddr, handler, type);
             }
-        } catch (IOException ex) {
-            ex.printStackTrace(Decompiler.err);
-            throw new ClassFormatError(ex.getMessage());
         }
-
-	FlowBlock.removeDeadCode(methodHeader);
 
         if (Decompiler.isVerbose)
             Decompiler.err.print('-');
@@ -197,9 +191,9 @@ public class CodeAnalyzer implements Analyzer {
 
     public void analyze()
     {
-        byte[] codeArray = code.getCode();
-        int[] handlers = code.getExceptionHandlers();
-        readCode(codeArray, handlers);
+	if (code == null)
+	    return;
+        readCode();
 	if (!Decompiler.usePUSH && methodHeader.mapStackToLocal())
 	    methodHeader.removePush();
 	if (Decompiler.removeOnetimeLocals)
@@ -226,7 +220,10 @@ public class CodeAnalyzer implements Analyzer {
     public void dumpSource(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
-        methodHeader.dumpSource(writer);
+	if (methodHeader != null)
+	    methodHeader.dumpSource(writer);
+	else
+	    writer.println("COULDN'T DECOMPILE METHOD!");
     }
 
     public LocalInfo getLocalInfo(int addr, int slot) {
