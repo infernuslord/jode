@@ -78,7 +78,7 @@ AM_CONDITIONAL(HAVE_JIKES, test x"$JIKES" != x)
 AC_ARG_WITH(javac,
   [  --with-javac            specify location of javac ],
   [
-   if test x$USER_SPECIFIED_JIKES == xtrue; then
+   if test x$USER_SPECIFIED_JIKES = xtrue; then
       AC_MSG_ERROR(You must only give one option --with-javac or --with-jikes)
    fi
    if test ${withval} != "" || test ${withval} != "yes" || test ${withval} != "no"; then

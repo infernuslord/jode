@@ -659,6 +659,11 @@ public class TabbedPrintWriter {
     }
 
     public String getClassString(ClassInfo clazz, int scopeType) {
+	try {
+	    clazz.load(ClassInfo.OUTERCLASS);
+	} catch (IOException ex) {
+	    clazz.guess(ClassInfo.OUTERCLASS);
+	}
 	if ((Options.options & Options.OPTION_INNER) != 0
 	    && clazz.getOuterClass() != null) {
 	    
