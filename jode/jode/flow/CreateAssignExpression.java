@@ -39,7 +39,7 @@ public class CreateAssignExpression {
          *
          *   (push loadstoreOps)  <- not checked
          * sequBlock:
-         *   dup
+         *   dup (may be missing for static / local variables)
          * opBlock:
          *   load(stack) * rightHandSide
          *   (optional dup_x)
@@ -70,21 +70,25 @@ public class CreateAssignExpression {
             return false;
 
         InstructionBlock ib = (InstructionBlock) opBlock.subBlocks[0];
+	if (!(ib.getInstruction() instanceof ComplexExpression))
+	    return false;
+
+	ComplexExpression expr = (ComplexExpression) ib.getInstruction();
+	SpecialBlock dup = null;
         
-        if (!(opBlock.outer instanceof SequentialBlock)
-            || !(opBlock.outer.getSubBlocks()[0] instanceof SpecialBlock)
-	    || !(ib.getInstruction() instanceof ComplexExpression))
-            return false;
-
-        SequentialBlock sequBlock = (SequentialBlock) opBlock.outer;
-        ComplexExpression expr = (ComplexExpression) ib.getInstruction();
-        SpecialBlock dup = (SpecialBlock) sequBlock.subBlocks[0];
-
-	if (dup.type != SpecialBlock.DUP
-            || dup.depth != 0
-            || dup.count != store.getLValueOperandCount())
-            return false;
-
+	if (store.getLValueOperandCount() > 0) {
+	    if (!(opBlock.outer instanceof SequentialBlock)
+		|| !(opBlock.outer.getSubBlocks()[0] instanceof SpecialBlock))
+		return false;
+	    
+	    SequentialBlock sequBlock = (SequentialBlock) opBlock.outer;
+	    dup = (SpecialBlock) sequBlock.subBlocks[0];
+	    
+	    if (dup.type != SpecialBlock.DUP
+		|| dup.depth != 0
+		|| dup.count != store.getLValueOperandCount())
+		return false;
+	}
         int opIndex;
         Expression rightHandSide;
 
@@ -92,18 +96,29 @@ public class CreateAssignExpression {
             && expr.getSubExpressions()[0] instanceof ComplexExpression
             && expr.getOperator().getType().isOfType(store.getLValueType())) {
 
+	    /* This gets tricky.  We need to allow something like
+	     *  s = (short) (int) ((double) s / 0.1);
+	     */
             expr = (ComplexExpression) expr.getSubExpressions()[0];
+	    while (expr.getOperator() instanceof ConvertOperator
+		   && expr.getSubExpressions()[0] instanceof ComplexExpression)
+		expr = (ComplexExpression) expr.getSubExpressions()[0];
         }
         if (expr.getOperator() instanceof BinaryOperator) {
             BinaryOperator binop = (BinaryOperator) expr.getOperator();
             
             opIndex = binop.getOperatorIndex();
-            
-            if (opIndex <  binop.ADD_OP || opIndex >= binop.ASSIGN_OP
-                || !(expr.getSubExpressions()[0] instanceof Operator)
-                || !store.matches((Operator) expr.getSubExpressions()[0]))
+            if (opIndex <  binop.ADD_OP || opIndex >= binop.ASSIGN_OP)
+		return false;
+
+	    Expression loadExpr = expr.getSubExpressions()[0];
+	    while (loadExpr instanceof ComplexExpression
+		   && loadExpr.getOperator() instanceof ConvertOperator)
+		loadExpr = ((ComplexExpression)loadExpr)
+		    .getSubExpressions()[0];
+	    if (!(loadExpr instanceof Operator)
+                || !store.matches((Operator) loadExpr))
                 return false;
-            
             rightHandSide = expr.getSubExpressions()[1];
         } else {
 	    /* For String += the situation is more complex.
@@ -139,10 +154,11 @@ public class CreateAssignExpression {
             opIndex = Operator.ADD_OP;
         }
 
-        dup.removeBlock();
+	if (dup != null)
+	    dup.removeBlock();
         ib.setInstruction(rightHandSide);
         
-        store.setOperatorIndex(store.OPASSIGN_OP+opIndex);
+        store.makeOpAssign(store.OPASSIGN_OP+opIndex);
 
         if (isAssignOp)
             store.makeNonVoid();
