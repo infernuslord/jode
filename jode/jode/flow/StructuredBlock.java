@@ -595,6 +595,12 @@ public abstract class StructuredBlock {
         }
     }
 
+    public void simplify() {
+	StructuredBlock[] subs = getSubBlocks();
+	for (int i=0; i < subs.length; i++)
+	    subs[i].simplify();
+    }
+
     /**
      * Do simple transformation on the structuredBlock.
      */
