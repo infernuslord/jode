@@ -21,6 +21,7 @@ import jode.Obfuscator;
 import jode.bytecode.ClassInfo;
 import java.io.*;
 import java.util.*;
+import java.util.zip.ZipOutputStream;
 
 public class ClassBundle {
 
@@ -99,13 +100,27 @@ public class ClassBundle {
     }
 
     public void storeClasses(String destination) {
-	File directory = new File(destination);
-	if (!directory.exists()) {
-	    Obfuscator.err.println("Destination directory "
-				   +directory.getPath()+" doesn't exists.");
-	    return;
+	if (destination.endsWith(".jar") ||
+	    destination.endsWith(".zip")) {
+	    try {
+		ZipOutputStream zip = new ZipOutputStream
+		    (new FileOutputStream(destination));
+		basePackage.storeClasses(zip);
+		zip.close();
+	    } catch (IOException ex) {
+		System.err.println("Can't write zip file: "+destination);
+		ex.printStackTrace();
+	    }
+	} else {
+	    File directory = new File(destination);
+	    if (!directory.exists()) {
+		Obfuscator.err.println("Destination directory "
+				       +directory.getPath()
+				       +" doesn't exists.");
+		return;
+	    }
+	    basePackage.storeClasses(new File(destination));
 	}
-	basePackage.storeClasses(new File(destination));
     }
 }
 
