@@ -102,15 +102,21 @@ public class CaseBlock extends StructuredBlock {
 
 	    if (!(block instanceof SequentialBlock)) {
 		/* This was the last block on the first level. 
-		 * If we get here, we need no braces.
+		 * Finally check if that is an declaring InstructionBlock.
+		 */
+		if (block instanceof InstructionBlock 
+		    && ((InstructionBlock)block).isDeclaration)
+		    return true;
+
+
+		/* If we get here, we need no braces.
 		 */
 		return false;
 	    }
-
+	    
 	    StructuredBlock[] subBlocks = block.getSubBlocks();
 	    if (subBlocks[0] instanceof InstructionBlock
-		&& subBlocks[0].declare != null
-		&& !subBlocks[0].declare.isEmpty()) {
+		&& ((InstructionBlock)subBlocks[0]).isDeclaration) {
 		/* An instruction block declares on the same level as
 		 * the surrounding SequentialBlock.
 		 */
