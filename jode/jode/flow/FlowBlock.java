@@ -200,23 +200,34 @@ public class FlowBlock {
              */
             StructuredBlock elseBlock = 
                 jump.prev.outer.getNextBlock(jump.prev);
-            if (elseBlock != null && 
-                elseBlock.outer != null &&
-                elseBlock.outer instanceof SequentialBlock &&
-                elseBlock.outer.getSubBlocks()[0] instanceof IfThenElseBlock &&
-                (elseBlock.outer.getNextFlowBlock() == successor ||
-                 elseBlock.outer.jumpMayBeChanged())) {
+            if (elseBlock != null
+                && elseBlock.outer != null
+                && elseBlock.outer instanceof SequentialBlock
+                && elseBlock.outer.getSubBlocks()[0] instanceof IfThenElseBlock
+                && (elseBlock.outer.getNextFlowBlock() == successor
+		    || elseBlock.outer.jumpMayBeChanged())) {
+
                 IfThenElseBlock ifBlock = 
                     (IfThenElseBlock)elseBlock.outer.getSubBlocks()[0];
+
                 if (ifBlock.getSubBlocks().length == 1) {
 
-                    elseBlock.outer.removeJump();
-                    ifBlock.replace(elseBlock.outer, elseBlock);
-                    if (appendBlock == elseBlock.outer)
-                        appendBlock = ifBlock;
-                    ifBlock.moveJump(jump.prev);
-                    ifBlock.setElseBlock(elseBlock);
-                    continue same_jump;
+		    /* make sure that only sequential blocks are between
+		     * jump.prev and the ifBlock 
+		     */
+		    StructuredBlock block = jump.prev.outer;
+		    while (block instanceof SequentialBlock)
+			block = block.outer;
+
+		    if (block == ifBlock) {
+			elseBlock.outer.removeJump();
+			ifBlock.replace(elseBlock.outer, elseBlock);
+			if (appendBlock == elseBlock.outer)
+			    appendBlock = ifBlock;
+			ifBlock.moveJump(jump.prev);
+			ifBlock.setElseBlock(elseBlock);
+			continue same_jump;
+		    }
                 }
             }
 
@@ -838,7 +849,7 @@ public class FlowBlock {
                 
                 int continuelevel = 1;
                 for (StructuredBlock surrounder = jump.prev.outer;
-                     surrounder != null;
+                     surrounder != whileBlock;
                      surrounder = surrounder.outer) {
                     if (surrounder instanceof LoopBlock) {
                         continuelevel++;
@@ -878,6 +889,10 @@ public class FlowBlock {
         return true;
     }
 
+    public void makeDeclaration() {
+	block.makeDeclaration();
+    }
+    
     /**
      * Resolves the destinations of all jumps.
      */
