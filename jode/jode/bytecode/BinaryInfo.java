@@ -34,7 +34,7 @@ public class BinaryInfo {
 
     private int status = 0;
 
-    private AttributeInfo[] attributes;
+    protected AttributeInfo[] attributes;
 
     public AttributeInfo findAttribute(String name) {
         for (int i=0; i< attributes.length; i++)
