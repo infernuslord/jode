@@ -40,15 +40,16 @@ public class Decompiler {
     public static final int OPTION_ONETIME   = 0x0040;
     public static final int OPTION_IMMEDIATE = 0x0080;
     public static final int OPTION_VERIFY    = 0x0100;
+    public static final int OPTION_CONTRAFO  = 0x0200;
 
     public static int options = 
 	OPTION_LVT | OPTION_INNER | OPTION_ANON | 
-	OPTION_DECRYPT | OPTION_VERIFY;
+	OPTION_DECRYPT | OPTION_VERIFY | OPTION_CONTRAFO;
 
     public static final String[] optionNames = {
-	"lvt", "inners", "anonymous", "push", 
+	"lvt", "inner", "anonymous", "push", 
 	"pretty", "decrypt", "onetime", "immediate",
-	"verify"
+	"verify", "contrafo"
     };
 
     public static int outputStyle = SUN_STYLE;
@@ -79,6 +80,8 @@ public class Decompiler {
 		    "[don't] decompile inner classes.");
 	err.println("\t--[no]anonymous  "+
 		    "[don't] decompile anonymous classes.");
+	err.println("\t--[no]contrafo   "+
+		    "[don't] transform constructors of inner classes.");
 	err.println("\t--[no]lvt        "+
 		    "[don't] use the local variable table.");
 	err.println("\t--[no]pretty     "+
