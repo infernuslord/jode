@@ -13,7 +13,6 @@ dnl AC_PROG_LN_S
 AC_PROG_MAKE_SET
 dnl AC_PROG_RANLIB
 dnl AC_PATH_PROG(ZIP, zip)
-AC_PATH_PROG(UNZIP, unzip)
 AC_PATH_PROG(PERL, perl)
 AC_PATH_PROG(CYGPATH, cygpath)
 
@@ -94,9 +93,26 @@ dnl use jikes as default, if javac option not given.
   fi
 ])
 
+AC_PATH_PROG(UNZIP, unzip)
+if test -n "$UNZIP"; then
+  CLASS_CHECK () {
+    $UNZIP -v -C `$SUBSTCP $1` $2 >/dev/null  2>&1
+  }
+else
+  if test -n "$JAR"; then
+    CLASS_CHECK () {
+      $JAR -tf `$SUBSTCP $1` 2>&1 | grep $2 >/dev/null
+    }
+  else
+    AC_MSG_ERROR(You need either unzip or jar.)
+  fi
+fi
+
+AC_MSG_CHECKING(for java.lang.Object)
 JODE_CHECK_CLASS(java.lang.Object, $CLASSLIB,
-  [ true ],
-  [ AC_MSG_ERROR(Please specify location of java class library for jikes) ])
+  [ AC_MSG_RESULT(yes) ],
+  [ AC_MSG_RESULT(no)
+    AC_MSG_ERROR(Please specify location of core java class library) ])
 
 AC_MSG_CHECKING(for collection classes)
 JODE_CHECK_CLASS(java.util.Set, $CLASSPATH:$CLASSLIB,
@@ -131,7 +147,7 @@ JODE_CHECK_CLASS(javax.swing.JFrame, $CLASSPATH:$CLASSLIB,
       [ JAVAX_SWING="no" ]) ] )
 AC_MSG_RESULT($JAVAX_SWING)
 AC_SUBST(JAVAX_SWING)
-if test x"$JAVAX_SWING" != x; then
+if test "$JAVAX_SWING" != "no"; then
   SWINGUI="swingui"
 else
   AC_MSG_WARN(Swing is not in classpath ... skipping swingui)
