@@ -28,6 +28,15 @@ public class FieldInfo extends BinaryInfo {
     Type type;
     Object constant;
 
+    public FieldInfo() {
+    }
+
+    public FieldInfo(String name, Type type, int modifier) {
+	this.name = name;
+	this.type = type;
+	this.modifier = modifier;
+    }
+
     public String getName() {
         return name;
     }
