@@ -38,20 +38,13 @@ public class MainWindow
     implements ActionListener, Runnable, TreeSelectionListener {
     JTree classTree;
     PackagesTreeModel classModel;
-    TextArea  sourcecodeArea, errorArea;
+    JTextArea  sourcecodeArea, errorArea;
     String classpath, lastClassName;
     Thread decompileThread;
 
-    public MainWindow(Container frame) {
-	frame.setLayout(new GridBagLayout());
-	GridBagConstraints c = new GridBagConstraints();
-	c.gridx = 0;
-	c.gridy = 0;
-	c.gridwidth = 1;
-	c.gridheight = 2;
-	c.weightx = 0.5;
-	c.weighty = 1.0;
-	c.fill = c.BOTH;
+    public MainWindow(Container contentPane) {
+	Font monospaced = new Font("monospaced", Font.PLAIN, 12);
+
 	classModel = new PackagesTreeModel();
 	classTree = new JTree(classModel);
 	classTree.setRootVisible(false);
@@ -59,27 +52,23 @@ public class MainWindow
 	selModel.setSelectionMode(selModel.SINGLE_TREE_SELECTION);
 	classTree.setSelectionModel(selModel);
 	classTree.addTreeSelectionListener(this);
-        JScrollPane sp = new JScrollPane();
-        sp.getViewport().add(classTree);
-	frame.add(sp, c);
-	c.gridx = 1;
-	c.gridy = 0;
-	c.gridwidth = 1;
-	c.gridheight = 1;
-	c.weightx = 1.0;
-	c.weighty = 1.0;
-	c.fill = c.BOTH;
-	sourcecodeArea = new TextArea(20, 80);
-	frame.add(sourcecodeArea, c);
-	c.gridx = 1;
-	c.gridy = 1;
-	c.gridwidth = 1;
-	c.gridheight = 1;
-	c.weightx = 1.0;
-	c.weighty = 0.0;
-	c.fill = c.BOTH;
-	errorArea = new TextArea(3, 80);
-	frame.add(errorArea, c);
+        JScrollPane spClassTree = new JScrollPane(classTree);
+	sourcecodeArea = new JTextArea(20, 80);
+	sourcecodeArea.setFont(monospaced);
+	JScrollPane spText = new JScrollPane(sourcecodeArea);
+	errorArea = new JTextArea(3, 80);
+	errorArea.setFont(monospaced);
+	JScrollPane spError = new JScrollPane(errorArea);
+
+	JSplitPane rightPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
+					      spText, spError);
+	JSplitPane allPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+					    spClassTree, rightPane);
+	contentPane.add(allPane);
+	rightPane.setDividerLocation(300);
+	rightPane.setDividerSize(4);
+	allPane.setDividerLocation(200);
+	allPane.setDividerSize(4);
 	Decompiler.err = new PrintStream(new AreaOutputStream(errorArea));
     }
 
@@ -136,9 +125,9 @@ public class MainWindow
     }
 
     public class AreaOutputStream extends OutputStream { 
-	private TextArea area;
+	private JTextArea area;
 
-	public AreaOutputStream(TextArea a) {
+	public AreaOutputStream(JTextArea a) {
 	    area = a;
 	}
 
