@@ -72,12 +72,24 @@ public class ClassBundle {
     }
 
     public void readTable(String filename) {
+	Properties prop = new Properties();
+	try {
+	    InputStream input = new FileInputStream(filename);
+	    prop.load(input);
+	    input.close();
+	} catch (java.io.IOException ex) {
+	    Obfuscator.err.println("Can't read rename table "+filename);
+	    ex.printStackTrace();
+	}
+	basePackage.readTable(prop);
     }
 
     public void writeTable(String filename) {
+	Properties prop = new Properties();
+	basePackage.writeTable(prop);
 	try {
-	    PrintWriter out = new PrintWriter(new FileOutputStream(filename));
-	    basePackage.writeTable(out);
+	    OutputStream out = new FileOutputStream(filename);
+	    prop.save(out, "Reverse renaming table");
 	    out.close();
 	} catch (java.io.IOException ex) {
 	    Obfuscator.err.println("Can't write rename table "+filename);
@@ -90,6 +102,7 @@ public class ClassBundle {
 	if (!directory.exists()) {
 	    Obfuscator.err.println("Destination directory "
 				   +directory.getPath()+" doesn't exists.");
+	    return;
 	}
 	basePackage.storeClasses(new File(destination));
     }
