@@ -87,7 +87,9 @@ public class IfThenElseOperator extends Operator {
 		    String clazz = 
 			((ConstOperator)invoke.subExpressions[0]).getValue();
 		    if (field.setClassConstant(clazz))
-			return new ClassFieldOperator(Type.tClass(clazz));
+			return new ClassFieldOperator(clazz.charAt(0) == '[' 
+						      ? Type.tType(clazz)
+						      : Type.tClass(clazz));
 		}
 	    }
 	}
