@@ -24,7 +24,8 @@ import java.awt.*;
 import java.awt.event.*;
 ///#endif
 import java.io.*;
-import jode.decompiler.TabbedPrintWriter;
+import jode.bytecode.ClassInfo;
+import jode.decompiler.*;
 
 public class JodeWindow 
     implements Runnable
@@ -237,12 +238,32 @@ public class JodeWindow
 	String cp = classpathField.getText();
 	cp = cp.replace(':', jode.bytecode.SearchPath.protocolSeparator);
 	cp = cp.replace(',', File.pathSeparatorChar);
-	JodeEnvironment env = new JodeEnvironment(cp);
-	ByteArrayOutputStream out = new ByteArrayOutputStream();
+	ClassInfo.setClassPath(cp);
+	ImportHandler imports = new ImportHandler();
 	try {
-	    TabbedPrintWriter writer = new TabbedPrintWriter(out);
-	    env.doClass(lastClassName, writer);
-	    sourcecodeArea.setText(out.toString());
+	    ClassInfo clazz;
+	    try {
+		clazz = ClassInfo.forName(lastClassName);
+	    } catch (IllegalArgumentException ex) {
+		sourcecodeArea.setText
+		    ("`"+lastClassName+"' is not a class name\n"
+		     +"You have to give a full qualified classname "
+		     +"with '.' as package delimiter \n"
+		     +"and without .class ending");
+		return;
+	    }
+	    imports.init(lastClassName);
+
+	    ClassAnalyzer clazzAna = new ClassAnalyzer(null, clazz, imports);
+	    clazzAna.analyze();
+	    
+	    sourcecodeArea.setText("");
+	    TabbedPrintWriter writer = 
+		new TabbedPrintWriter(new AreaOutputStream(sourcecodeArea)
+				      , imports);
+	    imports.dumpHeader(writer);
+	    clazzAna.dumpSource(writer);
+
 ///#ifdef AWT10
 ///	    saveButton.enable();
 ///#else

@@ -19,12 +19,13 @@
 
 package jode;
 import java.io.*;
-import jode.decompiler.TabbedPrintWriter;
+import jode.bytecode.ClassInfo;
+import jode.decompiler.*;
 import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipEntry;
 
 public class Decompiler {
-    public final static String version = "0.99";
+    public final static String version = "1.0";
     public final static String email = "jochen@gnu.org";
     public final static String copyright = 
 	"Jode (c) 1998,1999 Jochen Hoenicke <"+email+">";
@@ -171,10 +172,12 @@ public class Decompiler {
             usage();
             return;
         }
-        JodeEnvironment env = new JodeEnvironment(classPath);
+        
+        ClassInfo.setClassPath(classPath);
+	ImportHandler imports = new ImportHandler();
 	TabbedPrintWriter writer = null;
 	if (destDir == null)
-	    writer = new TabbedPrintWriter(System.out);
+	    writer = new TabbedPrintWriter(System.out, imports);
 	else if (destDir.getName().endsWith(".zip")) {
 	    try {
 		destZip = new ZipOutputStream(new FileOutputStream(destDir));
@@ -183,25 +186,45 @@ public class Decompiler {
 		ex.printStackTrace(err);
 		return;
 	    }
-	    writer = new TabbedPrintWriter(destZip);
+	    writer = new TabbedPrintWriter(destZip, imports);
 	}
         for (; i< params.length; i++) {
 	    try {
+		ClassInfo clazz;
+		try {
+		    clazz = ClassInfo.forName(params[i]);
+		} catch (IllegalArgumentException ex) {
+		    err.println("`"+params[i]+"' is not a class name");
+		    continue;
+		}
+
 		String filename = 
 		    params[i].replace('.', File.separatorChar)+".java";
 		if (destZip != null) {
+		    writer.flush();
 		    destZip.putNextEntry(new ZipEntry(filename));
 		} else if (destDir != null) {
 		    File file = new File (destDir, filename);
 		    File directory = new File(file.getParent());
 		    if (!directory.exists() && !directory.mkdirs()) {
 			err.println("Could not create directory "
-				    +directory.getPath()+", "
-				    +"check permissions.");
+				    + directory.getPath() + ", "
+				    + "check permissions.");
 		    }
-		    writer = new TabbedPrintWriter(new FileOutputStream(file));
+		    writer = new TabbedPrintWriter(new FileOutputStream(file),
+						   imports);
 		}
-		env.doClass(params[i], writer);
+
+		imports.init(params[i]);
+		Decompiler.err.println(params[i]);
+		
+		ClassAnalyzer clazzAna 
+		    = new ClassAnalyzer(null, clazz, imports);
+		clazzAna.analyze();
+
+		imports.dumpHeader(writer);
+		clazzAna.dumpSource(writer);
+		
 		if (destZip != null) {
 		    writer.flush();
 		    destZip.closeEntry();

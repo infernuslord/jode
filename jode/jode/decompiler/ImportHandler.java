@@ -1,4 +1,4 @@
-/* JodeEnvironment Copyright (C) 1998-1999 Jochen Hoenicke.
+/* ImportHandler Copyright (C) 1998-1999 Jochen Hoenicke.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,26 +17,21 @@
  * $Id$
  */
 
-package jode;
-import java.util.*;
-import jode.decompiler.TabbedPrintWriter;
-import jode.decompiler.ClassAnalyzer;
+package jode.decompiler;
+import jode.Decompiler;
 import jode.bytecode.ClassInfo;
-import java.io.IOException;
+import jode.type.*;
 
-public class JodeEnvironment {
+import java.io.IOException;
+import java.util.*;
+
+public class ImportHandler {
     Hashtable imports;
     /* Classes that doesn't need to be qualified. */
     Hashtable cachedClassNames = null;
     ClassAnalyzer main;
     String className;
     String pkg;
-
-
-    public JodeEnvironment(String path) {
-        ClassInfo.setClassPath(path);
-	Type.setEnvironment(this);
-    }
 
     /**
      * Checks if the className conflicts with a class imported from
@@ -133,7 +128,7 @@ public class JodeEnvironment {
         }
     }
 
-    private void dumpHeader(TabbedPrintWriter writer) 
+    public void dumpHeader(TabbedPrintWriter writer) 
          throws java.io.IOException
     {
         writer.println("/* "+ className 
@@ -158,38 +153,22 @@ public class JodeEnvironment {
         Decompiler.err.println(message);
     }
 
-    public void doClass(String className, TabbedPrintWriter writer)
-	throws IOException
-    {
-        ClassInfo clazz;
+    public void init(String className) {
         imports = new Hashtable();
         /* java.lang is always imported */
         imports.put("java.lang.*", new Integer(Integer.MAX_VALUE));
-        try {
-            clazz = ClassInfo.forName(className);
-        } catch (IllegalArgumentException ex) {
-            Decompiler.err.println("`"+className+"' is not a class name");
-            return;
-        }
 
-        Decompiler.err.println(className);
-        
         int pkgdelim = className.lastIndexOf('.');
         pkg = (pkgdelim == -1)? "" : className.substring(0, pkgdelim);
         this.className = (pkgdelim == -1) ? className
             : className.substring(pkgdelim+1);
-
-        main = new ClassAnalyzer(null, clazz, this);
-        main.analyze();
-
-	dumpHeader(writer);
-	main.dumpSource(writer);
     }
 
     /* Marks the clazz as used, so that it will be imported if used often
      * enough.
      */
-    public void useClass(String name) {
+    public void useClass(ClassInfo clazz) {
+	String name = clazz.getName();
         int pkgdelim = name.lastIndexOf('.');
         if (pkgdelim != -1) {
             String pkgName = name.substring(0, pkgdelim);
@@ -220,6 +199,13 @@ public class JodeEnvironment {
         }
     }
 
+    public final void useType(Type type) {
+	if (type instanceof ArrayType)
+	    useType(((ArrayType) type).getElementType());
+	else if (type instanceof ClassInterfacesType)
+	    useClass(((ClassInterfacesType) type).getClassInfo());
+    }
+
     /**
      * Check if clazz is imported and maybe remove package delimiter from
      * full qualified class name.
@@ -234,7 +220,8 @@ public class JodeEnvironment {
      * This can only happen with static fields or static methods.
      * @return a legal string representation of clazz.  
      */
-    public String classString(String name) {
+    public String getClassString(ClassInfo clazz) {
+	String name = clazz.getName();
         if (cachedClassNames == null)
             /* We are not yet clean, return the full name */
             return name;
@@ -262,8 +249,21 @@ public class JodeEnvironment {
         return name;
     }
 
+    public String getTypeString(Type type) {
+	if (type instanceof ArrayType)
+	    return getTypeString(((ArrayType) type).getElementType()) + "[]";
+	else if (type instanceof ClassInterfacesType)
+	    return getClassString(((ClassInterfacesType) type).getClassInfo());
+	else if (type instanceof NullType)
+	    return "Object";
+	else
+	    return type.toString();
+    }
+
     protected int loadFileFlags()
     {
         return 1;
     }
 }
+
+
