@@ -107,8 +107,6 @@ public class FieldIdentifier extends Identifier{
 	    return;
 
 	notConstant = true;
-	IdentifierEvent ev = 
-	    new IdentifierEvent(this, IdentifierEvent.CONSTANT);
 	Enumeration enum = fieldListeners.elements();
 	while (enum.hasMoreElements())
 	    clazz.bundle.analyzeIdentifier((Identifier) enum.nextElement());
