@@ -107,7 +107,7 @@ class BasicBlockReader implements Opcodes {
 			succ = null;
 			break;
 		    }
-		    succ = infos[info.succs[0]];
+		    succ = infos[succ.succs[0]];
 		} while ((succ.flags & IS_FORWARD) != 0);
 		if (succ == info)
 		    info.flags |= IS_NULL;
