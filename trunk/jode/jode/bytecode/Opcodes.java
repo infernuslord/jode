@@ -355,6 +355,7 @@ public abstract class Opcodes {
             }
         }
         case opc_ret:
+            stream.skip(1);
             return new int[] { 2 };
 
         case opc_jsr_w:

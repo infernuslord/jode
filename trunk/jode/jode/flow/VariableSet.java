@@ -29,20 +29,98 @@ import jode.LocalInfo;
  * Note that a variable set can contain LocalInfos that use the same
  * slot, but are different.
  */
-public class VariableSet extends java.util.Vector {
+public class VariableSet implements Cloneable {
+    LocalInfo[] locals;
+    int count;
+
     /**
      * Creates a new empty variable set
      */
     public VariableSet() {
-        super(0, 0);
+        locals = null;
+        count = 0;
     }
 
     /**
-     * Adds a local variable to the variable set.
-     * @param li The local variable of type LocalInfo.
+     * Creates a new pre initialized variable set
+     */
+    public VariableSet(LocalInfo[] locals) {
+        count = locals.length;
+        this.locals = locals;
+    }
+
+    public final void grow(int size) {
+        if (locals != null) {
+            size += count;
+            if (size > locals.length) {
+                int nextSize = locals.length * 2;
+//                 System.err.println("wanted: "+size+" next: "+nextSize);
+                LocalInfo[] newLocals
+                    = new LocalInfo[nextSize > size ? nextSize : size];
+                System.arraycopy(locals, 0, newLocals, 0, count);
+                locals = newLocals;
+            }
+        } else if (size > 0)
+            locals = new LocalInfo[size];
+    }
+
+    /**
+     * Adds a local info to this variable set.  It doesn't check for
+     * duplicates.
      */
     public void addElement(LocalInfo li) {
-        super.addElement((Object)li);
+        grow(1);
+        locals[count++] = li;
+    }
+
+    /**
+     * Checks if the variable set contains the given local info.
+     */
+    public boolean contains(LocalInfo li) {
+        li = li.getLocalInfo();
+        for (int i=0; i<count;i++)
+            if (locals[i].getLocalInfo() == li)
+                return true;
+        return false;
+    }
+
+    /**
+     * Removes a local info from this variable set.  
+     */
+    public void removeElement(LocalInfo li) {
+        li = li.getLocalInfo();
+        for (int i=0; i<count;i++)
+            if (locals[i].getLocalInfo() == li)
+                locals[i] = locals[--count];
+    }
+
+    /**
+     * Removes everything from this variable set.  
+     */
+    public void removeAllElements() {
+        locals = null;
+        count = 0;
+    }
+
+    public java.util.Enumeration elements() {
+        return new ArrayEnum(count, locals);
+    }
+
+    public boolean isEmpty() {
+        return count == 0;
+    }
+
+    public Object clone() {
+        try {
+            VariableSet other = (VariableSet) super.clone();
+            if (count > 0) {
+                other.locals = new LocalInfo[count];
+                System.arraycopy(locals, 0, other.locals, 0, count);
+            }
+            return other;
+        } catch (CloneNotSupportedException ex) {
+            throw new jode.AssertError("Clone?");
+        }
     }
 
     /**
@@ -50,22 +128,30 @@ public class VariableSet extends java.util.Vector {
      * in both variable sets, all corresponding LocalInfos are merged.
      * The variable sets are not changed (use union for this).
      * @return The merged variables.
-     * @param vs  the other variable set.
-     */
+     * @param vs the other variable set.  */
     public VariableSet merge(VariableSet vs) {
         VariableSet merged = new VariableSet();
-        for (int i=0; i<elementCount; i++) {
-            LocalInfo li1 = ((LocalInfo) elementData[i]).getLocalInfo();
+        merged.grow(Math.min(count,vs.count));
+    big_loop:
+        for (int i=0; i<count; i++) {
+            LocalInfo li1 = locals[i];
+            int slot = li1.getSlot();
             boolean didMerge = false;
-            for (int j=0; j<vs.elementCount; j++) {
-                LocalInfo li2 = ((LocalInfo) vs.elementData[j]).getLocalInfo();
-                if (li1.getSlot() == li2.getSlot()) {
-                    li1.combineWith(li2);
+            for (int k=0; k< merged.count; k++) {
+                if (slot == merged.locals[k].getSlot()) {
+                    /* This slot was already merged. */
+                    li1.combineWith(merged.locals[k]);
+                    continue big_loop;
+                }
+            }
+            for (int j=0; j<vs.count; j++) {
+                if (li1.getSlot() == vs.locals[j].getSlot()) {
+                    li1.combineWith(vs.locals[j]);
                     didMerge = true;
                 }
             }
             if (didMerge)
-                merged.addElement(li1);
+                merged.locals[merged.count++] = li1;
         }
         return merged;
     }
@@ -77,20 +163,25 @@ public class VariableSet extends java.util.Vector {
      */
     public VariableSet intersect(VariableSet vs) {
         VariableSet intersection = new VariableSet();
-        for (int i=0; i<elementCount; i++) {
-            LocalInfo li1 = ((LocalInfo) elementData[i]).getLocalInfo();
-            for (int j=0; j<vs.elementCount; j++) {
-                LocalInfo li2 = ((LocalInfo) vs.elementData[j]).getLocalInfo();
-                if (li1.getSlot() == li2.getSlot()) {
-                    if (!intersection.contains(li1))
-                        intersection.addElement(li1);
-                    if (!intersection.contains(li2))
-                        intersection.addElement(li2);
+        intersection.grow(Math.min(count, vs.count));
+    big_loop:
+        for (int i=0; i<count; i++) {
+            LocalInfo li = locals[i];
+            int slot = li.getSlot();
+            for (int j=0; j<vs.count; j++) {
+                if (slot == vs.locals[j].getSlot()) {
+                    for (int k=0; k<intersection.count; k++) {
+                        if (slot == intersection.locals[k].getSlot())
+                            continue big_loop;
+                    }
+                    intersection.locals[intersection.count++] 
+                        = li.getLocalInfo();
+                    continue big_loop;
                 }
             }
         }
         return intersection;
-    }           
+    }
 
     /**
      * Intersects the current VariableSet with another and returns the
@@ -99,15 +190,15 @@ public class VariableSet extends java.util.Vector {
      */
     public VariableSet intersectExact(VariableSet vs) {
         VariableSet intersection = new VariableSet();
-        for (int i=0; i<elementCount; i++) {
-            LocalInfo li1 = ((LocalInfo) elementData[i]).getLocalInfo();
-            for (int j=0; j<vs.elementCount; j++) {
-                LocalInfo li2 = ((LocalInfo) vs.elementData[j]).getLocalInfo();
-                if (li1.getLocalInfo() == li2.getLocalInfo()) {
+        intersection.grow(Math.min(count, vs.count));
+    big_loop:
+        for (int i=0; i<count; i++) {
+            LocalInfo li1 = locals[i].getLocalInfo();
+            for (int j=0; j<vs.count; j++) {
+                if (li1 == vs.locals[j].getLocalInfo()) {
                     if (!intersection.contains(li1))
-                        intersection.addElement(li1);
-                    if (!intersection.contains(li2))
-                        intersection.addElement(li2);
+                        intersection.locals[intersection.count++] = li1;
+                    continue big_loop;
                 }
             }
         }
@@ -118,18 +209,18 @@ public class VariableSet extends java.util.Vector {
      * Union the other variable set to the current.
      */
     public void unionExact(VariableSet vs) {
-        int oldSize = elementCount;
-    iloop:
-        for (int i=0; i< vs.elementCount; i++) {
-            LocalInfo li2 = ((LocalInfo) vs.elementData[i]).getLocalInfo();
-            /* check if this particular local info was already in the set */
-            for (int j=0; j< oldSize; j++) {
-                LocalInfo li1 = ((LocalInfo) elementData[j]).getLocalInfo();
+        grow(vs.count);
+    big_loop:
+        for (int i=0; i< vs.count; i++) {
+            LocalInfo li2 = (vs.locals[i]).getLocalInfo();
+            /* check if this particular local info is already in the set */
+            for (int j=0; j< count; j++) {
+                LocalInfo li1 = (locals[j]).getLocalInfo();
                 if (li1 == li2)
-                    /* Yes it was, take next variable */
-                    continue iloop;
+                    /* Yes it is, take next variable */
+                    continue big_loop;
             }
-            addElement(li2);
+            locals[count++] = li2;
         }
     }
 
@@ -138,18 +229,18 @@ public class VariableSet extends java.util.Vector {
      * is already in the current set.  
      */
     public void add(VariableSet vs) {
-        int oldSize = elementCount;
-    iloop:
-        for (int i=0; i< vs.elementCount; i++) {
-            LocalInfo li2 = (LocalInfo) vs.elementData[i];
-            /* check if this slot was already overwritten by this block */
-            for (int j=0; j< oldSize; j++) {
-                LocalInfo li1 = (LocalInfo) elementData[j];
-                if (li1.getSlot() == li2.getSlot())
-                    /* Yes it was, take next variable */
-                    continue iloop;
+        grow(vs.count);
+    big_loop:
+        for (int i=0; i< vs.count; i++) {
+            LocalInfo li2 = vs.locals[i];
+            int slot2 = li2.getSlot();
+            /* check if this slot is already in the current set */
+            for (int j=0; j< count; j++) {
+                if (locals[j].getSlot() == slot2)
+                    /* Yes it is, take next variable */
+                    continue big_loop;
             }
-            addElement(li2.getLocalInfo());
+            locals[count++] = li2.getLocalInfo();
         }
     }
 
@@ -160,17 +251,19 @@ public class VariableSet extends java.util.Vector {
      * @param kill The kill set.
      */
     public void mergeGenKill(VariableSet gen, VariableSet kill) {
-    iloop:
-        for (int i=0; i< gen.elementCount; i++) {
-            LocalInfo li2 = ((LocalInfo) gen.elementData[i]).getLocalInfo();
-            /* check if this slot was already overwritten (kill set) */
-            for (int j=0; j< kill.elementCount; j++) {
-                LocalInfo li1 = (LocalInfo) kill.elementData[j];
-                if (li2.getSlot() == li1.getSlot())
-                    /* Yes it was, take next variable */
-                    continue iloop;
+        grow(gen.count);
+    big_loop:
+        for (int i=0; i< gen.count; i++) {
+            LocalInfo li2 = gen.locals[i];
+            int slot = li2.getSlot();
+            /* check if this slot is in the kill set) */
+            for (int j=0; j< kill.count; j++) {
+                LocalInfo li1 = kill.locals[j];
+                if (slot == kill.locals[j].getSlot())
+                    /* Yes it is, take next variable */
+                    continue big_loop;
             }
-            addElement(li2);
+            locals[count++] = li2.getLocalInfo();
         }
     }
 
@@ -181,25 +274,19 @@ public class VariableSet extends java.util.Vector {
      * @param vs The other variable set.
      */
     public void subtract(VariableSet vs) {
-        /* We count from top to bottom to have easier reorganization.
-         * Note, that the variables have not to be in any particular
-         * order.  */
-        int newCount = elementCount;
-        for (int i=newCount-1; i>=0; i--) {
-            LocalInfo li1 = (LocalInfo) elementData[i];
-            for (int j=0; j<vs.elementCount; j++) {
-                LocalInfo li2 = (LocalInfo) vs.elementData[j];
-                if (li1.getSlot() == li2.getSlot()) {
+    big_loop:
+        for (int i=0; i < count;) {
+            LocalInfo li1 = locals[i];
+            int slot = li1.getSlot();
+            for (int j=0; j<vs.count; j++) {
+                if (slot == vs.locals[j].getSlot()) {
                     /* remove the element from this variable list. */
-                    newCount--;
-                    elementData[i] = elementData[newCount];
-                    /* break the j-loop */
-                    break;
+                    locals[i] = locals[--count].getLocalInfo();
+                    continue big_loop;
                 }
             }
+            i++;
         }
-        /* Now set the new size */
-        setSize(newCount);
     }
 
     /**
@@ -209,28 +296,17 @@ public class VariableSet extends java.util.Vector {
      * @param vs The other variable set.
      */
     public void subtractExact(VariableSet vs) {
-        /* We count from top to bottom to have easier reorganization.
-         * Note, that the variables have not to be in any particular
-         * order.  */
-        int newCount = elementCount;
-        for (int i=newCount-1; i>=0; i--) {
-            LocalInfo li1 = (LocalInfo) elementData[i];
-            for (int j=0; j<vs.elementCount; j++) {
-                LocalInfo li2 = (LocalInfo) vs.elementData[j];
-                if (li1.getLocalInfo() == li2.getLocalInfo()) {
+    big_loop:
+        for (int i=0; i < count;) {
+            LocalInfo li1 = locals[i].getLocalInfo();
+            for (int j=0; j<vs.count; j++) {
+                if (li1 == vs.locals[j].getLocalInfo()) {
                     /* remove the element from this variable list. */
-                    newCount--;
-                    elementData[i] = elementData[newCount];
-                    /* break the j-loop */
-                    break;
+                    locals[i] = locals[--count].getLocalInfo();
+                    continue big_loop;
                 }
             }
+            i++;
         }
-        /* Now set the new size */
-        setSize(newCount);
     }
 }
-
-
-
-

@@ -91,8 +91,8 @@ public final class InvokeOperator extends Operator {
     public String toString(String[] operands) {
         String object = null;
         if (specialFlag) {
+            Class clazz = codeAnalyzer.method.classAnalyzer.clazz;
             if (operands[0].equals("this")) {
-                Class clazz = codeAnalyzer.method.classAnalyzer.clazz;
                 object = "";
                 while (clazz != null 
                        && !classType.equals(Type.tType(clazz))) {
@@ -101,9 +101,11 @@ public final class InvokeOperator extends Operator {
                 }
                 
                 if (clazz == null)
-                    object = "ERROR-SPECIAL";
-            } else
-                object = "ERROR-SPECIAL";
+                    object = "SPECIAL";
+            } else if (classType.equals(Type.tType(clazz)))
+                object = operands[0];
+            else
+                object = "SPECIAL "+operands[0];
         }
             
         object = (object != null) ? object
