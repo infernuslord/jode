@@ -112,10 +112,21 @@ public class FieldAnalyzer implements Analyzer {
     public boolean setClassConstant(String clazzName) {
 	if (constant != null)
 	    return false;
-	if (fieldName.equals("class$" + clazzName.replace('.', '$'))
-	    || fieldName.equals("class$L" + clazzName.replace('.', '$'))) {
-	    analyzedSynthetic();
-	    return true;
+	if (clazzName.charAt(0) == '[') {
+	    if (clazzName.charAt(clazzName.length()-1) == ';') 
+		clazzName = clazzName.substring(0, clazzName.length()-1);
+
+	    if (fieldName.equals("array"+ (clazzName.replace('[', '$')
+					   .replace('.', '$')))) {
+		analyzedSynthetic();
+		return true;
+	    }
+	} else {
+	    if (fieldName.equals("class$" + clazzName.replace('.', '$'))
+		|| fieldName.equals("class$L" + clazzName.replace('.', '$'))) {
+		analyzedSynthetic();
+		return true;
+	    }
 	}
 	return false;
     }
