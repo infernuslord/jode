@@ -26,7 +26,7 @@ public class Jump {
      */
     StructuredBlock prev;
     /**
-     * The destination block of this jump.
+     * The destination block of this jump, null if not known, or illegal.
      */
     FlowBlock destination;
     /**
@@ -47,7 +47,7 @@ public class Jump {
      * paths form the start of the current flow block to this jump
      * contain (unconditional) assignments to this slot.
      */
-    VariableSet kill = new VariableSet();
+    VariableSet kill;
 
     /**
      * The gen locals.  This are the locals, which can be overwritten
@@ -56,14 +56,27 @@ public class Jump {
      * jump that contains an (unconditional) assignments to this
      * local, and that is not overwritten afterwards.  
      */
-    VariableSet gen = new VariableSet();
+    VariableSet gen;
 
     public Jump (int destAddr) {
         this.destAddr = destAddr;
+	kill = new VariableSet();
+	gen = new VariableSet();
     }
 
     public Jump (FlowBlock dest) {
         this.destination = dest;
+	kill = new VariableSet();
+	gen = new VariableSet();
+    }
+
+    public Jump (Jump jump) {
+	destAddr = jump.destAddr;
+	destination = jump.destination;
+	next = jump.next;
+	jump.next = this;
+	gen = (VariableSet) jump.gen.clone();
+	kill = (VariableSet) jump.kill.clone();
     }
 
     /**
