@@ -211,10 +211,10 @@ public class CreateIfThenElseOperator {
         thenBlock = (InstructionBlock) ifBlock.thenBlock;
         
         e[1] = thenBlock.getInstruction();
-        if (e[1].isVoid())
+        if (e[1].isVoid() || e[1].getOperandCount() > 0)
             return false;
         e[2] = ic.getInstruction();
-        if (e[2].isVoid())
+        if (e[2].isVoid() || e[2].getOperandCount() > 0)
             return false;
         e[0] = ifBlock.cond;
         
