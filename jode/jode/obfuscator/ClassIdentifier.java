@@ -184,7 +184,7 @@ public class ClassIdentifier extends Identifier {
 	    }
 	    ClassInfo[] ifaces = superclass.getInterfaces();
 	    for (int i=0; i < ifaces.length; i++)
-		initSuperClasses(ifaces[i]);
+		analyzeSuperClasses(ifaces[i]);
 	    superclass = superclass.getSuperclass();
 	}
     }
@@ -194,20 +194,9 @@ public class ClassIdentifier extends Identifier {
 	    GlobalOptions.err.println("Reachable: "+this);
 
 	ClassInfo[] ifaces = info.getInterfaces();
-	ifaceNames = new String[ifaces.length];
-	for (int i=0; i < ifaces.length; i++) {
-	    ifaceNames[i] = ifaces[i].getName();
-	    ClassIdentifier ifaceident
-		= bundle.getClassIdentifier(ifaceNames[i]);
+	for (int i=0; i < ifaces.length; i++)
 	    analyzeSuperClasses(ifaces[i]);
-	}
-
-	if (info.getSuperclass() != null) {
-	    superName = info.getSuperclass().getName();
-	    ClassIdentifier superident
-		= bundle.getClassIdentifier(superName);
-	    analyzeSuperClasses(info.getSuperclass());
-	}
+	analyzeSuperClasses(info.getSuperclass());
     }
 
     public void initSuperClasses(ClassInfo superclass) {
@@ -301,6 +290,7 @@ public class ClassIdentifier extends Identifier {
 		identifiers[fieldCount + i].setPreserved();
 	}
 
+	// preserve / chain inherited methods and fields.
 	ClassInfo[] ifaces = info.getInterfaces();
 	ifaceNames = new String[ifaces.length];
 	for (int i=0; i < ifaces.length; i++) {
@@ -404,148 +394,142 @@ public class ClassIdentifier extends Identifier {
     }
 
     public void transformInnerClasses() {
-	InnerClassInfo[] innerClasses = info.getInnerClasses();
 	InnerClassInfo[] outerClasses = info.getOuterClasses();
-	InnerClassInfo[] extraClasses = info.getExtraClasses();
-	if (innerClasses == null && outerClasses == null
-	    && extraClasses == null)
-	    return;
-
-	int newInnerCount, newOuterCount, newExtraCount;
-	if (Obfuscator.shouldStrip) {
-	    newInnerCount = newOuterCount = newExtraCount = 0;
-	    if (outerClasses != null) {
+	if (outerClasses != null) {
+	    int newOuterCount = outerClasses.length;
+	    if (Obfuscator.shouldStrip) {
 		for (int i=0; i < outerClasses.length; i++) {
 		    if (outerClasses[i].outer != null) {
 			ClassIdentifier outerIdent
 			    = bundle.getClassIdentifier(outerClasses[i].outer);
-			if (outerIdent == null || outerIdent.isReachable())
-			    newOuterCount++;
-		    } else
-			newOuterCount++;
+			if (outerIdent != null && !outerIdent.isReachable())
+			    newOuterCount--;
+		    }
 		}
 	    }
-	    if (innerClasses != null) {
+	    if (newOuterCount == 0) {
+		info.setOuterClasses(null);
+	    } else {
+		InnerClassInfo[] newOuters = new InnerClassInfo[newOuterCount];
+		int pos = 0;
+		String lastClass = getFullAlias();
+		for (int i=0; i<outerClasses.length; i++) {
+		    ClassIdentifier outerIdent = outerClasses[i].outer != null
+			? bundle.getClassIdentifier(outerClasses[i].outer)
+			: null;
+		    
+		    if (outerIdent != null && !outerIdent.isReachable())
+			continue;
+		    
+		    String inner = lastClass;
+		    String outer = outerIdent == null
+			? outerClasses[i].outer
+			: outerIdent.getFullAlias();
+		    String name = outerClasses[i].name == null ? null
+			: ((outer != null && inner.startsWith(outer+"$")) 
+			   ? inner.substring(outer.length()+1)
+			   : inner.substring(inner.lastIndexOf('.')+1));
+
+		    newOuters[pos++] = new InnerClassInfo
+			(inner, outer, name, outerClasses[i].modifiers);
+		    lastClass = outer;
+		}
+		info.setOuterClasses(newOuters);
+	    }
+	}
+
+	InnerClassInfo[] innerClasses = info.getInnerClasses();
+	if (innerClasses != null) {
+	    int newInnerCount = innerClasses.length;
+	    if (Obfuscator.shouldStrip) {
 		for (int i=0; i < innerClasses.length; i++) {
 		    ClassIdentifier innerIdent
 			= bundle.getClassIdentifier(innerClasses[i].inner);
-		    if (innerIdent == null || innerIdent.isReachable())
-			newInnerCount++;
+		    if (innerIdent != null && !innerIdent.isReachable())
+			newInnerCount--;
 		}
 	    }
-	    if (extraClasses != null) {
+	    if (newInnerCount == 0) {
+		info.setInnerClasses(null);
+	    } else {
+		InnerClassInfo[] newInners = new InnerClassInfo[newInnerCount];
+		int pos = 0;
+		for (int i=0; i<innerClasses.length; i++) {
+		    ClassIdentifier innerIdent
+			= bundle.getClassIdentifier(innerClasses[i].inner);
+		    if (innerIdent != null 
+			&& Obfuscator.shouldStrip && !innerIdent.isReachable())
+			continue;
+		    
+		    String inner = innerIdent == null
+			? innerClasses[i].inner
+			: innerIdent.getFullAlias();
+		    String outer = getFullAlias();
+		    String name = innerClasses[i].name == null ? null
+			: ((outer != null && inner.startsWith(outer+"$")) 
+			   ? inner.substring(outer.length()+1)
+			   : inner.substring(inner.lastIndexOf('.')+1));
+		    
+		    newInners[pos++] = new InnerClassInfo
+			(inner, outer, name, innerClasses[i].modifiers);
+		}
+		info.setInnerClasses(newInners);
+	    }
+	}
+
+	InnerClassInfo[] extraClasses = info.getExtraClasses();
+	if (extraClasses != null) {
+	    int newExtraCount = extraClasses.length;
+	    if (Obfuscator.shouldStrip) {
 		for (int i=0; i < extraClasses.length; i++) {
 		    ClassIdentifier outerIdent = extraClasses[i].outer != null
 			? bundle.getClassIdentifier(extraClasses[i].outer)
 			: null;
 		    ClassIdentifier innerIdent
 			= bundle.getClassIdentifier(extraClasses[i].inner);
-		    if ((outerIdent == null || outerIdent.isReachable())
-			&& (innerIdent == null || innerIdent.isReachable()))
-			newExtraCount++;
+		    if ((outerIdent != null && !outerIdent.isReachable())
+			|| (innerIdent != null && !innerIdent.isReachable()))
+			newExtraCount--;
 		}
 	    }
-	} else {
-	    newInnerCount = innerClasses != null ? innerClasses.length : 0;
-	    newOuterCount = outerClasses != null ? outerClasses.length : 0;
-	    newExtraCount = extraClasses != null ? extraClasses.length : 0;
-	}
 
-	InnerClassInfo[] newInners = newInnerCount > 0 
-	    ? new InnerClassInfo[newInnerCount] : null;
-	InnerClassInfo[] newOuters = newOuterCount > 0 
-	    ? new InnerClassInfo[newOuterCount] : null;
-	InnerClassInfo[] newExtras = newExtraCount > 0 
-	    ? new InnerClassInfo[newExtraCount] : null;
+	    if (newExtraCount == 0) {
+		info.setExtraClasses(null);
+	    } else {
+		InnerClassInfo[] newExtras = newExtraCount > 0 
+		    ? new InnerClassInfo[newExtraCount] : null;
 
-	if (newInners  != null) {
-	    int pos = 0;
-	    for (int i=0; i<innerClasses.length; i++) {
-		ClassIdentifier innerIdent
-		    = bundle.getClassIdentifier(innerClasses[i].inner);
-		if (innerIdent != null && !innerIdent.isReachable())
-		    continue;
+		int pos = 0;
+		for (int i=0; i<extraClasses.length; i++) {
+		    ClassIdentifier outerIdent = extraClasses[i].outer != null
+			? bundle.getClassIdentifier(extraClasses[i].outer)
+			: null;
+		    ClassIdentifier innerIdent
+			= bundle.getClassIdentifier(extraClasses[i].inner);
+		    
+		    if (innerIdent != null && !innerIdent.isReachable())
+			continue;
+		    if (outerIdent != null && !outerIdent.isReachable())
+			continue;
+
+		    String inner = innerIdent == null
+			? extraClasses[i].inner
+			: innerIdent.getFullAlias();
+		    String outer = outerIdent == null
+			? extraClasses[i].outer
+			: outerIdent.getFullAlias();
 		
-		String inner, outer, name;
-		if (innerIdent == null) {
-		    inner = innerClasses[i].inner;
-		} else {
-		    inner = innerIdent.getFullAlias();
+		    String name = extraClasses[i].name == null ? null
+			: ((outer != null && inner.startsWith(outer+"$")) 
+			   ? inner.substring(outer.length()+1)
+			   : inner.substring(inner.lastIndexOf('.')+1));
+
+		    newExtras[pos++] = new InnerClassInfo
+			(inner, outer, name, extraClasses[i].modifiers);
 		}
-		outer = getFullAlias();
-		if (innerClasses[i].name == null)
-		    /* This is an anonymous class */
-		    name = null;
-		else if (outer != null && inner.startsWith(outer+"$"))
-		    name = inner.substring(outer.length()+1);
-		else
-		    name = inner;
-		newInners[pos++] = new InnerClassInfo
-		    (inner, outer, name, innerClasses[i].modifiers);
+		info.setExtraClasses(newExtras);
 	    }
 	}
-
-	if (newOuters  != null) {
-	    int pos = 0;
-	    String lastClass = getFullAlias();
-	    for (int i=0; i<outerClasses.length; i++) {
-		ClassIdentifier outerIdent = outerClasses[i].outer != null
-		    ? bundle.getClassIdentifier(outerClasses[i].outer)
-		    : null;
-
-		if (outerIdent != null && !outerIdent.isReachable())
-		    continue;
-		
-		String inner = lastClass;
-		String outer = outerIdent == null
-		    ? outerClasses[i].outer : outerIdent.getFullAlias();
-		String name;
-		lastClass = outer;
-		if (outerClasses[i].name == null)
-		    /* This is an anonymous class */
-		    name = null;
-		else if (outer != null && inner.startsWith(outer+"$"))
-		    name = inner.substring(outer.length()+1);
-		else
-		    name = inner.substring(inner.lastIndexOf('.')+1);
-		newOuters[pos++] = new InnerClassInfo
-		    (inner, outer, name, outerClasses[i].modifiers);
-	    }
-	}
-	if (newExtras  != null) {
-	    int pos = 0;
-	    for (int i=0; i<extraClasses.length; i++) {
-		ClassIdentifier outerIdent = extraClasses[i].outer != null
-		    ? bundle.getClassIdentifier(extraClasses[i].outer)
-		    : null;
-		ClassIdentifier innerIdent
-		    = bundle.getClassIdentifier(extraClasses[i].inner);
-
-		if (innerIdent != null && !innerIdent.isReachable())
-		    continue;
-		if (outerIdent != null && !outerIdent.isReachable())
-		    continue;
-
-		String inner = innerIdent == null
-		    ? extraClasses[i].inner : innerIdent.getFullAlias();
-		String outer = outerIdent == null
-		    ? extraClasses[i].outer : outerIdent.getFullAlias();
-		String name;
-		
-		if (extraClasses[i].name == null)
-		    /* This is an anonymous class */
-		    name = null;
-		else if (outer != null && inner.startsWith(outer+"$"))
-		    name = inner.substring(outer.length()+1);
-		else
-		    name = inner;
-		newExtras[pos++] = new InnerClassInfo
-		    (inner, outer, name, extraClasses[i].modifiers);
-	    }
-	}
-	info.setInnerClasses(newInners);
-	info.setOuterClasses(newOuters);
-	info.setExtraClasses(newExtras);
     }
 
     public void doTransformations() {
