@@ -18,6 +18,7 @@
  */
 
 package jode.bytecode;
+import jode.Type;
 import jode.MethodType;
 import java.io.*;
 import java.lang.reflect.Modifier;
@@ -32,7 +33,7 @@ public class MethodInfo extends BinaryInfo {
                      DataInputStream input, int howMuch) throws IOException {
 	modifier   = input.readUnsignedShort();
 	name = constantPool.getUTF8(input.readUnsignedShort());
-        type = new MethodType(constantPool.getUTF8(input.readUnsignedShort()));
+        type = Type.tMethod(constantPool.getUTF8(input.readUnsignedShort()));
         readAttributes(constantPool, input, howMuch);
     }
 
