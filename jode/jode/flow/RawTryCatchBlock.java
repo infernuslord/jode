@@ -47,8 +47,8 @@ public class RawTryCatchBlock extends StructuredBlock {
                             Jump endDest, Jump catchDest) {
         this.type = type;
 
-        endBlock = new EmptyBlock(endDest);
-        endBlock.outer = this;
+//         endBlock = new EmptyBlock(endDest);
+//         endBlock.outer = this;
 
         catchBlock = new EmptyBlock(catchDest);
         catchBlock.outer = this;
@@ -57,13 +57,13 @@ public class RawTryCatchBlock extends StructuredBlock {
         this.tryBlock = tryBlock;
         tryBlock.outer = this;
 
-        endBlock.setFlowBlock(flowBlock);
-        if (tryBlock instanceof RawTryCatchBlock
-            && ((RawTryCatchBlock)tryBlock).endBlock.jump.destination 
-            == endDest.destination)
-            endBlock.jump = null;
-        else
-            flowBlock.addSuccessor(endDest);
+//         endBlock.setFlowBlock(flowBlock);
+//         if (tryBlock instanceof RawTryCatchBlock
+//             && ((RawTryCatchBlock)tryBlock).endBlock.jump.destination 
+//             == endDest.destination)
+//             endBlock.jump = null;
+//         else
+//             flowBlock.addSuccessor(endDest);
 
         catchBlock.setFlowBlock(flowBlock);
         flowBlock.addSuccessor(catchDest);
@@ -74,11 +74,11 @@ public class RawTryCatchBlock extends StructuredBlock {
      */
     StructuredBlock tryBlock;
 
-    /**
-     * An empty block containing an unconditional jump to the EndBlock.
-     * Or null if the try block is completely read.
-     */
-    StructuredBlock endBlock;
+//     /**
+//      * An empty block containing an unconditional jump to the EndBlock.
+//      * Or null if the try block is completely read.
+//      */
+//     StructuredBlock endBlock;
 
     /**
      * The catch block.
@@ -99,16 +99,16 @@ public class RawTryCatchBlock extends StructuredBlock {
      */
     public boolean replaceSubBlock(StructuredBlock oldBlock, 
                                    StructuredBlock newBlock) {
-        if (tryBlock == oldBlock) {
+        if (tryBlock == oldBlock)
             tryBlock = newBlock;
 
-            if (tryBlock instanceof RawTryCatchBlock
-                && ((RawTryCatchBlock)tryBlock).endBlock.jump.destination 
-                == endBlock.jump.destination) {
-                endBlock.removeJump();
-            }
-        } else if (endBlock == oldBlock)
-            endBlock = newBlock;
+//             if (tryBlock instanceof RawTryCatchBlock
+//                 && ((RawTryCatchBlock)tryBlock).endBlock.jump.destination 
+//                 == endBlock.jump.destination) {
+//                 endBlock.removeJump();
+//             }
+//         } else if (endBlock == oldBlock) {
+//             endBlock = newBlock;
         else if (catchBlock == oldBlock)
             catchBlock = newBlock;
         else
@@ -120,7 +120,7 @@ public class RawTryCatchBlock extends StructuredBlock {
      * Returns all sub block of this structured block.
      */
     public StructuredBlock[] getSubBlocks() {
-        StructuredBlock[] result = { tryBlock, endBlock, catchBlock };
+        StructuredBlock[] result = { tryBlock/*, endBlock*/, catchBlock };
         return result;
     }
 
@@ -140,10 +140,10 @@ public class RawTryCatchBlock extends StructuredBlock {
         writer.tab();
         tryBlock.dumpSource(writer);
         writer.untab();
-        writer.println("UNTIL");
-        writer.tab();
-        endBlock.dumpSource(writer);
-        writer.untab();
+//         writer.println("UNTIL");
+//         writer.tab();
+//         endBlock.dumpSource(writer);
+//         writer.untab();
         writer.println("CATCH TO");
         writer.tab();
         catchBlock.dumpSource(writer);

@@ -94,7 +94,7 @@
 1998-09-22 20:44:33 bi
    essen
 1998-09-22 21:37:22 ei
-1998-09-22 21:35:26 be
+1998-09-22 21:37:26 be
 1998-09-22 21:39:59 ee cd data wrongorder FlowBlock.java
 1998-09-22 21:40:17 be
 1998-09-22 21:42:46 ee cd null omission FlowBlock.java
@@ -134,3 +134,95 @@
    some heavy errors still...
    ... fixing
 1998-09-23 13:27:22 ete
+1998-09-23 22:21:47 bcd
+   Local Variable improvements...
+1998-09-23 22:35:31 bi
+1998-09-23 22:47:50 ei
+1998-09-23 23:11:14 bi
+1998-09-24 00:05:02 ei
+1998-09-24 00:05:07 ecd
+1998-09-24 08:22:33 be
+   Fixing a bug I found overnight
+1998-09-24 08:23:33 ee cd data omission FlowBlock.java
+1998-09-24 09:18:15 be
+   Wrong place for in-Variables??
+   Make it FlowBlock-Member now!
+1998-09-24 09:30:12 ee ds data ... StructuredBlock.java
+1998-09-24 09:30:12 bdr
+   in:  FlowBlock-Member?
+   out: Jump-Member???
+1998-09-24 10:14:31 bi
+1998-09-24 10:18:30 ei
+1998-09-24 10:18:31 edr   
+1998-09-24 10:18:32 be
+   in/out trafos stimmen nicht!
+1998-09-24 10:36:57 ee cd data overwritten StructuredBlock.java
+1998-09-24 10:36:58 bte
+1998-09-24 10:45:14 ete
+1998-09-24 10:48:54 bcr
+   Clean up!
+1998-09-24 10:53:42 ecr
+1998-09-24 10:55:15 bte
+1998-09-24 11:01:54 be
+1998-09-24 11:06:42 ee ds flow notenoughthinking CodeAnalyzer.java
+   Test did succeed, now!!!
+1998-09-24 11:11:22 ete
+1998-09-24 11:11:38 bds
+   local definition
+1998-09-24 11:24:30 eds
+1998-09-24 11:24:33 bte
+   fine tuning...
+   ... no success it really needs more thinking!!!
+1998-09-24 12:40:16 ete
+   Essen fahren!
+1998-09-24 16:00:00 bcd   
+1998-09-24 20:40:00 ecd   
+   Local Variables are still broken
+1998-09-25 11:25:27 bcd
+   Doing some other expression-building
+1998-09-25 11:28:22 bi
+   java-mode configuration
+1998-09-25 11:40:57 ei
+1998-09-25 13:30:28 ecd
+   Essen fahren,  CreateAssignExpression angefangen, aber noch nicht fertig!
+1998-09-25 20:27:42 bcd
+1998-09-25 20:32:43 ecd
+1998-09-25 20:32:47 bcp
+1998-09-25 20:38:43 ecp
+1998-09-25 20:38:49 bte
+1998-09-25 20:38:51 bi
+1998-09-25 20:50:39 ei
+1998-09-25 20:50:41 be
+1998-09-25 20:55:58 
+   it's a error in the old version. Doesn't support postinc's on static
+   fields.
+1998-09-25 20:58:57 bi
+1998-09-25 21:10:56 ei 
+1998-09-25 21:19:24 ee prevcd
+1998-09-25 21:19:24 ete
+   We should probably try to simplify the expression mechanism.  We
+   don't need to produce an expression if the operator has no parameters
+   at all.
+1998-09-25 21:20:54 bcd
+   I now want to handle the try-catch blocks.  Finally will be done later...
+1998-09-25 22:25:25 ecd
+1998-09-25 22:25:27 bte
+   finetuning until try catch block are working.
+1998-09-25 23:41:36 ete
+   Now it runs most times... 
+   	(but the relationship of endBlock and catchBlock must be solved)
+   Important tasks:
+   	1. Implement switch
+   	2. locals need more thought
+   	3. Handle JSR
+   	4. Implement finally
+   	5. Handle MonitorEnter/Exit
+   	6. Implement synchronized()
+	7. field initialization
+   	8. Type output
+   	9. Differentiate local and member variables with same name.
+1998-09-26 10:30:00 bcd
+   local declaration.
+   bug fix for empty switches
+1998-09-26 11:51:09 ecd
+   Okay 2. works perfect

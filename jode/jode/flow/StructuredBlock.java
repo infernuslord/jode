@@ -275,6 +275,29 @@ public abstract class StructuredBlock {
         }
     }
 
+    public VariableSet propagateUsage() {
+        StructuredBlock[] subs = getSubBlocks();
+        VariableSet[] childUse = new VariableSet[subs.length];
+        VariableSet allUse = (VariableSet) used.clone();
+        for (int i=0; i<subs.length; i++) {
+            childUse[i] = subs[i].propagateUsage();
+            allUse.addExact(childUse[i]);
+        }
+        if (subs.length == 2) {
+            /* All variables used in both sub blocks, are used in
+             * this block, too.  But a sequential block is a notable
+             * exception, since it is enough if the first sub block
+             * declares the Variable
+             */
+            VariableSet newUse = childUse[0].intersectExact(childUse[1]);
+            if (this instanceof SequentialBlock)
+                subs[0].used.addExact(newUse);
+            else
+                used.addExact(newUse);
+        }
+        return allUse;
+    }
+
     /**
      * Make the declarations, i.e. initialize the declare variable
      * to correct values.  This will declare every variable that
@@ -282,6 +305,7 @@ public abstract class StructuredBlock {
      * @param done The set of the already declare variables.
      */
     public void makeDeclaration(VariableSet done) {
+        propagateUsage();
 	declare.addExact(used);
 	declare.subtractExact(done);
 	done.addExact(declare);
