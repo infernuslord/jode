@@ -178,7 +178,7 @@ public class TabbedPrintWriter {
 	return null;
     }
 
-    public String getInnerClassString(ClassInfo info) {
+    public String getInnerClassString(ClassInfo info, int scopeType) {
 	InnerClassInfo[] outers = info.getOuterClasses();
 	if (outers == null)
 	    return null;
@@ -188,7 +188,7 @@ public class TabbedPrintWriter {
 	    Scope scope = getScope(ClassInfo.forName(outers[i].outer), 
 				   Scope.CLASSSCOPE);
 	    if (scope != null && 
-		!conflicts(outers[i].name, scope, Scope.AMBIGUOUSNAME)) {
+		!conflicts(outers[i].name, scope, scopeType)) {
  		StringBuffer sb = new StringBuffer(outers[i].name);
 		for (int j = i; j-- > 0;) {
 		    sb.append('.').append(outers[j].name);
@@ -197,14 +197,14 @@ public class TabbedPrintWriter {
 	    }
 	}
 	String name = getClassString
-	    (ClassInfo.forName(outers[outers.length-1].outer));
+	    (ClassInfo.forName(outers[outers.length-1].outer), scopeType);
 	StringBuffer sb = new StringBuffer(name);
 	for (int j = outers.length; j-- > 0;)
 	    sb.append('.').append(outers[j].name);
 	return sb.toString();
     }
     
-    public String getAnonymousClassString(ClassInfo info) {
+    public String getAnonymousClassString(ClassInfo info, int scopeType) {
 	InnerClassInfo[] outers = info.getOuterClasses();
 	if (outers == null)
 	    return null;
@@ -217,7 +217,7 @@ public class TabbedPrintWriter {
 		 outers[i].outer == null 
 		 ? Scope.METHODSCOPE : Scope.CLASSSCOPE);
 	    if (scope != null && 
-		!conflicts(outers[i].name, scope, Scope.AMBIGUOUSNAME)) {
+		!conflicts(outers[i].name, scope, scopeType)) {
  		StringBuffer sb = new StringBuffer(outers[i].name);
 		for (int j = i; j-- > 0;) {
 		    sb.append('.').append(outers[j].name);
@@ -238,31 +238,33 @@ public class TabbedPrintWriter {
 	    }
 	}
 	String name = getClassString
-	    (ClassInfo.forName(outers[outers.length-1].outer));
+	    (ClassInfo.forName(outers[outers.length-1].outer), scopeType);
 	StringBuffer sb = new StringBuffer(name);
 	for (int j = outers.length; j-- > 0;)
 	    sb.append('.').append(outers[j].name);
 	return sb.toString();
     }
     
-    public String getClassString(ClassInfo clazz) {
+    public String getClassString(ClassInfo clazz, int scopeType) {
 	String name = clazz.getName();
 	if (name.indexOf('$') >= 0) {
 	    if ((Decompiler.options & Decompiler.OPTION_INNER) != 0) {
-		String innerClassName = getInnerClassString(clazz);
+		String innerClassName
+		    = getInnerClassString(clazz, scopeType);
 		if (innerClassName != null)
 		    return innerClassName;
 	    }
 	    if ((Decompiler.options
 		 & Decompiler.OPTION_ANON) != 0) {
-		String innerClassName = getAnonymousClassString(clazz);
+		String innerClassName
+		    = getAnonymousClassString(clazz, scopeType);
 		if (innerClassName != null)
 		    return innerClassName;
 	    }
 	}
 	if (imports != null) {
 	    String importedName = imports.getClassString(clazz);
-	    if (!conflicts(importedName, null, Scope.AMBIGUOUSNAME))
+	    if (!conflicts(importedName, null, scopeType))
 		return importedName;
 	}
 	if (conflicts(name, null, Scope.AMBIGUOUSNAME))
@@ -275,7 +277,7 @@ public class TabbedPrintWriter {
 	    return getTypeString(((ArrayType) type).getElementType()) + "[]";
 	else if (type instanceof ClassInterfacesType) {
 	    ClassInfo clazz = ((ClassInterfacesType) type).getClassInfo();
-	    return getClassString(clazz);
+	    return getClassString(clazz, Scope.CLASSNAME);
 	} else if (type instanceof NullType)
 	    return "Object";
 	else
