@@ -1,11 +1,12 @@
-JODE (Java Obfuscator/DEcompiler)
+JODE (Java Optimize and Decompile Environment)
 
 This is a decompiler and optimizer for java I have written in my spare
-time.  It takes class files as input and produces something similar to
-the original java file.  Of course this can't be perfect: There is no
-way to produce the comments or the names of local variables (except
-when the java files were compiled with `-g') and there are often more
-ways to write the same thing.  But jode does its job quite well.
+time.  The decompiler takes class files as input and produces
+something similar to the original java file.  Of course this can't be
+perfect: There is no way to produce the comments or the names of local
+variables (except when the java files were compiled with `-g') and
+there are often more ways to write the same thing.  But jode does its
+job quite well.
 
 Please note that most software licenses forbid to decompile class
 files.  Use this decompiler only, if you have legal rights to
@@ -70,8 +71,8 @@ You need java jdk1.2 or above, and the gnu getopt package.
 You should also have the jode-x.x.xx.jar file.  Read INSTALL how to
 compile it yourself.
 
-Jode also works with jdk1.1, you need the sun collection classes and
-swing in that case and you have to compile the jar-file yourself.
+Jode also works with jdk1.1, but you need the sun collection classes
+and swing in that case.
 
 Here are some URLs for the tools and packages you may need:
 
@@ -98,13 +99,13 @@ jode-x.x.xx.jar, the gnu getopt package and the sun collection package
 for 1.1.  For the swingui program you also need swing in you classpath.
 
 You can then decompile a class file with:
-  java jode.Decompiler --classpath jarfile1.jar,jarfile2.jar org.package.Class
+  java jode.decompiler.Main --classpath jarfile1.jar,jarfile2.jar org.package.Class
 
 For a graphical user interface based on swing try:
   java jode.swingui.Main --classpath jarfile1.jar
 
 The obfuscator/deobfuscator can be run with:
-  java jode.obfuscator.Main --script obfuscation.script
+  java jode.obfuscator.Main obfuscation.jos
 
 See XXXX for more information about the script syntax.
 

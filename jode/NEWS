@@ -3,11 +3,11 @@ New in 1.0.93
 * replaced a bash specific construct in acinclude.m4
 * fixed a funny bug:  string += "1" was decompiled as string++
 * main class of decompiler is now jode.decompiler.Main
-- better memory usage in decompiler
-- fixed a bug in ConstantAnalyzer (produced wrong code)
-- swingui also uses getopt.
-- web pages updated.
-- javadoc api added.
+* fixed a bug in ConstantAnalyzer (obfuscator) (produced wrong code)
+* fixed more bugs in obfuscator
+* better memory usage in decompiler
+* fixed a bug in decompiler (couldn't handle nop instruction)
+* web pages updated.
 
 New in 1.0.92
 * option --pretty works again

@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT()
 
-AM_INIT_AUTOMAKE(jode, 1.0.92)
+AM_INIT_AUTOMAKE(jode, 1.0.93)
 
 dnl Checks for programs.
 dnl AC_PROG_CXX
@@ -102,13 +102,17 @@ AC_MSG_CHECKING(for collection classes)
 JODE_CHECK_CLASS(java.util.Set, $CLASSPATH:$CLASSLIB,
  [ COLLECTIONS="java.util"
    COLLECTIONEXTRA="java.lang" ],
- [ JODE_CHECK_CLASS(com.sun.java.util.collections.Set, $CLASSPATH:$CLASSLIB,
-     [ COLLECTIONS="com.sun.java.util.collections"
-       COLLECTIONEXTRA="com.sun.java.util.collections" ], 
-     [ AC_MSG_RESULT(no)
-       AC_MSG_ERROR(You need the Java 1.2 collection classes in your classpath)
-     ])
- ] )
+ [ JODE_CHECK_CLASS(org.gnu.java.util.collections.Set, $CLASSPATH:$CLASSLIB,
+    [ COLLECTIONS="org.gnu.java.util.collections"
+      COLLECTIONEXTRA="org.gnu.java.util.collections" ], 
+    [ JODE_CHECK_CLASS(com.sun.java.util.collections.Set, $CLASSPATH:$CLASSLIB,
+       [ COLLECTIONS="com.sun.java.util.collections"
+         COLLECTIONEXTRA="com.sun.java.util.collections" ], 
+       [ AC_MSG_RESULT(no)
+         AC_MSG_ERROR(You need the Java 1.2 collection classes in your classpath)
+       ])
+    ])
+ ])
 AC_MSG_RESULT($COLLECTIONS)
 AC_SUBST(COLLECTIONS)
 AC_SUBST(COLLECTIONEXTRA)
