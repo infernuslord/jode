@@ -17,7 +17,9 @@
  * $Id$
  */
 
-package jode;
+package jode.type;
+import jode.AssertError;
+import jode.Decompiler;
 import jode.bytecode.ClassInfo;
 ///#ifdef JDK12
 ///import java.lang.ref.WeakReference;
@@ -95,8 +97,6 @@ public class Type {
     public static final int TC_UNKNOWN = 101;
     public static final int TC_RANGE = 103;
     public static final int TC_INTEGER = 107;
-
-    protected static JodeEnvironment env;
 
 ///#ifdef JDK12
 ///    private static final Map classHash = new HashMap();
@@ -310,10 +310,6 @@ public class Type {
         return type.getSubType();
     }
 	
-    public static void setEnvironment(JodeEnvironment e) {
-	env = e;
-    }
-
     final int typecode;
 
     /**
@@ -413,13 +409,6 @@ public class Type {
      */
     public boolean isOfType(Type type) {
 	return this.intersection(type) != Type.tError;
-    }
-
-    /**
-     * Marks this type as used, so that the class is imported.
-     */
-    public void useType() {
-        /* No action needed for simple types */
     }
 
     public String getDefaultName() {
