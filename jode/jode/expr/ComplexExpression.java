@@ -418,7 +418,14 @@ public class ComplexExpression extends Expression {
                 return new ComplexExpression
                     (new StringAddOperator(), new Expression[] 
 		     { left, right });
-            }
+            } else if (Decompiler.stringDecrypting) {
+		Expression expr = subExpressions[0].simplifyString();
+		if (expr instanceof ConstOperator) {
+		    expr = invoke.deobfuscateString((ConstOperator)expr);
+		    if (expr != null)
+			return expr;
+		}
+	    }
         }
         return this;
     }
