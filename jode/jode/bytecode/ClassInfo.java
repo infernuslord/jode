@@ -308,6 +308,7 @@ public class ClassInfo extends BinaryInfo {
 	    gcp.putUTF8("InnerClasses");
 	    int outerCount = outerClasses != null ? outerClasses.length : 0;
 	    for (int i=outerCount; i-- > 0;) {
+		gcp.putClassName(outerClasses[i].inner);
 		if (outerClasses[i].outer != null)
 		    gcp.putClassName(outerClasses[i].outer);
 		if (outerClasses[i].name != null)
@@ -316,6 +317,8 @@ public class ClassInfo extends BinaryInfo {
 	    int innerCount = innerClasses != null ? innerClasses.length : 0;
 	    for (int i=0; i< innerCount; i++) {
 		gcp.putClassName(innerClasses[i].inner);
+		if (innerClasses[i].outer != null)
+		    gcp.putClassName(innerClasses[i].outer);
 		if (innerClasses[i].name != null)
 		    gcp.putUTF8(innerClasses[i].name);
 	    }
