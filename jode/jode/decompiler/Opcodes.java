@@ -331,10 +331,13 @@ public abstract class Opcodes implements jode.bytecode.Opcodes {
         case opc_invokestatic :
         case opc_invokeinterface: {
             Reference ref = instr.getReference();
+	    int flag = (ref.getName().equals("<init>")
+			? InvokeOperator.CONSTRUCTOR
+			: opcode == opc_invokestatic ? InvokeOperator.STATIC 
+			: opcode == opc_invokespecial ? InvokeOperator.SPECIAL
+			: InvokeOperator.VIRTUAL);
             StructuredBlock block = createNormal
-                (ma, instr, new InvokeOperator
-                 (ma, opcode == opc_invokestatic, 
-		  opcode == opc_invokespecial, ref));
+                (ma, instr, new InvokeOperator(ma, flag, ref));
             return block;
         }
         case opc_new: {
