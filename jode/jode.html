@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.0//EN">
+<html>
+<head>
+<title> JOchens' java-DEcompiler (JODE) </title>
+<meta name="description" content="The home page of jode, my Java decompiler.">
+<meta name="author" content="Jochen Hoenicke">
+<meta name="keywords" content="jode, java, decompile, decompiler,
+java-decompiler, reverse engineering, free, GPL">
+<meta name="robots" content="index">
+<meta name="robots" content="nofollow">
+<meta name="date" content="1999-03-08">
+</head>
+
+<body>
+<a href="../index.html">Home</a>
+<h2>What is it?</h2> 
+
+<P>This is a decompiler for java I have written in my spare time.  It
+takes class-files as input and produces something similar to the
+original java-File.  Of course this can't be perfect: There is no way
+to produce the comments or the names of local variables (except when
+compiled with <code>-g</code>) and there are often more ways to write
+the same thing.  But it does its job quite well.</P>
+
+<h2>Quick Test</h2>
+I have now an applet interface to the decompiler.
+<a href="jode-applet.html">Check it out</a>.
+
+<h2>How to get it</h2>
+<P>You can donwload the files in zip form. 
+The <a href="jode_src.zip">sources</a> contain only the
+<code>java</code> files, the <a href="jode_cls.zip">classes</a>
+contain only the <code>class</code> files. </p>
+
+I also have a <a href="jode.tar.gz">tar.gz file</a> containing only
+the <code>RCS</code> directories.  This is the form I maintain the
+project, but you probably need unix and a few tools to use them.
+
+<h2>How to use it</h2>
+
+<p>I have some simple step by step pages.  There are three
+possibilities:
+<ul>
+<li> <a href="jode-useapplet.html"> Using the applet version</a>.
+This can make problem due to java's security policy, but is the
+simplest way and works on most platforms.
+</li>
+<li> If you use Windows, you should look on <a
+href="jode-win.html">this page</a>.</li>
+<li> Unix users should look on <a href="jode-unix.html">this page</a>.
+</ul>
+
+<h2>Known bugs</h2> 
+
+<p>There may be situations, where the code doesn't understand complex
+expressions. In this many ugly temporary variables are used, but the
+code should still be compileable.  This does especially happen when
+you compile with `-O' flag and javac has inlined some methods. </p>
+
+<p>Sometimes this program may exit with an <code>Exception</code> or
+produce incorrect code.  Most time the code can't be compiled, so that
+it can be easily spotted.  If you have one of these problems (except
+those that occur on some of the <code>jode.test</code> files, I would
+be very interested in a bug report (including the <code>class</code>
+file, if possible).</p>
+
+<p>Sometimes it generates some <code>GOTO</code> expression and
+labels.  This can't be compiled, but shouldn't happen any more with
+javac or jikes.</p>
+
+<p>It doesn't handle inner and anonymous classes, yet.  You can
+decompile them separately, though (use `<code>+$</code>' switch under
+jikes), but there is a bug in javac, so that a final variable is twice
+initialized.  If you encounter this problem just remove the doubled
+line by hand.  </p>
+
+<h2>Why did I wrote it?</h2> 
+
+<p>Someday I found <code>guavad</code>, a disassembler for java byte
+code (it does similar things like <code>javap&nbsp;-c</code>).  I used
+it on a class file, and found that it was possible to reconstruct the
+original java code.  First I did it by hand on some small routines,
+but I soon realized that it was a rather stupid task, and that I could
+write a <a href="../perl/dasm_to_java.perl"><code>perl</code> script</a>
+that does the same.  At the end of the next day I had a working
+decompiler.</p>
+
+<p>Now while it was working, it was not easy to use.  You had to
+decompile the code first with a disassembler, cut the method, you
+wanted to decompile and then run the perl script on it.  So I decided
+to get some information of the class files and do this all
+automatically.  I decided to write it in <code>java</code> now,
+because it suited best.</p>
+
+<p>Just for the records: the java code is now nearly 50 times bigger
+than the original perl script and is still growing.</p>
+
+<h2>License</h2> 
+
+<p>This code is under GNU GPL.  That basically means, that you can copy
+or modify this code, as long as you put all your modification under
+the GPL again.  <A HREF="http://www.gnu.org/copyleft/gpl.html"> Look
+here for the complete license</a>.</p>
+
+<hr>
+
+<p><A HREF="mailto:Jochen.Hoenicke@Informatik.Uni-Oldenburg.DE">
+http://www.informatik.uni-oldenburg.de/~delwi/jode/jode.html</A>, last
+updated on <em>08-Mar-1999</em>.</p>
+
+</body>
+</html>
