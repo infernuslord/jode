@@ -26,41 +26,28 @@ import jode.bytecode.BytecodeInfo;
 import jode.type.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
+import @COLLECTIONS@.Set;
+import @COLLECTIONS@.HashSet;
 
 public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 
     /**
      * The references that may be used in constant methods.
      */
-///#ifdef JDK12
-///    static Set whiteList = new HashSet();
-///
-///    static void addWhite(Reference ref) {
-///	/* note that this gets inlined */
-///	whiteList.add(ref);
-///    }
-///
-///    public static boolean isWhite(Reference ref) {
-///	return whiteList.contains(ref);
-///    }
-///#else
-    static Hashtable whiteList = new Hashtable();
+    static Set whiteList = new HashSet();
 
     static void addWhite(Reference ref) {
-	/* note that this gets inlined */
-	whiteList.put(ref, ref);
+	whiteList.add(ref);
     }
 
     public static boolean isWhite(Reference ref) {
-	return whiteList.containsKey(ref);
+	return whiteList.contains(ref);
     }
 
-    public static boolean isWhiteType(String retTypeSig) {
-	return retTypeSig.length() != 1;
-	    && !whiteList.contains(retTypeSig);
+    public static boolean isWhite(String retTypeSig) {
+	return retTypeSig.length() == 1 // primitive type
+	    || whiteList.contains(retTypeSig);
     }
-///#endif
 
     static {
 	addWhite(Reference.getReference
@@ -219,6 +206,11 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 		 ("Ljava/lang/Math;", "E", "D"));
 	addWhite(Reference.getReference
 		 ("Ljava/lang/Math;", "PI", "D"));
+
+	whiteList.add("Ljava/lang/String;");
+//  	whiteList.add("Ljava/lang/Class;");
+//  	whiteList.add("Ljava/lang/reflect/Method;");
+//  	whiteList.add("Ljava/lang/reflect/Field;");
     }
 
     private Interpreter interpreter;
@@ -297,14 +289,5 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	    return Array.newInstance(clazz, dimensions);
 	}
 	throw new InterpreterException("Creating object array.");
-    }
-
-    public void enterMonitor(Object obj)
-	throws InterpreterException {
-	throw new InterpreterException("monitorenter not implemented");
-    }
-    public void exitMonitor(Object obj)
-	throws InterpreterException {
-	throw new InterpreterException("monitorenter not implemented");
     }
 }

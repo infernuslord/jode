@@ -21,8 +21,6 @@ package jode.obfuscator;
 
 import jode.AssertError;
 import jode.GlobalOptions;
-import jode.type.MethodType;
-import jode.type.Type;
 import jode.bytecode.*;
 import jode.jvm.InterpreterException;
 
@@ -236,15 +234,16 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 			      boolean isStatic, String methodTypeSig,
 			      Collection notifyQueue) {
 	    
-	    MethodType mt = Type.tMethod(methodTypeSig);
+	    String[] paramTypes 
+		= TypeSignature.getParameterTypes(methodTypeSig);
 	    locals = new ConstValue[numLocals];
 	    stack = new ConstValue[0];
 	    this.notifyQueue = notifyQueue;
 	    int slot = 0;
 	    if (!isStatic)
 		locals[slot++] = new ConstValue(1);
-	    for (int i=0; i< mt.getParameterTypes().length; i++) {
-		int stackSize = mt.getParameterTypes()[i].stackSize();
+	    for (int i=0; i< paramTypes.length; i++) {
+		int stackSize = TypeSignature.getTypeSize(paramTypes[i]);
 		locals[slot] = unknownValue[stackSize-1];
 		slot += stackSize;
 	    }
@@ -1150,12 +1149,12 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    FieldIdentifier fi = (FieldIdentifier) canonizeReference(instr);
 	    int size = (opcode == opc_putstatic) ? 0 : 1;
 	    Reference ref = instr.getReference();
+	    size += TypeSignature.getTypeSize(ref.getType());
 	    if (fi != null && !fi.isNotConstant()) {
 		fi.setNotConstant();
 		fieldNotConstant(fi);
 	    }
-	    Type type = Type.tType(ref.getType());
-	    mergeInfo(instr.getNextByAddr(), info.pop(size + type.stackSize()));
+	    mergeInfo(instr.getNextByAddr(), info.pop(size));
 	    break;
 	}
 	case opc_getstatic:
@@ -1163,15 +1162,33 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    int size = (opcode == opc_getstatic) ? 0 : 1;
 	    FieldIdentifier fi = (FieldIdentifier) canonizeReference(instr);
 	    Reference ref = instr.getReference();
-	    Type type = Type.tType(ref.getType());
+	    int typesize = TypeSignature.getTypeSize(ref.getType());
 	    if (fi != null) {
 		if (fi.isNotConstant()) {
 		    fi.setReachable();
-		    result = unknownValue[type.stackSize()-1];
+		    result = unknownValue[typesize - 1];
 		} else {
 		    Object obj = fi.getConstant();
-		    if (obj == null)
-			obj = type.getDefaultValue();
+		    if (obj == null) {
+			switch (ref.getType().charAt(0)) {
+			case 'Z':
+			case 'B':
+			case 'S':
+			case 'C':
+			case 'I':
+			    obj = new Integer(0);
+			    break;
+			case 'J':
+			    obj = new Long(0);
+			    break;
+			case 'F':
+			    obj = new Float(0);
+			    break;
+			case 'D':
+			    obj = new Double(0);
+			    break;
+			}
+		    }
 		    ConstantInfo shortInfo = new ConstantInfo();
 		    constInfos.put(instr, shortInfo);
 		    shortInfo.flags |= CONSTANT;
@@ -1181,7 +1198,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		    fi.addFieldListener(fieldListener);
 		}
 	    } else
-		result = unknownValue[type.stackSize()-1];
+		result = unknownValue[typesize - 1];
 	    mergeInfo(instr.getNextByAddr(), info.poppush(size, result));
 	    break;
 	}
@@ -1204,7 +1221,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 		size += TypeSignature.getTypeSize(paramTypes[i]);
 		Object value = (argValues[i] = info.getStack(size)).value;
 		if (value != ConstValue.VOLATILE)
-		    arg[i] = value;
+		    args[i] = value;
 		else
 		    constant = false;
 	    }
@@ -1251,7 +1268,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    if (!constant) {
 		handleReference(ref, opcode == opc_invokevirtual 
 				|| opcode == opc_invokeinterface);
-		returnVal = unknownValue[mt.getReturnType().stackSize()-1];
+		int retsize = TypeSignature.getTypeSize(retType);
+		returnVal = unknownValue[retsize - 1];
 	    } else {
 		ConstantInfo shortInfo = new ConstantInfo();
 		constInfos.put(instr, shortInfo);
@@ -1432,8 +1450,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    break;
 	case opc_putstatic:
 	case opc_putfield:
-	    if (Type.tType(instr.getReference().getType())
-		.stackSize() == 2) {
+	    if (TypeSignature
+		.getTypeSize(instr.getReference().getType()) == 2) {
 		iter.set(new Instruction(opc_pop2));
 		if (instr.getOpcode() == opc_putfield)
 		    iter.add(new Instruction(opc_pop));
@@ -1446,13 +1464,13 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	case opc_invokeinterface:
 	case opc_invokevirtual: {
 	    Reference ref = instr.getReference();
-	    MethodType mt = (MethodType) Type.tType(ref.getType());
-	    Type[] pt = mt.getParameterTypes();
+	    String[] pt = TypeSignature.getParameterTypes(ref.getType());
 	    int arg = 0;
 	    if (instr.getOpcode() != opc_invokestatic)
 		iter.set(new Instruction(opc_pop));
 	    else if (pt.length > 0) {
-		iter.set(new Instruction(pt[0].stackSize() + opc_pop - 1));
+		iter.set(new Instruction(TypeSignature.getTypeSize(pt[0])
+					 + opc_pop - 1));
 		arg++;
 	    } else {
 		if (replacement == null)
@@ -1463,7 +1481,8 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    }
 	    
 	    for (int i=arg; i < pt.length; i++)
-		iter.add(new Instruction(pt[i].stackSize() + opc_pop - 1));
+		iter.add(new Instruction(TypeSignature.getTypeSize(pt[i])
+					 + opc_pop - 1));
 	}
 	}
 	if (replacement != null)
