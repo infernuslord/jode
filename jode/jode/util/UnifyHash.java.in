@@ -114,7 +114,7 @@ public class UnifyHash extends AbstractCollection {
 ///	    if (buckets[diedSlot] == died)
 ///		buckets[diedSlot] = died.next;
 ///	    else {
-///		Bucket b = buckets[diedSlot]
+///		Bucket b = buckets[diedSlot];
 ///		while (b.next != died)
 ///		    b = b.next;
 ///		b.next = died.next;
