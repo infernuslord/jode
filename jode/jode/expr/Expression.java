@@ -55,23 +55,7 @@ public abstract class Expression {
     }
 
     public void updateParentType(Type otherType) {
-	Type newType = otherType.intersection(type);
-	if (type.equals(newType))
-	    return;
-
-	if (newType == Type.tError) {
-	    if (otherType == Type.tError) {
-		// Don't propagate type errors.
-		return;
-	    }
-	    GlobalOptions.err.println("updateParentType: Type error in "
-				      +this+": merging "+getType()
-				      +" and "+otherType);
-	    if ((GlobalOptions.debuggingFlags
-		 & GlobalOptions.DEBUG_TYPES) != 0)
-		Thread.dumpStack();
-	}
-	type = newType;
+	setType(otherType);
 	if (parent != null)
 	    parent.updateType();
     }

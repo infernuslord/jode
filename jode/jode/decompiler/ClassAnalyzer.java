@@ -604,15 +604,12 @@ public class ClassAnalyzer
 	}
 	writer.println();
 
-	writer.openBrace();
+	writer.openBraceClass();
 	writer.tab();
 	dumpBlock(writer, pl, done, scale);
 	writer.untab();
-	if (parent instanceof MethodAnalyzer) {
-	    /* This is a method scope class */
-	    writer.closeBraceNoSpace();
-	} else
-	    writer.closeBrace();
+	writer.closeBraceClass();
+	writer.println();
         clazz.drop(clazz.DECLARATIONS);
     }
 

@@ -116,10 +116,14 @@ public class Decompiler {
     public void setOption(String option, String value) {
 	if (option.equals("style")) {
 	    if (value.equals("gnu")) {
-		outputStyle = 0;
+		outputStyle = TabbedPrintWriter.GNU_SPACING
+		    | TabbedPrintWriter.INDENT_BRACES;
 		indentSize = 2;
 	    } else if (value.equals("sun")) {
 		outputStyle = TabbedPrintWriter.BRACE_AT_EOL;
+		indentSize = 4;
+	    } else if (value.equals("pascal")) {
+		outputStyle = 0;
 		indentSize = 4;
 	    } else
 		throw new IllegalArgumentException("Invalid style "+value);

@@ -83,15 +83,4 @@ public class NullType extends ReferenceType {
     public Type findCommonClassTypes(Stack otherTypes) {
 	throw new UnsupportedOperationException();
     }
-
-    /**
-     * Intersect this type with another type and return the new type.
-     * @param type the other type.
-     * @return the intersection, or tError, if a type conflict happens.
-     */
-    public Type intersection(Type type) {
-	if (type == this)
-	    return type;
-	return tError;
-    }
 }

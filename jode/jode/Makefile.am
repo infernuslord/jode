@@ -1,6 +1,6 @@
 ## Input file for automake to generate the Makefile.in used by configure
 
-SUBDIRS = util bytecode type jvm expr flow decompiler @SWINGUI@  # obfuscator
+SUBDIRS = util bytecode type jvm expr flow decompiler @SWINGUI@ # obfuscator
 
 JAVADEP = $(PERL) -w -s $(top_srcdir)/scripts/javaDependencies.pl \
    -subdir=$(subdir) -dependdir=$(top_builddir) \

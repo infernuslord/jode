@@ -57,6 +57,7 @@ public class UnaryOperator extends Operator {
     public void dumpExpression(TabbedPrintWriter writer)
 	throws java.io.IOException {
 	writer.print(getOperatorString());
+	writer.printOptionalSpace();
 	subExpressions[0].dumpExpression(writer, 700);
     }
 }

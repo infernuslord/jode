@@ -1839,8 +1839,7 @@ public class ConstantAnalyzer implements Opcodes, CodeAnalyzer {
 	    Handler[] newHandlers = new Handler[newHandlerCtr];
 	    System.arraycopy(blocks, 0, newBlocks, 0, newBlockCtr);
 	    System.arraycopy(handlers, 0, newHandlers, 0, newHandlerCtr);
-	    bb.setBlocks(newBlocks, newStartBlock);
-	    bb.setExceptionHandlers(newHandlers);
+	    bb.setBlocks(newBlocks, newStartBlock, newHandlers);
 	}
     }
 }

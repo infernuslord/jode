@@ -40,9 +40,9 @@ public class IfThenElseOperator extends Operator {
     }
 
     public void updateType() {
-	Type subType = Type.tSuperType(subExpressions[1].getType())
+	Type commonType = Type.tSuperType(subExpressions[1].getType())
 	    .intersection(Type.tSuperType(subExpressions[2].getType()));
-	updateParentType(subType);
+	updateParentType(commonType);
     }
 
     public Expression simplify() {

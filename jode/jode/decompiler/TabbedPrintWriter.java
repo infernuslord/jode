@@ -40,7 +40,9 @@ public class TabbedPrintWriter {
     private ImportHandler imports;
     private Stack scopes = new Stack();
 
-    public static final int BRACE_AT_EOL  = 0x10;
+    public static final int BRACE_AT_EOL     = 0x10;
+    public static final int INDENT_BRACES    = 0x20;
+    public static final int GNU_SPACING      = 0x40;
 
     /**
      * This string contains a few tab characters followed by tabWidth - 1
@@ -132,6 +134,7 @@ public class TabbedPrintWriter {
 		 * our child, if possible.
 		 */
 		BreakPoint child = (BreakPoint) childBPs.elementAt(0);
+		options = child.options;
 		startPos = child.startPos;
 		options = child.options;
 		endPos = child.endPos;
@@ -727,6 +730,11 @@ public class TabbedPrintWriter {
 	else
 	    return type.toString();
     }
+    
+    public void printOptionalSpace() {
+	if ((style & GNU_SPACING) != 0)
+	    print(" ");
+    }
 
     /**
      * Print a opening brace with the current indentation style.
@@ -734,63 +742,80 @@ public class TabbedPrintWriter {
      * brace.  It doesn't do a tab stop after opening the brace.
      */
     public void openBrace() {
-	if ((style & BRACE_AT_EOL) != 0) {
-	    print(currentLine.length() > 0 ? " {" : "{");
+	boolean bracePrinted = false;
+	if (currentLine.length() > 0) {
+	    if ((style & BRACE_AT_EOL) != 0) {
+		print(" {");
+		bracePrinted = true;
+	    }
 	    println();
-	} else {
-	    if (currentLine.length() > 0)
-		println();
-	    if (currentIndent > 0)
-		tab();
-	    println("{");
 	}
+	if ((style & INDENT_BRACES) != 0 && currentIndent > 0)
+	    tab();
+
+	if (!bracePrinted)
+	    println("{");
+    }
+
+    public void openBraceClass() {
+	openBraceNoIndent();
     }
 
     /**
      * Print a opening brace with the current indentation style.
+     * Called at the end the line of a method declaration.
+     */
+    public void openBraceNoIndent() {
+	if (currentLine.length() > 0) {
+	    if ((style & BRACE_AT_EOL) != 0)
+		print(" ");
+	    else
+		println();
+	}
+	println("{");
+    }
+
+    /**
+     * Print an opening brace with the current indentation style.
      * Called at the end of the line of the instance that opens the
      * brace.  It doesn't do a tab stop after opening the brace.
      */
     public void openBraceNoSpace() {
-	if ((style & BRACE_AT_EOL) != 0)
-	    println("{");
-	else {
-	    if (currentLine.length() > 0)
-		println();
-	    if (currentIndent > 0)
-		tab();
-	    println("{");
+	boolean bracePrinted = false;
+	if (currentLine.length() > 0) {
+	    if ((style & BRACE_AT_EOL) != 0) {
+		print("{");
+		bracePrinted = true;
+	    }
+	    println();
 	}
+	if ((style & INDENT_BRACES) != 0 && currentIndent > 0) 
+	    tab();
+	if (!bracePrinted)
+	    println("{");
     }
 
     public void closeBraceContinue() {
 	if ((style & BRACE_AT_EOL) != 0)
 	    print("} ");
-	else {
+	else
 	    println("}");
-	    if (currentIndent > 0)
-		untab();
-	}
+	if ((style & INDENT_BRACES) != 0 && currentIndent > 0)
+	    untab();
     }
 
-    public void closeBraceNoSpace() {
-	if ((style & BRACE_AT_EOL) != 0)
-	    print("}");
-	else {
-	    println("}");
-	    if (currentIndent > 0)
-		untab();
-	}
+    public void closeBraceClass() {
+	print("}");
     }
 
     public void closeBrace() {
-	if ((style & BRACE_AT_EOL) != 0)
-	    println("}");
-	else {
-	    println("}");
-	    if (currentIndent > 0)
-		untab();
-	}
+	println("}");
+	if ((style & INDENT_BRACES) != 0 && currentIndent > 0)
+	    untab();
+    }
+
+    public void closeBraceNoIndent() {
+	println("}");
     }
 
     public void flush() {

@@ -242,7 +242,7 @@ public final class InvokeOperator extends Operator
     }
 
     /**
-     * Makes a non void expression out of this store instruction.
+     * Makes a non void expression, in case this is a constructor.
      */
     public void makeNonVoid() {
         if (type != Type.tVoid)
@@ -417,12 +417,12 @@ public final class InvokeOperator extends Operator
      * @return true if this is the magic class$ method, false otherwise.
      */
     public boolean isGetClass() {
-	if (isThis()) {
-	    SyntheticAnalyzer synth = getMethodAnalyzer().getSynthetic();
-	    if (synth != null && synth.getKind() == SyntheticAnalyzer.GETCLASS)
-		return true;
-	}
-	return false;
+	MethodAnalyzer mana = getMethodAnalyzer();
+	if (mana == null)
+	    return false;
+	SyntheticAnalyzer synth = getMethodAnalyzer().getSynthetic();
+	return (synth != null
+		&& synth.getKind() == SyntheticAnalyzer.GETCLASS);
     }
 
     class Environment extends SimpleRuntimeEnvironment {
@@ -712,9 +712,10 @@ public final class InvokeOperator extends Operator
 		}
 		for (int p = offset; p < paramTypes.length; p++) {
 		    if (!paramTypes[p]
-			.isOfType(Type.tSubType(otherParamTypes[p-offset])))
+			.isOfType(Type.tSubType(otherParamTypes[p-offset]))){
 			/* No conflict here */
 			continue next_method;
+		    }
 		}
 		/* There is a conflict that can be resolved by a cast. */
 		return true;
@@ -1100,28 +1101,17 @@ public final class InvokeOperator extends Operator
 		ThisOperator thisOp = (ThisOperator) subExpressions[0];
 		Scope scope = writer.getScope(thisOp.getClassInfo(),
 					      Scope.CLASSSCOPE);
-		if (writer.conflicts(methodName, scope, Scope.METHODNAME)) {
+		if (writer.conflicts(methodName, scope, Scope.METHODNAME)
+		    || (/* This field is inherited from the parent of
+			 * an outer class, or it is inherited from the
+			 * parent of this class and there is a conflicting
+			 * field in some outer class.
+			 */
+			getMethodAnalyzer() == null 
+			&& (!isThis() || 
+			    writer.conflicts(methodName, null,
+					     Scope.NOSUPERMETHODNAME)))) {
 		    thisOp.dumpExpression(writer, 950);
-		    writer.breakOp();
-		    writer.print(".");
-		} else if (/* This is a inherited field conflicting
-			    * with a field name in some outer class.
-			    */
-			   getMethodAnalyzer() == null 
-			   && writer.conflicts(methodName, null,
-					       Scope.NOSUPERMETHODNAME)) {
-		    ClassAnalyzer ana = methodAnalyzer.getClassAnalyzer();
-		    while (ana.getParent() instanceof ClassAnalyzer
-			   && ana != scope)
-			ana = (ClassAnalyzer) ana.getParent();
-		    if (ana == scope) {
-			// For a simple outer class we can say this
-			writer.print("this");
-		    } else {
-			// For a class that owns a method that owns
-			// us, we have to give the full class name
-			thisOp.dumpExpression(writer, 950);
-		    }
 		    writer.breakOp();
 		    writer.print(".");
 		}
@@ -1150,6 +1140,7 @@ public final class InvokeOperator extends Operator
 	 * We still need to check for casts though.
 	 */
 	writer.breakOp();
+	writer.printOptionalSpace();
 	writer.print("(");
 	writer.startOp(writer.EXPL_PAREN, 0);
 	boolean first = true;
@@ -1183,11 +1174,11 @@ public final class InvokeOperator extends Operator
 	 */
 	if (anonymousNew) {
 	    Object state = writer.saveOps();
-	    writer.openBrace();
+	    writer.openBraceClass();
 	    writer.tab();
 	    clazzAna.dumpBlock(writer);
 	    writer.untab();
-	    writer.closeBraceNoSpace();
+	    writer.closeBraceClass();
 	    writer.restoreOps(state);
 	}
     }

@@ -189,11 +189,6 @@ public class FieldAnalyzer implements Analyzer {
 	    writer.breakOp();
 	    writer.print(" = ");
 	    constant.dumpExpression(writer.IMPL_PAREN, writer);
-        } else if ((modifiers & (Modifier.STATIC | Modifier.FINAL))
-		   == (Modifier.STATIC | Modifier.FINAL)) {
-	    /* Static final fields must always be initialized */
-	    writer.breakOp();
-	    writer.print(" = null;");
 	}
 	writer.endOp();
         writer.println(";");

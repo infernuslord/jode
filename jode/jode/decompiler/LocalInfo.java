@@ -126,56 +126,58 @@ public class LocalInfo implements Declarable {
      * If this is called with ourself nothing will happen.
      * @param li the local info that we want to shadow.
      */
-    public void combineWith(LocalInfo li) {
-        li = li.getLocalInfo();
-        if (shadow != null) {
-            getLocalInfo().combineWith(li);
-        } else {
-            if (this != li) {
-                shadow = li;
-		if (!nameIsGenerated)
-		    shadow.name = name;
-		if (constExpr != null) {
-		    if (shadow.constExpr != null)
-			throw new jode.AssertError
-			    ("local has multiple constExpr");
-		    shadow.constExpr = constExpr;
-		}
-			
-//  		GlobalOptions.err.println("combining "+name+"("+type+") and "
-//  				       +shadow.name+"("+shadow.type+")");
-                shadow.setType(type);
+    public void combineWith(LocalInfo shadow) {
+        if (this.shadow != null) {
+            getLocalInfo().combineWith(shadow);
+	    return;
+	}
 
+        shadow = shadow.getLocalInfo();
+	if (this == shadow)
+	    return;
+	
+	this.shadow = shadow;
+	if (!nameIsGenerated)
+	    shadow.name = name;
+	if (constExpr != null) {
+	    if (shadow.constExpr != null)
+		throw new jode.AssertError
+		    ("local has multiple constExpr");
+	    shadow.constExpr = constExpr;
+	}
+	
+// 	GlobalOptions.err.println("combining "+name+"("+type+") and "
+// 				  +shadow.name+"("+shadow.type+")");
+	shadow.setType(type);
 
-                boolean needTypeUpdate = !li.type.equals(type);
-
-                java.util.Enumeration enum = operators.elements();
-                while (enum.hasMoreElements()) {
-                    LocalVarOperator lvo = 
-                        (LocalVarOperator) enum.nextElement();
-                    if (needTypeUpdate) {
-                        if ((GlobalOptions.debuggingFlags 
-			     & GlobalOptions.DEBUG_TYPES) != 0)
-                            GlobalOptions.err.println("updating " + lvo);
-                        lvo.updateType();
-                    }
-                    shadow.operators.addElement(lvo);
-                }
-
-		enum = hints.elements();
-		while (enum.hasMoreElements()) {
-		    Object hint = enum.nextElement();
-		    if (!shadow.hints.contains(hint))
-			shadow.hints.addElement(hint);
-		}
-
-                /* Clear unused fields, to allow garbage collection.
-                 */
-                type = null;
-                name = null;
-                operators = null;
-            }
-        }
+	
+	boolean needTypeUpdate = !shadow.type.equals(type);
+	
+	java.util.Enumeration enum = operators.elements();
+	while (enum.hasMoreElements()) {
+	    LocalVarOperator lvo = 
+		(LocalVarOperator) enum.nextElement();
+	    if (needTypeUpdate) {
+		if ((GlobalOptions.debuggingFlags 
+		     & GlobalOptions.DEBUG_TYPES) != 0)
+		    GlobalOptions.err.println("updating " + lvo);
+		lvo.updateType();
+	    }
+	    shadow.operators.addElement(lvo);
+	}
+	
+	enum = hints.elements();
+	while (enum.hasMoreElements()) {
+	    Object hint = enum.nextElement();
+	    if (!shadow.hints.contains(hint))
+		shadow.hints.addElement(hint);
+	}
+	
+	/* Clear unused fields, to allow garbage collection.
+	 */
+	type = null;
+	name = null;
+	operators = null;
     }
 
     /**

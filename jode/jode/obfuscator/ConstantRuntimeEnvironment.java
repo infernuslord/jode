@@ -231,7 +231,7 @@ public class ConstantRuntimeEnvironment extends SimpleRuntimeEnvironment {
 	if (fi != null && !fi.isNotConstant()) {
 	    Object result = fi.getConstant();
 	    if (result == null)
-		result = getDefaultValue(ref.getType());
+		result = TypeSignature.getDefaultValue(ref.getType());
 	    return result;
 	}
 	throw new InterpreterException("Field " + ref + " not constant");

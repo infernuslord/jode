@@ -52,7 +52,7 @@ public class SyntheticAnalyzer implements Opcodes {
     
     int kind = UNKNOWN;
 
-    int unifyParam;
+    int unifyParam = -1;
     Reference reference;
     ClassInfo classInfo;
     MethodInfo method;
@@ -334,7 +334,7 @@ public class SyntheticAnalyzer implements Opcodes {
 	    params++;
 	    slot++;
 	}
-	if (instr.getOpcode() == opc_invokespecial) {
+	if (params > 0 && instr.getOpcode() == opc_invokespecial) {
 	    Reference ref = instr.getReference();
 	    String refClazz = ref.getClazz().substring(1);
 	    if (!(refClazz.substring(0, refClazz.length()-1)

@@ -114,6 +114,13 @@ JODE_CHECK_CLASS(java.lang.Object, $CLASSLIB,
   [ AC_MSG_RESULT(no)
     AC_MSG_ERROR(Please specify location of core java class library) ])
 
+AC_MSG_CHECKING(for java.lang.ref.WeakReference)
+JODE_CHECK_CLASS(java.lang.ref.WeakReference, $CLASSLIB,
+  [ AC_MSG_RESULT(yes)
+    JCPPFLAGS="-DJDK12" ],
+  [ AC_MSG_RESULT(no)
+    JCPPFLAGS="-DJDK11" ])
+
 AC_MSG_CHECKING(for collection classes)
 JODE_CHECK_CLASS(java.util.Set, $CLASSPATH:$CLASSLIB,
  [ COLLECTIONS="java.util"
@@ -155,6 +162,8 @@ else
 fi
 AC_SUBST(SWINGUI)
 
+JCPPFLAGS="$JCPPFLAGS -DCOLLECTIONS=$COLLECTIONS -DCOLLECTIONEXTRA=$COLLECTIONEXTRA -DJAVAX_SWING=$JAVAX_SWING"
+
 AC_SUBST(CLASSPATH)
 AC_SUBST(JAVAC)
 AC_SUBST(JAR)
@@ -176,4 +185,11 @@ bin/jode
 bin/jode.bat
 doc/Makefile
 test/Makefile,
-[chmod 755 bin/jode])
+[chmod 755 bin/jode],
+[for i in \$CONFIG_FILES; do
+changequote(, )dnl
+  if [ \$i != \${i%.java} ]; then
+changequote([, ])dnl
+    $PERL $srcdir/jcpp $JCPPFLAGS \$i
+  fi
+done])
