@@ -2,7 +2,7 @@
 
 JAR = @JAR@
 JAVAC = @JAVAC@
-JAVADEP = $(top_builddir)/javaDependencies.pl\
+JAVADEP = $(top_builddir)/javaDependencies.pl -subdir=$(subdir)\
    -dependdir=$(top_builddir) -classpath=$(top_builddir):$(top_srcdir)
 CLASSPATH = @CLASSPATH@
 CLASSLIB = @CLASSLIB@
@@ -24,9 +24,12 @@ MY_JAVA_FILES = \
   MethodIdentifier.java \
   ModifierMatcher.java \
   NameSwapper.java \
+  OptionHandler.java \
   PackageIdentifier.java \
+  ParseException.java \
   RemovePopAnalyzer.java \
   Renamer.java \
+  ScriptParser.java \
   SimpleAnalyzer.java \
   StrongRenamer.java \
   TranslationTable.java \

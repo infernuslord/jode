@@ -27,12 +27,15 @@
 # constant and thus doesn't include a reference to the class.
 #
 # Usage:  
-#  javaDependencies.pl -classpath <cp> [-dependdir <depdir>] <classfile>
+#  javaDependencies.pl -classpath <cp> [-dependdir <depdir> [-subdir <subdir>]]
+#                      <classfile>
 # 
 #  cp:     colon separated paths to the java files we should depend on.
 #  depdir: if set, use this path as path to the java files when printing
 #          dependencies, not the path where the java files were found.
 #          useful, if you want to make use of VPATH settings in Makefile.
+#  subdir: if set, this is the path from depdir to the current directory. 
+#          Use it to remove unneccessary ../../$subdir/ 
 #  class:  The class file (not an inner class) for which the dependencies
 #          should be generated.  We will also look for inner and anon 
 #          classes.
@@ -136,11 +139,28 @@ for $filename ($clazz, glob("$base\\\$*.class")) {
 	next if defined $done{"$clzz"};
 	$done{$clzz} = 1;
 
+	my $p;
 	for $p (split ':', $classpath) {
 	    if (-e "$p/$clzz.java") {
-		push @deplist, (defined $dependdir
-				? "$dependdir/$clzz.java"
-				: "$p/$clzz.java");
+		my $path="$p/";
+		if (defined $dependdir) {
+		    $path = "$dependdir/";
+		    if (defined $subdir) {
+			my $currsubdir = "$subdir/";
+			while ($currsubdir =~ m<^([A-Za-z0-9]+)/+(.*)>) {
+			    $currsubdir = $2;
+			    my $firstcomp = $1;
+			    if ($clzz =~ m<$firstcomp/(.*)>) {
+				my $remain = $1;
+				if ($path =~ m<^(|.*/)\.\./+$>) {
+				    $path = $1;
+				    $clzz = $remain;
+				}
+			    }
+			}
+		    }
+		}
+		push @deplist, "$path$clzz.java";
 		next clazz;
 	    }
 	}
