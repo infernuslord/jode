@@ -20,6 +20,8 @@
 package jode;
 import java.io.*;
 import jode.decompiler.TabbedPrintWriter;
+import java.util.zip.ZipOutputStream;
+import java.util.zip.ZipEntry;
 
 public class Decompiler {
     public final static String version = "0.99";
@@ -103,6 +105,7 @@ public class Decompiler {
         int i;
         String classPath = System.getProperty("java.class.path");
 	File destDir = null;
+	ZipOutputStream destZip = null;
 	err.println(copyright);
         for (i=0; i<params.length && params[i].startsWith("-"); i++) {
             if (params[i].equals("-v"))
@@ -166,12 +169,24 @@ public class Decompiler {
 	TabbedPrintWriter writer = null;
 	if (destDir == null)
 	    writer = new TabbedPrintWriter(System.out);
+	else if (destDir.getName().endsWith(".zip")) {
+	    try {
+		destZip = new ZipOutputStream(new FileOutputStream(destDir));
+	    } catch (IOException ex) {
+		err.println("Can't open zip file "+destDir);
+		ex.printStackTrace(err);
+		return;
+	    }
+	    writer = new TabbedPrintWriter(destZip);
+	}
         for (; i< params.length; i++) {
 	    try {
-		if (destDir != null) {
-		    File file = new File
-			(destDir, 
-			 params[i].replace('.', File.separatorChar)+".java");
+		String filename = 
+		    params[i].replace('.', File.separatorChar)+".java";
+		if (destZip != null) {
+		    destZip.putNextEntry(new ZipEntry(filename));
+		} else if (destDir != null) {
+		    File file = new File (destDir, filename);
 		    File directory = new File(file.getParent());
 		    if (!directory.exists() && !directory.mkdirs()) {
 			err.println("Could not create directory "
@@ -181,9 +196,22 @@ public class Decompiler {
 		    writer = new TabbedPrintWriter(new FileOutputStream(file));
 		}
 		env.doClass(params[i], writer);
+		if (destZip != null) {
+		    writer.flush();
+		    destZip.closeEntry();
+		} else if (destDir != null)
+		    writer.close();
 	    } catch (IOException ex) {
 		err.println("Can't write source of "+params[i]+".");
 		err.println("Check the permissions.");
+		ex.printStackTrace(err);
+	    }
+	}
+	if (destZip != null) {
+	    try {
+		destZip.close();
+	    } catch (IOException ex) {
+		err.println("Can't close Zipfile");
 		ex.printStackTrace(err);
 	    }
 	}
