@@ -25,7 +25,7 @@ import jode.bytecode.*;
  *
  * @author Jochen Hoenicke
  */
-public class Value {
+class Value {
     Object value;
     NewObject newObj;
 
