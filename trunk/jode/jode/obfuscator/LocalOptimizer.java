@@ -257,24 +257,29 @@ public class LocalOptimizer implements Opcodes {
 	 */
 	while (!changedInfos.isEmpty()) {
 	    InstrInfo info = (InstrInfo) changedInfos.pop();
-	    Enumeration enum = info.instr.preds.elements();
-	    while (enum.hasMoreElements()) {
-		Instruction preInstr
-		    = (Instruction) enum.nextElement();
-		if (preInstr.opcode == opc_jsr
-		    && info.instr != preInstr.succs[0]) {
-		    /* Prev expr is a jsr, continue with the
+	    Instruction instr = info.instr;
+
+	    Instruction prevInstr = instr.prevByAddr;
+	    if (prevInstr != null) {
+		if (prevInstr.opcode == opc_jsr) {
+		    /* Prev instr is a jsr, continue with the
 		     * corresponding ret, instead with the jsr.
 		     */
 		    InstrInfo jsrInfo = 
-			(InstrInfo) instrInfos.get(preInstr);
-		    for (int i= jsrInfo.retInstrs.length; i-- > 0; )
-			promoteReads(info, jsrInfo.retInstrs[i], preInstr);
-		} else
-		    promoteReads(info, preInstr, null);
+			(InstrInfo) instrInfos.get(prevInstr);
+		    for (int i = jsrInfo.retInstrs.length; i-- > 0; )
+			promoteReads(info, jsrInfo.retInstrs[i], prevInstr);
+		} else if (!prevInstr.alwaysJumps)
+		    promoteReads(info, prevInstr, null);
 	    }
-	    for (int i=0; i<handlers.length; i++) {
-		if (handlers[i].catcher == info.instr) {
+
+	    if (instr.preds != null) {
+		for (int i = 0; i < instr.preds.length; i++)
+		    promoteReads(info, instr.preds[i], null);
+	    }
+
+	    for (int i=0; i < handlers.length; i++) {
+		if (handlers[i].catcher == instr) {
 		    for (Instruction preInstr = handlers[i].start;
 			 preInstr != handlers[i].end.nextByAddr; 
 			 preInstr = preInstr.nextByAddr) {
