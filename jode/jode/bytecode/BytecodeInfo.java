@@ -19,8 +19,6 @@
 
 package jode.bytecode;
 import jode.Decompiler/*XXX*/;
-import jode.type.Type;
-import jode.type.MethodType;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.ByteArrayInputStream;
@@ -40,11 +38,19 @@ import java.util.Enumeration;
  */
 public class BytecodeInfo extends BinaryInfo implements Opcodes {
 
+    MethodInfo methodInfo;
+
     ConstantPool cp;
     int maxStack, maxLocals;
     int codeLength;
     Instruction firstInstr = null;
     Handler[] exceptionHandlers;
+    LocalVariableInfo[] lvt;
+    LineNumber[] lnt;
+
+    public BytecodeInfo(MethodInfo mi) {
+	methodInfo = mi;
+    }
 
     private final static Object[] constants = {
 	null, 
@@ -54,6 +60,96 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	new Float(0), new Float(1), new Float(2),
 	new Double(0), new Double(1)
     };
+
+    protected void readAttribute(String name, int length, ConstantPool cp,
+				 DataInputStream input, 
+				 int howMuch) throws IOException {
+	if (name.equals("LocalVariableTable")) {
+	    if (Decompiler.showLVT) 
+		Decompiler.err.println("LocalVariableTable of "+methodInfo.clazzInfo.getName() + "." + methodInfo.getName());
+            int count = input.readUnsignedShort();
+	    if (length != 2 + count * 10) {
+		if (Decompiler.showLVT) 
+		    Decompiler.err.println("Illegal LVT length, ignoring it");
+		return;
+	    }
+	    lvt = new LocalVariableInfo[count];
+            for (int i=0; i < count; i++) {
+		lvt[i] = new LocalVariableInfo();
+                int start  = input.readUnsignedShort();
+                int end    = start + input.readUnsignedShort();
+		int nameIndex = input.readUnsignedShort();
+		int typeIndex = input.readUnsignedShort();
+		int slot = input.readUnsignedShort();
+		Instruction startInstr, endInstr;
+		for (startInstr = firstInstr; 
+		     startInstr.addr < start && startInstr != null;
+		     startInstr = startInstr.nextByAddr) {
+		    /* empty */
+		}
+		endInstr = startInstr;
+		if (startInstr != null) {
+		    while (endInstr.nextByAddr != null 
+			   && endInstr.nextByAddr.addr < end)
+			endInstr = endInstr.nextByAddr;
+		}
+		if (startInstr == null
+		    || startInstr.addr != start
+		    || endInstr == null
+		    || endInstr.addr + endInstr.length != end
+		    || nameIndex == 0 || typeIndex == 0
+		    || slot >= maxLocals
+		    || cp.getTag(nameIndex) != cp.UTF8
+		    || cp.getTag(typeIndex) != cp.UTF8) {
+
+		    // This is probably an evil lvt as created by HashJava
+		    // simply ignore it.
+		    if (Decompiler.showLVT) 
+			Decompiler.err.println("Illegal entry, ignoring LVT");
+		    lvt = null;
+		    return;
+		}
+		lvt[i].start = startInstr;
+		lvt[i].end = endInstr;
+		lvt[i].name = cp.getUTF8(nameIndex);
+                lvt[i].type = cp.getUTF8(typeIndex);
+                lvt[i].slot = slot;
+                if (Decompiler.showLVT)
+                    Decompiler.err.println("\t" + lvt[i].name + ": "
+					   + lvt[i].type
+					   +" range "+start+" - "+end
+					   +" slot "+slot);
+            }
+	} else if (name.equals("LineNumberTable")) {
+	    int count = input.readUnsignedShort();
+	    if (length != 2 + count * 4) {
+		Decompiler.err.println
+		    ("Illegal LineNumberTable, ignoring it");
+		return;
+	    }
+	    lnt = new LineNumber[count];
+	    for (int i = 0; i < count; i++) {
+		lnt[i] = new LineNumber();
+		int start = input.readUnsignedShort();
+		Instruction startInstr;
+		for (startInstr = firstInstr; 
+		     startInstr.addr < start && startInstr != null;
+		     startInstr = startInstr.nextByAddr) {
+		    /* empty */
+		}
+		if (startInstr == null
+		    || startInstr.addr != start) {
+		    Decompiler.err.println
+			("Illegal entry, ignoring LineNumberTable table");
+		    lnt = null;
+		    return;
+		}
+		lnt[i].start = startInstr;
+		lnt[i].linenr = input.readUnsignedShort();
+	    }
+	} else
+	    super.readAttribute(name, length, cp, input, howMuch);
+    }
 
     public void read(ConstantPool cp, 
 		     DataInputStream input) throws IOException {
@@ -534,6 +630,28 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	}
     }
 
+    public void reserveSmallConstants(GrowableConstantPool gcp) {
+    next_instr:
+	for (Instruction instr = firstInstr; 
+	     instr != null; instr = instr.nextByAddr) {
+	    if (instr.opcode == opc_ldc) {
+		if (instr.objData == null)
+		    continue next_instr;
+		for (int i=1; i < constants.length; i++) {
+		    if (instr.objData.equals(constants[i]))
+			continue next_instr;
+		}
+		if (instr.objData instanceof Integer) {
+		    int value = ((Integer) instr.objData).intValue();
+		    if (value >= Short.MIN_VALUE
+			&& value <= Short.MAX_VALUE)
+			continue next_instr;
+		}
+		gcp.reserveConstant(instr.objData);
+	    }
+	}
+    }
+
     public void prepareWriting(GrowableConstantPool gcp) {
 	/* Recalculate addr and length */
 	int addr = 0;
@@ -554,22 +672,23 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    }
 		}
 		if (instr.opcode == opc_ldc2_w) {
+		    gcp.putLongConstant(instr.objData);
 		    instr.length = 3;
 		    continue;
 		}
 		if (instr.objData instanceof Integer) {
 		    int value = ((Integer) instr.objData).intValue();
-		    if (value >= -Byte.MIN_VALUE
+		    if (value >= Byte.MIN_VALUE
 			&& value <= Byte.MAX_VALUE) {
 			instr.length = 2;
 			continue;
-		    } else if (value >= -Short.MIN_VALUE
+		    } else if (value >= Short.MIN_VALUE
 			       && value <= Short.MAX_VALUE) {
-			instr.length = 2;
+			instr.length = 3;
 			continue;
 		    }
 		}
-		if (gcp.reserveConstant(instr.objData) < 256) {
+		if (gcp.putConstant(instr.objData) < 256) {
 		    instr.length = 2;
 		} else {
 		    instr.length = 3;
@@ -603,23 +722,90 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		    instr.length = 5;
 		} else
 		    instr.length = 3;
-	    } else if (instr.opcode == opc_multianewarray
-		       && instr.intData == 1) {
-		String clazz = ((String) instr.objData).substring(1);
-		if (newArrayTypes.indexOf(clazz.charAt(0))
-		    != -1) {
-		    instr.length = 2;
+	    } else if (instr.opcode == opc_multianewarray) {
+		if (instr.intData == 1) {
+		    String clazz = ((String) instr.objData).substring(1);
+		    if (newArrayTypes.indexOf(clazz.charAt(0))
+			!= -1) {
+			instr.length = 2;
+		    } else {
+			gcp.putClassType(clazz);
+			instr.length = 3;
+		    }
 		} else {
-		    instr.length = 3;
+		    gcp.putClassType((String)instr.objData);
+		    instr.length = 4;
 		}
+	    } else if (instr.opcode >= opc_getstatic
+		       && instr.opcode <= opc_invokeinterface) {
+		int tag = (instr.opcode <= opc_putfield ? gcp.FIELDREF
+			   : instr.opcode <= opc_invokestatic ? gcp.METHODREF
+			   : gcp.INTERFACEMETHODREF);
+		gcp.putRef(tag, (Reference) instr.objData);
+	    } else if (instr.opcode == opc_new
+		       || instr.opcode == opc_checkcast
+		       || instr.opcode == opc_instanceof) {
+		gcp.putClassType((String) instr.objData);
 	    }
 	}
 	codeLength = addr;
+	for (int i=0; i< exceptionHandlers.length; i++)
+	    if (exceptionHandlers[i].type != null)
+		gcp.putClassName(exceptionHandlers[i].type);
+	if (lvt != null) {
+	    gcp.putUTF8("LocalVariableTable");
+            for (int i=0; i < lvt.length; i++) {
+		gcp.putUTF8(lvt[i].name);
+		gcp.putUTF8(lvt[i].type);
+            }
+	}
+	if (lnt != null)
+	    gcp.putUTF8("LineNumberTable");
+	prepareAttributes(gcp);
     }
 
-    public void writeCode(GrowableConstantPool gcp, 
-			  jode.obfuscator.ClassBundle bundle,
-			  DataOutputStream output) throws IOException {
+    protected int getKnownAttributeCount() {
+	int count = 0;
+	if (lvt != null)
+	    count++;
+	if (lnt != null)
+	    count++;
+	return count;
+    }
+
+    public void writeKnownAttributes(GrowableConstantPool gcp,
+				     DataOutputStream output) 
+	throws IOException {
+	if (lvt != null) {
+	    output.writeShort(gcp.putUTF8("LocalVariableTable"));
+            int count = lvt.length;
+	    int length = 2 + 10 * count;
+	    output.writeInt(length);
+	    output.writeShort(count);
+            for (int i=0; i < count; i++) {
+		output.writeShort(lvt[i].start.addr);
+		output.writeShort(lvt[i].end.addr + lvt[i].end.length
+				  - lvt[i].start.addr);
+		output.writeShort(gcp.putUTF8(lvt[i].name));
+		output.writeShort(gcp.putUTF8(lvt[i].type));
+		output.writeShort(lvt[i].slot);
+            }
+	}
+	if (lnt != null) {
+	    output.writeShort(gcp.putUTF8("LineNumberTable"));
+            int count = lnt.length;
+	    int length = 2 + 4 * count;
+	    output.writeInt(length);
+	    output.writeShort(count);
+            for (int i=0; i < count; i++) {
+		output.writeShort(lnt[i].start.addr);
+		output.writeShort(lnt[i].linenr);
+            }
+	}
+    }
+
+    public void write(GrowableConstantPool gcp, 
+		      DataOutputStream output) throws IOException {
 	output.writeShort(maxStack);
 	output.writeShort(maxLocals);
 	output.writeInt(codeLength);
@@ -680,17 +866,19 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 		} else {
 		    if (instr.objData instanceof Integer) {
 			int value = ((Integer) instr.objData).intValue();
-			if (value >= -Byte.MIN_VALUE
+			if (value >= Byte.MIN_VALUE
 			    && value <= Byte.MAX_VALUE) {
 			    
-			    output.writeByte(instr.opcode);
+			    output.writeByte(opc_bipush);
 			    output.writeByte(((Integer)instr.objData)
 					     .intValue());
-			} else if (value >= -Short.MIN_VALUE
+			    break switch_opc;
+			} else if (value >= Short.MIN_VALUE
 				   && value <= Short.MAX_VALUE) {
-			    output.writeByte(instr.opcode);
+			    output.writeByte(opc_sipush);
 			    output.writeShort(((Integer)instr.objData)
 					      .intValue());
+			    break switch_opc;
 			}
 		    }
 		    if (instr.length == 2) {
@@ -834,7 +1022,33 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	    output.writeShort((exceptionHandlers[i].type == null) ? 0
 			      : gcp.putClassName(exceptionHandlers[i].type));
 	}
-	output.writeShort(0); // No Attributes;
+	writeAttributes(gcp, output);
+    }
+
+    public int getSize() {
+	/* maxStack:    2
+	 * maxLocals:   2
+	 * code:        4 + codeLength
+	 * exc count:   2
+	 * exceptions:  n * 8
+	 * attributes:
+	 *  lvt_name:    2
+	 *  lvt_length:  4
+	 *  lvt_count:   2
+	 *  lvt_entries: n * 10
+	 * attributes:
+	 *  lnt_name:    2
+	 *  lnt_length:  4
+	 *  lnt_count:   2
+	 *  lnt_entries: n * 4
+	 */
+	int size = 0;
+	if (lvt != null)
+	    size += 8 + lvt.length * 10;
+	if (lnt != null)
+	    size += 8 + lnt.length * 4;
+	return 10 + codeLength + exceptionHandlers.length * 8
+	    + getAttributeSize() + size;
     }
 
     public int getMaxStack() {
@@ -853,7 +1067,31 @@ public class BytecodeInfo extends BinaryInfo implements Opcodes {
 	return exceptionHandlers;
     }
 
+    public LocalVariableInfo[] getLocalVariableTable() {
+	return lvt;
+    }
+
+    public LineNumber[] getLineNumberTable() {
+	return lnt;
+    }
+
+    public void setMaxStack(int ms) {
+        maxStack = ms;
+    }
+
+    public void setMaxLocals(int ml) {
+        maxLocals = ml;
+    }
+
     public void setExceptionHandlers(Handler[] handlers) {
         exceptionHandlers = handlers;
+    }
+
+    public void setLocalVariableTable(LocalVariableInfo[] newLvt) {
+	lvt = newLvt;
+    }
+
+    public void setLineNumberTable(LineNumber[] newLnt) {
+	lnt = newLnt;
     }
 }
