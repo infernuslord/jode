@@ -320,19 +320,38 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
      * otherwise the stack after the block has executed.  
      */
     public VariableStack mapStackToLocal(VariableStack stack) {
-	continueStack = stack;
-	VariableStack newStack;
-	int params = cond.getOperandCount();
-	if (params > 0) {
-	    condStack = stack.peek(params);
-	    newStack = stack.pop(params);
-	} else
-	    newStack = stack;
+	if (type == DOWHILE) {
+	    VariableStack afterBody = bodyBlock.mapStackToLocal(stack);
+	    if (afterBody != null)
+		mergeContinueStack(afterBody);
 
-	VariableStack afterBody = bodyBlock.mapStackToLocal(newStack);
-	if (afterBody != null)
-	    mergeContinueStack(afterBody);
-	
+	    if (continueStack != null) {
+		VariableStack newStack;
+		int params = cond.getOperandCount();
+		if (params > 0) {
+		    condStack = continueStack.peek(params);
+		    newStack = continueStack.pop(params);
+		} else
+		    newStack = continueStack;
+
+		if (cond != TRUE)
+		    mergeBreakedStack(newStack);
+	    }	    
+	} else {
+	    continueStack = stack;
+	    VariableStack newStack;
+	    int params = cond.getOperandCount();
+	    if (params > 0) {
+		condStack = stack.peek(params);
+		newStack = stack.pop(params);
+	    } else
+		newStack = stack;
+	    if (cond != TRUE)
+		breakedStack = newStack;
+	    VariableStack afterBody = bodyBlock.mapStackToLocal(newStack);
+	    if (afterBody != null)
+		mergeContinueStack(afterBody);
+	}
 	return breakedStack;
     }
 
