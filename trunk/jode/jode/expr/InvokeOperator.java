@@ -181,7 +181,7 @@ public final class InvokeOperator extends Operator
 	CodeAnalyzer ca = clazz.getMethod(methodName, methodType).getCode();
 	if (ca == null)
 	    return null;
-	CodeInfo info = ca.getCodeInfo();
+	BytecodeInfo info = ca.getBytecodeInfo();
 	Value[] locals = new Value[info.getMaxLocals()];
 	for (int i=0; i< locals.length; i++)
 	    locals[i] = new Value();
@@ -192,7 +192,7 @@ public final class InvokeOperator extends Operator
 	String result;
 	try {
 	    result = (String) Interpreter.interpretMethod
-		(clazz, info.getCode(), locals, stack);
+		(clazz, info, locals, stack);
 	} catch (InterpreterException ex) {
 	    Decompiler.err.println("Warning: Can't interpret method "
 				   +methodName);
@@ -202,7 +202,7 @@ public final class InvokeOperator extends Operator
 	    ex.printStackTrace(Decompiler.err);
 	    return null;
 	}
-	return new ConstOperator(Type.tString, result);
+	return new ConstOperator(result);
     }
 
     /* Invokes never equals: they may return different values even if
