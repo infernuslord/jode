@@ -1,11 +1,39 @@
+/* ReferenceType Copyright (C) 1997-1998 Jochen Hoenicke.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ * $Id$
+ */
 package jode;
-public class NullType extends ClassInterfacesType {
+
+/**
+ * This class represents the NullType.  The null type is special as it
+ * may only occur as top type in a range type.  It represents the type
+ * of the null constant, which may be casted to any object. <br>
+ *
+ * Question: Should we replace tUObject = tRange(tObject, tNull) by tNull?
+ * Question2: if not, should null have type tNull?
+ *
+ * @author Jochen Hoenicke 
+ */
+public class NullType extends ReferenceType {
     public NullType() {
-	super(null, null);
-	typecode = TC_NULL;
+	super(TC_NULL);
     }
 
-    public Type createRangeType(ClassInterfacesType bottomType) {
+    public Type createRangeType(ReferenceType bottomType) {
 	return tRange(bottomType, this);
     }
 
@@ -14,12 +42,14 @@ public class NullType extends ClassInterfacesType {
      * classes and multiple interfaces.  The result should be the
      * object that is the the super class of both objects and all
      * interfaces, that one class or interface of each type 
-     * implements.  */
+     * implements.  
+     */
     public Type getGeneralizedType(Type type) {
 	if (type.typecode == TC_RANGE)
 	    type = ((RangeType) type).getTop();
 	return type;
     }
+
     /**
      * Returns the specialized type of this and type.
      * We have two classes and multiple interfaces.  The result 
@@ -32,22 +62,8 @@ public class NullType extends ClassInterfacesType {
 	return type;
     }
 
-    /**
-     * Marks this type as used, so that the class is imported.
-     */
-    public void useType() {
-    }
-
     public String toString() {
 	return "/*NULL*/" + env.classString("java.lang.Object");
-    }
-
-    public boolean equals(Object o) {
-	return o == this;
-    }
-
-    public Type getHint() {
-	return tNull;
     }
 
     /**

@@ -25,7 +25,7 @@ import java.util.Vector;
  *
  * @author Jochen Hoenicke 
  */
-public class ArrayType extends ClassInterfacesType {
+public class ArrayType extends ReferenceType {
     // The interfaces that an array implements:
     final static ClassInfo[] arrayIfaces = {
 	// Make sure to list all interfaces, even if some interface
@@ -37,7 +37,7 @@ public class ArrayType extends ClassInterfacesType {
     Type elementType;
 
     public ArrayType(Type elementType) {
-        super(null, arrayIfaces);
+        super(TC_ARRAY);
 	typecode = TC_ARRAY;
         this.elementType = elementType;
     }
@@ -47,21 +47,13 @@ public class ArrayType extends ClassInterfacesType {
     }
 
     public Type getSuperType() {
-	return tRange(tObject, (ClassInterfacesType) 
-		      tArray(elementType.getSuperType()));
+	return tRange(tObject, 
+		      (ReferenceType) tArray(elementType.getSuperType()));
     }
 
     public Type getSubType() {
         return tArray(elementType.getSubType());
     }
-
-//      public Type getBottom() {
-//          return tArray(elementType.getBottom());
-//      }
-
-//      public Type getTop() {
-//          return tArray(elementType.getTop());
-//      }
 
     public Type getHint() {
 	return tArray(elementType.getHint());
@@ -72,7 +64,7 @@ public class ArrayType extends ClassInterfacesType {
      * @param bottomType the start point of the range
      * @return the range type, or tError if not possible.
      */
-    public Type createRangeType(ClassInterfacesType bottom) {
+    public Type createRangeType(ReferenceType bottom) {
         /*
          *  tArray(y), tArray(x) -> tArray( y.intersection(x) )
          *  obj      , tArray(x) -> <obj, tArray(x)>
@@ -83,9 +75,10 @@ public class ArrayType extends ClassInterfacesType {
 			  (((ArrayType)bottom).elementType));
 
 	if (bottom.getTypeCode() == TC_CLASS) {
-	    if (bottom.clazz == null
-		&& implementsAllIfaces(bottom.ifaces))
-		return tRange(bottom, this);
+	    ClassInterfacesType bottomCIT = (ClassInterfacesType)bottom;
+	    if (bottomCIT.clazz == null
+		&& implementsAllIfaces(null, arrayIfaces, bottomCIT.ifaces))
+		return tRange(bottomCIT, this);
 	}
 	return tError;
     }
@@ -113,7 +106,7 @@ public class ArrayType extends ClassInterfacesType {
 	if (type.getTypeCode() == TC_CLASS) {
 	    ClassInterfacesType other = (ClassInterfacesType) type;
 	    if (other.clazz == null
-		&& implementsAllIfaces(other.ifaces))
+		&& implementsAllIfaces(null, arrayIfaces, other.ifaces))
 		return this;
 	}
 	return tError;
@@ -126,7 +119,7 @@ public class ArrayType extends ClassInterfacesType {
      */
     public Type getGeneralizedType(Type type) {
         /*  tArray(x), tNull     -> tArray(x)
-         *  tArray(x), tClass(y) -> tObject, ifaces of tArray and tClass
+         *  tArray(x), tClass(y) -> common ifaces of tArray and tClass
          *  tArray(x), tArray(y) -> tArray(x.intersection(y))
          *  tArray(x), other     -> tError
          */
@@ -140,9 +133,10 @@ public class ArrayType extends ClassInterfacesType {
                           (((ArrayType)type).elementType));
 	if (type.getTypeCode() == TC_CLASS) {
 	    ClassInterfacesType other = (ClassInterfacesType) type;
-	    if (other.implementsAllIfaces(ifaces))
-		return ClassInterfacesType.create(null, ifaces);
-	    if (other.clazz == null && implementsAllIfaces(other.ifaces))
+	    if (implementsAllIfaces(other.clazz, other.ifaces, arrayIfaces))
+		return ClassInterfacesType.create(null, arrayIfaces);
+	    if (other.clazz == null 
+		&& implementsAllIfaces(null, arrayIfaces, other.ifaces))
 		return other;
 	    
 	    /* Now the more complicated part: find all interfaces, that are
@@ -152,18 +146,18 @@ public class ArrayType extends ClassInterfacesType {
 	     */
 	    Vector newIfaces = new Vector();
 	iface_loop:
-	    for (int i=0; i < ifaces.length; i++) {
+	    for (int i=0; i < arrayIfaces.length; i++) {
 		/* Now consider each array interface.  If any clazz or
 		 * interface in other implements it, add it to the
 		 * newIfaces vector.  */
 		if (other.clazz != null 
-		    && ifaces[i].implementedBy(other.clazz)) {
-		    newIfaces.addElement(ifaces[i]);
+		    && arrayIfaces[i].implementedBy(other.clazz)) {
+		    newIfaces.addElement(arrayIfaces[i]);
 		    continue iface_loop;
 		}
 		for (int j=0; j<other.ifaces.length; j++) {
-		    if (ifaces[i].implementedBy(other.ifaces[j])) {
-			newIfaces.addElement(ifaces[i]);
+		    if (arrayIfaces[i].implementedBy(other.ifaces[j])) {
+			newIfaces.addElement(arrayIfaces[i]);
 			continue iface_loop;
 		    }
 		}
