@@ -57,7 +57,7 @@ public class GetFieldOperator extends Operator {
 
     public void setOperandType(Type types[]) {
 	if (!staticFlag)
-	    needCast = types[0].getTop().equals(Type.tUnknown);
+	    needCast = types[0].getHint().equals(Type.tNull);
     }
 
     public String toString(String[] operands) {
