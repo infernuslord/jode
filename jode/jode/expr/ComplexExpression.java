@@ -574,11 +574,13 @@ public class ComplexExpression extends Expression {
 			&& param instanceof ConstOperator
 			&& param.getType().equals(Type.tString)) {
 			String clazz = ((ConstOperator)param).getValue();
-			clazz = clazz.substring(1, clazz.length()-1);
 			if (put.getFieldName()
 			    .equals("class$" + clazz.replace('.', '$'))
 			    || put.getFieldName()
 			    .equals("class$L" + clazz.replace('.', '$'))) {
+			    /* XXX analyzed is set too late, the field
+			     * is already printed.
+			     */
 			    put.getField().analyzedSynthetic();
 			    return new ClassFieldOperator(Type.tClass(clazz));
 			}
