@@ -20,6 +20,7 @@
 package jode.decompiler;
 import java.io.*;
 import jode.Decompiler;
+import jode.type.Type;
 
 public class TabbedPrintWriter {
     boolean atbol;
@@ -27,17 +28,28 @@ public class TabbedPrintWriter {
     int currentIndent = 0;
     String indentStr = "";
     PrintWriter pw;
+    ImportHandler imports;
 
-    public TabbedPrintWriter (OutputStream os) {
+    public TabbedPrintWriter (OutputStream os, ImportHandler imports) {
 	pw = new PrintWriter(os, true);
+	this.imports = imports;
 	this.indentsize = (Decompiler.outputStyle & Decompiler.TAB_SIZE_MASK);
 	atbol = true;
     }
 
-    public TabbedPrintWriter (Writer os) {
+    public TabbedPrintWriter (Writer os, ImportHandler imports) {
 	pw = new PrintWriter(os, true);
+	this.imports = imports;
 	this.indentsize = (Decompiler.outputStyle & Decompiler.TAB_SIZE_MASK);
 	atbol = true;
+    }
+
+    public TabbedPrintWriter (OutputStream os) {
+	this(os, null);
+    }
+
+    public TabbedPrintWriter (Writer os) {
+	this(os, null);
     }
 
     /**
@@ -99,6 +111,13 @@ public class TabbedPrintWriter {
 	    pw.print(indentStr);
 	pw.print(str);
 	atbol = false;
+    }
+
+    public void printType(Type type) {
+	if (imports != null)
+	    print(imports.getTypeString(type));
+	else
+	    print(type.toString());
     }
 
     /**
