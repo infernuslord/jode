@@ -80,12 +80,14 @@ public class Obfuscator {
     public static int parseRenameOption(String option) {
 	if (option.equals("strong"))
 	    return RENAME_STRONG;
-	else if (option.equals("--weak"))
+	else if (option.equals("weak"))
 	    return RENAME_WEAK;
-	else if (option.equals("--unique"))
+	else if (option.equals("unique"))
 	    return RENAME_UNIQUE;
-	else if (option.equals("--none"))
+	else if (option.equals("none"))
 	    return RENAME_NONE;
+	GlobalOptions.err.println("Incorrect value for --rename option: "
+				  + option);
 	usage();
 	System.exit(0);
 	return 0;
