@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
-import jode.MethodType;
+import jode.type.Type;
+import jode.type.MethodType;
+import jode.decompiler.TabbedPrintWriter;
 
 public class ConstructorOperator extends Operator 
     implements MatchableOperator {
@@ -80,14 +81,19 @@ public class ConstructorOperator extends Operator
             ? EMPTYSTRING : null;
     }
 
-    public String toString(String[] operands) {
-        StringBuffer result = 
-            new StringBuffer("new ").append(classType.toString()).append("(");
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
+	writer.print("new ");
+	writer.printType(classType);
+	writer.print("(");
         for (int i=0; i < methodType.getParameterTypes().length; i++) {
             if (i>0)
-                result.append(", ");
-            result.append(operands[i]);
+		writer.print(", ");
+            operands[i].dumpExpression(writer, 0);
         }
-        return result.append(")").toString();
+        writer.print(")");
     }
 }
+
+

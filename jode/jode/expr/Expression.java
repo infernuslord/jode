@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
 import jode.Decompiler;
+import jode.decompiler.TabbedPrintWriter;
 
 public abstract class Expression {
     protected Type type;
@@ -166,14 +167,47 @@ public abstract class Expression {
         return true;
     }
 
-    public abstract String toString();
+    public abstract void dumpExpression(TabbedPrintWriter writer) 
+	throws java.io.IOException;
 
-    String toString(int minPriority) {
-        String result = toString();
-        if (getOperator().getPriority() < minPriority)
-            return "("+result+")";
-        return result;
+    public void dumpExpression(TabbedPrintWriter writer, int minPriority)
+	throws java.io.IOException {
+	boolean needParen1 = false, needParen2 = false;
+	if (Decompiler.isTypeDebugging) {
+	    if (minPriority > 700) {
+		needParen1 = true;
+		writer.print("(");
+	    }
+	    writer.print("("+getType()+") ");
+	    minPriority = 700;
+	} else if (getType() == Type.tError) {
+	    writer.print("(/*type error */");
+	    needParen1 = true;
+	}
+	if (getOperator().getPriority() < minPriority) {
+	    needParen2 = true;
+	    writer.print("(");
+	}
+
+	dumpExpression(writer);
+
+	if (needParen2)
+	    writer.print(")");
+	if (needParen1)
+	    writer.print(")");
     }
+
+    public String toString() {
+        try {
+            java.io.StringWriter strw = new java.io.StringWriter();
+            TabbedPrintWriter writer = new TabbedPrintWriter(strw);
+            dumpExpression(writer);
+            return strw.toString();
+        } catch (java.io.IOException ex) {
+            return super.toString();
+        }
+    }	
+
 
     public boolean isVoid() {
         return getType() == Type.tVoid;

@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class PopOperator extends SimpleOperator {
 
@@ -35,7 +36,9 @@ public class PopOperator extends SimpleOperator {
         return 0;
     }
 
-    public String toString(String[] operands) {
-        return operands[0];
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	operands[0].dumpExpression(writer, 0);
     }
 }

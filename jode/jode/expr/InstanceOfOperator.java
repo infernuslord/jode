@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class InstanceOfOperator extends SimpleOperator {
 
@@ -44,22 +45,27 @@ public class InstanceOfOperator extends SimpleOperator {
         return 550;
     }
 
-    public int getOperandPriority(int i) {
-        return getPriority();
-    }
-
     public void setOperandType(Type[] type) {
 	super.setOperandType(type);
 	superType = instanceType.getCastHelper(type[0]);
     }
 
-    public String toString(String[] operands) {
-        StringBuffer sb = new StringBuffer();
-	if (superType != null)
-	    sb.append("((").append(superType).append(")");
-	sb.append(operands[0]);
-	if (superType != null)
-	    sb.append(")");
-        return sb.append(" instanceof ").append(instanceType).toString();
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
+	/* There are special cases where a cast isn't allowed.  We must cast
+	 * to the common super type before.  This cases always give a runtime
+	 * error, but we want to decompile even bad programs.
+	 */
+	Type superType = instanceType.getCastHelper(operands[0].getType());
+	if (superType != null) {
+	    writer.print("(");
+	    writer.printType(superType);
+	    writer.print(") ");
+	    operands[0].dumpExpression(writer, 700);
+	} else
+	    operands[0].dumpExpression(writer, 550);
+        writer.print(" instanceof ");
+	writer.printType(instanceType);
     }
 }

@@ -19,11 +19,12 @@
 
 package jode.expr;
 import jode.Decompiler;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.LocalInfo;
+import jode.decompiler.TabbedPrintWriter;
 
 public class LocalLoadOperator extends NoArgOperator
-implements LocalVarOperator {
+    implements LocalVarOperator {
     LocalInfo local;
 
     public LocalLoadOperator(Type type, LocalInfo local) {
@@ -77,13 +78,19 @@ implements LocalVarOperator {
 //         return slot;
 //     }
 
-    public String toString(String[] operands) {
+    public String toString() {
         return local.getName().toString();
     }
 
     public boolean equals(Object o) {
         return (o instanceof LocalLoadOperator &&
                 ((LocalLoadOperator) o).local.getSlot() == local.getSlot());
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
+	writer.print(toString());
     }
 }
 

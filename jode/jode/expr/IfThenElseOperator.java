@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class IfThenElseOperator extends SimpleOperator {
     public IfThenElseOperator(Type type) {
@@ -32,19 +33,6 @@ public class IfThenElseOperator extends SimpleOperator {
 
     public int getPriority() {
         return 200;
-    }
-
-    public int getOperandPriority(int i) {
-        switch (i) {
-        case 0:
-            return 201;
-        case 1:
-            return 0;
-        case 2:
-            return 200;
-        default:
-            throw new jode.AssertError("ifthenelse with operand "+i);
-        }
     }
 
     public void setOperandType(Type[] inputTypes) {
@@ -70,7 +58,13 @@ public class IfThenElseOperator extends SimpleOperator {
 	return (o instanceof IfThenElseOperator);
     }
 
-    public String toString(String[] operands) {
-        return operands[0] + " ? "+operands[1]+" : "+ operands[2];
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	operands[0].dumpExpression(writer, 201);
+	writer.print(" ? ");
+	operands[1].dumpExpression(writer, 0);
+	writer.print(" : ");
+	operands[2].dumpExpression(writer, 200);
     }
 }

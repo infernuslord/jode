@@ -20,13 +20,11 @@
 package jode.expr;
 import jode.decompiler.CodeAnalyzer;
 import jode.decompiler.ClassAnalyzer;
-import jode.MethodType;
+import jode.decompiler.TabbedPrintWriter;
 import jode.Decompiler;
-import jode.Type;
-import jode.ArrayType;
-import jode.ClassInterfacesType;
 import jode.bytecode.*;
 import jode.jvm.*;
+import jode.type.*;
 import java.lang.reflect.InvocationTargetException;
 
 public final class InvokeOperator extends Operator 
@@ -50,7 +48,7 @@ public final class InvokeOperator extends Operator
 	this.staticFlag = staticFlag;
         this.specialFlag = specialFlag;
         if (staticFlag)
-            clazz.useType();
+            codeAnalyzer.useType(clazz);
     }
 
     /**
@@ -97,12 +95,6 @@ public final class InvokeOperator extends Operator
             + methodType.getParameterTypes().length;
     }
 
-    public int getOperandPriority(int i) {
-        if (!isStatic() && i == 0)
-            return 950;
-        return 0;
-    }
-
     public Type getOperandType(int i) {
         if (!isStatic()) {
             if (i == 0)
@@ -144,32 +136,68 @@ public final class InvokeOperator extends Operator
 	return false;
     }
 
-    public String toString(String[] operands) {
-        String object = specialFlag 
-            ? (operands[0].equals("this") 
-               ? (/* XXX check if this is a private or final method. */
-                  isThis() ? "" : "super")
-               : (/* XXX check if this is a private or final method. */
-                  isThis() ? operands[0] : "NON VIRTUAL " + operands[0]))
-            : (isStatic()
-               ? (isThis() ? "" : clazz.toString())
-               : (operands[0].equals("this") ? "" 
-		  : operands[0].equals("null") 
-		  ? "((" + clazz.toString() + ") null)"
-		  : operands[0]));
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands) 
+	throws java.io.IOException {
+	boolean opIsThis = 
+	    (!staticFlag
+	     && operands[0] instanceof LocalLoadOperator
+	     && (((LocalLoadOperator) operands[0]).getLocalInfo()
+		 .equals(codeAnalyzer.getParamInfo(0)))
+	     && !codeAnalyzer.getMethod().isStatic());
+        int arg = 1;
 
-        int arg = isStatic() ? 0 : 1;
-        String method = isConstructor() 
-            ? (object.length() == 0 ? "this" : object)
-            : (object.length() == 0 ? methodName : object + "." + methodName);
+	if (specialFlag) {
+	    if (opIsThis) {
+		if (isThis()) {
+		    /* XXX check if this is a private or final method. */
+		} else {
+		    /* XXX check that this is the first defined
+		     * super method. */
+		    writer.print("super");
+		    opIsThis = false;
+		}
+	    } else {
+		/* XXX check if this is a private or final method. */
+		if (!isThis()) {
+		    writer.print("(NON VIRTUAL ");
+		    writer.printType(clazz);
+		    writer.print(")");
+		}
+		operands[0].dumpExpression(writer, 950);
+	    }
+	} else if (staticFlag) {
+	    arg = 0;
+	    if (!isThis())
+		writer.printType(clazz);
+	} else {
+	    if (!opIsThis) {
+		int minPriority = 950; /* field access */
+		if (operands[0].getType() instanceof NullType) {
+		    writer.print("(");
+		    writer.printType(clazz);
+		    writer.print(") ");
+		    minPriority = 700;
+		}
+		operands[0].dumpExpression(writer, minPriority);
+	    }
+	}
 
-        StringBuffer params = new StringBuffer();
+	if (isConstructor()) {
+	    if (opIsThis)
+		writer.print("this");
+	} else {
+	    if (!opIsThis)
+		writer.print(".");
+	    writer.print(methodName);
+	}
+	writer.print("(");
         for (int i=0; i < methodType.getParameterTypes().length; i++) {
             if (i>0)
-                params.append(", ");
-            params.append(operands[arg++]);
+		writer.print(", ");
+            operands[arg++].dumpExpression(writer, 0);
         }
-        return method+"("+params+")";
+        writer.print(")");
     }
 
     /**

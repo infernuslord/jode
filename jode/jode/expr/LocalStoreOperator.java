@@ -18,11 +18,12 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.LocalInfo;
+import jode.decompiler.TabbedPrintWriter;
 
 public class LocalStoreOperator extends StoreInstruction 
-implements LocalVarOperator {
+    implements LocalVarOperator {
     LocalInfo local;
 
     public LocalStoreOperator(Type lvalueType, LocalInfo local, int operator) {
@@ -82,8 +83,8 @@ implements LocalVarOperator {
         throw new RuntimeException("LocalStoreOperator has no operands");
     }
 
-    public String getLValueString(String[] operands) {
-        return local.getName().toString();
+    public void dumpLValue(TabbedPrintWriter writer, Expression[] operands) {
+	writer.print(local.getName());
     }
 }
 

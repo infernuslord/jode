@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
-import jode.IntegerType;
+import jode.type.Type;
+import jode.type.IntegerType;
+import jode.decompiler.TabbedPrintWriter;
 
 public class ConstOperator extends NoArgOperator {
     Object value;
@@ -129,7 +130,7 @@ public class ConstOperator extends NoArgOperator {
         return result.append("\"").toString();
     }
 
-    public String toString(String[] operands) {
+    public String toString() {
         String strVal = String.valueOf(value);
         if (type.isOfType(Type.tBoolean)) {
 	    int intVal = ((Integer)value).intValue();
@@ -145,7 +146,7 @@ public class ConstOperator extends NoArgOperator {
             char c = (char) ((Integer) value).intValue();
             switch (c) {
             case '\0':
-                return "\'\\0\'";
+		return "\'\\0\'";
             case '\t':
                 return "\'\\t\'";
             case '\n':
@@ -214,5 +215,11 @@ public class ConstOperator extends NoArgOperator {
 	}
 
         return strVal;
+    }
+
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
+	writer.print(toString());
     }
 }

@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.LocalInfo;
+import jode.decompiler.TabbedPrintWriter;
 
 /**
  * This is a pseudo operator, which represents the check against null
@@ -80,15 +81,11 @@ public class CheckNullOperator extends Operator {
 	local.setType(type);
     }
 
-    public String toString(String[] operands) {
-	/* There is no way to produce exactly the same code.
-	 * This is a good approximation.
-	 * op.getClass will throw a null pointer exception if operands[0]
-	 * is null, otherwise return something not equal to null.
-	 * The bad thing is that this isn't atomar.
-	 */
-	return ("(" + local.getName() + " = "
-		+ operands[0] + ").getClass() != null ? "
-		+ local.getName() + " : null");
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	writer.print("("+local.getName()+" = ");
+	operands[0].dumpExpression(writer, 0);
+	writer.print(").getClass() != null ? "+local.getName()+" : null");
     }
 }

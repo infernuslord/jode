@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class MonitorExitOperator extends SimpleOperator {
     public MonitorExitOperator() {
@@ -27,18 +28,13 @@ public class MonitorExitOperator extends SimpleOperator {
     }
 
     public int getPriority() {
-        return 0;
+        return 700;
     }
 
-    public int getOperandPriority(int i) {
-        return 0;
-    }
-
-    public Type getOperandType(int i) {
-        return Type.tObject;
-    }
-
-    public String toString(String[] operands) {
-        return "MONITOREXIT "+operands[0];
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
+        writer.print("MONITOREXIT ");
+	operands[0].dumpExpression(writer, 700);
     }
 }

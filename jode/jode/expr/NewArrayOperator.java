@@ -18,8 +18,9 @@
  */
 
 package jode.expr;
-import jode.Type;
-import jode.ArrayType;
+import jode.type.Type;
+import jode.type.ArrayType;
+import jode.decompiler.TabbedPrintWriter;
 
 public class NewArrayOperator extends SimpleOperator {
     String baseTypeString;
@@ -35,21 +36,22 @@ public class NewArrayOperator extends SimpleOperator {
         return 900;
     }
 
-    public int getOperandPriority(int i) {
-        return 0;
-    }
-
-    public String toString(String[] operands) {
-        StringBuffer arrays = new StringBuffer();
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
         Type flat = type;
-        int i = 0;
+	int depth = 0;
         while (flat instanceof ArrayType) {
             flat = ((ArrayType)flat).getElementType();
-            if (i < getOperandCount())
-                arrays.append("[").append(operands[i++]).append("]");
-            else
-                arrays.append("[]");
+	    depth++;
         }
-        return "new "+flat.toString()+arrays;
+	writer.print("new ");
+	writer.printType(flat);
+	for (int i=0; i< depth; i++) {
+	    writer.print("[");
+            if (i < getOperandCount())
+		operands[i].dumpExpression(writer, 0);
+	    writer.print("]");
+	}
     }
 }

@@ -18,16 +18,11 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class CheckCastOperator extends SimpleOperator {
     Type castType;
-    /**
-     * There are special cases where a cast isn't allowed.  We must cast
-     * to the common super type before.  This cases always give a runtime
-     * error, but we want to decompile even bad programs.
-     */
-    Type superType = null;
 
     public CheckCastOperator(Type type) {
         super(type, 0, 1);
@@ -39,19 +34,27 @@ public class CheckCastOperator extends SimpleOperator {
         return 700;
     }
 
-    public int getOperandPriority(int i) {
-        return getPriority();
-    }
-
     public void setOperandType(Type[] type) {
 	super.setOperandType(type);
-	superType = castType.getCastHelper(type[0]);
     }
 
-    public String toString(String[] operands) {
-        StringBuffer sb = new StringBuffer("(").append(castType).append(")");
-	if (superType != null)
-	    sb.append("(").append(superType).append(")");
-	return sb.append(operands[0]).toString();
+    public void dumpExpression(TabbedPrintWriter writer,
+			       Expression[] operands) 
+	throws java.io.IOException {
+	writer.print("(");
+	writer.printType(castType);
+	writer.print(") ");
+
+	/* There are special cases where a cast isn't allowed.  We must cast
+	 * to the common super type before.  This cases always give a runtime
+	 * error, but we want to decompile even bad programs.
+	 */
+	Type superType = castType.getCastHelper(operands[0].getType());
+	if (superType != null) {
+	    writer.print("(");
+	    writer.printType(superType);
+	    writer.print(") ");
+	}
+	operands[0].dumpExpression(writer, 700);
     }
 }

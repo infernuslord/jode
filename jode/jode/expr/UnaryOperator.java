@@ -18,7 +18,8 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
+import jode.decompiler.TabbedPrintWriter;
 
 public class UnaryOperator extends SimpleOperator {
     public UnaryOperator(Type type, int op) {
@@ -27,10 +28,6 @@ public class UnaryOperator extends SimpleOperator {
     
     public int getPriority() {
         return 700;
-    }
-
-    public int getOperandPriority(int i) {
-        return getPriority();
     }
 
     /**
@@ -47,7 +44,10 @@ public class UnaryOperator extends SimpleOperator {
 	    ((UnaryOperator)o).operator == operator;
     }
 
-    public String toString(String[] operands) {
-        return getOperatorString() + operands[0];
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	writer.print(getOperatorString());
+	operands[0].dumpExpression(writer, 700);
     }
 }

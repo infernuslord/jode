@@ -18,11 +18,12 @@
  */
 
 package jode.expr;
-import jode.Type;
+import jode.type.Type;
 import jode.decompiler.LocalInfo;
+import jode.decompiler.TabbedPrintWriter;
 
 public class IIncOperator extends NoArgOperator 
-implements LocalVarOperator, CombineableOperator {
+    implements LocalVarOperator, CombineableOperator {
     String value;
     LocalInfo local;
 
@@ -96,8 +97,9 @@ implements LocalVarOperator, CombineableOperator {
         return super.simplify();
     }
 
-    public String toString(String[] operands) {
-        return local.getName().toString() + 
-	    getOperatorString() + value;
+    public void dumpExpression(TabbedPrintWriter writer, 
+			       Expression[] operands)
+	throws java.io.IOException {
+	writer.print(local.getName() + getOperatorString() + value);
     }
 }
