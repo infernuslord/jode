@@ -19,6 +19,7 @@
 
 package jode.flow;
 import jode.expr.*;
+import jode.Type;
 
 public class CreateAssignExpression {
 
@@ -91,6 +92,7 @@ public class CreateAssignExpression {
 	}
         int opIndex;
         Expression rightHandSide;
+	Type rhsType;
 
         if (expr.getOperator() instanceof ConvertOperator
             && expr.getSubExpressions()[0] instanceof ComplexExpression
@@ -120,6 +122,7 @@ public class CreateAssignExpression {
                 || !store.matches((Operator) loadExpr))
                 return false;
             rightHandSide = expr.getSubExpressions()[1];
+	    rhsType = binop.getOperandType(1);
         } else {
 	    /* For String += the situation is more complex.
 	     * what is marked as load(stack) * rightHandSide above is
@@ -141,6 +144,8 @@ public class CreateAssignExpression {
             if (lastExpr == null || !(simple instanceof Operator)
                 || !store.matches((Operator) simple))
                 return false;
+
+	    rhsType = lastExpr.getOperator().getOperandType(1);
             
             /* ... and remove it. */
             if (lastExpr.getParent() != null) {
@@ -158,7 +163,7 @@ public class CreateAssignExpression {
 	    dup.removeBlock();
         ib.setInstruction(rightHandSide);
         
-        store.makeOpAssign(store.OPASSIGN_OP+opIndex);
+        store.makeOpAssign(store.OPASSIGN_OP+opIndex, rhsType);
 
         if (isAssignOp)
             store.makeNonVoid();
