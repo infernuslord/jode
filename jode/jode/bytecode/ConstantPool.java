@@ -38,6 +38,7 @@ public class ConstantPool {
     public final static int NAMEANDTYPE        = 12;
     public final static int UTF8               =  1;
 
+    int count;
     int[] tags;
     int[] indices1, indices2;
 
@@ -48,7 +49,7 @@ public class ConstantPool {
 
     public void read(DataInputStream stream) 
 	throws IOException {
-	int count = stream.readUnsignedShort();
+	count = stream.readUnsignedShort();
         tags = new int[count];
         indices1 = new int[count];
         indices2 = new int[count];
@@ -89,7 +90,7 @@ public class ConstantPool {
 		indices2[i] = stream.readUnsignedShort();
 		break;
 	    case UTF8:
-		constants[i] = new String(stream.readUTF());
+		constants[i] = stream.readUTF();
 		break;
 	    default:
 		throw new ClassFormatException("unknown constant tag");
@@ -239,9 +240,13 @@ public class ConstantPool {
 	}
     }
 
+    public int size() {
+	return count;
+    }
+
     public String toString() {
         StringBuffer result = new StringBuffer("[ null");
-        for (int i=1; i< tags.length; i++) {
+        for (int i=1; i< count; i++) {
             result.append(", ").append(toString(i));
         }
         result.append(" ]");
