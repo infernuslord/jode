@@ -59,57 +59,46 @@ public abstract class Expression {
     }
 
     /**
-     * Checks if the given Expression (which should be a StoreInstruction)
+     * Checks if the given Expression (which should be a CombineableOperator)
      * can be combined into this expression.
      * @param e The store expression, must be of type void.
      * @return 1, if it can, 0, if no match was found and -1, if a
      * conflict was found.  You may wish to check for >0.
      */
     public int canCombine(Expression e) {
+// 	jode.Decompiler.err.println("Try to combine "+e+" into "+this);
         return containsMatchingLoad(e)? 1 : 0;
     }
 
     /**
      * Checks if this expression contains a load, that matches the
-     * given Expression (which should be a
-     * StoreInstruction/IIncOperator).
+     * given Expression (which should be a StoreInstruction/IIncOperator).
      * @param e The store expression.
      * @return if this expression contains a matching load.
+     * @exception ClassCastException, if e.getOperator 
+     * is not a CombineableOperator.
      */
     public boolean containsMatchingLoad(Expression e) {
-        if (e instanceof IIncOperator
-            && ((IIncOperator)e.getOperator()).matches(getOperator()))
-            return true;
-        else if (e instanceof ComplexExpression
-                 && e.getOperator() instanceof StoreInstruction
-                 && ((StoreInstruction) e.getOperator())
-                 .matches(getOperator()))
-            return true;
-	return false;
+        return ((CombineableOperator)e.getOperator()).matches(getOperator());
     }
 
     /**
      * Combines the given Expression (which should be a StoreInstruction)
      * into this expression.  You must only call this if
      * canCombine returns the value 1.
-     * @param e The store expression.
+     * @param e The store expression, 
+     * the operator must be a CombineableOperator.
      * @return The combined expression.
+     * @exception ClassCastException, if e.getOperator 
+     * is not a CombineableOperator.
      */
     public Expression combine(Expression e) {
-        if (e.getOperator() instanceof IIncOperator) {
-            if (((IIncOperator)e.getOperator()).matches(getOperator())) {
-                ((IIncOperator)e.getOperator()).makeNonVoid();
-                /* Do not call setType, we don't want to intersect. */
-                e.type = e.getOperator().getType();
-                return e;
-            }
-        } else {
-            if (((StoreInstruction)e.getOperator()).matches(getOperator())) {
-                ((StoreInstruction)e.getOperator()).makeNonVoid();
-                /* Do not call setType, we don't want to intersect. */
-                e.type = e.getOperator().getType();
-                return e;
-            }
+	CombineableOperator op = (CombineableOperator) e.getOperator();
+	if (op.matches(getOperator())) {
+	    op.makeNonVoid();
+	    /* Do not call setType, we don't want to intersect. */
+	    e.type = e.getOperator().getType();
+	    return e;
         }
         return null;
     }
