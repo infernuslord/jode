@@ -4,8 +4,8 @@ import sun.tools.java.Type;
 public class ConvertOperator extends Operator {
     Type from;
 
-    public ConvertOperator(int addr, int length, Type from, Type to) {
-        super(addr,length, to, 0);
+    public ConvertOperator(Type from, Type to) {
+        super(to, 0);
         this.from = from;
     }
     
@@ -26,11 +26,11 @@ public class ConvertOperator extends Operator {
     }
 
     public void setOperandType(Type[] inputTypes) {
-        from = UnknownType.commonType(from, inputTypes[0]);
+        from = MyType.intersection(from, inputTypes[0]);
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands)
+    public String toString(String[] operands)
     {
-        return "("+ca.getTypeString(type)+") "+operands[0];
+        return "("+type.toString()+") "+operands[0];
     }
 }

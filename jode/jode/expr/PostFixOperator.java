@@ -1,9 +1,12 @@
 package jode;
 import sun.tools.java.Type;
 
-public class PostFixOperator extends SimpleOperator {
-    public PostFixOperator(int addr, int length, Type type, int op) {
-        super(addr,length, type, op, 1);
+public class PostFixOperator extends Operator {
+    StoreInstruction store;
+
+    public PostFixOperator(Type type, int op, StoreInstruction store) {
+        super(type, op);
+	this.store = store;
     }
     
     public int getPriority() {
@@ -14,21 +17,29 @@ public class PostFixOperator extends SimpleOperator {
         return getPriority();
     }
 
+    public Type getOperandType(int i) {
+	return store.getLValueOperandType(i);
+    }
+
+    public int getOperandCount() {
+        return store.getLValueOperandCount();
+    }
+
     /**
      * Sets the return type of this operator.
      * @return true if the operand types changed
      */
     public boolean setType(Type type) {
-        super.setType(type);
-        Type newOpType = UnknownType.commonType(type, operandTypes[0]);
-        if (newOpType != operandTypes[0]) {
-            operandTypes[0] = newOpType;
-            return true;
-        }
-        return false;
+        boolean result = store.setLValueType(type);
+        super.setType(store.getLValueType());
+        return result;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
-        return operands[0] + getOperatorString();
+    public void setOperandType(Type[] inputTypes) {
+        store.setLValueOperandType(inputTypes);
+    }
+
+    public String toString(String[] operands) {
+        return store.getLValueString(operands) + getOperatorString();
     }
 }

@@ -2,8 +2,8 @@ package jode;
 import sun.tools.java.Type;
 
 public class CompareBinaryOperator extends SimpleOperator {
-    public CompareBinaryOperator(int addr, int length, Type type, int op) {
-        super(addr,length, Type.tBoolean, op, 2);
+    public CompareBinaryOperator(Type type, int op) {
+        super(Type.tBoolean, op, 2);
         operandTypes[0] = operandTypes[1] = type;
     }
 
@@ -28,11 +28,16 @@ public class CompareBinaryOperator extends SimpleOperator {
     public void setOperandType(Type[] inputTypes) {
         super.setOperandType(inputTypes);
         Type operandType = 
-            UnknownType.commonType(operandTypes[0],operandTypes[1]);
+            MyType.intersection(operandTypes[0],operandTypes[1]);
         operandTypes[0] = operandTypes[1] = operandType;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
-        return operands[0] + " "+opString[operator]+" "+operands[1];
+    public boolean equals(Object o) {
+	return (o instanceof CompareBinaryOperator) &&
+	    ((CompareBinaryOperator)o).operator == operator;
+    }
+
+    public String toString(String[] operands) {
+        return operands[0] + getOperatorString() + operands[1];
     }
 }

@@ -4,8 +4,8 @@ import sun.tools.java.Type;
 public class BinaryOperator extends Operator {
     protected Type operandType;
 
-    public BinaryOperator(int addr, int length, Type type, int op) {
-        super(addr,length, type, op);
+    public BinaryOperator(Type type, int op) {
+        super(type, op);
         operandType = type;
     }
     
@@ -47,8 +47,8 @@ public class BinaryOperator extends Operator {
     }
 
     public void setOperandType(Type[] inputTypes) {
-        operandType = UnknownType.commonType
-            (operandType, UnknownType.commonType(inputTypes[0], 
+        operandType = MyType.intersection
+            (operandType, MyType.intersection(inputTypes[0], 
                                                  inputTypes[1]));
         type = operandType;
     }
@@ -58,7 +58,7 @@ public class BinaryOperator extends Operator {
      * @return true if the operand types changed
      */
     public boolean setType(Type newType) {
-        operandType = UnknownType.commonType(operandType, newType);
+        operandType = MyType.intersection(operandType, newType);
         if (type != operandType) {
             type = operandType;
             return true;
@@ -66,7 +66,12 @@ public class BinaryOperator extends Operator {
         return false;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
-        return operands[0] + " "+getOperatorString()+" "+ operands[1];
+    public boolean equals(Object o) {
+	return (o instanceof BinaryOperator) &&
+	    ((BinaryOperator)o).operator == operator;
+    }
+
+    public String toString(String[] operands) {
+        return operands[0] + getOperatorString() + operands[1];
     }
 }

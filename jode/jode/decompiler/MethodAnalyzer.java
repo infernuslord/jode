@@ -7,7 +7,7 @@ public class MethodAnalyzer implements Analyzer, Constants {
     FieldDefinition mdef;
     JodeEnvironment env;
     CodeAnalyzer code = null;
-    LocalVariableTable lvt;
+    LocalVariableAnalyzer lva;
     
     public MethodAnalyzer(FieldDefinition fd, JodeEnvironment e)
     {
@@ -19,60 +19,32 @@ public class MethodAnalyzer implements Analyzer, Constants {
                 new BinaryCode(bytecode, 
                                env.getConstantPool(),
                                env);
-            lvt = new LocalVariableTable(bc.getMaxLocals());
-            readLVT(bc);
+            lva = new LocalVariableAnalyzer(env, mdef, bc.getMaxLocals());
+            lva.read(bc);
             code = new CodeAnalyzer(this, bc, env);
         }
     }
 
-    public void readLVT(BinaryCode bc) {
-        BinaryAttribute attr = bc.getAttributes();
-        while (attr != null) {
-            if (attr.getName() == idLocalVariableTable) {
-                DataInputStream stream = 
-                    new DataInputStream
-                    (new ByteArrayInputStream(attr.getData()));
-                try {
-                    lvt.read(env, stream);
-                } catch (IOException ex) {
-                    throw new ClassFormatError(ex.toString());
-                }
-            }
-            attr = attr.getNextAttribute();
-        }
-        if (!lvt.isReadFromClass()) {
-            int offset = 0;
-            if (!mdef.isStatic()) {
-                LocalInfo li = lvt.getLocal(0);
-                li.name = "this";
-                li.type = mdef.getClassDefinition().getType();
-                offset++;
-            }                
-            Type[] paramTypes = mdef.getType().getArgumentTypes();
-            for (int i=0; i< paramTypes.length; i++) {
-                LocalInfo li = lvt.getLocal(offset+i);
-                li.type = paramTypes[i];
-            }
-        }
+    public int getParamCount() {
+	return (mdef.isStatic()?0:1)+
+	    mdef.getType().getArgumentTypes().length;
     }
 
     public void analyze() 
          throws ClassFormatError
     {
+	if (code == null)
+	    return;
+	if (env.isVerbose)
+	    System.err.print(mdef.getName().toString()+": locals ");
+        lva.createLocalInfo(code);
+	if (env.isVerbose) {
+	    System.err.println("");
+	    System.err.print("code ");
+	}
         code.analyze();
-    }
-
-    public LocalVariable getLocal(int i) {
-        return lvt.getLocal(i);
-    }
-
-    public Identifier getLocalName(int i, int addr) {
-        Identifier name = lvt.getLocal(i).getName(addr);
-        if (name != null)
-            return name;
-        if (!mdef.isStatic() && i == 0)
-            return idThis;
-        return Identifier.lookup("local_"+i+"@"+addr);
+	if (env.isVerbose)
+	    System.err.println("");
     }
 
     public void dumpSource(TabbedPrintWriter writer) 
@@ -88,17 +60,19 @@ public class MethodAnalyzer implements Analyzer, Constants {
             if (mdef.isConstructor())
                 writer.print(mdef.getClassDeclaration().getName().toString());
             else
-                writer.print(mdef.getType().getReturnType().toString()+" "+
-                             mdef.getName().toString());
+                writer.print(env.getTypeString(mdef.getType().getReturnType())+
+			     " "+ mdef.getName().toString());
             writer.print("(");
             Type[] paramTypes = mdef.getType().getArgumentTypes();
             int offset = mdef.isStatic()?0:1;
             for (int i=0; i<paramTypes.length; i++) {
                 if (i>0)
                     writer.print(", ");
-                writer.print(paramTypes[i].
-                             typeString(getLocalName(i+offset, 0).toString(), 
-                                        false, false));
+		writer.print
+		    ((code == null)?
+		     env.getTypeString(paramTypes[i]):
+		     env.getTypeString
+		     (paramTypes[i], lva.getLocal(i+offset).getName()));
             }
             writer.print(")");
         }
@@ -110,13 +84,14 @@ public class MethodAnalyzer implements Analyzer, Constants {
                 if (exceptions[i] != null) {
                     if (i > 0)
                         writer.print(", ");
-                    writer.print(exceptions[i].getName().toString());
+                    writer.print(env.getTypeString(exceptions[i].getName()));
                 }
             }
         }
         if (code != null) {
             writer.println(" {");
             writer.tab();
+	    lva.dumpSource(writer);
             code.dumpSource(writer);
             writer.untab();
             writer.println("}");

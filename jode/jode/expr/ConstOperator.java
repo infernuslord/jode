@@ -4,8 +4,8 @@ import sun.tools.java.Type;
 public class ConstOperator extends NoArgOperator {
     String value;
 
-    public ConstOperator(int addr, int length, Type type, String value) {
-        super(addr, length, type);
+    public ConstOperator(Type type, String value) {
+        super(type);
         this.value = value;
     }
 
@@ -40,7 +40,12 @@ public class ConstOperator extends NoArgOperator {
         return result.append("\"").toString();
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public boolean equals(Object o) {
+	return (o instanceof ConstOperator) &&
+	    ((ConstOperator)o).value.equals(value);
+    }
+
+    public String toString(String[] operands) {
         if (type == Type.tString)
             return quoted(value);
         if (type == Type.tBoolean) {
@@ -52,4 +57,3 @@ public class ConstOperator extends NoArgOperator {
         return value;
     }
 }
-

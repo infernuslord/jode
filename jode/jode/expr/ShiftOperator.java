@@ -7,9 +7,9 @@ import sun.tools.java.Type;
 public class ShiftOperator extends BinaryOperator {
     protected Type shiftType;
 
-    public ShiftOperator(int addr, int length, Type type, int op) {
-        super(addr,length, type, op);
-        shiftType = UnknownType.tUIndex;
+    public ShiftOperator(Type type, int op) {
+        super(type, op);
+        shiftType = MyType.tUIndex;
     }
 
     public Type getOperandType(int i) {
@@ -17,7 +17,7 @@ public class ShiftOperator extends BinaryOperator {
     }
 
     public void setOperandType(Type[] inputTypes) {
-        operandType = UnknownType.commonType(operandType, inputTypes[0]);
-        shiftType   = UnknownType.commonType(shiftType, inputTypes[1]);
+        operandType = MyType.intersection(operandType, inputTypes[0]);
+        shiftType   = MyType.intersection(shiftType, inputTypes[1]);
     }
 }

@@ -1,13 +1,16 @@
 package jode;
 import sun.tools.java.Type;
 
-public class AssignOperator extends BinaryOperator {
+public class AssignOperator extends Operator {
     StoreInstruction store;
 
-    public AssignOperator(int addr, int length, int op,
-                           StoreInstruction store) {
-        super(addr,length, store.getLValueType(), op);
+    public AssignOperator(int op, StoreInstruction store) {
+        super(store.getLValueType(), op);
         this.store = store;
+    }
+
+    public int getPriority() {
+	return store.getPriority();
     }
     
     public int getOperandCount() {
@@ -40,7 +43,7 @@ public class AssignOperator extends BinaryOperator {
         this.type = store.getLValueType();
     }
     
-    public String toString(CodeAnalyzer ca, String[] operands) {
-        return store.toString(ca, operands);
+    public String toString(String[] operands) {
+        return store.toString(operands);
     }
 }

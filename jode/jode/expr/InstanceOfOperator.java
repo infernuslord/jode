@@ -2,12 +2,12 @@ package jode;
 import sun.tools.java.Type;
 
 public class InstanceOfOperator extends SimpleOperator {
-    Type classType;
+    String typeString;
 
-    public InstanceOfOperator(int addr, int length, Type type) {
-        super(addr, length, Type.tBoolean, 0, 1);
-        this.operandTypes[0] = UnknownType.tSubClass(type);
-        this.classType = type;
+    public InstanceOfOperator(Type type, String typeString) {
+        super(Type.tBoolean, 0, 1);
+        this.operandTypes[0] = MyType.tSuperType(type);
+        this.typeString = typeString;
     }
     public int getOperandCount() {
         return 1;
@@ -21,7 +21,7 @@ public class InstanceOfOperator extends SimpleOperator {
         return getPriority();
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
-        return operands[0] + " instanceof "+ca.getTypeString(classType);
+    public String toString(String[] operands) {
+        return operands[0] + " instanceof "+typeString;
     }
 }

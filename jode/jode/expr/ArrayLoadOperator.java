@@ -5,10 +5,10 @@ import sun.tools.java.ArrayType;
 public class ArrayLoadOperator extends SimpleOperator {
     String value;
 
-    public ArrayLoadOperator(int addr, int length, Type type) {
-        super(addr,length, type, 0, 2);
+    public ArrayLoadOperator(Type type) {
+        super(type, 0, 2);
         operandTypes[0] = Type.tArray(type);
-        operandTypes[1] = UnknownType.tUIndex;
+        operandTypes[1] = MyType.tUIndex;
     }
 
     public int getPriority() {
@@ -34,13 +34,13 @@ public class ArrayLoadOperator extends SimpleOperator {
 
     public void setOperandType(Type[] t) {
         super.setOperandType(t);
-        if (operandTypes[0] instanceof ArrayType)
+//         if (operandTypes[0] instanceof ArrayType)
             type = operandTypes[0].getElementType();
-        else
-            type = Type.tError;
+//         else
+//             type = Type.tError;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public String toString(String[] operands) {
         return operands[0]+"["+operands[1]+"]";
     }
 }

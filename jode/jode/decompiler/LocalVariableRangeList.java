@@ -8,11 +8,12 @@ public class LocalVariableRangeList implements LocalVariable {
         int length;
         MyLocalInfo next;
         
-        MyLocalInfo(int s, int l, Identifier n, Type t) {
+        MyLocalInfo(int slot, int s, int l, Identifier n, Type t) {
+            super (slot);
             start = s;
             length = l;
-            name = n;
-            type = t;
+            setName(n);
+            setType(t);
             next = null;
         }
     }
@@ -45,7 +46,7 @@ public class LocalVariableRangeList implements LocalVariable {
         while (li != null && addr > li.start+li.length)
             li = li.next;
         if (li == null || li.start > addr) {
-            LocalInfo temp =new LocalInfo();
+            LocalInfo temp = new LocalInfo(slot);
             return temp;
         }
         return li;
@@ -53,30 +54,15 @@ public class LocalVariableRangeList implements LocalVariable {
 
     public void addLocal(int start, int length, 
                          Identifier name, Type type) {
-        MyLocalInfo li = new MyLocalInfo(start,length,name,type);
+        MyLocalInfo li = new MyLocalInfo(slot,start,length,name,type);
         add (li);
-    }
-
-    public Identifier getName(int addr) {
-        LocalInfo li = find(addr);
-        return li.name;
-    }
-
-    public Type getType(int addr) {
-        LocalInfo li = find(addr);
-        return li.type;
     }
 
     public LocalInfo getInfo(int addr) {
         return find(addr);
     }
 
-    public Type setType(int addr, Type newType) {
-        LocalInfo li = find(addr);
-        return commonType(newType, li.type);
-    }
-
     public void combine(int addr1, int addr2) {
-        throw AssertError("combine called on RangeList");
+        throw new AssertError("combine called on RangeList");
     }
 }

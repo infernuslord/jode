@@ -5,15 +5,15 @@ import sun.tools.java.ArrayType;
 public class ArrayStoreOperator extends StoreInstruction {
     Type indexType;
 
-    public ArrayStoreOperator(int addr, int length, Type type) {
-        super(addr,length, type);
-        indexType = UnknownType.tUIndex;
+    public ArrayStoreOperator(Type type, int operator) {
+        super(type, operator);
+        indexType = MyType.tUIndex;
     }
 
-    public ArrayStoreOperator(int addr, int length, Type type, int operator) {
-        super(addr,length, type, operator);
-        indexType = UnknownType.tUIndex;
+    public ArrayStoreOperator(Type type) {
+        this(type, ASSIGN_OP);
     }
+
 
     public boolean matches(Operator loadop) {
         return loadop instanceof ArrayLoadOperator;
@@ -30,6 +30,16 @@ public class ArrayStoreOperator extends StoreInstruction {
             return 0;
     }
 
+    /**
+     * Sets the type of the lvalue (and rvalue).
+     * @return true since the operand types changed
+     */
+    public boolean setLValueType(Type type) {
+        this.lvalueType = type;
+	System.err.println("Setting Lvalue type to "+lvalueType);
+        return true;
+    }
+
     public Type getLValueOperandType(int i) {
         if (i == 0)
             return Type.tArray(lvalueType);
@@ -38,20 +48,17 @@ public class ArrayStoreOperator extends StoreInstruction {
     }
 
     public void setLValueOperandType(Type[] t) {
-        indexType = UnknownType.commonType(indexType, t[1]);
-        Type arraytype = 
-            UnknownType.commonType(t[0], Type.tArray(lvalueType));
-        System.err.println("lvot: "+t[0]+","+Type.tArray(lvalueType)+
-                           " -> "+arraytype);
-        if (arraytype instanceof ArrayType)
-            lvalueType = arraytype.getElementType();
-        else {
-            System.err.println("no array: "+arraytype);
+        indexType = MyType.intersection(indexType, t[1]);
+        Type arrayType = 
+            MyType.intersection(t[0], Type.tArray(lvalueType));
+	try {
+            lvalueType = arrayType.getElementType();
+	} catch (sun.tools.java.CompilerError err) {
             lvalueType = Type.tError;
         }
     }
 
-    public String getLValueString(CodeAnalyzer ca, String[] operands) {
+    public String getLValueString(String[] operands) {
         return operands[0]+"["+operands[1]+"]";
     }
 }

@@ -1,16 +1,18 @@
 package jode;
 import sun.tools.java.*;
 import java.io.*;
-import java.util.Vector;
 
 public class LocalVariableTable {
-    Vector locals;
+    LocalVariableRangeList[] locals;
     boolean readfromclass;
 
     public LocalVariableTable(int size) {
-        locals = new Vector(); 
-        locals.setSize(size);
+        locals = new LocalVariableRangeList[size];
         readfromclass = false;
+    }
+
+    public int getSize() {
+	return locals.length;
     }
 
     public boolean isReadFromClass() {
@@ -22,16 +24,15 @@ public class LocalVariableTable {
     {
         int count = stream.readUnsignedShort();
         for (int i=0; i<count; i++) {
-            int start  = stream.readUnsignedShort();
+            int start  = stream.readUnsignedShort()-2; /*XXX*/
             int length = stream.readUnsignedShort();
             int name_i = stream.readUnsignedShort();
             int desc_i = stream.readUnsignedShort();
             int slot   = stream.readUnsignedShort();
-            LocalVariableRangeList lv = 
-                (LocalVariableRangeList)locals.elementAt(slot);
+            LocalVariableRangeList lv = locals[slot];
             if (lv == null) {
                 lv = new LocalVariableRangeList(slot);
-                locals.setElementAt(lv, slot);
+                locals[slot] = lv;
             }
             lv.addLocal(start, length, 
                         Identifier.lookup((String)
@@ -42,14 +43,10 @@ public class LocalVariableTable {
         readfromclass = true;
     }
 
-    public LocalVariable getLocal(int slot) 
-         throws ArrayOutOfBoundsException
+    public LocalVariableRangeList getLocal(int slot) 
+         throws ArrayIndexOutOfBoundsException
     {
-        LocalVariable lv = (LocalVariable)locals.elementAt(slot);
-        if (lv == null) {
-            lv = new LocalVariable(slot);
-            locals.setElementAt(lv, slot);
-        }
+        LocalVariableRangeList lv = locals[slot];
         return lv;
     }
 }

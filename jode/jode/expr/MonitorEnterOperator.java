@@ -2,8 +2,8 @@ package jode;
 import sun.tools.java.Type;
 
 public class MonitorEnterOperator extends SimpleOperator {
-    public MonitorEnterOperator(int a, int l) {
-        super(a,l, Type.tVoid, 0, 1);
+    public MonitorEnterOperator() {
+        super(Type.tVoid, 0, 1);
         operandTypes[0] = Type.tObject;
     }
 
@@ -15,7 +15,7 @@ public class MonitorEnterOperator extends SimpleOperator {
         return 0;
     }
 
-    public String toString(CodeAnalyzer ca, String[] operands) {
+    public String toString(String[] operands) {
         return "monitorenter "+operands[0];
     }
 }
