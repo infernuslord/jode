@@ -20,8 +20,20 @@
 package jode.obfuscator;
 import java.lang.reflect.Modifier;
 import jode.bytecode.*;
-import java.io.*;
-import java.util.*;
+///#ifdef JDK12
+///import java.util.Collection;
+///import java.util.Collections;
+///import java.util.Iterator;
+///import java.util.HashSet;
+///import java.util.Map;
+///#else
+import jode.util.Collection;
+import jode.util.Collections;
+import jode.util.Iterator;
+import jode.util.HashSet;
+import jode.util.Map;
+///#endif
+
 
 public class FieldIdentifier extends Identifier{
     FieldInfo info;
@@ -40,7 +52,7 @@ public class FieldIdentifier extends Identifier{
      * The FieldChangeListener that should be notified if a 
      * write to this field is found.
      */
-    private Vector fieldListeners = new Vector();
+    private Collection fieldListeners = new HashSet();
 
     public FieldIdentifier(ClassIdentifier clazz, FieldInfo info) {
 	super(info.getName());
@@ -60,7 +72,7 @@ public class FieldIdentifier extends Identifier{
 
     public void setSingleReachable() {
 	super.setSingleReachable();
-	clazz.bundle.analyzeIdentifier(this);
+	Main.getClassBundle().analyzeIdentifier(this);
     }
     
     public void analyze() {
@@ -68,8 +80,8 @@ public class FieldIdentifier extends Identifier{
 	int index = type.indexOf('L');
 	if (index != -1) {
 	    int end = type.indexOf(';', index);
-	    clazz.bundle.reachableIdentifier(type.substring(index+1, end),
-					     false);
+	    Main.getClassBundle().reachableIdentifier
+		(type.substring(index+1, end), false);
 	}
     }
 
@@ -92,6 +104,10 @@ public class FieldIdentifier extends Identifier{
     public String getType() {
 	return type;
     }
+    
+    public Iterator getChilds() {
+	return Collections.EMPTY_LIST.iterator();
+    }
 
     public boolean isNotConstant() {
 	return notConstant;
@@ -103,7 +119,7 @@ public class FieldIdentifier extends Identifier{
     
     public void addFieldListener(Identifier ident) {
 	if (!fieldListeners.contains(ident))
-	    fieldListeners.addElement(ident);
+	    fieldListeners.add(ident);
     }
 
     public void setNotConstant() {
@@ -111,9 +127,8 @@ public class FieldIdentifier extends Identifier{
 	    return;
 
 	notConstant = true;
-	Enumeration enum = fieldListeners.elements();
-	while (enum.hasMoreElements())
-	    clazz.bundle.analyzeIdentifier((Identifier) enum.nextElement());
+	for (Iterator i = fieldListeners.iterator(); i.hasNext(); )
+	    Main.getClassBundle().analyzeIdentifier((Identifier) i.next());
 	fieldListeners = null;
     }
 
@@ -121,7 +136,7 @@ public class FieldIdentifier extends Identifier{
 	return "FieldIdentifier "+getFullName()+"."+getType();
     }
 
-    public void readTable(Hashtable table) {
+    public void readTable(Map table) {
 	String alias = (String) table.get(getFullName() + "." + getType());
 	if (alias == null)
 	    alias = (String) table.get(getFullName());
@@ -129,27 +144,17 @@ public class FieldIdentifier extends Identifier{
 	    setAlias(alias);
     }
 
-    public void writeTable(Hashtable table) {
-	table.put(getFullAlias()
-		  + "." + clazz.bundle.getTypeAlias(getType()), getName());
+    public void writeTable(Map table) {
+	table.put(getFullAlias() + "." 
+		  + Main.getClassBundle().getTypeAlias(getType()), getName());
     }
 
-    public boolean conflicting(String newAlias, boolean strong) {
-	String typeSig = strong ? getType() : "";
-	if (clazz.containFieldAlias(newAlias, typeSig))
-	    return true;
-
-	Enumeration enum = clazz.knownSubClasses.elements();
-	while (enum.hasMoreElements()) {
-	    ClassIdentifier ci = (ClassIdentifier) enum.nextElement();
-	    if (ci.containsFieldAliasDirectly(newAlias, typeSig))
-		return true;
-	}
-	return false;
+    public boolean conflicting(String newAlias) {
+	return clazz.fieldConflicts(this, newAlias);
     }
 
     public void doTransformations() {
 	info.setName(getAlias());
-	info.setType(clazz.bundle.getTypeAlias(type));
+	info.setType(Main.getClassBundle().getTypeAlias(type));
     }
 }
