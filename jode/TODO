@@ -1,0 +1,29 @@
+This is a list of features, that would be nice to have:
+
+Decompiler:
+ - decompile inner classes correctly.
+ - deinline inlined methods.
+ - remove string decrypt method.
+ - remove synthetic methods if and only if all calls to them are resolved.
+
+Obfuscator:
+ - read options from a script.
+ - flow obfuscation/optimization.
+ - warn about Class.forName and list occurences.
+ - allow
+
+DeObfuscator:
+ - generate nice names:
+    - classes: derive name from super. 
+    - fields:  derive name from type.
+ - give synthetic methods the right attribute and name (e.g. class$)
+ - detect inner classes and give suitable names.
+ - detect "constant methods", this will also deobfuscate strings.
+ 
+User Interface:
+ - make a nice user interface:
+   - list classnames: toggable between class hierarchie/package hierarchie.
+   - list fields/method of selected class.
+   - show decompilation of selected method.
+   - show usage of method/fields.
+ - allow visual obfuscation/deobfuscation
