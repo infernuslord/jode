@@ -24,6 +24,7 @@ public class GetFieldOperator extends Operator {
     boolean staticFlag;
     CpoolRef field;
     CodeAnalyzer codeAnalyzer;
+    Type classType;
 
     public GetFieldOperator(CodeAnalyzer codeAnalyzer, boolean staticFlag, 
                             CpoolRef field) {
@@ -31,6 +32,9 @@ public class GetFieldOperator extends Operator {
         this.codeAnalyzer = codeAnalyzer;
         this.staticFlag = staticFlag;
         this.field = field;
+        classType = Type.tClass(field.getCpoolClass().getName().getString());
+        if (staticFlag)
+            classType.useType();
     }
 
     public int getPriority() {
@@ -42,41 +46,25 @@ public class GetFieldOperator extends Operator {
     }
 
     public int getOperandPriority(int i) {
-        if (staticFlag) {
-            /* shouldn't be called */
-            throw new RuntimeException("Field is static");
-        }
         return 900;
     }
 
     public Type getOperandType(int i) {
-        if (staticFlag) {
-            /* shouldn't be called */
-            throw new RuntimeException("Field is static");
-        }
-        return Type.tClass(field.getCpoolClass()
-                           .getName().getString());
+        return classType;
     }
 
     public void setOperandType(Type types[]) {
     }
 
     public String toString(String[] operands) {
-        String object;
-        if (staticFlag) {
-            if (field.getCpoolClass().getName().getString()
-                .equals(codeAnalyzer.getClazz().getName()))
-                return field.getNameAndType().getName().getString();
-            object = 
-                codeAnalyzer.getTypeString
-                (Type.tClass(field.getCpoolClass()
-                             .getName().getString())); 
-        } else {
-            if (operands[0].equals("this"))
-                return field.getNameAndType().getName().getString();
-            object = operands[0];
-        }
-        return object + "." + field.getNameAndType().getName().getString();
+        String fieldName = field.getNameAndType().getName().getString();
+        return staticFlag
+            ? (classType.equals(Type.tType(codeAnalyzer.getClazz()))
+               ? fieldName 
+               : classType.toString() + "." + fieldName)
+            : (operands[0].equals("this")
+               ? fieldName
+               : operands[0] + "." + fieldName);
     }
 
     public boolean equals(Object o) {
