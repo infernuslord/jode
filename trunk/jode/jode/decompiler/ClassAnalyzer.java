@@ -145,13 +145,13 @@ public class ClassAnalyzer implements Analyzer {
             writer.println("");
 	}
 	writer.untab();
-	writer.println("{");
+	writer.openBrace();
 	writer.tab();
 
 	for (int i=0; i< analyzers.length; i++)
 	    analyzers[i].dumpSource(writer);
 	writer.untab();
-	writer.println("}");
+	writer.closeBrace();
     }
 
     public ConstantPool getConstantPool() {
