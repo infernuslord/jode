@@ -61,20 +61,6 @@ public class Jump {
     }
 
     /**
-     * Returns true if this jump has jsr or monitorexit attachments.  
-     */
-    boolean hasAttachments() {
-        return false;
-    }
-
-    /**
-     * Returns a string describing the jsr or monitorexit attachments.  
-     */
-    String describeAttachments() {
-        return "";
-    }
-
-    /**
      * Print the source code for this structured block.  This handles
      * everything that is unique for all structured blocks and calls
      * dumpInstruction afterwards.
@@ -87,7 +73,6 @@ public class Jump {
             writer.println("gen : "+ gen.toString());
             writer.println("kill: "+ kill.toString());
         }
-        writer.println("Attachments: "+describeAttachments());
         if (destination == null)
             writer.println ("GOTO null-ptr!!!!!");
         else
