@@ -117,8 +117,9 @@ public class Type {
 							| IntegerType.IT_Z);
     public static final Type tBoolByte= new IntegerType(IntegerType.IT_B
 							| IntegerType.IT_Z);
-    public static final ClassInterfacesType tObject = tClass("java.lang.Object");
-    public static final ClassInterfacesType tNull   = new NullType();
+    public static final ClassInterfacesType tObject = 
+	tClass("java.lang.Object");
+    public static final ReferenceType tNull   = new NullType();
     public static final Type tUObject = tRange(tObject, tNull);
     public static final Type tString  = tClass("java.lang.String");
     public static final Type tStringBuffer = tClass("java.lang.StringBuffer");
@@ -179,8 +180,8 @@ public class Type {
         return result;
     }
 
-    public static final Type tRange(ClassInterfacesType bottom, 
-				    ClassInterfacesType top) {
+    public static final Type tRange(ReferenceType bottom, 
+				    ReferenceType top) {
         return new RangeType(bottom, top);
     }
 
@@ -253,67 +254,6 @@ public class Type {
         }
     }
 
-//      /**
-//       * Returns the common sub type of this and type.
-//       * @param type the other type.
-//       * @return the common sub type.
-//       */
-//      public Type getSpecializedType(Type type) {
-//          /*  tError  , x       -> tError
-//           *  tUnknown, x       -> x
-//           *  x       , x       -> x
-//           */
-//          return (this == tError || type == tError) ? tError
-//              :  (this == type || type == tUnknown) ? this
-//              :  (this == tUnknown)                 ? type
-//              : tError;
-//      }
-
-//      /**
-//       * Returns the common super type of this and type.
-//       * @param type the other type.
-//       * @return the common super type.
-//       */
-//      public Type getGeneralizedType(Type type) {
-//          /* Note that type can't be boolint/boolbyte  (set getBottom) */
-//          /*  tError  , x        -> tError
-//           *  tUnknown, x        -> x
-//           *  x       , x        -> x
-//           *  byte    , short    -> short
-//           */
-
-//          return (this == tError || type == tError) ? tError
-//              :  (this == type || type == tUnknown) ? this
-//              :  (this == tUnknown)                 ? type
-//              :     tError;
-//      }
-
-//      /**
-//       * Create the type corresponding to the range from bottomType to this.
-//       * @param bottomType the start point of the range
-//       * @return the range type, or tError if not possible.
-//       */
-//      public Type createRangeType(Type bottomType) {
-//          /* Note that this can't be tBoolByte or tBoolInt */
-//          /*  x       , tError   -> tError
-//           *  x       , x        -> x
-//           *  tUnknown, x        -> x
-//           *  object  , tUnknown -> <object, tUnknown>
-//           *  int     , tUnknown -> int
-//  	 *  x       , tUnknown -> x
-//           */
-
-//          return (this == tError || bottomType == tError) ? tError
-//              :  (this == bottomType)                     ? this
-//              :  (bottomType == tUnknown)                 ? this
-//              :  (this == tUnknown) 
-//              ?  ((bottomType.typecode == TC_ARRAY
-//  		 || bottomType.typecode == TC_CLASS)
-//  		? tRange(bottomType, this) 
-//  		: bottomType)
-//  	    :      tError;
-//      }
-
     /**
      * Intersect this type with another type and return the new type.
      * @param type the other type.
@@ -326,8 +266,9 @@ public class Type {
 	    return type;
 	if (type == tUnknown || this == type)
 	    return this;
-	Decompiler.err.println("intersecting "+ this +" and "+ type
-			       + " to <error>");
+	if (Decompiler.isTypeDebugging)
+	    Decompiler.err.println("intersecting "+ this +" and "+ type
+				   + " to <error>");
 	return tError;
     }
 
@@ -361,7 +302,7 @@ public class Type {
      * @return true if this is the case.
      */
     public boolean isOfType(Type type) {
-	return (this == tUnknown || (this == type && this != tError));
+	return this.intersection(type) != Type.tError;
     }
 
     /**
