@@ -388,10 +388,10 @@ public class Main extends Options {
 		     */
 		    ClassPath zipClassPath
 			= new ClassPath(params[i], classPath);
-		    Enumeration enum = new ZipFile(params[i]).entries();
-		    while (enum.hasMoreElements()) {
+		    Enumeration enumeration = new ZipFile(params[i]).entries();
+		    while (enumeration.hasMoreElements()) {
 			String entry
-			    = ((ZipEntry) enum.nextElement()).getName();
+			    = ((ZipEntry) enumeration.nextElement()).getName();
 			if (entry.endsWith(".class")) {
 			    entry = entry.substring(0, entry.length() - 6)
 				.replace('/', '.');

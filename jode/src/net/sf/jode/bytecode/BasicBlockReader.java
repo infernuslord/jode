@@ -1003,10 +1003,10 @@ class BasicBlockReader implements Opcodes {
 		    && instr.getOpcode() <= opc_astore)
 		    addr = infos[i].nextAddr;
 
-		Enumeration enum = lvt[slot].elements();
+		Enumeration enumeration = lvt[slot].elements();
 		LVTEntry match = null;
-		while (enum.hasMoreElements()) {
-		    LVTEntry lve = (LVTEntry) enum.nextElement();
+		while (enumeration.hasMoreElements()) {
+		    LVTEntry lve = (LVTEntry) enumeration.nextElement();
 		    if (lve.start <= addr && lve.end > addr) {
 			if (match != null
 			    && (!match.name.equals(lve.name)
@@ -1028,10 +1028,10 @@ class BasicBlockReader implements Opcodes {
 	for (int slot=0; slot< paramCount; slot++) {
 	    if (lvt[slot] == null)
 		continue;
-	    Enumeration enum = lvt[slot].elements();
+	    Enumeration enumeration = lvt[slot].elements();
 	    LVTEntry match = null;
-	    while (enum.hasMoreElements()) {
-		LVTEntry lve = (LVTEntry) enum.nextElement();
+	    while (enumeration.hasMoreElements()) {
+		LVTEntry lve = (LVTEntry) enumeration.nextElement();
 		if (lve.start == 0) {
 		    if (match != null
 			&& (!match.name.equals(lve.name)

@@ -128,10 +128,10 @@ public class HierarchyTreeModel implements TreeModel, Runnable {
 	if (depth++ >= MAX_PACKAGE_LEVEL)
 	    return count;
 	String prefix = packageName.length() == 0 ? "" : packageName + ".";
-	Enumeration enum = classPath.listClassesAndPackages(packageName);
-	while (enum.hasMoreElements()) {
+	Enumeration enumeration = classPath.listClassesAndPackages(packageName);
+	while (enumeration.hasMoreElements()) {
 	    //insert sorted and remove double elements;
-	    String name = (String)enum.nextElement();
+	    String name = (String)enumeration.nextElement();
 	    String fqn = prefix + name;
 	    if (classPath.isPackage(fqn)) {
 		count = readPackage(depth, classes, fqn, count);
@@ -153,10 +153,10 @@ public class HierarchyTreeModel implements TreeModel, Runnable {
 	    return 0;
 	int number = 0;
 	String prefix = packageName.length() == 0 ? "" : packageName + ".";
-	Enumeration enum = classPath.listClassesAndPackages(packageName);
-	while (enum.hasMoreElements()) {
+	Enumeration enumeration = classPath.listClassesAndPackages(packageName);
+	while (enumeration.hasMoreElements()) {
 	    //insert sorted and remove double elements;
-	    String name = (String)enum.nextElement();
+	    String name = (String)enumeration.nextElement();
 	    String fqn = prefix + name;
 	    if (classPath.isPackage(fqn)) {
 		number += countClasses(depth, fqn);

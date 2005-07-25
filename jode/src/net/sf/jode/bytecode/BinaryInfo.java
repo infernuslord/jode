@@ -106,7 +106,7 @@ public class BinaryInfo {
      */
     public static int ACC_VARARGS    = 0x0080;
     /**
-     * The bit mask representing enum fields.
+     * The bit mask representing enumeration fields.
      */
     public static int ACC_ENUM       = 0x0100;
     /**

@@ -153,10 +153,10 @@ public class LocalInfo implements Declarable {
 	
 	boolean needTypeUpdate = !shadow.type.equals(type);
 	
-	java.util.Enumeration enum = operators.elements();
-	while (enum.hasMoreElements()) {
+	java.util.Enumeration enumeration = operators.elements();
+	while (enumeration.hasMoreElements()) {
 	    LocalVarOperator lvo = 
-		(LocalVarOperator) enum.nextElement();
+		(LocalVarOperator) enumeration.nextElement();
 	    if (needTypeUpdate) {
 		if ((GlobalOptions.debuggingFlags 
 		     & GlobalOptions.DEBUG_TYPES) != 0)
@@ -166,9 +166,9 @@ public class LocalInfo implements Declarable {
 	    shadow.operators.addElement(lvo);
 	}
 	
-	enum = hints.elements();
-	while (enum.hasMoreElements()) {
-	    Object hint = enum.nextElement();
+	enumeration = hints.elements();
+	while (enumeration.hasMoreElements()) {
+	    Object hint = enumeration.nextElement();
 	    if (!shadow.hints.contains(hint))
 		shadow.hints.addElement(hint);
 	}
@@ -209,9 +209,9 @@ public class LocalInfo implements Declarable {
             return shadow.guessName();
         }
 	if (name == null) {
-	    Enumeration enum = hints.elements();
-	    while (enum.hasMoreElements()) {
-		Hint hint = (Hint) enum.nextElement();
+	    Enumeration enumeration = hints.elements();
+	    while (enumeration.hasMoreElements()) {
+		Hint hint = (Hint) enumeration.nextElement();
 		if (type.isOfType(hint.getType())) {
 		    name = hint.getName();
 		    setType(hint.getType());
@@ -325,9 +325,9 @@ public class LocalInfo implements Declarable {
 
         if (!li.type.equals(newType)) {
             li.type = newType;
-            java.util.Enumeration enum = li.operators.elements();
-            while (enum.hasMoreElements()) {
-                LocalVarOperator lvo = (LocalVarOperator) enum.nextElement();
+            java.util.Enumeration enumeration = li.operators.elements();
+            while (enumeration.hasMoreElements()) {
+                LocalVarOperator lvo = (LocalVarOperator) enumeration.nextElement();
                 if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_TYPES) != 0)
                     GlobalOptions.err.println("updating "+lvo);
                 lvo.updateType();
@@ -365,10 +365,10 @@ public class LocalInfo implements Declarable {
 
     public boolean isConstant() {
 	LocalInfo li = getLocalInfo();
-	Enumeration enum = li.operators.elements();
+	Enumeration enumeration = li.operators.elements();
 	int writes = 0;
-	while (enum.hasMoreElements()) {
-	    if (((LocalVarOperator) enum.nextElement()).isWrite())
+	while (enumeration.hasMoreElements()) {
+	    if (((LocalVarOperator) enumeration.nextElement()).isWrite())
 		writes++;
 	}
 	if (writes > 1)
@@ -382,10 +382,10 @@ public class LocalInfo implements Declarable {
 
     public boolean markFinal() {
 	LocalInfo li = getLocalInfo();
-	Enumeration enum = li.operators.elements();
+	Enumeration enumeration = li.operators.elements();
 	int writes = 0;
-	while (enum.hasMoreElements()) {
-	    if (((LocalVarOperator) enum.nextElement()).isWrite())
+	while (enumeration.hasMoreElements()) {
+	    if (((LocalVarOperator) enumeration.nextElement()).isWrite())
 		writes++;
 	}
 	/* FIXME: Check if declaring final is okay */

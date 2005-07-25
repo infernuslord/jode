@@ -633,9 +633,9 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
      */
     public void makeDeclaration(Set done) {
 	if (innerAnalyzers != null) {
-	    for (Enumeration enum = innerAnalyzers.elements();
-		 enum.hasMoreElements(); ) {
-		ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    for (Enumeration enumeration = innerAnalyzers.elements();
+		 enumeration.hasMoreElements(); ) {
+		ClassAnalyzer classAna = (ClassAnalyzer) enumeration.nextElement();
 		if (classAna.getParent() == this) {
 		    OuterValues innerOV = classAna.getOuterValues();
 		    for (int i=0; i < innerOV.getCount(); i++) {
@@ -651,9 +651,9 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    }
 	}
 
-        for (Enumeration enum = allLocals.elements();
-	     enum.hasMoreElements(); ) {
-            LocalInfo li = (LocalInfo)enum.nextElement();
+        for (Enumeration enumeration = allLocals.elements();
+	     enumeration.hasMoreElements(); ) {
+            LocalInfo li = (LocalInfo)enumeration.nextElement();
             if (!li.isShadow())
                 imports.useType(li.getType());
         }
@@ -915,9 +915,9 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
      * exists.
      */
     public LocalInfo findLocal(String name) {
-        Enumeration enum = allLocals.elements();
-        while (enum.hasMoreElements()) {
-            LocalInfo li = (LocalInfo) enum.nextElement();
+        Enumeration enumeration = allLocals.elements();
+        while (enumeration.hasMoreElements()) {
+            LocalInfo li = (LocalInfo) enumeration.nextElement();
             if (li.getName().equals(name))
                 return li;
         }
@@ -932,9 +932,9 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
      */
     public ClassAnalyzer findAnonClass(String name) {
 	if (innerAnalyzers != null) {
-	    Enumeration enum = innerAnalyzers.elements();
-	    while (enum.hasMoreElements()) {
-		ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    Enumeration enumeration = innerAnalyzers.elements();
+	    while (enumeration.hasMoreElements()) {
+		ClassAnalyzer classAna = (ClassAnalyzer) enumeration.nextElement();
 		if (classAna.getParent() == this
 		    && classAna.getName() != null
 		    && classAna.getName().equals(name)) {
@@ -1089,9 +1089,9 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
      */
     public ClassAnalyzer getClassAnalyzer(ClassInfo cinfo) {
 	if (innerAnalyzers != null) {
-	    Enumeration enum = innerAnalyzers.elements();
-	    while (enum.hasMoreElements()) {
-		ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    Enumeration enumeration = innerAnalyzers.elements();
+	    while (enumeration.hasMoreElements()) {
+		ClassAnalyzer classAna = (ClassAnalyzer) enumeration.nextElement();
 		if (classAna.getClazz().equals(cinfo)) {
 		    if (classAna.getParent() != this) {
 			ClassDeclarer declarer = classAna.getParent();
@@ -1124,9 +1124,9 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	if (usedAnalyzers != null)
 	    used.addAll(usedAnalyzers);
 	if (innerAnalyzers != null) {
-	    Enumeration enum = innerAnalyzers.elements();
-	    while (enum.hasMoreElements()) {
-		ClassAnalyzer classAna = (ClassAnalyzer) enum.nextElement();
+	    Enumeration enumeration = innerAnalyzers.elements();
+	    while (enumeration.hasMoreElements()) {
+		ClassAnalyzer classAna = (ClassAnalyzer) enumeration.nextElement();
 		if (classAna.getParent() == this)
 		    classAna.fillDeclarables(used);
 	    }
