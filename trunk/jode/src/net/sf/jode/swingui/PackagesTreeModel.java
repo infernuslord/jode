@@ -122,11 +122,11 @@ public class PackagesTreeModel implements TreeModel {
 	if (result == null) {
 	    TreeSet v = new TreeSet();
 	    String prefix = parent == root ? "" : parent.getFullName() + ".";
-	    Enumeration enum
+	    Enumeration enumeration
 		= classPath.listClassesAndPackages(parent.getFullName());
-	    while (enum.hasMoreElements()) {
+	    while (enumeration.hasMoreElements()) {
 		//insert sorted and remove double elements;
-		String name = (String)enum.nextElement();
+		String name = (String)enumeration.nextElement();
 		String fqn = prefix + name;
 		boolean isClass = !classPath.isPackage(fqn);
 

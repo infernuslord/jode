@@ -942,29 +942,29 @@ public class ClassPath  {
     public Enumeration listFiles(final String dirName) {
 	return new Enumeration() {
 	    int i = 0;
-	    Enumeration enum;
+	    Enumeration enumeration;
 
 	    public boolean hasMoreElements() {
 		while (true) {
-		    while (enum == null && i < paths.length) {
+		    while (enumeration == null && i < paths.length) {
 			if (paths[i] != null && paths[i].exists(dirName)
 			    && paths[i].isDirectory(dirName))
-			    enum = paths[i].listFiles(dirName);
+			    enumeration = paths[i].listFiles(dirName);
 			i++;
 		    }
 
-		    if (enum == null)
+		    if (enumeration == null)
 			return false;
-		    if (enum.hasMoreElements())
+		    if (enumeration.hasMoreElements())
 			return true;
-		    enum = null;
+		    enumeration = null;
 		}
 	    }
 
 	    public Object nextElement() {
 		if (!hasMoreElements())
 		    return new NoSuchElementException();
-		return enum.nextElement();
+		return enumeration.nextElement();
 	    }
 	};
     }
@@ -977,14 +977,14 @@ public class ClassPath  {
      */
     public Enumeration listClassesAndPackages(String packageName) {
 	String dir = packageName.replace('.','/');
-        final Enumeration enum = listFiles(dir);
+        final Enumeration enumeration = listFiles(dir);
 	final String prefix = dir.length() > 0 ? dir + "/" : dir;
         return new Enumeration() {
 	    String next = getNext();
 	    
 	    private String getNext() {
-		while (enum.hasMoreElements()) {
-		    String name = (String) enum.nextElement();
+		while (enumeration.hasMoreElements()) {
+		    String name = (String) enumeration.nextElement();
 		    if (name.indexOf('.') == -1
 			&& isDirectory(prefix + name))
 			// This is a package

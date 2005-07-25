@@ -424,9 +424,9 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 	if (v2 == null || v2.isEmpty())
 	    return v1;
 	Vector result = (Vector) v1.clone();
-	Enumeration enum = v2.elements();
-	while (enum.hasMoreElements()) {
-	    Object elem = enum.nextElement();
+	Enumeration enumeration = v2.elements();
+	while (enumeration.hasMoreElements()) {
+	    Object elem = enumeration.nextElement();
 	    if (!result.contains(elem))
 		result.addElement(elem);
 	}
@@ -594,9 +594,9 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 	/* Find the local with the least conflicts. */
 	int min = Integer.MAX_VALUE;
 	LocalInfo bestLocal = null;
-	Enumeration enum = locals.elements();
-	while (enum.hasMoreElements()) {
-	    LocalInfo li = (LocalInfo) enum.nextElement();
+	Enumeration enumeration = locals.elements();
+	while (enumeration.hasMoreElements()) {
+	    LocalInfo li = (LocalInfo) enumeration.nextElement();
 	    int conflicts = 0;
 	    Enumeration conflenum = li.conflictingLocals.elements();
 	    while (conflenum.hasMoreElements()) {
@@ -741,9 +741,9 @@ public class LocalOptimizer implements Opcodes, CodeTransformer {
 	    if (info.local != null && !locals.contains(info.local))
 		locals.addElement(info.local);
 	}
-//  	Enumeration enum = locals.elements();
-//  	while (enum.hasMoreElements()) {
-//  	    LocalInfo li = (LocalInfo) enum.nextElement();
+//  	Enumeration enumeration = locals.elements();
+//  	while (enumeration.hasMoreElements()) {
+//  	    LocalInfo li = (LocalInfo) enumeration.nextElement();
 //  	    int slot = ((InstrInfo)li.usingInstrs.elementAt(0))
 //  		.instr.getLocalSlot();
 //  	    GlobalOptions.err.print("Slot: "+slot+" conflicts:");

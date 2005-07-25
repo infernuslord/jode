@@ -363,9 +363,9 @@ public class OuterValues
 	}
 
 	if (ovListeners != null) {
-	    for (Enumeration enum = ovListeners.elements();
-		 enum.hasMoreElements();)
-		((OuterValueListener) enum.nextElement()
+	    for (Enumeration enumeration = ovListeners.elements();
+		 enumeration.hasMoreElements();)
+		((OuterValueListener) enumeration.nextElement()
 		 ).shrinkingOuterValues(this, newHeadCount);
 	}
     }

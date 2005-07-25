@@ -85,9 +85,9 @@ public abstract class ReferenceType extends Type {
 		/* tObject is always implied. */
 		continue type_loop;
 
-	    for (Enumeration enum = classes.elements(); 
-		 enum.hasMoreElements(); ) {
-		if (type.isSubTypeOf((Type) enum.nextElement()))
+	    for (Enumeration enumeration = classes.elements(); 
+		 enumeration.hasMoreElements(); ) {
+		if (type.isSubTypeOf((Type) enumeration.nextElement()))
 		    /* We can skip this, as another class already
 		     * implies it.  */
 		    continue type_loop;

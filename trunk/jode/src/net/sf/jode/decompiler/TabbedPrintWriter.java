@@ -152,16 +152,16 @@ public class TabbedPrintWriter {
 	    String parens = "{\010{}\010}<\010<>\010>[\010[]\010]`\010`'\010'"
 		.substring(options*6, options*6+6);
 	    pw.print(parens.substring(0,3));
-	    Enumeration enum = childBPs.elements();
+	    Enumeration enumeration = childBPs.elements();
 	    int cur = startPos;
-	    BreakPoint child = (BreakPoint) enum.nextElement();
+	    BreakPoint child = (BreakPoint) enumeration.nextElement();
 	    if (child.startPos >= 0) {
 		pw.print(line.substring(cur, child.startPos));
 		child.dumpRegion(line);
 		cur = child.endPos;
 	    }
-	    while (enum.hasMoreElements()) {
-		child = (BreakPoint) enum.nextElement();
+	    while (enumeration.hasMoreElements()) {
+		child = (BreakPoint) enumeration.nextElement();
 		pw.print(line.substring(cur, child.breakPos));
 		pw.print("!\010!"+breakPenalty);
 		cur = child.breakPos;
@@ -191,9 +191,9 @@ public class TabbedPrintWriter {
 		indent++;
 	    }
 
-	    Enumeration enum = childBPs.elements();
+	    Enumeration enumeration = childBPs.elements();
 	    int cur = startPos;
-	    BreakPoint child = (BreakPoint) enum.nextElement();
+	    BreakPoint child = (BreakPoint) enumeration.nextElement();
 	    if (child.startPos >= 0) {
 		pw.print(line.substring(cur, child.startPos));
 		child.printRegion(indent + child.startPos - cur, line);
@@ -202,8 +202,8 @@ public class TabbedPrintWriter {
 	    if (options == NO_PAREN)
 		indent += indentsize;
 	    String indentStr = makeIndentStr(indent);
-	    while (enum.hasMoreElements()) {
-		child = (BreakPoint) enum.nextElement();
+	    while (enumeration.hasMoreElements()) {
+		child = (BreakPoint) enumeration.nextElement();
 		pw.print(line.substring(cur, child.breakPos));
 		pw.println();
 		pw.print(indentStr);
@@ -311,14 +311,14 @@ public class TabbedPrintWriter {
 		lastSpace -= 2;
 	    }
 
-	    Enumeration enum = childBPs.elements();
+	    Enumeration enumeration = childBPs.elements();
 	    childBPs = new Vector();
 	    int currInd = 0;
 	    BreakPoint lastChild, nextChild;
 	    boolean indentNext = options == NO_PAREN;
-	    for (lastChild = (BreakPoint) enum.nextElement();
-		 enum.hasMoreElements(); lastChild = nextChild) {
-		nextChild = (BreakPoint) enum.nextElement();
+	    for (lastChild = (BreakPoint) enumeration.nextElement();
+		 enumeration.hasMoreElements(); lastChild = nextChild) {
+		nextChild = (BreakPoint) enumeration.nextElement();
 		int childStart = lastChild.breakPos;
 		int childEnd = nextChild.breakPos;
 
@@ -384,12 +384,12 @@ public class TabbedPrintWriter {
 	    }
 	    if (space < 0)
 		return minPenalty;
-	    Enumeration enum = childBPs.elements();
+	    Enumeration enumeration = childBPs.elements();
 	    BreakPoint lastChild, nextChild;
 	    boolean indentNext = options == NO_PAREN;
-	    for (lastChild = (BreakPoint) enum.nextElement();
-		 enum.hasMoreElements(); lastChild = nextChild) {
-		nextChild = (BreakPoint) enum.nextElement();
+	    for (lastChild = (BreakPoint) enumeration.nextElement();
+		 enumeration.hasMoreElements(); lastChild = nextChild) {
+		nextChild = (BreakPoint) enumeration.nextElement();
 		int childStart = lastChild.breakPos;
 		int childEnd = nextChild.breakPos;
 
