@@ -231,7 +231,8 @@ public class SyntheticAnalyzer implements Opcodes {
 	    }
 	    FieldInfo refField
 		= refClazz.findField(ref.getName(), ref.getType());
-	    if ((refField.getModifiers() & modifierMask) != 0)
+	    if (refField == null
+		|| (refField.getModifiers() & modifierMask) != 0)
 		return false;
 	    if (!iter.hasNext())
 		return false;
@@ -274,7 +275,8 @@ public class SyntheticAnalyzer implements Opcodes {
 	    }
 	    FieldInfo refField
 		= refClazz.findField(ref.getName(), ref.getType());
-	    if ((refField.getModifiers() & modifierMask) != 0)
+	    if (refField == null 
+		|| (refField.getModifiers() & modifierMask) != 0)
 		return false;
 	    if (dupSeen) {
 		if (!iter.hasNext())
