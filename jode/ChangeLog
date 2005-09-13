@@ -1,3 +1,12 @@
+2005-09-13  Jochen Hoenicke  <jochen@gnu.org>
+
+	Check for NullPointer in SyntheticAnalyzer.  Based on
+	patch suggessted by Peter Klauser (klp at users.sf.net).
+
+	* src/net/sf/jode/jvm/SyntheticAnalyzer.java:
+	(checkStaticAccess): Check refField for null pointer.
+	(checkAccess): Likewise.
+
 2004-08-06  Jochen Hoenicke  <hoenicke@marge.Informatik.Uni-Oldenburg.DE>
 
 	* src/net/sf/jode/bytecode/BinaryInfo.java (ACC_*): added 
