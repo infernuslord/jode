@@ -164,7 +164,8 @@ public class TransformConstructors {
 
         for (int i=0; i< type01Count; ) {
 	    MethodAnalyzer current = cons[i];
-	    if ((Options.options & Options.OPTION_CONTRAFO) != 0
+	    if (!isStatic
+		&& (Options.options & Options.OPTION_CONTRAFO) != 0
 		&& clazzAnalyzer.getOuterInstance() != null)
 		current.getParamInfo(1).setExpression
 		    (clazzAnalyzer.getOuterInstance());
