@@ -1,3 +1,10 @@
+2005-10-14  Jochen Hoenicke  <jochen@gnu.org>
+
+	* src/net/sf/jode/flow/TransformConstructor.java:
+	(lookForConstructorCall) Check for isStatic before setting
+	outer $this reference 
+	(reported by Andreas Salathé, bug #1306688)
+
 2005-09-13  Jochen Hoenicke  <jochen@gnu.org>
 
 	Check for NullPointer in SyntheticAnalyzer.  Based on
