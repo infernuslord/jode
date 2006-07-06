@@ -18,21 +18,22 @@ packages are already included in the archive. </li>
 without any other package.</li> </ul>
 </section>
 
-<section title="CVS Repository">
-<p>You can get the latest sources from the <sflink href="cvs/"> CVS
-repository</a>.  Follow the instruction on that page; use
-<code>jode</code> as <i>modulename</i>.  If you want to checkout a
-specific version you can use the <code>-r</code> option:</p> 
+<section title="Subversion Repository">
+
+ <p>You can get the latest sources from the <a
+href="http://sourceforge.net/svn/?group_id=3790">SVN repository</a>.
+Follow the instruction on that page; use
+<code>/svnroot/jode/trunk/jode</code> as last part of the URL.  If you
+want to checkout a specific version you can checkout the URL
+<code>.../svnroot/jode/tags/xxx/jode</code>:</p>
 
 <ul>
-<li><code>-r jode_1_0_93</code>: checks out the version 1.0.93</li>
-<li><code>-r branch_1_1</code>: checks out the latest version in the
+<li><code>../jode/tags/jode_1_0_93/jode</code>: checks out the version 1.0.93</li>
+<li><code>../jode/branches/branch_1_1/jode</code>: checks out the latest version in the
 1.1 series.</li> </ul>
 
-<p>To build the sources from CVS change to the main directory where
-the <code>configure.in</code> file resides and run
-
+<p>To build the sources from latest SVN change to the main directory and invoke ant.</p>
+<p>To build the 1.1 versions of jode change to the main directory and run
 <pre>aclocal && automake -a && autoconf</pre>
-
 <p>Afterwards follow the instruction in the INSTALL file.  </p>
 </section>
