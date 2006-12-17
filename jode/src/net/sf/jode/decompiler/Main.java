@@ -53,6 +53,7 @@ public class Main extends Options {
 	new LongOpt("debug", LongOpt.OPTIONAL_ARGUMENT, null, 'D'),
 	new LongOpt("import", LongOpt.REQUIRED_ARGUMENT, null, 'i'),
 	new LongOpt("style", LongOpt.REQUIRED_ARGUMENT, null, 's'),
+	new LongOpt("chars-per-line", LongOpt.REQUIRED_ARGUMENT, null, 'l'),
 	new LongOpt("lvt", LongOpt.OPTIONAL_ARGUMENT, null, 
 		    OPTION_START+0),
 	new LongOpt("inner", LongOpt.OPTIONAL_ARGUMENT, null, 
@@ -94,8 +95,10 @@ public class Main extends Options {
 		    "The directories should be separated by ','.");
 	err.println("  -d, --dest <dir>     "+
 		    "write decompiled files to disk into directory destdir.");
-	err.println("  -s, --style {sun|gnu}  "+
+	err.println("  -s, --style {sun|gnu|pascal|python}  "+
 		    "specify indentation style");
+	err.println("  -l, --chars-per-line <number>  "+
+		    "specify line length");
 	err.println("  -i, --import <pkglimit>,<clslimit>");
 	err.println("                       "+
 		    "import classes used more than clslimit times");
@@ -250,12 +253,13 @@ public class Main extends Options {
         int importClassLimit = ImportHandler.DEFAULT_CLASS_LIMIT;;
 	int outputStyle = TabbedPrintWriter.BRACE_AT_EOL;
 	int indentSize = 4;
+        int outputLineLength = 79;
 	boolean keepGoing = false;
 
 	GlobalOptions.err.println(GlobalOptions.copyright);
 
 	boolean errorInParams = false;
-	Getopt g = new Getopt("net.sf.jode.decompiler.Main", params, "hVvkc:d:D:i:s:",
+	Getopt g = new Getopt("net.sf.jode.decompiler.Main", params, "hVvkc:d:D:i:s:l:",
 			      longOptions, true);
 	for (int opt = g.getopt(); opt != -1; opt = g.getopt()) {
 	    switch(opt) {
@@ -309,9 +313,12 @@ public class Main extends Options {
 		} else if (arg.equals("sun")) {
 		    outputStyle = TabbedPrintWriter.BRACE_AT_EOL;
 		    indentSize = 4;
-		} else if (arg.equals("pascal")) {
-		    outputStyle = 0;
-		    indentSize = 4;
+                } else if (arg.equals("pascal")) {
+                    outputStyle = 0;
+                    indentSize = 4;
+                } else if (arg.equals("python") || arg.equals("codd")) {
+                    outputStyle = TabbedPrintWriter.BRACE_AT_EOL|TabbedPrintWriter.CODD_FORMATTING;
+                    indentSize = 4;
 		} else {
 		    GlobalOptions.err.println
 			("net.sf.jode.decompiler.Main: Unknown style `"+arg+"'.");
@@ -319,6 +326,18 @@ public class Main extends Options {
 		}
 		break;
 	    }
+            case 'l': {
+                String arg = g.getOptarg();
+                try {
+                    outputLineLength = Integer.parseInt(arg.trim());
+                }
+                catch (RuntimeException rte) {
+                    GlobalOptions.err.println(
+                        "net.sf.jode.decompiler.Main: Invalid Linelength " + arg);
+                    errorInParams = true;
+                }
+                break;
+            }
 	    case 'i': {
 		String arg = g.getOptarg();
 		int comma = arg.indexOf(',');
@@ -365,7 +384,7 @@ public class Main extends Options {
 	TabbedPrintWriter writer = null;
 	if (destDir == null)
 	    writer = new TabbedPrintWriter(System.out, imports, true,
-					   outputStyle, indentSize, 0, 79);
+					   outputStyle, indentSize, 0, outputLineLength);
 	else if (destDir.toLowerCase().endsWith(".zip")
 		 || destDir.toLowerCase().endsWith(".jar")) {
 	    try {
@@ -377,7 +396,7 @@ public class Main extends Options {
 	    }
 	    writer = new TabbedPrintWriter(new BufferedOutputStream(destZip), 
 					   imports, false,
-					   outputStyle, indentSize, 0, 79);
+					   outputStyle, indentSize, 0, outputLineLength);
 	}
         for (int i= g.getOptind(); i< params.length; i++) {
 	    try {

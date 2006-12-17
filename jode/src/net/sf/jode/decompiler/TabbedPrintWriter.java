@@ -42,6 +42,7 @@ public class TabbedPrintWriter {
     public static final int BRACE_AT_EOL     = 0x10;
     public static final int INDENT_BRACES    = 0x20;
     public static final int GNU_SPACING      = 0x40;
+    public static final int CODD_FORMATTING =  0x80; // allow trailing CLOSING braces as well
 
     /**
      * This string contains a few tab characters followed by tabWidth - 1
@@ -72,19 +73,18 @@ public class TabbedPrintWriter {
 	indent -= tabs * tabWidth;
 	if (tabs <= FASTINDENT) {
 	    /* The fast way. */
-	    return tabSpaceString.substring(FASTINDENT - tabs, 
+	    return tabSpaceString.substring(FASTINDENT - tabs,
 					    FASTINDENT + indent);
-	} else {
-	    /* the not so fast way */
-	    StringBuffer sb = new StringBuffer(tabs + indent);
-	    while (tabs > FASTINDENT) {
-		sb.append(tabSpaceString.substring(0, FASTINDENT));
-		tabs -= 20;
-	    }
-	    sb.append(tabSpaceString.substring(FASTINDENT - tabs, 
-					       FASTINDENT + indent));
-	    return sb.toString();
-	} 
+	}
+	/* the not so fast way */
+	StringBuffer sb = new StringBuffer(tabs + indent);
+        while (tabs > FASTINDENT) {
+	    sb.append(tabSpaceString.substring(0, FASTINDENT));
+	    tabs -= 20;
+	}
+	sb.append(tabSpaceString.substring(FASTINDENT - tabs,
+					   FASTINDENT + indent)); 
+	return sb.toString();
     }
 
     class BreakPoint {
@@ -460,7 +460,10 @@ public class TabbedPrintWriter {
     public TabbedPrintWriter (OutputStream os, ImportHandler imports,
 			      boolean autoFlush, int style,
 			      int indentSize, int tabWidth, int lineWidth) {
-	pw = new PrintWriter(os, autoFlush);
+        if ((style & CODD_FORMATTING) != 0)
+            pw = new PrintWriter(new NlRemover(new OutputStreamWriter(os), tabWidth), autoFlush);
+        else
+            pw = new PrintWriter(os, autoFlush);
 	this.imports = imports;
 	this.style = style;
 	this.indentsize = indentSize;
@@ -469,10 +472,11 @@ public class TabbedPrintWriter {
 	init();
     }
 
-    public TabbedPrintWriter (Writer os, ImportHandler imports, 
-			      boolean autoFlush, int style,
-			      int indentSize, int tabWidth, int lineWidth) {
-	pw = new PrintWriter(os, autoFlush);
+    public TabbedPrintWriter (Writer os, ImportHandler imports, boolean autoFlush, int style, int indentSize, int tabWidth, int lineWidth) {
+        if ((style & CODD_FORMATTING) != 0)
+            pw = new PrintWriter(new NlRemover(os, tabWidth), autoFlush);
+        else {
+            pw = new PrintWriter(os, autoFlush); }
 	this.imports = imports;
 	this.style = style;
 	this.indentsize = indentSize;
@@ -492,19 +496,19 @@ public class TabbedPrintWriter {
     }
 
     public TabbedPrintWriter (OutputStream os, ImportHandler imports) {
-	this(os, imports, true, BRACE_AT_EOL, 4, 8, 79);
+	this(os, imports, true);
     }
 
     public TabbedPrintWriter (Writer os, ImportHandler imports) {
-	this(os, imports, true, BRACE_AT_EOL, 4, 8, 79);
+	this(os, imports, true);
     }
 
     public TabbedPrintWriter (OutputStream os) {
-	this(os, null, true, BRACE_AT_EOL, 4, 8, 79);
+	this(os, null);
     }
 
     public TabbedPrintWriter (Writer os) {
-	this(os, null, true, BRACE_AT_EOL, 4, 8, 79);
+	this(os, null);
     }
 
     private void init() {
@@ -516,7 +520,7 @@ public class TabbedPrintWriter {
 
     private void initTabString() {
 	char tabChar = '\t';
-	if (tabWidth == 0) {
+	if (tabWidth <= 1) {
 	    /* If tabWidth is 0 use spaces instead of tabs. */
 	    tabWidth = 1;
 	    tabChar = ' ';
@@ -690,8 +694,7 @@ public class TabbedPrintWriter {
 
 	    if (scope != null)
 		return "NAME CONFLICT " + className;
-	    else
-		return "UNREACHABLE " + className;
+	    return "UNREACHABLE " + className;
 	}
 	if (imports != null) {
 	    String importedName = imports.getClassString(clazz);
@@ -791,7 +794,7 @@ public class TabbedPrintWriter {
     }
 
     public void closeBraceContinue() {
-	if ((style & BRACE_AT_EOL) != 0)
+	if ((style & (BRACE_AT_EOL|CODD_FORMATTING)) == BRACE_AT_EOL)
 	    print("} ");
 	else
 	    println("}");
@@ -821,5 +824,81 @@ public class TabbedPrintWriter {
     public void close() {
 	flushLine();
 	pw.close();
+    }
+}
+
+
+class NlRemover extends Writer {
+    private int tabWidth;
+    private Writer out;
+    private int pendingNL;
+    private boolean lastWasClBr;
+    private int pendingSpace;
+
+    public NlRemover(Writer to, int tabWidth) {
+	this.out = to; 
+	this.tabWidth = tabWidth; }
+
+    public void close() throws IOException {
+	if (out != null) {
+	    while (pendingNL > 0) {
+		out.write('\n');
+		pendingNL--;
+	    }
+	    out.close();
+	    out = null;
+	}
+    }
+
+    public void flush() throws IOException {
+	if (out != null)
+	    out.flush();
+    }
+
+    public void write(int x) throws IOException  {
+	switch ((char)x) {
+
+	case '}':
+	    if (! lastWasClBr && pendingSpace > 0)
+		out.write(' ');
+	    out.write('}');
+		pendingSpace = 0;
+		pendingNL = 0;
+		lastWasClBr = true;
+		return;
+	case '\r':
+	    pendingSpace = 0;
+	    return;
+	case '\n':
+	    if (pendingNL > 0) {
+		out.write('\n'); }
+	    else
+		pendingNL++;
+	    pendingSpace = 0;
+	    return;
+	case '\t':
+	    pendingSpace = (pendingSpace + tabWidth) / tabWidth * tabWidth;
+	    return;
+	case ' ':
+	    pendingSpace += 1;
+	    return;
+	default: 
+	    while (pendingNL > 0) {
+		out.write('\n');
+		pendingNL--;
+	    }
+	    while (pendingSpace > 0) {
+		out.write(' ');
+		pendingSpace--;
+	    }
+	    out.write(x);
+	    lastWasClBr = false;
+	}
+    }
+
+    public void write(char[] cbuf, int off, int len) throws IOException  {
+	len+=off;
+	while (off < len)
+	    write(cbuf[off++]);
     }
 }
