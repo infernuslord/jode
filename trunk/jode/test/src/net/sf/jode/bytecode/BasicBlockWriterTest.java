@@ -70,7 +70,7 @@ public class BasicBlockWriterTest extends TestCase implements Opcodes {
 		     "\0\0\0\1\0\0\0\1" /* no stack, one local, length 1 */
 		     +"\261" /* opc_return */
 		     +"\0\0" /* no exception handlers */,
-		     new String(write(bbw)));
+		     new String(write(bbw), "iso-8859-1"));
     }
 
     public void testSimple() throws IOException {
@@ -87,7 +87,7 @@ public class BasicBlockWriterTest extends TestCase implements Opcodes {
 		     "\0\0\0\1\0\0\0\5" /* no stack, one local, length 5 */
 		     +someNopsStr+someNopsStr+"\261"
 		     +"\0\0" /* no exception handlers */,
-		     new String(write(bbw)));
+		     new String(write(bbw), "iso-8859-1"));
     }
 
     public void testWhile() throws IOException {
@@ -114,7 +114,7 @@ public class BasicBlockWriterTest extends TestCase implements Opcodes {
 		     "\0\2\0\3\0\0\0\20"
 		     +whileHeadStr+whileCondStr+"\237\0\13"
 		     +someNopsStr+whileFootStr+"\247\377\366"+"\261"+"\0\0",
-		     new String(write(bbw)));
+		     new String(write(bbw), "iso-8859-1"));
     }
 
     public void testTableSwitch() throws IOException {
@@ -140,7 +140,7 @@ public class BasicBlockWriterTest extends TestCase implements Opcodes {
 		     +"\0\0\0\45\0\0\0\1\0\0\0\5" /* def, low, high */
 		     +"\0\0\0\43\0\0\0\45\0\0\0\45\0\0\0\45\377\377\377\377"
 		     +someNopsStr+"\261"+"\0\0",
-		     new String(write(bbw)));
+		     new String(write(bbw), "iso-8859-1"));
     }
 
     public void testLookupSwitch() throws IOException {
@@ -168,7 +168,7 @@ public class BasicBlockWriterTest extends TestCase implements Opcodes {
 		     +"\0\0\0\5\0\0\0\45"
 		     +"\0\0\0\7\377\377\377\377"
 		     +someNopsStr+"\261"+"\0\0",
-		     new String(write(bbw)));
+		     new String(write(bbw), "iso-8859-1"));
     }
 
     public void testException() throws IOException {
@@ -198,7 +198,7 @@ public class BasicBlockWriterTest extends TestCase implements Opcodes {
 		     "\0\1\0\1\0\0\0\4"
 		     + someNopsStr + "\261" + "\277"
 		     + "\0\1\0\0\0\3\0\3\0"+(char)cpoolEntry,
-		     new String(write(bbw)));
+		     new String(write(bbw), "iso-8859-1"));
     }
 
     public static Test suite() {
