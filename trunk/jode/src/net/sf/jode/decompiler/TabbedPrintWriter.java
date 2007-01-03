@@ -851,8 +851,13 @@ class NlRemover extends Writer {
     }
 
     public void flush() throws IOException {
-	if (out != null)
+	if (out != null) {
+	    while (pendingNL > 0) {
+		out.write('\n');
+		pendingNL--;
+	    }
 	    out.flush();
+        }
     }
 
     public void write(int x) throws IOException  {

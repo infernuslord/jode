@@ -670,7 +670,7 @@ public class ClassAnalyzer
 	dumpSource(writer, pl, 0.8, 0.2);
 	if (pl != null)
 	    pl.updateProgress(1.0, name);
-        writer.close();
+        writer.flush();
     }
 
     public boolean isScopeOf(Object obj, int scopeType) {
