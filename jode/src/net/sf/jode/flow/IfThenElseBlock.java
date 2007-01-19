@@ -62,6 +62,13 @@ public class IfThenElseBlock extends StructuredBlock {
         this.cond = cond;
     }
 
+    /**
+     * Gets the condition.  The expression returned has boolean type.
+     */
+    public Expression getCondition() {
+        return cond;
+    }
+
     /** 
      * Sets the then block.
      * @param thenBlock the then block, must be non null.
