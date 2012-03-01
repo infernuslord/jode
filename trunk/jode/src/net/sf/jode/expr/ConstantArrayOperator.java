@@ -33,7 +33,7 @@ public class ConstantArrayOperator extends Operator {
             ? Type.tSubType(((ArrayType)type).getElementType()) : Type.tError;
 
 	Object emptyVal;
-	if (argType == type.tError || argType.isOfType(Type.tUObject))
+	if (argType == Type.tError || argType.isOfType(Type.tUObject))
 	    emptyVal = null;
 	else if (argType.isOfType(Type.tBoolUInt))
 	    emptyVal = new Integer(0);
@@ -104,7 +104,7 @@ public class ConstantArrayOperator extends Operator {
 	    writer.print(" ");
 	}
 	writer.print("{ ");
-	writer.startOp(writer.EXPL_PAREN, 0);
+	writer.startOp(TabbedPrintWriter.EXPL_PAREN, 0);
         for (int i=0; i< subExpressions.length; i++) {
             if (i>0) {
 		writer.print(", ");

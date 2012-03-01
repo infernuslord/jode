@@ -23,7 +23,6 @@ import net.sf.jode.GlobalOptions;
 import gnu.getopt.LongOpt;
 import gnu.getopt.Getopt;
 
-import java.lang.reflect.Modifier;
 import java.io.PrintWriter;
 import java.io.FileReader;
 import java.io.InputStreamReader;

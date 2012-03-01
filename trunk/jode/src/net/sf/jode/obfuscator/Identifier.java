@@ -19,7 +19,6 @@
 
 package net.sf.jode.obfuscator;
 import net.sf.jode.GlobalOptions;
-import java.io.*;
 ///#def COLLECTIONS java.util
 import java.util.Map;
 import java.util.Iterator;

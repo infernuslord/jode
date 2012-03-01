@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.flow;
-import net.sf.jode.GlobalOptions;
 
 /**
  * This class represents an unconditional jump.

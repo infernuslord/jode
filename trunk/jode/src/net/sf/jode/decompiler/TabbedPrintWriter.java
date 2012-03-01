@@ -22,7 +22,6 @@ import java.io.*;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.Enumeration;
-import net.sf.jode.GlobalOptions;
 import net.sf.jode.bytecode.ClassInfo;
 import net.sf.jode.type.*;
 

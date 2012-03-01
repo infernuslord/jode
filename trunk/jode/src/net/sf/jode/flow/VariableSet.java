@@ -19,7 +19,6 @@
 
 package net.sf.jode.flow;
 import net.sf.jode.decompiler.LocalInfo;
-import net.sf.jode.util.ArrayEnum;
 
 ///#def COLLECTIONS java.util
 import java.util.Collection;
@@ -193,7 +192,6 @@ public final class VariableSet extends AbstractSet implements Cloneable {
     public VariableSet intersect(VariableSet vs) {
         VariableSet intersection = new VariableSet();
         intersection.grow(Math.min(count, vs.count));
-    big_loop:
         for (int i=0; i<count; i++) {
             LocalInfo li = locals[i];
             int slot = li.getSlot();
@@ -212,7 +210,6 @@ public final class VariableSet extends AbstractSet implements Cloneable {
      */
     public void mergeGenKill(Collection gen, SlotSet kill) {
         grow(gen.size());
-    big_loop:
         for (Iterator i = gen.iterator(); i.hasNext(); ) {
             LocalInfo li2 = (LocalInfo) i.next();
 	    if (!kill.containsSlot(li2.getSlot()))

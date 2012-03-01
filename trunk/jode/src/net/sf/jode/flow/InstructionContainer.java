@@ -18,10 +18,8 @@
  */
 
 package net.sf.jode.flow;
-import net.sf.jode.decompiler.LocalInfo;
 import net.sf.jode.expr.Expression;
 import net.sf.jode.expr.InvokeOperator;
-import net.sf.jode.expr.LocalVarOperator;
 import net.sf.jode.util.SimpleSet;
 
 ///#def COLLECTIONS java.util

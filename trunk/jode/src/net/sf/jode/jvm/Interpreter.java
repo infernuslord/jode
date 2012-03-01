@@ -92,7 +92,6 @@ public class Interpreter implements Opcodes {
 	for (int i=0; i < stack.length; i++)
 	    stack[i] = new Value();
 
-	Block[] blocks = bb.getBlocks();
 	Block nextBlock = bb.getStartBlock();
 
 	int stacktop = 0;

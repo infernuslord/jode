@@ -25,7 +25,6 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -36,7 +35,6 @@ import java.net.URLConnection;
 import java.util.Enumeration;
 import java.util.NoSuchElementException;
 import java.util.Hashtable;
-import java.util.StringTokenizer;
 import java.util.Vector;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -288,7 +286,6 @@ public class ClassPath  {
 
 	    if (!directory.endsWith(File.separator))
 		directory += File.separator;
-	    final String prefix = directory;
 	    return new Enumeration() {
 		int i = 0;
 		public boolean hasMoreElements() {

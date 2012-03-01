@@ -34,8 +34,6 @@ import net.sf.jode.GlobalOptions;
 import java.io.IOException;
 ///#def COLLECTIONS java.util
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.ListIterator;
 ///#enddef
 
 public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
@@ -81,7 +79,7 @@ public class SimpleAnalyzer implements CodeAnalyzer, Opcodes {
 		     .replace('/','.'));
 	    }
 	    try {
-		clazz.load(clazz.DECLARATIONS);
+		clazz.load(ClassInfo.DECLARATIONS);
 	    } catch (IOException ex) {
 		throw new RuntimeException("Can't get declarations of "
 					   + clazz);

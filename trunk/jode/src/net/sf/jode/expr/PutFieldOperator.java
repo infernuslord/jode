@@ -20,7 +20,6 @@
 package net.sf.jode.expr;
 import net.sf.jode.bytecode.Reference;
 import net.sf.jode.decompiler.MethodAnalyzer;
-import net.sf.jode.decompiler.FieldAnalyzer;
 
 public class PutFieldOperator extends FieldOperator
     implements LValueExpression {

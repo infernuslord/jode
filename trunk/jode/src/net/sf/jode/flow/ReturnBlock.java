@@ -63,7 +63,7 @@ public class ReturnBlock extends InstructionContainer {
 		newStack = stack.pop(params);
 	    }
 	}
-	return null;
+	return newStack;
     }
 
     public void removePush() {
@@ -85,7 +85,7 @@ public class ReturnBlock extends InstructionContainer {
         writer.print("return");
 	if (instr != null) {
 	    writer.print(" ");
-	    instr.dumpExpression(writer.IMPL_PAREN, writer);
+	    instr.dumpExpression(TabbedPrintWriter.IMPL_PAREN, writer);
 	}
 	writer.println(";");
     }

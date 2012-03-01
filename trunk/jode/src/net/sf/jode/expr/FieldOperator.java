@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.expr;
-import net.sf.jode.GlobalOptions;
 import net.sf.jode.type.Type;
 import net.sf.jode.type.NullType;
 import net.sf.jode.type.ClassInfoType;
@@ -29,7 +28,6 @@ import net.sf.jode.bytecode.Reference;
 import net.sf.jode.bytecode.TypeSignature;
 import net.sf.jode.decompiler.MethodAnalyzer;
 import net.sf.jode.decompiler.ClassAnalyzer;
-import net.sf.jode.decompiler.MethodAnalyzer;
 import net.sf.jode.decompiler.FieldAnalyzer;
 import net.sf.jode.decompiler.Options;
 import net.sf.jode.decompiler.TabbedPrintWriter;
@@ -144,21 +142,6 @@ public abstract class FieldOperator extends Operator {
 
     public Type getFieldType() {
         return Type.tType(classPath, ref.getType());
-    }
-
-    private FieldInfo[] loadFields(ClassInfo clazz) {
-	int howMuch = (clazz.getName().startsWith(callerPackage)
-		       && (clazz.getName().lastIndexOf('.')
-			   < callerPackage.length()))
-	    ? ClassInfo.DECLARATIONS : ClassInfo.PUBLICDECLARATIONS;
-	try {
-	    clazz.load(howMuch);
-	} catch (IOException ex) {
-	    GlobalOptions.err.println("Warning: Can't find fields of "
-				      +clazz+" to detect hiding conflicts");
-	    clazz.guess(howMuch);
-	}
-	return clazz.getFields();
     }
 
     private static FieldInfo getFieldInfo(ClassInfo clazz, 
@@ -278,7 +261,7 @@ public abstract class FieldOperator extends Operator {
 	    writer.print(fieldName);
 	} else if (needsCast(subExpressions[0].getType().getCanonic())) {
 	    writer.print("(");
-	    writer.startOp(writer.EXPL_PAREN, 1);
+	    writer.startOp(TabbedPrintWriter.EXPL_PAREN, 1);
 	    writer.print("(");
 	    writer.printType(classType);
 	    writer.print(") ");

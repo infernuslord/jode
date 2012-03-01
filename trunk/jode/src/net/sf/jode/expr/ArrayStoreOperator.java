@@ -41,7 +41,7 @@ public class ArrayStoreOperator extends ArrayLoadOperator
 	    if (!elemType.isOfType(getType())) {
 		/* We need an explicit widening cast */
 		writer.print("(");
-		writer.startOp(writer.EXPL_PAREN, 1);
+		writer.startOp(TabbedPrintWriter.EXPL_PAREN, 1);
 		writer.print("(");
 		writer.printType(Type.tArray(getType().getHint()));
 		writer.print(") ");

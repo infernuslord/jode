@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.jvm;
-import net.sf.jode.bytecode.*;
 
 /**
  * This exception is thrown by the CodeVerifier on various conditions.

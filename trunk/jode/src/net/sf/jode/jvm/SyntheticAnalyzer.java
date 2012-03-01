@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.jvm;
-import net.sf.jode.GlobalOptions;
 import net.sf.jode.bytecode.BasicBlocks;
 import net.sf.jode.bytecode.Block;
 import net.sf.jode.bytecode.ClassInfo;
@@ -107,7 +106,6 @@ public class SyntheticAnalyzer implements Opcodes {
 	
 	BasicBlocks bb = method.getBasicBlocks();
 
-	Block[] blocks = bb.getBlocks();
 	Block startBlock = bb.getStartBlock();
 	Handler[] excHandlers = bb.getExceptionHandlers();
 	if (startBlock == null
@@ -185,7 +183,6 @@ public class SyntheticAnalyzer implements Opcodes {
 	Handler[] excHandlers = bb.getExceptionHandlers();
 	if (excHandlers != null && excHandlers.length != 0)
 	    return false;
-	Block[] blocks = bb.getBlocks();
 	Block startBlock = bb.getStartBlock();
 	if (startBlock == null)
 	    return false;

@@ -33,12 +33,9 @@ import net.sf.jode.bytecode.TypeSignature;
 import java.io.IOException;
 import java.util.BitSet;
 ///#def COLLECTIONS java.util
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 ///#enddef
 
@@ -1145,7 +1142,6 @@ public class CodeVerifier implements Opcodes {
 	    }
 	    if (ref.getName().equals("<init>")) {
 	        Type clazz = info.pop();
-		String typeSig = clazz.getTypeSig();
 		String refClazzSig = ref.getClazz();
 		Type refClazz = tType("N" + refClazzSig.substring(1));
 		if (opcode != opc_invokespecial

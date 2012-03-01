@@ -52,7 +52,6 @@ public class PrePostFixOperator extends Operator {
 
     public void dumpExpression(TabbedPrintWriter writer)
     throws java.io.IOException {
-	boolean needBrace = false;
 	int priority = 700;
 	if (!postfix) {
 	    writer.print(getOperatorString());

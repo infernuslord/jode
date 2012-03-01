@@ -18,10 +18,8 @@
  */
 
 package net.sf.jode.type;
-import net.sf.jode.bytecode.ClassInfo;
 import java.util.Stack;
 import java.util.Vector;
-import java.io.IOException;
 
 /**
  * This class represents a type aproximation, consisting of multiple
@@ -177,7 +175,6 @@ public class MultiClassType extends ReferenceType {
 	 * class in the other list, we can omit it.  
 	 */
 	Vector destClasses = new Vector();
-    big_loop_this:
 	for (int i=0; i< classes.length; i++) {
 	    ClassType clazz = classes[i];
 	    if (!clazz.isSubTypeOf(type)) {
@@ -187,7 +184,6 @@ public class MultiClassType extends ReferenceType {
 		destClasses.addElement(clazz);
 	    }
 	}
-    big_loop_other:
 	for (int i=0; i< otherClasses.length; i++) {
 	    ClassType clazz = otherClasses[i];
 	    if (!clazz.isSubTypeOf(this)) {

@@ -19,9 +19,6 @@
 
 package net.sf.jode.expr;
 import net.sf.jode.GlobalOptions;
-import net.sf.jode.type.Type;
-import net.sf.jode.decompiler.MethodAnalyzer;
-import net.sf.jode.decompiler.ClassAnalyzer;
 import net.sf.jode.decompiler.LocalInfo;
 import net.sf.jode.decompiler.TabbedPrintWriter;
 

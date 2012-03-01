@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.bytecode;
-import net.sf.jode.util.StringQuoter;
 
 /**
  * This class represents an instruction in the byte code.

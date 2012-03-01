@@ -20,7 +20,6 @@
 package net.sf.jode.obfuscator;
 import net.sf.jode.GlobalOptions;
 import net.sf.jode.bytecode.ClassPath;
-import net.sf.jode.bytecode.ClassInfo;
 import net.sf.jode.bytecode.Reference;
 import net.sf.jode.obfuscator.modules.WildCard;
 import net.sf.jode.obfuscator.modules.MultiIdentifierMatcher;
@@ -36,10 +35,6 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.TreeMap;
-///#enddef
-///#def COLLECTIONEXTRA java.lang
-import java.lang.UnsupportedOperationException;
 ///#enddef
 
 ///#ifdef JDK12

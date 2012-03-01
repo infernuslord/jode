@@ -215,14 +215,8 @@ public class Main extends Options {
 	}
     }
 
-    public static void main(String[] params) {
-	try {
-	    decompile(params);
-	} catch (ExceptionInInitializerError ex) {
-	    ex.getException().printStackTrace();
-	} catch (Throwable ex) {
-	    ex.printStackTrace();
-	}
+    public static void main(String[] params) throws Throwable{
+	decompile(params);
 	/* When AWT applications are compiled with insufficient
 	 * classpath the type guessing by reflection code can
 	 * generate an awt thread that will prevent normal

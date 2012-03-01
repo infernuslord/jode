@@ -18,11 +18,6 @@
  */
 
 package net.sf.jode.type;
-import net.sf.jode.bytecode.ClassInfo;
-import java.util.Vector;
-import java.util.Stack;
-import java.util.Hashtable;
-import java.io.IOException;
 
 /**
  * This class represents the type of a system class, i.e. the classes

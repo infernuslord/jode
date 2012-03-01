@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.flow;
-import java.util.Vector;
 import net.sf.jode.expr.*;
 import net.sf.jode.type.Type;
 

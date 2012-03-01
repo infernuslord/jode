@@ -22,9 +22,6 @@ import net.sf.jode.GlobalOptions;
 import net.sf.jode.type.Type;
 import net.sf.jode.expr.*;
 
-import java.util.Enumeration;
-import java.util.Vector;
-
 public class CreateIfThenElseOperator {
 
     /**
@@ -55,7 +52,6 @@ public class CreateIfThenElseOperator {
         
         if (block instanceof IfThenElseBlock) {
             IfThenElseBlock ifBlock = (IfThenElseBlock) block;
-            Expression expr1, expr2;
             if (ifBlock.elseBlock == null)
                 return false;
 
@@ -156,17 +152,14 @@ public class CreateIfThenElseOperator {
 
         FlowBlock trueDestination;
         FlowBlock falseDestination;
-        if (compare.getOperatorIndex() == compare.EQUALS_OP) {
+        if (compare.getOperatorIndex() == Operator.EQUALS_OP) {
             trueDestination = cb.jump.destination;
             falseDestination = cb.trueBlock.jump.destination;
-        } else if (compare.getOperatorIndex() == compare.NOTEQUALS_OP) {
+        } else if (compare.getOperatorIndex() == Operator.NOTEQUALS_OP) {
             falseDestination = cb.jump.destination;
             trueDestination = cb.trueBlock.jump.destination;
         } else
             return false;
-
-        Expression[] e = new Expression[3];
-        IfThenElseBlock ifBlock;
 
         SequentialBlock sequBlock = (SequentialBlock) last.outer;
         return createFunnyHelper(trueDestination, falseDestination,

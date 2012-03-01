@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.Random;
 ///#enddef
 ///#def COLLECTIONEXTRA java.lang
@@ -394,7 +393,7 @@ public class ClassIdentifier extends Identifier {
 	initialized = true;
 
 	try {
-	    info.load(info.ALL);
+	    info.load(ClassInfo.ALL);
 	} catch (IOException ex) {
 	    throw new RuntimeException("Can't read class " + info.getName()
 				       + ": " + ex.getMessage());
@@ -749,7 +748,6 @@ public class ClassIdentifier extends Identifier {
 	 * they must be there!).
 	 */
 	ClassInfo superInfo = info.getSuperclass();
-	ClassIdentifier superIdent = this;
 	while (superInfo != null) {
 	    ClassIdentifier superident = Main.getClassBundle()
 		.getClassIdentifier(superInfo.getName());

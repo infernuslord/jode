@@ -19,10 +19,8 @@
 
 package net.sf.jode.flow;
 import net.sf.jode.decompiler.LocalInfo;
-import net.sf.jode.util.ArrayEnum;
 
 ///#def COLLECTIONS java.util
-import java.util.Collection;
 import java.util.AbstractSet;
 import java.util.Set;
 import java.util.Iterator;
@@ -207,7 +205,6 @@ public final class SlotSet extends AbstractSet implements Cloneable {
      */
     public void mergeKill(Set kill) {
         grow(kill.size());
-    big_loop:
         for (Iterator i = kill.iterator(); i.hasNext(); ) {
             LocalInfo li2 = (LocalInfo) i.next();
 	    if (!containsSlot(li2.getSlot()))

@@ -51,7 +51,7 @@ public class InstanceOfOperator extends Operator {
 	Type superType
 	    = instanceType.getCastHelper(subExpressions[0].getType());
 	if (superType != null) {
-	    writer.startOp(writer.IMPL_PAREN, 2);
+	    writer.startOp(TabbedPrintWriter.IMPL_PAREN, 2);
 	    writer.print("(");
 	    writer.printType(superType);
 	    writer.print(") ");

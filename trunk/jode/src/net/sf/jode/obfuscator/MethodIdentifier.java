@@ -24,10 +24,8 @@ import net.sf.jode.bytecode.*;
 ///#def COLLECTIONS java.util
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.Map;
 ///#enddef
 
-import java.lang.reflect.Modifier;
 import java.util.BitSet;
 
 public class MethodIdentifier extends Identifier implements Opcodes {

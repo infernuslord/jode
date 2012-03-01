@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.flow;
-import net.sf.jode.decompiler.TabbedPrintWriter;
 
 /**
  * This is a structured block, that supports break.  

@@ -23,9 +23,6 @@ import net.sf.jode.GlobalOptions;
 
 import java.lang.reflect.Modifier;
 import java.io.IOException;
-import java.util.Vector;
-import java.util.Stack;
-import java.util.Hashtable;
 
 /**
  * This class is the type representing a class loaded from a ClassPath.<p>

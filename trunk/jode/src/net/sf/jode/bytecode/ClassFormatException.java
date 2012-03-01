@@ -24,7 +24,7 @@ package net.sf.jode.bytecode;
  *
  * @author Jochen Hoenicke
  */
-public class ClassFormatException extends java.io.IOException{
+public class ClassFormatException extends java.io.IOException {
     /**
      * Constructs a new class format exception with the given detail
      * message.

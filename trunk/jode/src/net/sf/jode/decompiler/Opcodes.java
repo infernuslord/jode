@@ -20,12 +20,9 @@
 package net.sf.jode.decompiler;
 import net.sf.jode.type.Type;
 import net.sf.jode.type.IntegerType;
-import net.sf.jode.type.MethodType;
 import net.sf.jode.expr.*;
 import net.sf.jode.flow.*;
 import net.sf.jode.bytecode.*;
-import java.io.*;
-import java.util.Vector;
 
 /**
  * This is an abstract class which creates flow blocks for the
@@ -85,12 +82,6 @@ public abstract class Opcodes implements net.sf.jode.bytecode.Opcodes {
 						 int stackcount, int param)
     {
         return new SpecialBlock(type, stackcount, param);
-    }
-
-    private static StructuredBlock createGoto(MethodAnalyzer ma,
-                                              Instruction instr)
-    {
-        return new EmptyBlock();
     }
 
     private static StructuredBlock createJsr(MethodAnalyzer ma, 

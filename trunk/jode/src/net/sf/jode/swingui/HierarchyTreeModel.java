@@ -43,7 +43,6 @@ import java.util.HashSet;
 
 import java.io.IOException;
 import java.util.Enumeration;
-import java.util.NoSuchElementException;
 
 public class HierarchyTreeModel implements TreeModel, Runnable {
     static final int MAX_PACKAGE_LEVEL = 10;

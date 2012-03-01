@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.jvm;
-import net.sf.jode.bytecode.*;
 
 /**
  * This class represents a stack value.

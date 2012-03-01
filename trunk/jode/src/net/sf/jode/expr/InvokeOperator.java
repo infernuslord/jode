@@ -21,7 +21,6 @@ package net.sf.jode.expr;
 import java.lang.reflect.Modifier;
 
 import net.sf.jode.decompiler.MethodAnalyzer;
-import net.sf.jode.decompiler.MethodAnalyzer;
 import net.sf.jode.decompiler.ClassAnalyzer;
 import net.sf.jode.decompiler.TabbedPrintWriter;
 import net.sf.jode.decompiler.Options;
@@ -40,7 +39,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 ///#enddef
@@ -218,9 +216,9 @@ public final class InvokeOperator extends Operator
 					    String name, String type) {
 	while (clazz != null) {
 	    try {
-		clazz.load(clazz.DECLARATIONS);
+		clazz.load(ClassInfo.DECLARATIONS);
 	    } catch (IOException ex) {
-		clazz.guess(clazz.DECLARATIONS);
+		clazz.guess(ClassInfo.DECLARATIONS);
 	    }
 	    MethodInfo method = clazz.findMethod(name, type);
 	    if (method != null)
@@ -642,7 +640,7 @@ public final class InvokeOperator extends Operator
 		    op = new StoreInstruction
 			(new PutFieldOperator(methodAnalyzer, false,
 					      synth.getReference()));
-		    if (synth.getKind() == synth.ACCESSDUPPUTFIELD)
+		    if (synth.getKind() == SyntheticAnalyzer.ACCESSDUPPUTFIELD)
 			((StoreInstruction) op).makeNonVoid();
 		    break;
 		case SyntheticAnalyzer.ACCESSPUTSTATIC:
@@ -650,7 +648,7 @@ public final class InvokeOperator extends Operator
 		    op = new StoreInstruction
 			(new PutFieldOperator(methodAnalyzer, true,
 					      synth.getReference()));
-		    if (synth.getKind() == synth.ACCESSDUPPUTSTATIC)
+		    if (synth.getKind() == SyntheticAnalyzer.ACCESSDUPPUTSTATIC)
 			((StoreInstruction) op).makeNonVoid();
 		    break;
 		case SyntheticAnalyzer.ACCESSMETHOD:
@@ -948,7 +946,7 @@ public final class InvokeOperator extends Operator
 	 * we have to differentiate all kinds of method calls: static,
 	 * virtual, constructor, anonymous constructors, super calls etc.
 	 */
-	writer.startOp(writer.NO_PAREN, 0);
+	writer.startOp(TabbedPrintWriter.NO_PAREN, 0);
 	switch (methodFlag) {
 	case CONSTRUCTOR: {
 
@@ -1040,7 +1038,7 @@ public final class InvokeOperator extends Operator
 			if (outerExpr.getType().getCanonic() 
 			    instanceof NullType) {
 			    writer.print("(");
-			    writer.startOp(writer.EXPL_PAREN, 1);
+			    writer.startOp(TabbedPrintWriter.EXPL_PAREN, 1);
 			    writer.print("(");
 			    writer.printType(Type.tClass(clazz));
 			    writer.print(") ");
@@ -1078,7 +1076,7 @@ public final class InvokeOperator extends Operator
 	    }
 
 	    writer.print("(");
-	    writer.startOp(writer.EXPL_PAREN, 0);
+	    writer.startOp(TabbedPrintWriter.EXPL_PAREN, 0);
 	    writer.print("(UNCONSTRUCTED)");
 	    writer.breakOp();
 	    subExpressions[0].dumpExpression(writer, 700);
@@ -1111,7 +1109,7 @@ public final class InvokeOperator extends Operator
 		/* XXX check if this is a private method. */
 		if (needsCast(0, paramTypes)){
 		    writer.print("(");
-		    writer.startOp(writer.EXPL_PAREN, 1);
+		    writer.startOp(TabbedPrintWriter.EXPL_PAREN, 1);
 		    writer.print("(");
 		    writer.printType(classType);
 		    writer.print(") ");
@@ -1126,7 +1124,7 @@ public final class InvokeOperator extends Operator
 		writer.print(".");
 	    } else {
 		writer.print("(");
-		writer.startOp(writer.EXPL_PAREN, 0);
+		writer.startOp(TabbedPrintWriter.EXPL_PAREN, 0);
 		writer.print("(NON VIRTUAL ");
 		writer.printType(classType);
 		writer.print(") ");
@@ -1148,7 +1146,7 @@ public final class InvokeOperator extends Operator
 		subExpressions[0].dumpExpression(writer, 950);
 	    else {
 		writer.print("(");
-		writer.startOp(writer.EXPL_PAREN, 0);
+		writer.startOp(TabbedPrintWriter.EXPL_PAREN, 0);
 		writer.print("(");
 		writer.printType(classType);
 		writer.print(") ");
@@ -1199,7 +1197,7 @@ public final class InvokeOperator extends Operator
 	    } else {
 		if (needsCast(0, paramTypes)){
 		    writer.print("(");
-		    writer.startOp(writer.EXPL_PAREN, 1);
+		    writer.startOp(TabbedPrintWriter.EXPL_PAREN, 1);
 		    writer.print("(");
 		    writer.printType(classType);
 		    writer.print(") ");
@@ -1223,7 +1221,7 @@ public final class InvokeOperator extends Operator
 	writer.breakOp();
 	writer.printOptionalSpace();
 	writer.print("(");
-	writer.startOp(writer.EXPL_PAREN, 0);
+	writer.startOp(TabbedPrintWriter.EXPL_PAREN, 0);
 	boolean first = true;
 	int offset = skippedArgs;
 	while (arg < length) {
@@ -1235,7 +1233,7 @@ public final class InvokeOperator extends Operator
 	    int priority = 0;
 	    if (needsCast(arg, paramTypes)) {
 		Type castType = methodType.getParameterTypes()[arg-offset];
-		writer.startOp(writer.IMPL_PAREN, 1);
+		writer.startOp(TabbedPrintWriter.IMPL_PAREN, 1);
 		writer.print("(");
 		writer.printType(castType);
 		writer.print(") ");

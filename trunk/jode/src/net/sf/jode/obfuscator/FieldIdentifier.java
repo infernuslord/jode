@@ -18,14 +18,12 @@
  */
 
 package net.sf.jode.obfuscator;
-import java.lang.reflect.Modifier;
 import net.sf.jode.bytecode.*;
 ///#def COLLECTIONS java.util
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.HashSet;
-import java.util.Map;
 ///#enddef
 
 

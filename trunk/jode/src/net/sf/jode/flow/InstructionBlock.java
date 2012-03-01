@@ -24,7 +24,6 @@ import net.sf.jode.decompiler.LocalInfo;
 import net.sf.jode.expr.Expression;
 import net.sf.jode.expr.StoreInstruction;
 import net.sf.jode.expr.LocalStoreOperator;
-import net.sf.jode.util.SimpleSet;
 
 ///#def COLLECTIONS java.util
 import java.util.Set;
@@ -137,12 +136,12 @@ public class InstructionBlock extends InstructionContainer {
 	    StoreInstruction store = (StoreInstruction) instr;
             LocalInfo local = 
 		((LocalStoreOperator) store.getLValue()).getLocalInfo();
-	    writer.startOp(writer.NO_PAREN, 0);
+	    writer.startOp(TabbedPrintWriter.NO_PAREN, 0);
 	    local.dumpDeclaration(writer);
 	    writer.breakOp();
 	    writer.print(" = ");
 	    store.getSubExpressions()[1].makeInitializer(local.getType());
-	    store.getSubExpressions()[1].dumpExpression(writer.IMPL_PAREN, 
+	    store.getSubExpressions()[1].dumpExpression(TabbedPrintWriter.IMPL_PAREN, 
 							writer);
 	    writer.endOp();
 	} else {
@@ -150,9 +149,9 @@ public class InstructionBlock extends InstructionContainer {
 
 		if (instr.getType() != Type.tVoid) {
 		    writer.print("PUSH ");
-		    instr.dumpExpression(writer.IMPL_PAREN, writer);
+		    instr.dumpExpression(TabbedPrintWriter.IMPL_PAREN, writer);
 		} else
-		    instr.dumpExpression(writer.NO_PAREN, writer);
+		    instr.dumpExpression(TabbedPrintWriter.NO_PAREN, writer);
 	    } catch (RuntimeException ex) {
 		writer.print("(RUNTIME ERROR IN EXPRESSION)");
 	    }

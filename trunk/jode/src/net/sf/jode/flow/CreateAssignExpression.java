@@ -115,7 +115,7 @@ public class CreateAssignExpression {
         }
         if (expr instanceof BinaryOperator) {
             opIndex = expr.getOperatorIndex();
-            if (opIndex <  expr.ADD_OP || opIndex >= expr.ASSIGN_OP)
+            if (opIndex <  Operator.ADD_OP || opIndex >= Operator.ASSIGN_OP)
 		return false;
 
 	    if (!(expr.getSubExpressions()[0] instanceof Operator))
@@ -179,7 +179,7 @@ public class CreateAssignExpression {
         ib.setInstruction(rightHandSide);
         
 	lvalue.setType(rvalueType);
-        store.makeOpAssign(store.OPASSIGN_OP + opIndex);
+        store.makeOpAssign(Operator.OPASSIGN_OP + opIndex);
 
         if (isAssignOp)
             store.makeNonVoid();

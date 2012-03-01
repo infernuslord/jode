@@ -19,7 +19,6 @@
 
 package net.sf.jode.flow;
 import net.sf.jode.decompiler.TabbedPrintWriter;
-import net.sf.jode.decompiler.LocalInfo;
 import net.sf.jode.expr.LocalStoreOperator;
 import net.sf.jode.expr.StoreInstruction;
 import net.sf.jode.util.SimpleSet;

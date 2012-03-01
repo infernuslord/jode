@@ -25,8 +25,6 @@ import net.sf.jode.jvm.InterpreterException;
 import net.sf.jode.obfuscator.*;
 import net.sf.jode.util.StringQuoter;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.InvocationTargetException;
 import java.io.PrintWriter;
 import java.util.BitSet;
@@ -40,7 +38,6 @@ import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Iterator;
-import java.util.ListIterator;
 ///#enddef
 
 /**
@@ -178,10 +175,6 @@ public class ConstantAnalyzer extends SimpleAnalyzer {
 
 	public void addConstantListener(ConstantListener l) {
 	    listeners.add(l);
-	}
-	
-	public void removeConstantListener(ConstantListener l) {
-	    listeners.remove(l);
 	}
 	
 	public void fireChanged() {
@@ -453,14 +446,6 @@ public class ConstantAnalyzer extends SimpleAnalyzer {
     }
 
     private static class ConstantInfo implements ConstantListener {
-	ConstantInfo() {
-	    this(0, null);
-	}
-
-	ConstantInfo(int flags) {
-	    this(flags, null);
-	}
-
 	ConstantInfo(int flags, Object constant) {
 	    this.flags = flags;
 	    this.constant = constant;
@@ -481,8 +466,6 @@ public class ConstantAnalyzer extends SimpleAnalyzer {
     private static ConstValue[] unknownValue = {
 	new ConstValue(1), new ConstValue(2)
     };
-
-    private static ConstantInfo unknownConstInfo = new ConstantInfo();
 
     /**
      * The block info contains the info needed for a single block.
@@ -591,8 +574,7 @@ public class ConstantAnalyzer extends SimpleAnalyzer {
 	    for (int slot = 0; slot < newLocals.length; slot++) {
 		if (retBlock.usedLocals.get(slot)) {
 		    newLocals[slot] = retBlock.after.locals[slot];
-		    if (nextUsed != null)
-			nextUsed.set(slot);
+		    nextUsed.set(slot);
 		}
 	    }
 	    StackLocalInfo nextInfo
@@ -700,7 +682,6 @@ public class ConstantAnalyzer extends SimpleAnalyzer {
 		    if (constantFlow >= 0)
 			/* Nothing changed... */
 			return;
-		    Instruction pc;
 		    int value = ((Integer) stacktop.value).intValue();
 		    int[] values = instr.getValues();
 		    constantFlow = Arrays.binarySearch(values, value);
@@ -1361,7 +1342,7 @@ public class ConstantAnalyzer extends SimpleAnalyzer {
 				    || opcode == opc_invokeinterface);
 		    return info.pop(size);
 		}
-		if (constant && !runtime.isWhite(retType)) {
+		if (constant && !ConstantRuntimeEnvironment.isWhite(retType)) {
 		    /* This is not a valid constant type */
 		    constant = false;
 		}
@@ -1667,8 +1648,6 @@ public class ConstantAnalyzer extends SimpleAnalyzer {
 	case opc_invokevirtual: {
 	    Reference ref = instr.getReference();
 	    String[] pt = TypeSignature.getParameterTypes(ref.getType());
-	    int arg = 0;
-
 	    int i = pt.length;
 	    while (i > 0)
 		newCode.add(Instruction.forOpcode(TypeSignature
