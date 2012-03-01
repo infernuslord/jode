@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry excluding="net/sf/jode/obfuscator/modules/LocalOptimizer.java|net/sf/jode/obfuscator/modules/LocalizeFieldTransformer.java|net/sf/jode/obfuscator/modules/RemovePopAnalyzer.java" kind="src" output="build" path="src"/>
+	<classpathentry kind="var" path="JRE_LIB" sourcepath="JRE_SRC"/>
+	<classpathentry kind="con" path="/home/hoenicke/priv/jode/trunk/jode/${classpath}"/>
+	<classpathentry kind="lib" path="/home/hoenicke/priv/jode/trunk/jode/lib/java-getopt-1.0.8.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
