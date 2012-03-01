@@ -19,10 +19,8 @@
 
 package net.sf.jode.bytecode;
 import net.sf.jode.GlobalOptions;
-import net.sf.jode.util.UnifyHash;
 
 import java.io.DataInputStream;
-import java.io.BufferedInputStream;
 import java.io.DataOutputStream;
 import java.io.OutputStream;
 import java.io.IOException;

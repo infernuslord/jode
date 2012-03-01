@@ -597,6 +597,7 @@ public class Type {
      * Returns the java.lang.Class representing this type.  You should
      * only call this on singleton types.  
      * @return the Class object representing this type.
+     * @throws ClassNotFoundException if Class was not found.
      */
     public Class getTypeClass() throws ClassNotFoundException {
         switch (typecode) {

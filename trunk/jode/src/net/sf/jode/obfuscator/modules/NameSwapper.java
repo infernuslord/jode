@@ -68,7 +68,7 @@ public class NameSwapper implements Renamer {
 	    Iterator i = pool.iterator();
 	    while (pos > 0)
 		i.next();
-	    return (String) i.next();
+	    return i.next();
 	}
 
 	public void remove() {

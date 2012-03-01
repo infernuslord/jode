@@ -549,7 +549,7 @@ public abstract class StructuredBlock {
             subs[i].checkConsistent();
         }
         if (jump != null && jump.destination != null) {
-            Jump jumps = (Jump) flowBlock.getJumps(jump.destination);
+            Jump jumps = flowBlock.getJumps(jump.destination);
             for (; jumps != jump; jumps = jumps.next) {
                 if (jumps == null)
                     throw new InternalError("Inconsistency");

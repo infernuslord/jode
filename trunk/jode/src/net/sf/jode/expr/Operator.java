@@ -133,7 +133,7 @@ public abstract class Operator extends Expression {
 	    - subExpressions[i].getFreeOperandCount();
         subExpressions[i] = expr;
 	expr.parent = this;
-	for (Operator ce = this; ce != null; ce = (Operator) ce.parent)
+	for (Operator ce = this; ce != null; ce = ce.parent)
 	    ce.operandcount += diff;
         updateType();
     }

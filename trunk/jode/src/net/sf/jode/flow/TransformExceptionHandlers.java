@@ -713,7 +713,7 @@ public class TransformExceptionHandlers {
                 && doWhileFalse.bodyBlock instanceof SequentialBlock) {
 		if (transformSubRoutine(catchBlock.getSubBlocks()[1])) {
 		    finallyBlock = catchBlock.getSubBlocks()[1];
-		    catchBlock = (SequentialBlock) doWhileFalse.bodyBlock;
+		    catchBlock = doWhileFalse.bodyBlock;
 		}
             }
         }

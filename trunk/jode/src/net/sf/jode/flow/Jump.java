@@ -62,7 +62,6 @@ public class Jump {
      * @param writer The tabbed print writer, where we print to.
      */
     public void dumpSource(net.sf.jode.decompiler.TabbedPrintWriter writer)
-        throws java.io.IOException
     {
         if (destination == null)
             writer.println ("GOTO null-ptr!!!!!");
