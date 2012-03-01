@@ -18,9 +18,6 @@
  */
 
 package net.sf.jode.type;
-import net.sf.jode.bytecode.ClassInfo;
-import java.util.Vector;
-import java.io.IOException;
 
 /** 
  * This type represents an array type.

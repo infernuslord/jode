@@ -65,9 +65,9 @@ public class CreatePrePostIncExpression {
 	    return false;
 	
 	int op;
-	if (iinc.getOperatorIndex() == iinc.ADD_OP + iinc.OPASSIGN_OP)
+	if (iinc.getOperatorIndex() == Operator.ADD_OP + Operator.OPASSIGN_OP)
 	    op = Operator.INC_OP;
-	else if (iinc.getOperatorIndex() == iinc.SUB_OP + iinc.OPASSIGN_OP)
+	else if (iinc.getOperatorIndex() == Operator.SUB_OP + Operator.OPASSIGN_OP)
 	    op = Operator.DEC_OP;
 	else
 	    return false;
@@ -128,9 +128,9 @@ public class CreatePrePostIncExpression {
 
         ConstOperator constOp = (ConstOperator) binOp.getSubExpressions()[1];
         int op;
-        if (binOp.getOperatorIndex() == store.ADD_OP)
+        if (binOp.getOperatorIndex() == Operator.ADD_OP)
             op = Operator.INC_OP;
-        else if (binOp.getOperatorIndex() == store.SUB_OP)
+        else if (binOp.getOperatorIndex() == Operator.SUB_OP)
             op = Operator.DEC_OP;
         else
             return false;

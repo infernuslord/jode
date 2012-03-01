@@ -20,7 +20,6 @@
 package net.sf.jode.flow;
 import net.sf.jode.GlobalOptions;
 import net.sf.jode.expr.*;
-import net.sf.jode.type.Type;
 
 public class CreateConstantArray {
 

@@ -20,11 +20,9 @@
 package net.sf.jode.flow;
 import java.lang.reflect.Modifier;
 import net.sf.jode.GlobalOptions;
-import net.sf.jode.decompiler.Analyzer;
 import net.sf.jode.decompiler.ClassAnalyzer;
 import net.sf.jode.decompiler.MethodAnalyzer;
 import net.sf.jode.decompiler.FieldAnalyzer;
-import net.sf.jode.decompiler.MethodAnalyzer;
 import net.sf.jode.decompiler.Options;
 import net.sf.jode.decompiler.OuterValues;
 import net.sf.jode.decompiler.OuterValueListener;
@@ -36,8 +34,6 @@ import net.sf.jode.bytecode.ClassPath;
 import net.sf.jode.bytecode.MethodInfo;
 
 import java.io.IOException;
-import java.util.Vector;
-import java.util.Enumeration;
 
 /**
  * This class will transform the constructors.  We differ three types of
@@ -440,7 +436,6 @@ public class TransformConstructors {
 					  + cons[i].getMethodHeader());
 
 	    MethodAnalyzer constr = cons[i];
-	    MethodType constrType = constr.getType();
 	    
 	    /*
 	     * constructor(outerValues, params, opt. jikesAnonInner param) {
@@ -462,7 +457,6 @@ public class TransformConstructors {
 	     * constructor$? as Jikes constructor.  */
 	    StructuredBlock sb = constr.getMethodHeader().block;
 	    
-	    Vector localLoads = null;
 	    InstructionBlock superBlock = null;
 	    InvokeOperator superInvoke = null;
 	    if (i >= type0Count) {
@@ -547,7 +541,6 @@ public class TransformConstructors {
 
 	    int firstParamSlot = slot;
 	    int firstOuterSlot = firstParam;
-	    int slotDist = firstParamSlot - firstOuterSlot;
 	    /* check the remaining parameters.
 	     */
 	    for (int j=firstParam; j < methodParams.length; j++) {
@@ -857,8 +850,6 @@ public class TransformConstructors {
     }
     
     private void transformBlockInitializer(StructuredBlock block) {
-	StructuredBlock start = null;
-	StructuredBlock tail = null;
 	int lastField = -1;
 	while (block instanceof SequentialBlock) {
 	    StructuredBlock ib = block.getSubBlocks()[0];

@@ -372,7 +372,6 @@ public class ImportHandler {
                 
             String pkgName = name.substring(0, pkgdelim);
 
-            Integer i;
             if (pkgName.equals(pkg)
                 || (imports.get(pkgName+".*") != null
                     && !conflictsImport(name))) {

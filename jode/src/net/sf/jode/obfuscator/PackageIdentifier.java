@@ -19,12 +19,7 @@
 
 package net.sf.jode.obfuscator;
 import net.sf.jode.GlobalOptions;
-import net.sf.jode.bytecode.ClassInfo;
-import net.sf.jode.bytecode.FieldInfo;
-import net.sf.jode.bytecode.MethodInfo;
-import java.lang.reflect.Modifier;
 import java.io.*;
-import java.util.Vector;
 import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -183,7 +178,7 @@ public class PackageIdentifier extends Identifier {
 			if (loadOnDemand || matcher.matches(ident))
 			    ident.setLoadOnDemand();
 			if (initialized)
-			    ((PackageIdentifier) ident).initialize();
+			    ident.initialize();
 		    } else {
 			ClassIdentifier ident = new ClassIdentifier
 			    (this, subFull, subclazz, 
@@ -197,7 +192,7 @@ public class PackageIdentifier extends Identifier {
 			    swappedClasses = null;
 			    bundle.addClassIdentifier(ident);
 			    if (initialized)
-				((ClassIdentifier) ident).initClass();
+				ident.initClass();
 			}
 		    }
 		}

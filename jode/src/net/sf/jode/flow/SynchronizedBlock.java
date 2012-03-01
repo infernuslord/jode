@@ -91,7 +91,7 @@ public class SynchronizedBlock extends StructuredBlock {
             writer.println("MISSING MONITORENTER");
         writer.print("synchronized (");
 	if (object != null)
-	    object.dumpExpression(writer.EXPL_PAREN, writer);
+	    object.dumpExpression(TabbedPrintWriter.EXPL_PAREN, writer);
 	else
 	    writer.print(local.getName());
 	writer.print(")");

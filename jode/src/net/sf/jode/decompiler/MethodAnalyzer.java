@@ -29,7 +29,6 @@ import net.sf.jode.bytecode.MethodInfo;
 import net.sf.jode.jvm.SyntheticAnalyzer;
 import net.sf.jode.type.*;
 import net.sf.jode.expr.Expression;
-import net.sf.jode.expr.ConstOperator;
 import net.sf.jode.expr.CheckNullOperator;
 import net.sf.jode.expr.ThisOperator;
 import net.sf.jode.expr.LocalLoadOperator;
@@ -38,22 +37,15 @@ import net.sf.jode.expr.InvokeOperator;
 import net.sf.jode.flow.StructuredBlock;
 import net.sf.jode.flow.FlowBlock;
 import net.sf.jode.flow.TransformExceptionHandlers;
-import net.sf.jode.flow.Jump;
 import net.sf.jode.jvm.CodeVerifier;
 import net.sf.jode.jvm.VerifyException;
-import net.sf.jode.util.SimpleMap;
 
 import java.lang.reflect.Modifier;
-import java.util.BitSet;
-import java.util.Stack;
 import java.util.Vector;
 import java.util.Enumeration;
-import java.io.DataInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 ///#def COLLECTIONS java.util
-import java.util.Map;
 import java.util.Collection;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -461,7 +453,6 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 
 	Block[] blocks = bb.getBlocks();
 	FlowBlock[] flows = new FlowBlock[blocks.length];
-	int returnCount;
         TransformExceptionHandlers excHandlers; 
 	{
 	    for (int i=0; i < blocks.length; i++)
@@ -618,7 +609,6 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
     public void analyzeInnerClasses()
       throws ClassFormatError
     {
-	int serialnr = 0;
         Enumeration elts = anonConstructors.elements();
         while (elts.hasMoreElements()) {
 	    InvokeOperator cop = (InvokeOperator) elts.nextElement();
@@ -694,10 +684,10 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	
 	if (synth != null) {
 	    // We don't need this class anymore (hopefully?)
-	    if (synth.getKind() == synth.GETCLASS)
+	    if (synth.getKind() == SyntheticAnalyzer.GETCLASS)
 		return true;
-	    if (synth.getKind() >= synth.ACCESSGETFIELD
-		&& synth.getKind() <= synth.ACCESSDUPPUTSTATIC
+	    if (synth.getKind() >= SyntheticAnalyzer.ACCESSGETFIELD
+		&& synth.getKind() <= SyntheticAnalyzer.ACCESSDUPPUTSTATIC
 		&& (Options.options & Options.OPTION_INNER) != 0
 		&& (Options.options & Options.OPTION_ANON) != 0)
 		return true;
@@ -826,8 +816,8 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
   				   | Modifier.PROTECTED | Modifier.PRIVATE);
 	modifiedModifiers &= ~STRICTFP;
 
-	writer.startOp(writer.NO_PAREN, 0);
-	writer.startOp(writer.NO_PAREN, 5);
+	writer.startOp(TabbedPrintWriter.NO_PAREN, 0);
+	writer.startOp(TabbedPrintWriter.NO_PAREN, 5);
 
 	String delim ="";
 	if (minfo.isSynthetic()) {
@@ -871,7 +861,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    writer.breakOp();
 	    writer.printOptionalSpace();
             writer.print("(");
-	    writer.startOp(writer.EXPL_PAREN, 0);
+	    writer.startOp(TabbedPrintWriter.EXPL_PAREN, 0);
             int offset = skipParams + (isStatic() ? 0 : 1);
             for (int i = offset; i < param.length; i++) {
                 if (i > offset) {
@@ -887,7 +877,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
         if (exceptions.length > 0) {
 	    writer.breakOp();
             writer.print(" throws ");
-	    writer.startOp(writer.NO_PAREN, 0);
+	    writer.startOp(TabbedPrintWriter.NO_PAREN, 0);
             for (int i= 0; i< exceptions.length; i++) {
                 if (i > 0) {
                     writer.print(", ");

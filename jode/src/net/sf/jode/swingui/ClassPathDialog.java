@@ -18,10 +18,7 @@
  */
 
 package net.sf.jode.swingui;
-import net.sf.jode.GlobalOptions;
 import net.sf.jode.bytecode.ClassPath;
-import net.sf.jode.decompiler.Decompiler;
-import net.sf.jode.decompiler.ProgressListener;
 
 ///#def JAVAX_SWING javax.swing
 import javax.swing.*;
@@ -29,9 +26,7 @@ import javax.swing.filechooser.*;
 import javax.swing.event.*;
 ///#enddef
 
-import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.GridLayout;
 import java.awt.BorderLayout;
 import java.awt.event.*;
 import java.awt.AWTEventMulticaster;

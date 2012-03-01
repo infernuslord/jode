@@ -19,7 +19,6 @@
 
 package net.sf.jode.expr;
 import net.sf.jode.type.Type;
-import net.sf.jode.GlobalOptions;
 import net.sf.jode.decompiler.TabbedPrintWriter;
 
 public class StoreInstruction extends Operator
@@ -73,9 +72,6 @@ public class StoreInstruction extends Operator
     }
 
     public void updateType() {
-
-	Type newType;
-
 	if (!opAssign) {
 	    /* An opassign (+=, -=, etc.) doesn't merge rvalue type. */
 	    Type lvalueType = subExpressions[0].getType();

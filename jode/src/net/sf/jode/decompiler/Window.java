@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.decompiler;
-import java.applet.*;
 import java.awt.*;
 ///#ifndef AWT10
 import java.awt.event.*;
@@ -182,7 +181,7 @@ public class Window
 					   FileDialog.SAVE);
 	    fd.setFile(lastClassName.substring
 		       (lastClassName.lastIndexOf('.')+1).concat(".java"));
-	    fd.show();
+	    fd.setVisible(true);
 	    String fileName = fd.getFile();
 	    if (fileName == null)
 		return;
@@ -302,6 +301,6 @@ public class Window
 	});
 ///#endif
 	frame.pack();
-	frame.show();
+	frame.setVisible(true);
     }
 }

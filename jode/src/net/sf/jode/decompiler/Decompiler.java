@@ -24,7 +24,6 @@ import net.sf.jode.bytecode.ClassInfo;
 import java.io.File;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.io.BufferedWriter;
 
 /**
  * This is the interface that other java classes may use to decompile

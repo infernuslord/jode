@@ -19,7 +19,6 @@
 
 package net.sf.jode.expr;
 import net.sf.jode.type.Type;
-import net.sf.jode.GlobalOptions;
 import net.sf.jode.decompiler.TabbedPrintWriter;
 
 ///#def COLLECTIONS java.util
@@ -221,7 +220,6 @@ public abstract class Operator extends Expression {
      * is not a CombineableOperator.
      */
     public boolean containsMatchingLoad(CombineableOperator comb) {
-	Operator combOp = (Operator) comb;
 	if (comb.getLValue().matches(this)) {
 	    if (subsEquals((Operator) comb.getLValue()))
 		return true;

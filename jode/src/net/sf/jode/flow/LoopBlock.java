@@ -19,7 +19,6 @@
 
 package net.sf.jode.flow;
 import net.sf.jode.decompiler.TabbedPrintWriter;
-import net.sf.jode.type.Type;
 import net.sf.jode.decompiler.LocalInfo;
 import net.sf.jode.expr.Expression;
 import net.sf.jode.expr.ConstOperator;
@@ -316,7 +315,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
                 writer.print("for (;;)");
             else {
                 writer.print("while (");
-		cond.dumpExpression(writer.EXPL_PAREN, writer);
+		cond.dumpExpression(TabbedPrintWriter.EXPL_PAREN, writer);
 		writer.print(")");
 	    }
             break;
@@ -325,13 +324,13 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
             break;
         case FOR:
             writer.print("for (");
-	    writer.startOp(writer.EXPL_PAREN, 0);
+	    writer.startOp(TabbedPrintWriter.EXPL_PAREN, 0);
             if (initInstr != null) {
                 if (isDeclaration) {
 		    StoreInstruction store = (StoreInstruction) initInstr;
 		    LocalInfo local = ((LocalStoreOperator) store
 				       .getLValue()).getLocalInfo();
-		    writer.startOp(writer.NO_PAREN, 1);
+		    writer.startOp(TabbedPrintWriter.NO_PAREN, 1);
 		    local.dumpDeclaration(writer);
 		    writer.breakOp();
 		    writer.print(" = ");
@@ -340,16 +339,16 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 		    store.getSubExpressions()[1].dumpExpression(writer, 100);
 		    writer.endOp();
 		} else
-		    initInstr.dumpExpression(writer.NO_PAREN, writer);
+		    initInstr.dumpExpression(TabbedPrintWriter.NO_PAREN, writer);
             } else {
                 writer.print("/**/");
 	    }
             writer.print("; ");
 	    writer.breakOp();
-	    cond.dumpExpression(writer.IMPL_PAREN, writer);
+	    cond.dumpExpression(TabbedPrintWriter.IMPL_PAREN, writer);
 	    writer.print("; ");
 	    writer.breakOp();
-	    incrInstr.dumpExpression(writer.NO_PAREN, writer);
+	    incrInstr.dumpExpression(TabbedPrintWriter.NO_PAREN, writer);
 	    writer.endOp();
 	    writer.print(")");
             break;
@@ -365,7 +364,7 @@ public class LoopBlock extends StructuredBlock implements BreakableBlock {
 	    if (needBrace)
 		writer.closeBraceContinue();
             writer.print("while (");
-	    cond.dumpExpression(writer.EXPL_PAREN, writer);
+	    cond.dumpExpression(TabbedPrintWriter.EXPL_PAREN, writer);
 	    writer.println(");");
         } else if (needBrace)
             writer.closeBrace();

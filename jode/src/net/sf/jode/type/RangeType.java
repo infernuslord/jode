@@ -19,7 +19,6 @@
 
 package net.sf.jode.type;
 import net.sf.jode.GlobalOptions;
-import java.util.Hashtable;
 
 /**
  * This class represents a set of reference types.  The set contains

@@ -25,9 +25,6 @@ import java.io.IOException;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.Enumeration;
-///#def COLLECTIONS java.util
-import java.util.Arrays;
-///#enddef
 
 /**
  * This is a helper class, that contains the method to read in basic
@@ -546,8 +543,8 @@ class BasicBlockReader implements Opcodes {
 		case opc_ldc: {
 		    int index = input.readUnsignedByte();
 		    int tag = cp.getTag(index);
-		    if (tag != cp.STRING && tag != cp.CLASS
-			 && tag != cp.INTEGER && tag != cp.FLOAT)
+		    if (tag != ConstantPool.STRING && tag != ConstantPool.CLASS
+			 && tag != ConstantPool.INTEGER && tag != ConstantPool.FLOAT)
 			throw new ClassFormatException
 			    ("wrong constant tag: "+tag);
 		    instr = new ConstantInstruction
@@ -558,8 +555,8 @@ class BasicBlockReader implements Opcodes {
 		case opc_ldc_w: {
 		    int index = input.readUnsignedShort();
 		    int tag = cp.getTag(index);
-		    if (tag != cp.STRING && tag != cp.CLASS
-			 && tag != cp.INTEGER && tag != cp.FLOAT)
+		    if (tag != ConstantPool.STRING && tag != ConstantPool.CLASS
+			 && tag != ConstantPool.INTEGER && tag != ConstantPool.FLOAT)
 			throw new ClassFormatException
 			    ("wrong constant tag: "+tag);
 		    instr = new ConstantInstruction
@@ -570,7 +567,7 @@ class BasicBlockReader implements Opcodes {
 		case opc_ldc2_w: {
 		    int index = input.readUnsignedShort();
 		    int tag = cp.getTag(index);
-		    if (tag != cp.LONG && tag != cp.DOUBLE)
+		    if (tag != ConstantPool.LONG && tag != ConstantPool.DOUBLE)
 			throw new ClassFormatException
 			    ("wrong constant tag: "+tag);
 		    instr = new ConstantInstruction
@@ -680,11 +677,11 @@ class BasicBlockReader implements Opcodes {
 		    int index = input.readUnsignedShort();
 		    int tag = cp.getTag(index);
 		    if (opcode < opc_invokevirtual) {
-			if (tag != cp.FIELDREF)
+			if (tag != ConstantPool.FIELDREF)
 			    throw new ClassFormatException
 				("field tag mismatch: "+tag);
 		    } else {
-			if (tag != cp.METHODREF)
+			if (tag != ConstantPool.METHODREF)
 			    throw new ClassFormatException
 				("method tag mismatch: "+tag);
 		    }
@@ -704,7 +701,7 @@ class BasicBlockReader implements Opcodes {
 		case opc_invokeinterface: {
 		    int index = input.readUnsignedShort();
 		    int tag = cp.getTag(index);
-		    if (tag != cp.INTERFACEMETHODREF)
+		    if (tag != ConstantPool.INTERFACEMETHODREF)
 			throw new ClassFormatException
 			    ("interface tag mismatch: "+tag);
 		    Reference ref = cp.getRef(index);
@@ -966,8 +963,8 @@ class BasicBlockReader implements Opcodes {
 	    int nameIndex = input.readUnsignedShort();
 	    int typeIndex = input.readUnsignedShort();
 	    int slot = input.readUnsignedShort();
-	    if (nameIndex == 0 || cp.getTag(nameIndex) != cp.UTF8
-		|| typeIndex == 0 || cp.getTag(typeIndex) != cp.UTF8
+	    if (nameIndex == 0 || cp.getTag(nameIndex) != ConstantPool.UTF8
+		|| typeIndex == 0 || cp.getTag(typeIndex) != ConstantPool.UTF8
 		|| slot >= maxLocals) {
 		
 		// This is probably an evil lvt as created by HashJava

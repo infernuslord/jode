@@ -25,8 +25,6 @@ import java.util.BitSet;
 import java.util.Stack;
 ///#def COLLECTIONS java.util
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 ///#enddef
 
 /**
@@ -37,7 +35,6 @@ class BasicBlockWriter implements Opcodes {
 
     private class LVTEntry {
 	int startAddr, endAddr;
-	Instruction start, end;
 	LocalVariableInfo lvi;
     }
 
@@ -382,17 +379,17 @@ class BasicBlockWriter implements Opcodes {
 		case opc_getfield:
 		case opc_putstatic:
 		case opc_putfield:
-		    gcp.putRef(gcp.FIELDREF, instr.getReference());
+		    gcp.putRef(ConstantPool.FIELDREF, instr.getReference());
 		    length = 3;
 		    break;
 		case opc_invokespecial:
 		case opc_invokestatic:
 		case opc_invokevirtual:
-		    gcp.putRef(gcp.METHODREF, instr.getReference());
+		    gcp.putRef(ConstantPool.METHODREF, instr.getReference());
 		    length = 3;
 		    break;
 		case opc_invokeinterface:
-		    gcp.putRef(gcp.INTERFACEMETHODREF, instr.getReference());
+		    gcp.putRef(ConstantPool.INTERFACEMETHODREF, instr.getReference());
 		    length = 5;
 		    break;
 		case opc_new:
@@ -880,7 +877,7 @@ class BasicBlockWriter implements Opcodes {
 		case opc_putstatic:
 		case opc_putfield:
 		    output.writeByte(opcode);
-		    output.writeShort(gcp.putRef(gcp.FIELDREF, 
+		    output.writeShort(gcp.putRef(ConstantPool.FIELDREF, 
 						 instr.getReference()));
 		    break;
 		    
@@ -892,13 +889,13 @@ class BasicBlockWriter implements Opcodes {
 		    output.writeByte(opcode);
 		    if (opcode == opc_invokeinterface) {
 			output.writeShort
-			    (gcp.putRef(gcp.INTERFACEMETHODREF, ref));
+			    (gcp.putRef(ConstantPool.INTERFACEMETHODREF, ref));
 			output.writeByte
 			    (TypeSignature
 			     .getParameterSize(ref.getType()) + 1);
 			output.writeByte(0);
 		    } else 
-			output.writeShort(gcp.putRef(gcp.METHODREF, ref));
+			output.writeShort(gcp.putRef(ConstantPool.METHODREF, ref));
 		    break;
 		}
 		case opc_new:

@@ -23,7 +23,6 @@ import net.sf.jode.expr.Expression;
 import net.sf.jode.expr.ThisOperator;
 import net.sf.jode.expr.LocalLoadOperator;
 import net.sf.jode.expr.OuterLocalOperator;
-import net.sf.jode.util.SimpleMap;
 import net.sf.jode.type.Type;
 
 import java.util.Vector;
@@ -324,13 +323,6 @@ public class OuterValues
 	implicitOuterClass = value;
     }
 
-    private static int countSlots(Expression[] exprs, int length) {
-	int slots = 0;
-	for (int i=0; i < length; i++)
-	    slots += exprs[i].getType().stackSize();
-	return slots;
-    }
-	    
     public void setMinCount(int newMin) {
 	if (headCount < newMin) {
 	    GlobalOptions.err.println

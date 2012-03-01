@@ -33,9 +33,7 @@ import net.sf.jode.flow.StructuredBlock;
 import net.sf.jode.util.SimpleSet;
 
 import java.lang.reflect.Modifier;
-import java.util.NoSuchElementException;
 import java.util.Vector;
-import java.util.Enumeration;
 import java.io.IOException;
 
 ///#def COLLECTIONS java.util
@@ -470,7 +468,7 @@ public class ClassAnalyzer
             return;
         }
 
-	writer.startOp(writer.NO_PAREN, 0);
+	writer.startOp(TabbedPrintWriter.NO_PAREN, 0);
 	/* Clear the SUPER bit, which is also used as SYNCHRONIZED bit. */
 	int modifiedModifiers = modifiers & ~(Modifier.SYNCHRONIZED
 					      | STRICTFP);
@@ -508,7 +506,7 @@ public class ClassAnalyzer
 	if (interfaces.length > 0) {
 	    writer.breakOp();
 	    writer.print(clazz.isInterface() ? " extends " : " implements ");
-	    writer.startOp(writer.EXPL_PAREN, 1);
+	    writer.startOp(TabbedPrintWriter.EXPL_PAREN, 1);
 	    for (int i=0; i < interfaces.length; i++) {
 		if (i > 0) {
 		    writer.print(", ");
@@ -632,7 +630,7 @@ public class ClassAnalyzer
 	    needNewLine = true;
 	}
 	writer.popScope();
-        clazz.drop(clazz.DECLARATIONS);
+        clazz.drop(ClassInfo.DECLARATIONS);
     }
 
     public void dumpSource(TabbedPrintWriter writer)
@@ -707,9 +705,9 @@ public class ClassAnalyzer
 	    }
 	    if (usageType == CLASSNAME || usageType == AMBIGUOUSNAME) {
 		try {
-		    info.load(info.DECLARATIONS);
+		    info.load(ClassInfo.DECLARATIONS);
 		} catch (IOException ex) {
-		    info.guess(info.DECLARATIONS);
+		    info.guess(ClassInfo.DECLARATIONS);
 		}
 		ClassInfo[] iinfos = info.getClasses();
 		if (iinfos != null) {

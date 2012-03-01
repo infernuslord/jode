@@ -18,7 +18,6 @@
  */
 
 package net.sf.jode.bytecode;
-import net.sf.jode.util.UnifyHash;
 
 /**
  * This class contains some static methods to handle type signatures. <br>

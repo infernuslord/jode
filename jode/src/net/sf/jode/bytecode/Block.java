@@ -20,12 +20,6 @@
 package net.sf.jode.bytecode;
 
 import java.io.PrintWriter;
-///#def COLLECTIONS java.util
-import java.util.Collection;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Iterator;
-///#enddef
 
 /**
  * <p>Represents a single basic block.  It contains a list of

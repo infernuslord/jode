@@ -25,7 +25,6 @@ import net.sf.jode.decompiler.LocalInfo;
 import net.sf.jode.expr.Expression;
 import net.sf.jode.expr.CombineableOperator;
 import net.sf.jode.util.SimpleMap;
-import net.sf.jode.util.SimpleSet;
 
 ///#def COLLECTIONS java.util
 import java.util.Map;
@@ -244,7 +243,6 @@ public class FlowBlock {
                 cb.swapJump(prev);
             }
         }
-    next_jump:
         while (jumps != null) {
             Jump jump = jumps;
             jumps = jumps.next;
@@ -581,7 +579,6 @@ public class FlowBlock {
         LoopBlock doWhileFalse = null;
         StructuredBlock outerMost = lastModified;
         boolean removeLast = false;
-    next_jump:
         for (; jumps != null; jumps = jumps.next) {
             StructuredBlock prevBlock = jumps.prev;
 	    
@@ -962,10 +959,6 @@ public class FlowBlock {
     }
 
     public void setSuccessors(FlowBlock[] succs) {
-	SlotSet blockIn = new SlotSet();
-	SlotSet blockKill = new SlotSet();
-	VariableSet blockGen = new VariableSet();
-
 	Jump[] jumps = new Jump[succs.length];
 	for (int i=0; i< succs.length; i++) {
 	    Jump jump = new Jump(succs[i]);
@@ -1078,7 +1071,6 @@ public class FlowBlock {
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
             GlobalOptions.err.println("before remaining: "+this);
 
-    next_jump:
         for (; jumps != null; jumps = jumps.next) {
 
             StructuredBlock prevBlock = jumps.prev;
@@ -1178,7 +1170,7 @@ public class FlowBlock {
                 
                 LoopBlock lb = 
                     (LoopBlock) lastModified.outer.getSubBlocks()[0];
-                if (lb.cond == lb.FALSE && lb.type == lb.DOWHILE) {
+                if (lb.cond == LoopBlock.FALSE && lb.type == LoopBlock.DOWHILE) {
                     
                     /* The jump is directly following a
                      * do-while(false) block 
@@ -1442,7 +1434,6 @@ public class FlowBlock {
 		     * block lie in range [start,end).  Otherwise
                      * we have no chance to combine these two blocks.
                      */
-		    boolean predOutOfRange = false;
 		    for (Iterator i = succ.predecessors.iterator(); 
 			 i.hasNext(); ) {
 			FlowBlock pred = (FlowBlock)i.next();

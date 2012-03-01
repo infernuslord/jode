@@ -18,10 +18,8 @@
  */
 
 package net.sf.jode.expr;
-import net.sf.jode.GlobalOptions;
 import net.sf.jode.type.Type;
 import net.sf.jode.decompiler.LocalInfo;
-import net.sf.jode.decompiler.TabbedPrintWriter;
 
 public class LocalStoreOperator extends LocalVarOperator
     implements LValueExpression {

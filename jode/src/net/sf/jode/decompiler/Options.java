@@ -35,7 +35,7 @@ public class Options {
 
     public static int options = 
 	OPTION_LVT | OPTION_INNER | OPTION_ANON | OPTION_PRETTY |
-	OPTION_DECRYPT | OPTION_VERIFY | OPTION_CONTRAFO;
+	OPTION_DECRYPT | OPTION_VERIFY | OPTION_CONTRAFO | OPTION_PUSH;
 
     public final static boolean doAnonymous() {
 	return (options & OPTION_ANON) != 0;

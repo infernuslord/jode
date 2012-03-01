@@ -21,8 +21,6 @@ package net.sf.jode.decompiler;
 import net.sf.jode.type.Type;
 import net.sf.jode.bytecode.FieldInfo;
 import net.sf.jode.expr.Expression;
-import net.sf.jode.expr.ThisOperator;
-import net.sf.jode.expr.LocalLoadOperator;
 import net.sf.jode.expr.ConstOperator;
 import net.sf.jode.expr.OuterLocalOperator;
 
@@ -178,7 +176,7 @@ public class FieldAnalyzer implements Analyzer {
  				   | Modifier.STATIC
  				   | Modifier.FINAL);
 	 */
-	writer.startOp(writer.NO_PAREN, 0);
+	writer.startOp(TabbedPrintWriter.NO_PAREN, 0);
 	String modif = Modifier.toString(modifiedModifiers);
 	if (modif.length() > 0)
 	    writer.print(modif+" ");
@@ -188,7 +186,7 @@ public class FieldAnalyzer implements Analyzer {
         if (constant != null) {
 	    writer.breakOp();
 	    writer.print(" = ");
-	    constant.dumpExpression(writer.IMPL_PAREN, writer);
+	    constant.dumpExpression(TabbedPrintWriter.IMPL_PAREN, writer);
 	}
 	writer.endOp();
         writer.println(";");

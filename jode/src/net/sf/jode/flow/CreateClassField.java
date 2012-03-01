@@ -21,7 +21,6 @@ package net.sf.jode.flow;
 import net.sf.jode.expr.*;
 import net.sf.jode.bytecode.ClassPath;
 import net.sf.jode.type.Type;
-import net.sf.jode.decompiler.LocalInfo;
 
 public class CreateClassField {
 

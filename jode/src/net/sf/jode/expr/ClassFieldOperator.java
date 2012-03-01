@@ -19,7 +19,6 @@
 
 package net.sf.jode.expr;
 import net.sf.jode.type.Type;
-import net.sf.jode.decompiler.MethodAnalyzer;
 import net.sf.jode.decompiler.TabbedPrintWriter;
 
 public class ClassFieldOperator extends NoArgOperator {

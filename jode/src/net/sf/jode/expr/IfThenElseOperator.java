@@ -76,7 +76,6 @@ public class IfThenElseOperator extends Operator {
 		    = (GetFieldOperator) subExpressions[2 - cmpType];
 		StoreInstruction put
 		    = (StoreInstruction) subExpressions[1 + cmpType];
-		int opIndex = cmp.getOperatorIndex();
 		FieldAnalyzer field;
 		if (put.getLValue() instanceof PutFieldOperator
 		    && ((field = ((PutFieldOperator)put.getLValue())
@@ -120,7 +119,7 @@ public class IfThenElseOperator extends Operator {
 	int subPriority = 0;
 	if (!subExpressions[1].getType().getHint().isOfType
 	    (subExpressions[2].getType())) {
-	    writer.startOp(writer.IMPL_PAREN, 2);
+	    writer.startOp(TabbedPrintWriter.IMPL_PAREN, 2);
 	    /* We need a cast here */
 	    writer.print("(");
 	    writer.printType(getType().getHint());

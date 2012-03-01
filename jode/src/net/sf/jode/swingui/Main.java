@@ -34,7 +34,6 @@ import java.awt.event.*;
 import java.io.*;
 import java.util.StringTokenizer;
 import java.util.ResourceBundle;
-import java.util.*;
 
 public class Main 
     implements ActionListener, Runnable, TreeSelectionListener {
@@ -119,7 +118,7 @@ public class Main
 	classTree = new JTree(packModel);
 	classTree.setRootVisible(false);
 	DefaultTreeSelectionModel selModel = new DefaultTreeSelectionModel();
-	selModel.setSelectionMode(selModel.SINGLE_TREE_SELECTION);
+	selModel.setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
 	classTree.setSelectionModel(selModel);
 	classTree.addTreeSelectionListener(this);
         JScrollPane spClassTree = new JScrollPane(classTree);

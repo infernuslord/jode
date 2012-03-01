@@ -32,10 +32,6 @@ import java.util.Stack;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
-///#enddef
-///#def COLLECTIONEXTRA java.lang
-import java.lang.UnsupportedOperationException;
 ///#enddef
 
 /**
@@ -187,7 +183,6 @@ public class BasicBlocks extends BinaryInfo implements Opcodes {
 
 	BitSet visited = new BitSet();
 	Stack todo = new Stack();
-	int[] poppush = new int[2];
 
 	startBlock.stackHeight = 0;
 	todo.push(startBlock);

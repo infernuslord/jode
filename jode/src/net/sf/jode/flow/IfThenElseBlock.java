@@ -18,10 +18,8 @@
  */
 
 package net.sf.jode.flow;
-import net.sf.jode.decompiler.LocalInfo;
 import net.sf.jode.decompiler.TabbedPrintWriter;
 import net.sf.jode.expr.Expression;
-import net.sf.jode.type.Type;
 import net.sf.jode.util.SimpleSet;
 
 ///#def COLLECTIONS java.util
@@ -174,7 +172,7 @@ public class IfThenElseBlock extends StructuredBlock {
     {
         boolean needBrace = thenBlock.needsBraces();
         writer.print("if (");
-	cond.dumpExpression(writer.EXPL_PAREN, writer);
+	cond.dumpExpression(TabbedPrintWriter.EXPL_PAREN, writer);
 	writer.print(")");
 	if (needBrace)
 	    writer.openBrace();

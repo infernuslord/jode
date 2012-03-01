@@ -27,7 +27,6 @@ import net.sf.jode.expr.*;
 import java.util.TreeSet;
 import java.util.SortedSet;
 import java.util.Set;
-import java.util.Map;
 import java.util.Iterator;
 ///#enddef
 ///#def COLLECTIONEXTRA java.lang
@@ -777,7 +776,6 @@ public class TransformExceptionHandlers {
 		    finallyBlock = subRoutine.block;
 		    DescriptionBlock msg = new DescriptionBlock
 			("ERROR: Missing return address handling");
-		    StructuredBlock subblock = subRoutine.block;
 		    msg.replace(finallyBlock);
 		    msg.appendBlock(finallyBlock);
 		}
@@ -935,7 +933,7 @@ public class TransformExceptionHandlers {
 		    GlobalOptions.err.println
 			("Warning: Can't completely analyze try.");
 		}
-		TryBlock tryBlock = new TryBlock(tryFlow);
+		new TryBlock(tryFlow);
 	    } else if (!(tryFlow.block instanceof TryBlock))
 		throw new InternalError("no TryBlock");
 	    

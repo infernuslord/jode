@@ -21,7 +21,6 @@ package net.sf.jode.flow;
 import net.sf.jode.decompiler.LocalInfo;
 import net.sf.jode.expr.Expression;
 import net.sf.jode.expr.LocalLoadOperator;
-import net.sf.jode.expr.Operator;
 
 /**
  * This class represents the state of the stack at various points in
@@ -112,7 +111,7 @@ public class VariableStack {
     }
 
     public VariableStack executeSpecial(SpecialBlock special) {
-	if (special.type == special.POP) {
+	if (special.type == SpecialBlock.POP) {
 	    int popped = 0;
 	    int newLength = stackMap.length;
 	    while (popped < special.count) {
@@ -124,7 +123,7 @@ public class VariableStack {
 	    LocalInfo[] newStack = new LocalInfo[newLength];
 	    System.arraycopy(stackMap, 0, newStack, 0, newLength);
 	    return new VariableStack(newStack);
-	} else if (special.type == special.DUP) {
+	} else if (special.type == SpecialBlock.DUP) {
 	    int popped = 0;
 	    int numDup = 0;
 	    int startDup = stackMap.length;
@@ -151,7 +150,7 @@ public class VariableStack {
 	    System.arraycopy(stackMap, startDup, newStack, startDup + numDup,
 			     numDup);
 	    return new VariableStack(newStack);
-	} else if (special.type == special.SWAP) {
+	} else if (special.type == SpecialBlock.SWAP) {
 	    LocalInfo[] newStack = new LocalInfo[stackMap.length];
 	    System.arraycopy(stackMap, 0, newStack, 0, stackMap.length - 2);
 	    if (stackMap[stackMap.length-2].getType().stackSize() != 1

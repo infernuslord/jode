@@ -239,7 +239,6 @@ public abstract class Expression {
 
     public void dumpExpression(TabbedPrintWriter writer, int minPriority)
 	throws java.io.IOException {
-	int options;
 	boolean needParen1 = false, needParen2 = false;
 	boolean needEndOp1 = false, needEndOp2 = false;
 
@@ -256,10 +255,10 @@ public abstract class Expression {
 		needParen1 = true;
 		needEndOp1 = true;
 		writer.print("(");
-		writer.startOp(writer.EXPL_PAREN, 0);
+		writer.startOp(TabbedPrintWriter.EXPL_PAREN, 0);
 	    } else if (minPriority < 700) {
 		needEndOp1 = true;
-		writer.startOp(writer.IMPL_PAREN, 1);
+		writer.startOp(TabbedPrintWriter.IMPL_PAREN, 1);
 	    }
 	    writer.print(typecast);
 	    writer.breakOp();
@@ -272,13 +271,13 @@ public abstract class Expression {
 	    needParen2 = true;
 	    needEndOp2 = true;
 	    writer.print("(");
-	    writer.startOp(writer.EXPL_PAREN, getBreakPenalty());
+	    writer.startOp(TabbedPrintWriter.EXPL_PAREN, getBreakPenalty());
 	} else if (priority != minPriority) {
 	    needEndOp2 = true;
 	    if (getType() == Type.tVoid)
-		writer.startOp(writer.NO_PAREN, getBreakPenalty());
+		writer.startOp(TabbedPrintWriter.NO_PAREN, getBreakPenalty());
 	    else
-		writer.startOp(writer.IMPL_PAREN, 1 + getBreakPenalty());
+		writer.startOp(TabbedPrintWriter.IMPL_PAREN, 1 + getBreakPenalty());
 	}
 
 	try {

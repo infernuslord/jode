@@ -19,7 +19,6 @@
 
 package net.sf.jode.swingui;
 import net.sf.jode.decompiler.Options;
-import net.sf.jode.bytecode.ClassInfo;
 import net.sf.jode.bytecode.ClassPath;
 
 ///#def JAVAX_SWING javax.swing

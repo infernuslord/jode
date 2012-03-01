@@ -20,7 +20,6 @@
 package net.sf.jode.flow;
 import net.sf.jode.decompiler.TabbedPrintWriter;
 import net.sf.jode.expr.Expression;
-import net.sf.jode.expr.LocalVarOperator;
 
 /**
  * An ConditionalBlock is the structured block representing an if
@@ -123,7 +122,7 @@ public class ConditionalBlock extends InstructionContainer {
         throws java.io.IOException
     {
         writer.print("IF (");
-	instr.dumpExpression(writer.EXPL_PAREN, writer);
+	instr.dumpExpression(TabbedPrintWriter.EXPL_PAREN, writer);
 	writer.println(")");
         writer.tab();
         trueBlock.dumpSource(writer);
