@@ -69,7 +69,7 @@ public class TranslationTable extends TreeMap {
 	}
     }
 
-    public void store(OutputStream out) throws IOException {
+    public void store(OutputStream out) {
         PrintWriter writer = new PrintWriter(out);
 	for (Iterator i = entrySet().iterator(); i.hasNext(); ) {
 	    Map.Entry e = (Map.Entry) i.next();

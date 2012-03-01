@@ -208,7 +208,6 @@ public class ImportHandler {
     }
 
     public void dumpHeader(TabbedPrintWriter writer) 
-         throws java.io.IOException
     {
         writer.println("/* "+ className 
 		       + " - Decompiled by JODE");

@@ -35,8 +35,6 @@ public class ConditionalBlock extends InstructionContainer {
     
     public void checkConsistent() {
         super.checkConsistent();
-        if (!(trueBlock instanceof EmptyBlock))
-            throw new InternalError("Inconsistency");
     }
 
     /**

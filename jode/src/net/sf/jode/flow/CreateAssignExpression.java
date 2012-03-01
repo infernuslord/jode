@@ -126,7 +126,7 @@ public class CreateAssignExpression {
 		   && loadExpr.getSubExpressions()[0] instanceof Operator)
 		loadExpr = (Operator) loadExpr.getSubExpressions()[0];
 
-	    if (!store.lvalueMatches((Operator) loadExpr)
+	    if (!store.lvalueMatches(loadExpr)
 		|| !(loadExpr.isFreeOperator(lvalueCount)))
                 return false;
 

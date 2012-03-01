@@ -1415,7 +1415,7 @@ public class CodeVerifier implements Opcodes {
 		if (info.jsrInfo == null || !retVarType.isOfType(tType("R")))
 		    throw new VerifyException(instr.getDescription());
 		Block jsrTarget = retVarType.getJsrTarget();
-		BitSet usedLocals = (BitSet) info.jsrInfo.jsrUsed;
+		BitSet usedLocals = info.jsrInfo.jsrUsed;
 		for (Block lastTarget = info.jsrInfo.jsrTarget; 
 		     jsrTarget != lastTarget;
 		     lastTarget = subInfos[lastTarget.getBlockNr()]

@@ -433,7 +433,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    Block[] blocks = bb.getBlocks();
 	    for (int i=0; i < blocks.length; i++)
 		count += blocks[i].getInstructions().length;
-	    return (double) count;
+	    return count;
 	}
     }
 
@@ -984,7 +984,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
     }
 
     public void analyzeInvokeOperator(InvokeOperator cop) {
-	ClassInfo clazz = (ClassInfo) cop.getClassInfo();
+	ClassInfo clazz = cop.getClassInfo();
 	ClassAnalyzer anonAnalyzer = getParent().getClassAnalyzer(clazz);
 	
 	if (anonAnalyzer == null) {
