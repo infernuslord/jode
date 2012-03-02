@@ -458,10 +458,7 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    for (int i=0; i < blocks.length; i++)
 		flows[i] = new FlowBlock(this, i, i > 0 ? flows[i-1]: null);
 
-            /* While we read the opcodes into FlowBlocks 
-             * we try to combine sequential blocks, as soon as we
-             * find two sequential instructions in a row, where the
-             * second has no predecessors.
+            /* We transform every basic block into a FlowBlock 
              */
 	    int count = 0;
 	    for (int i=0; i < blocks.length; i++) {
@@ -510,22 +507,23 @@ public class MethodAnalyzer implements Scope, ClassDeclarer {
 	    excHandlers = new TransformExceptionHandlers(flows);
             for (int i=0; i<handlers.length; i++) {
                 Type type = null;
-                FlowBlock start = flows[handlers[i].getStart().getBlockNr()];
-		FlowBlock end = flows[handlers[i].getEnd().getBlockNr()];
-                FlowBlock handler
-		    = flows[handlers[i].getCatcher().getBlockNr()];
+                int start = handlers[i].getStart().getBlockNr();
+                int end   = handlers[i].getEnd().getBlockNr();
+                FlowBlock handler = flows[handlers[i].getCatcher().getBlockNr()];
                 if (handlers[i].getType() != null)
                     type = Type.tClass(classAnalyzer.getClassPath(),
 				       handlers[i].getType());
-                
-                excHandlers.addHandler(start, end, handler, type);
+                for (int j = start; j <= end; j++) {
+                    if (flows[j] != handler)
+                	flows[j].addExceptionHandler(type, handler);
+                }
             }
         }
 
         if (GlobalOptions.verboseLevel > 0)
             GlobalOptions.err.print('-');
             
-        excHandlers.analyze();
+        //excHandlers.analyze();
         methodHeader.analyze();
 	methodHeader.removeStartPred();
 
