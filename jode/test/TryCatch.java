@@ -23,7 +23,13 @@
  * is try, catch, finally and synchronized.
  */
 class TryCatch {
-    
+    void verysimple() {
+	try {
+            foo();
+        } catch (RuntimeException ex) {
+            ex.printStackTrace();
+	}
+    }
     int simple() {
         TryCatch i = null;
         try {

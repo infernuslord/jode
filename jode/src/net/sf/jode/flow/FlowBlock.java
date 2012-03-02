@@ -24,6 +24,7 @@ import net.sf.jode.decompiler.MethodAnalyzer;
 import net.sf.jode.decompiler.LocalInfo;
 import net.sf.jode.expr.Expression;
 import net.sf.jode.expr.CombineableOperator;
+import net.sf.jode.type.Type;
 import net.sf.jode.util.SimpleMap;
 
 ///#def COLLECTIONS java.util
@@ -167,11 +168,17 @@ public class FlowBlock {
 	 * The gen locals.  This are the locals, which can be
 	 * overwritten in this block on a path to the successor.  That
 	 * means, that there exists a path form the start of the
-	 * current flow block to the successor that contains a
+	 * current flow block to the successor that contains an
 	 * assignments to this local, and that is not overwritten
 	 * afterwards.  
 	 */
 	VariableSet gen;
+	
+	/**
+	 * If this is non-null it contains an array list of all exception types
+	 * for which the successor is the catch block.
+	 */
+	ArrayList catched;
 	
 	/**
 	 * The linked list of jumps.
@@ -216,7 +223,18 @@ public class FlowBlock {
 	/* We will put all jumps that we can not resolve into this
 	 * linked list.
 	 */
+        if (jumps == null)
+            return null;
         Jump remainingJumps = null;
+        lastModified = jumps.prev;
+        StructuredBlock b = lastModified.outer;
+        while (b != null) {
+            if (b.outer instanceof TryBlock
+        	&& ((TryBlock)b.outer).getSubBlocks()[0] == b) {
+        	lastModified = b.outer;
+            }
+            b = b.outer;
+        }
 
         if (lastModified.jump == null) {
 	    /* This can happen if lastModified is a breakable block, and
@@ -420,8 +438,8 @@ public class FlowBlock {
 		
 		/* remove this jump if it jumps to the
 		 * getNextFlowBlock().  */
-		if (jump.destination
-		    == jump.prev.outer.getNextFlowBlock(jump.prev)) {
+		if (jump.prev.outer != null &&
+		    jump.destination == jump.prev.outer.getNextFlowBlock(jump.prev)) {
 			jump.prev.removeJump();
 			continue;
 		}
@@ -655,10 +673,14 @@ public class FlowBlock {
             } else {
 		myInfo.gen.addAll(hisInfo.gen);
 		myInfo.kill.retainAll(hisInfo.kill);
-		Jump myJumps = myInfo.jumps;
-		while (myJumps.next != null)
-                    myJumps = myJumps.next;
-                myJumps.next = hisInfo.jumps;
+		if (myInfo.jumps == null)
+		    myInfo.jumps = hisInfo.jumps;
+		else  {
+		    Jump myJumps = myInfo.jumps;
+		    while (myJumps.next != null)
+			myJumps = myJumps.next;
+		    myJumps.next = hisInfo.jumps;
+		}
             }
         }
     }
@@ -979,7 +1001,6 @@ public class FlowBlock {
 	}
 	if (jumps.length > 0)
 	    lastModified.setSuccessors(jumps);
-	gen = null;
 	kill = null;
 	checkConsistent();
     }
@@ -1000,6 +1021,10 @@ public class FlowBlock {
         checkConsistent();
         succ.checkConsistent();
 
+        /* Merge catching successors */
+        unifyCatchSuccessors(succ);
+        succ.unifyCatchSuccessors(this);
+
 	if ((GlobalOptions.debuggingFlags
 	     & GlobalOptions.DEBUG_ANALYZE) != 0)
 	    GlobalOptions.err.println
@@ -1010,7 +1035,7 @@ public class FlowBlock {
 
         /* Update the in/out-Vectors now */
         updateInOut(succ, succInfo.gen, succInfo.kill);
-
+        
         /* Try to eliminate as many jumps as possible.
          */
         Jump jumps = resolveSomeJumps(succInfo.jumps, succ);
@@ -1106,7 +1131,8 @@ public class FlowBlock {
         /* Now remove the jump of the lastModified if it points to
          * END_OF_METHOD.  
          */
-        if (lastModified.jump.destination == END_OF_METHOD)
+        if (lastModified.jump != null
+            && lastModified.jump.destination == END_OF_METHOD)
             lastModified.removeJump();
 
         if ((GlobalOptions.debuggingFlags & GlobalOptions.DEBUG_FLOW) != 0)
@@ -1306,7 +1332,7 @@ public class FlowBlock {
     }
 
     /**
-     * Search for an apropriate successor.
+     * Search for an appropriate successor.
      * @param prevSucc The successor, that was previously tried.
      * @param start The minimum blockNr
      * @param end   The maximum blockNr + 1.
@@ -1876,5 +1902,63 @@ public class FlowBlock {
         } catch (java.io.IOException ex) {
             return super.toString();
         }
+    }
+
+    public void addExceptionHandler(Type excType, FlowBlock handler) {
+	SuccessorInfo info = (SuccessorInfo) successors.get(handler);
+	if (info == null) {
+	    info = new SuccessorInfo();
+	    info.gen = (VariableSet) gen.clone();
+	    successors.put(handler, info);
+	    handler.predecessors.add(this);
+	}
+	info.kill = new SlotSet();
+	if (info.catched == null)
+	    info.catched = new ArrayList();
+	info.catched.add(excType);
+    }
+    
+    private void unifyCatchSuccessors(FlowBlock succ) {
+        Iterator iter = successors.entrySet().iterator();
+        while (iter.hasNext()) {
+	    Map.Entry entry = (Map.Entry) iter.next();
+            FlowBlock dest = (FlowBlock) entry.getKey();
+            SuccessorInfo myInfo = (SuccessorInfo) entry.getValue();
+	    if (myInfo.catched == null)
+		continue;
+	    SuccessorInfo succInfo = (SuccessorInfo) succ.successors.get(dest);
+	    Iterator catchedIter = myInfo.catched.iterator();
+	    while (catchedIter.hasNext()) {
+		Type excType = (Type) catchedIter.next();
+		if (succInfo != null && succInfo.catched != null 
+		    && succInfo.catched.contains(excType))
+		    continue;
+		
+		if (!(block instanceof TryBlock))
+		    new TryBlock(this);
+		TryBlock tryBlock = (TryBlock) block;
+		if (excType != null) {
+		    CatchBlock catchBlock = new CatchBlock(excType);
+		    tryBlock.addCatchBlock(catchBlock);
+		    Jump jump = new Jump(dest);
+		    jump.next = myInfo.jumps;
+		    myInfo.jumps = jump;
+		    lastModified = new EmptyBlock(jump);
+		    catchBlock.setCatchBlock(lastModified);
+		    catchedIter.remove();
+		} else { 
+		    FinallyBlock catchBlock = new FinallyBlock();
+		    tryBlock.addCatchBlock(catchBlock);
+		    Jump jump = new Jump(dest);
+		    jump.next = myInfo.jumps;
+		    myInfo.jumps = jump;
+		    lastModified = new EmptyBlock(jump);
+		    catchBlock.setCatchBlock(lastModified);
+		    catchedIter.remove();
+		}
+	    }
+	    if (myInfo.catched.isEmpty())
+		myInfo.catched = null;
+        }	
     }
 }
