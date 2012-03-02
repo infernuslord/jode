@@ -336,8 +336,11 @@ public abstract class StructuredBlock {
                 if (jump != null)
                     outer.getSubBlocks()[0].moveJump(jump);
                 outer.getSubBlocks()[0].replace(outer);
-            } else
+            } else {
+        	if (outer.jump != null)
+        	    outer.getSubBlocks()[1].moveJump(outer.jump);
                 outer.getSubBlocks()[1].replace(outer);
+            }
             return;
         }
 
