@@ -226,7 +226,13 @@ public class FlowBlock {
         if (jumps == null)
             return null;
         Jump remainingJumps = null;
+        
+        /* find the smallest block containing all jumps */
         lastModified = jumps.prev;
+        for (Jump jump = jumps.next; jump != null; jump = jump.next) {
+            while (!lastModified.contains(jump.prev))
+        	lastModified = lastModified.outer;
+        }
         StructuredBlock b = lastModified.outer;
         while (b != null) {
             if (b.outer instanceof TryBlock
@@ -282,7 +288,7 @@ public class FlowBlock {
                 ConditionalBlock cb = (ConditionalBlock) prev.outer;
                 Expression instr = cb.getInstruction();
 
-		/* This is a jump inside an ConditionalBlock. 
+		/* This is a jump inside a ConditionalBlock. 
 		 *
 		 * cb    is the conditional block, 
 		 * prev  the empty block containing the jump
@@ -290,7 +296,7 @@ public class FlowBlock {
 
                 if (cb.jump != null) {
                     /* This can only happen if cb also jumps to succ.
-                     * This is a weired "if (cond) empty"-block.  We
+                     * This is a weird "if (cond) empty"-block.  We
                      * transform it by hand.  
                      */		    
                     prev.removeJump();
@@ -335,6 +341,8 @@ public class FlowBlock {
 
                         loopBlock.setCondition(instr.negate());
                         loopBlock.moveDefinitions(cb, null);
+                        if (loopBlock.contains(lastModified))
+                            lastModified = loopBlock;
                         cb.removeBlock();
                         continue;
                     }
@@ -371,6 +379,8 @@ public class FlowBlock {
                             loopBlock.setType(LoopBlock.DOWHILE);
                             loopBlock.setCondition(instr.negate());
                             loopBlock.moveDefinitions(cb, null);
+                            if (loopBlock.contains(lastModified))
+                                lastModified = loopBlock;
                             cb.removeBlock();                            
                             continue;
                         }
@@ -590,11 +600,11 @@ public class FlowBlock {
 
     /**
      * Resolve remaining jumps to the successor by generating break
-     * instructions.  As last resort generate a do while(false) block.
+     * instructions.  As last resort generate a labelled block.
      * @param jumps The jump list that need to be resolved.
      */
     void resolveRemaining(Jump jumps) {
-        LoopBlock doWhileFalse = null;
+        LabelledBlock labelledBlock = null;
         StructuredBlock outerMost = lastModified;
         boolean removeLast = false;
         for (; jumps != null; jumps = jumps.next) {
@@ -622,19 +632,18 @@ public class FlowBlock {
             prevBlock.removeJump();
             
             if (breakToBlock == null) {
-                /* Nothing else helped, so put a do/while(0)
+                /* Nothing else helped, so put a labelled
                  * block around outerMost and break to that
                  * block.
                  */
-                if (doWhileFalse == null) {
-                    doWhileFalse = new LoopBlock(LoopBlock.DOWHILE, 
-                                                 LoopBlock.FALSE);
+                if (labelledBlock == null) {
+                    labelledBlock = new LabelledBlock();
                 }
                 /* Adapt outermost, so that it contains the break. */
                 while (!outerMost.contains(prevBlock))
                     outerMost = outerMost.outer;
                 prevBlock.appendBlock
-                    (new BreakBlock(doWhileFalse, breaklevel > 0));
+                    (new BreakBlock(labelledBlock, true));
             } else
                 prevBlock.appendBlock
                     (new BreakBlock(breakToBlock, breaklevel > 1));
@@ -643,10 +652,10 @@ public class FlowBlock {
         if (removeLast)
             lastModified.removeJump();
 
-        if (doWhileFalse != null) {
-            doWhileFalse.replace(outerMost);
-            doWhileFalse.setBody(outerMost);
-            lastModified = doWhileFalse;
+        if (labelledBlock != null) {
+            labelledBlock.replace(outerMost);
+            labelledBlock.setBody(outerMost);
+            lastModified = labelledBlock;
         }
     }
 
