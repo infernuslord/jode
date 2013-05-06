@@ -26,7 +26,7 @@ import java.util.Vector;
 import java.util.Enumeration;
 
 /**
- * This is an abstrace super class of all reference types.  Reference
+ * This is an abstract super class of all reference types.  Reference
  * types are NullType, MultiClassType, and ClassType with its sub types
  * ClassInfoType, SystemClassType, and ArrayType. <p>
  *
