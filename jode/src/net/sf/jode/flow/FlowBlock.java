@@ -265,6 +265,9 @@ public class FlowBlock {
                 
                 cb.setInstruction(instr.negate());
                 cb.swapJump(prev);
+                /* Update lastModified if it happened to be the conditional jump */
+                if (lastModified == prev)
+                    lastModified = jump.prev;
             }
         }
         while (jumps != null) {
@@ -1375,7 +1378,7 @@ public class FlowBlock {
     }
 
     /**
-     * The main analyzation.  This calls doT1 and doT2 on apropriate
+     * The main analysis.  This calls doT1 and doT2 on appropriate
      * regions.  Only blocks whose block number lies in the given block number
      * range are considered.
      * @param start the start of the block number range.
