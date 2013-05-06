@@ -177,12 +177,28 @@ public class Type {
 
     /**
      * This type represents the singleton set containing 
+     * <code>java.lang.Appendable</code>.
+     */
+    public static final SystemClassType tAppendable =
+	tSystemClass("java.lang.Appendable", 
+		     null, EMPTY_IFACES, false, true);
+
+    /**
+     * This type represents the singleton set containing 
+     * <code>java.lang.CharSequence</code>.
+     */
+    public static final SystemClassType tCharSequence =
+	tSystemClass("java.lang.CharSequence", 
+		     null, EMPTY_IFACES, false, true);
+
+    /**
+     * This type represents the singleton set containing 
      * <code>java.lang.String</code>.
      */
     public static final SystemClassType tString =
 	tSystemClass("java.lang.String", 
 		     tObject, 
-		     new ClassType[] { tSerializable, tComparable },
+		     new ClassType[] { tSerializable, tComparable, tCharSequence },
 		     true, false);
     /**
      * This type represents the singleton set containing 
@@ -190,15 +206,15 @@ public class Type {
      */
     public static final SystemClassType tStringBuffer =
 	tSystemClass("java.lang.StringBuffer", 
-		     tObject, new ClassType[] { tSerializable },
+		     tObject, new ClassType[] { tSerializable, tAppendable, tCharSequence },
 		     true, false);
     /**
      * This type represents the singleton set containing 
-     * <code>java.lang.StringBuffer</code>.
+     * <code>java.lang.StringBuilder</code>.
      */
     public static final SystemClassType tStringBuilder =
 	tSystemClass("java.lang.StringBuilder", 
-		     tObject, new ClassType[] { tSerializable },
+		     tObject, new ClassType[] { tSerializable, tAppendable, tCharSequence },
 		     true, false);
     /**
      * This type represents the singleton set containing 
@@ -270,7 +286,7 @@ public class Type {
      * Generate the singleton set of the type represented by the given
      * class name.
      * @param clazzname the interned full qualified name of the class. 
-     * The packages mus be separated by `.'.
+     * The packages must be separated by `.'.
      * @return a singleton set containing the given type.
      */
     public static final SystemClassType tSystemClass
